@@ -4,6 +4,9 @@ import os, fcntl, re
 import time
 from datetime import datetime
 from pytz import timezone
+import tulipy as ti
+import numpy as np
+
 
 # Login to tda using a passcode
 def tdalogin(passcode=None):
@@ -314,4 +317,66 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 
 	return data
 
+
+# Return a list with the price history of a given stock
+# Useful for calculating various indicators such as RSI
+def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=None, start_date=None, end_date=None, needExtendedHoursData=False, debug=False):
+
+	if ( ticker == None ):
+		return False, [], []
+
+
+	# TDA API is picky, validate start/end dates
+	if ( start_date != None and end_date != None):
+		try:
+			mytimezone
+		except:
+			mytimezone = timezone("US/Eastern")
+
+		start = int( datetime.fromtimestamp(start_date/1000, tz=mytimezone).strftime('%w') )
+		end = int( datetime.fromtimestamp(start_date/1000, tz=mytimezone).strftime('%w') )
+
+		# 0=Sunday, 6=Saturday
+		if ( start == 0 or start == 6 or end == 0 or end == 6 ):
+			print('Error: start_date or end_date is out of market open and extended hours (weekend)')
+			return False, [], []
+
+
+	# Example: {'open': 236.25, 'high': 236.25, 'low': 236.25, 'close': 236.25, 'volume': 500, 'datetime': 1616796960000}
+	data,err = tda.get_price_history(ticker, p_type, f_type, freq, period, start_date=start_date, end_date=end_date, needExtendedHoursData=needExtendedHoursData, jsonify=True)
+	if ( err != None ):
+		print('Error: get_price_history(' + str(ticker) + ', ' + str(p_type) + ', ' +
+			str(f_type) + ', ' + str(freq) + ', ' + str(period) + ', ' +
+			str(start_date) + ', ' + str(end_date) +'): ' + str(err))
+
+		return False, [], []
+
+	closeprices = []
+	epochs = []
+	for key in data['candles']:
+		closeprices.append(float(key['close']))
+		epochs.append(float(key['datetime']))
+
+	return data, closeprices, epochs
+
+
+# Return numpy array of RSI values for a given price history
+def get_rsi(closeprices=None, rsiPeriod=14, debug=False):
+
+	if ( closeprices == None ):
+		return False
+
+	# Note: This seems like it would be a good optimization here, but for RSI it seems the more history the better.
+	#closeprices = closeprices[len(closePrices) - (rsiPeriod+5):]
+
+	if ( len(closeprices) < rsiPeriod ):
+		# Something is wrong with the data we got back from tda.get_price_history()
+		print('Error: len(closeprices) is less than rsiPeriod')
+		return False
+
+	# Calculate the RSI for the entire numpy array
+	pricehistory = np.array( closeprices )
+	rsi = ti.rsi( pricehistory, period=rsiPeriod )
+
+	return rsi
 

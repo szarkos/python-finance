@@ -17,6 +17,7 @@ import argparse
 import tda_gobot_helper
 
 process_id = random.randint(1000, 9999) # Used to identify this process (i.e. for log_monitor)
+loopt = 10				# Period between stock get_lastprice() checks
 
 # Parse and check variables
 parser = argparse.ArgumentParser()
@@ -31,7 +32,6 @@ parser.add_argument("-d", "--debug", help="Enable debug output", action="store_t
 args = parser.parse_args()
 
 debug = 1			# Should default to 0 eventually, testing for now
-loopt = 10			# Period between stock get_lastprice() checks
 incr_percent_threshold = 1.5	# Reset base_price if stock increases by this percent
 decr_percent_threshold = 1.5	# Max allowed drop percentag of the stock price
 if args.debug:
@@ -126,7 +126,7 @@ while True:
 
 	# Sell the security if we're getting close to market close
 	if ( tda_gobot_helper.isendofday() == True and args.multiday == False ):
-		print('Market close, selling stock ' + str(stock))
+		print('Market closing, selling stock ' + str(stock))
 		data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
 		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, sold=True)
@@ -142,6 +142,7 @@ while True:
 		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id)
 
 		if ( percent_change >= decr_percent_threshold):
+
 			# Sell the security
 			print('Stock ' + str(stock) + '" dropped below the decr_percent_threshold (' + str(decr_percent_threshold) + '%), selling the security...')
 			data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)

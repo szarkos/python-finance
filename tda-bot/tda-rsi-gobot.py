@@ -27,9 +27,11 @@ parser.add_argument("-u", "--decr_threshold", help='Max allowed drop percentage 
 parser.add_argument("-m", "--multiday", help='Watch stock until decr_threshold is reached. Do not sell and exit when market closes', action="store_true")
 parser.add_argument("-n", "--num_purchases", help='Number of purchases allowed per day', nargs='?', default=1, type=int)
 parser.add_argument("-o", "--notmarketclosed", help='Cancel order and exit if US stock market is closed', action="store_true")
+parser.add_argument("-s", "--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
 parser.add_argument("-p", "--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
 parser.add_argument("-r", "--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='ohlc4', type=str)
-parser.add_argument("-s", "--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
+parser.add_argument("-g", "--rsi_high_limit", help='RSI high limit', default=70, type=int)
+parser.add_argument("-l", "--rsi_low_limit", help='RSI low limit', default=30, type=int)
 parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
 args = parser.parse_args()
 
@@ -102,8 +104,8 @@ rsi_type = args.rsi_type
 rsi_period = args.rsi_period
 cur_rsi = 0
 prev_rsi = 0
-rsi_low_limit = 30
-rsi_high_limit = 70
+rsi_low_limit = args.rsi_low_limit
+rsi_high_limit = args.rsi_high_limit
 
 # Main Loop
 while True:

@@ -90,13 +90,13 @@ def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, ba
 	else:
 		net_change = '\033[0;32m' + str(net_change) + '\033[0m'
 
-	msg =	str(ticker)		+ ':' + \
-		str(percent_change)	+ ':' + \
-		str(last_price)		+ ':' + \
-		str(net_change)		+ ':' + \
-		str(base_price)		+ ':' + \
-		str(orig_base_price)	+ ':' + \
-		str(stock_qty)		+ ':' + \
+	msg =	str(ticker)			+ ':' + \
+		str(percent_change)		+ ':' + \
+		str(round(last_price, 3))	+ ':' + \
+		str(round(net_change, 3))	+ ':' + \
+		str(round(base_price, 3))	+ ':' + \
+		str(round(orig_base_price, 3))	+ ':' + \
+		str(stock_qty)			+ ':' + \
 		str(sold)
 
 	fcntl.lockf( fh, fcntl.LOCK_EX )

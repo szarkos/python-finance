@@ -274,8 +274,9 @@ while True:
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, sold=True)
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 
-				# Add to blacklist when sold at a loss
-				tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
+				# Add to blacklist when sold at a loss (>$100)
+				if ( net_change > 100 ):
+					tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
 
 				prev_rsi = cur_rsi = 0
 				signal_mode = 'buy'
@@ -308,8 +309,8 @@ while True:
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, sold=True)
 			print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 
-			# Add to blacklist if sold at a loss
-			if ( last_price < orig_base_price ):
+			# Add to blacklist if sold at a loss (>$100)
+			if ( last_price < orig_base_price and net_change > 100 ):
 				tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
 
 			exit(0)
@@ -336,8 +337,8 @@ while True:
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, sold=True)
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 
-				# Add to blacklist if sold at a loss
-				if ( last_price < orig_base_price ):
+				# Add to blacklist if sold at a loss (>$100)
+				if ( last_price < orig_base_price and net_change > 100 ):
 					tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
 
 				signal_mode = 'buy'

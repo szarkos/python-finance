@@ -27,6 +27,8 @@ parser.add_argument("-u", "--decr_threshold", help='Max allowed drop percentage 
 parser.add_argument("-m", "--multiday", help='Watch stock until decr_threshold is reached. Do not sell and exit when market closes', action="store_true")
 parser.add_argument("-n", "--num_purchases", help='Number of purchases allowed per day', nargs='?', default=1, type=int)
 parser.add_argument("-o", "--notmarketclosed", help='Cancel order and exit if US stock market is closed', action="store_true")
+parser.add_argument("-p", "--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
+parser.add_argument("-r", "--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='ohlc4', type=str)
 parser.add_argument("-s", "--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
 parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
 args = parser.parse_args()
@@ -90,12 +92,12 @@ f_type = 'minute'
 freq = '1'
 
 # RSI variables
-rsiPeriod = 14
+rsi_type = args.rsi_type
+rsi_period = args.rsi_period
 cur_rsi = 0
 prev_rsi = 0
 rsi_low_limit = 30
 rsi_high_limit = 70
-
 
 # Main Loop
 while True:
@@ -116,7 +118,7 @@ while True:
 	#   datetime.datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 #	time_now = datetime.datetime.strptime('2021-03-29 15:59:00', '%Y-%m-%d %H:%M:%S').replace(tzinfo=mytimezone)
 	time_now = datetime.datetime.now(mytimezone)
-	time_prev = time_now - datetime.timedelta( minutes=int(freq)*(rsiPeriod * 20) ) # Subtract enough time to ensure we get an RSI for the current period
+	time_prev = time_now - datetime.timedelta( minutes=int(freq)*(rsi_period * 20) ) # Subtract enough time to ensure we get an RSI for the current period
 	time_now_epoch = int( time_now.timestamp() * 1000 )
 	time_prev_epoch = int( time_prev.timestamp() * 1000 )
 
@@ -127,7 +129,7 @@ while True:
 	#print(time_prev_epoch)
 
 	# Pull the data stock history to calculate the RSI
-	data,closeprices,epochs = tda_gobot_helper.get_pricehistory(stock, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, debug=False)
+	data, epochs = tda_gobot_helper.get_pricehistory(stock, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, debug=False)
 	if ( data == False ):
 		time.sleep(5)
 		if ( tda_gobot_helper.tdalogin(passcode) != True ):
@@ -135,7 +137,7 @@ while True:
 		continue
 
 	# Get the RSI values
-	rsi = tda_gobot_helper.get_rsi(closeprices, rsiPeriod, debug=False)
+	rsi = tda_gobot_helper.get_rsi(data, rsi_period, type=rsi_type, debug=False)
 	if ( isinstance(rsi, bool) and rsi == False ):
 		time.sleep(loopt)
 		continue
@@ -144,7 +146,8 @@ while True:
 	if ( prev_rsi == 0 ):
 		prev_rsi = cur_rsi
 	if ( debug == 1 ):
-		print('(' + str(stock) + ') Current RSI: ' + str(round(cur_rsi, 2)) + ', Previous RSI: ' + str(round(prev_rsi, 2)))
+		print('(' + str(stock) + ') RSI period: ' + str(rsi_period) + ' / RSI type: ' + str(rsi_type))
+		print('(' + str(stock) + ') Current RSI: ' + str(round(cur_rsi, 2)) + ' / Previous RSI: ' + str(round(prev_rsi, 2)))
 		print('(' + str(stock) + ') Time now: ' + time_now.strftime('%Y-%m-%d %H:%M:%S') +
 			', timestamp received from API ' +
 			datetime.datetime.fromtimestamp(float(epochs[-1])/1000).strftime('%Y-%m-%d %H:%M:%S.%f') +

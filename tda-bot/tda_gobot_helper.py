@@ -323,8 +323,7 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=None, start_date=None, end_date=None, needExtendedHoursData=False, debug=False):
 
 	if ( ticker == None ):
-		return False, [], []
-
+		return False, []
 
 	# TDA API is picky, validate start/end dates
 	if ( start_date != None and end_date != None):
@@ -339,8 +338,7 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 		# 0=Sunday, 6=Saturday
 		if ( start == 0 or start == 6 or end == 0 or end == 6 ):
 			print('Error: start_date or end_date is out of market open and extended hours (weekend)')
-			return False, [], []
-
+			return False, []
 
 	# Example: {'open': 236.25, 'high': 236.25, 'low': 236.25, 'close': 236.25, 'volume': 500, 'datetime': 1616796960000}
 	data,err = tda.get_price_history(ticker, p_type, f_type, freq, period, start_date=start_date, end_date=end_date, needExtendedHoursData=needExtendedHoursData, jsonify=True)
@@ -349,33 +347,75 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 			str(f_type) + ', ' + str(freq) + ', ' + str(period) + ', ' +
 			str(start_date) + ', ' + str(end_date) +'): ' + str(err))
 
-		return False, [], []
+		return False, []
 
-	closeprices = []
 	epochs = []
 	for key in data['candles']:
-		closeprices.append(float(key['close']))
 		epochs.append(float(key['datetime']))
 
-	return data, closeprices, epochs
+	return data, epochs
 
 
-# Return numpy array of RSI values for a given price history
-def get_rsi(closeprices=None, rsiPeriod=14, debug=False):
+# Return numpy array of RSI values for a given price history.
+# 'pricehistory' should be a data list obtained from get_pricehistory()
+# Supports the following calculation types:
+#   close	[default]
+#   high
+#   low
+#   open
+#   volume
+#   hl2		[(H+L) / 2]
+#   hlc3	[(H+L+C) / 3]
+#   ohlc4	[(O+H+L+C) / 4]
+def get_rsi(pricehistory=None, rsiPeriod=14, type='close', debug=False):
 
-	if ( closeprices == None ):
+	if ( pricehistory == None ):
 		return False
 
-	# Note: This seems like it would be a good optimization here, but for RSI it seems the more history the better.
-	#closeprices = closeprices[len(closePrices) - (rsiPeriod+5):]
+	prices = []
+	if ( type == 'close' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['close']))
 
-	if ( len(closeprices) < rsiPeriod ):
+	elif ( type == 'high' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['high']))
+
+	elif ( type == 'low' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['low']))
+
+	elif ( type == 'open' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['open']))
+
+	elif ( type == 'volume' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['volume']))
+
+	elif ( type == 'hl2' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+
+	elif ( type == 'hlc3' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+
+	elif ( type == 'ohlc4' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+
+	else:
+		# Undefined type
+		return False
+
+	if ( len(prices) < rsiPeriod ):
 		# Something is wrong with the data we got back from tda.get_price_history()
-		print('Error: len(closeprices) is less than rsiPeriod')
+		print('Error: len(pricehistory) is less than rsiPeriod')
 		return False
 
 	# Calculate the RSI for the entire numpy array
-	pricehistory = np.array( closeprices )
+	pricehistory = np.array( prices )
 	rsi = ti.rsi( pricehistory, period=rsiPeriod )
 
 	return rsi

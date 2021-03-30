@@ -6,13 +6,12 @@
 #  - When the RSI begins to rise again we run tda-gobot.py to purchase and
 #      monitor the stock performance.
 
-import os, subprocess
+import os
 import time, datetime, pytz, random
 import argparse
 
 import robin_stocks.tda as tda
 import tulipy as ti
-import numpy as np
 import tda_gobot_helper
 
 process_id = random.randint(1000, 9999) # Used to identify this process (i.e. for log_monitor)
@@ -22,6 +21,7 @@ loopt = 60
 parser = argparse.ArgumentParser()
 parser.add_argument("stock", help='Stock ticker to purchase')
 parser.add_argument("stock_usd", help='Amount of money (USD) to invest', nargs='?', default=1000, type=float)
+parser.add_argument("-f", "--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("-i", "--incr_threshold", help='Reset base_price if stock increases by this percent', type=float)
 parser.add_argument("-u", "--decr_threshold", help='Max allowed drop percentage of the stock price', type=float)
 parser.add_argument("-m", "--multiday", help='Watch stock until decr_threshold is reached. Do not sell and exit when market closes', action="store_true")
@@ -48,9 +48,15 @@ stock = args.stock
 stock_usd = args.stock_usd
 num_purchases = args.num_purchases
 
+
+# Early exit criteria
 if ( args.notmarketclosed == True and tda_gobot_helper.ismarketopen_US() == False ):
-        print('Canceled order to purchase $' + str(stock_usd) + ' of stock ' + str(stock) + ', because market is closed and --notmarketclosed was set')
-        exit(1)
+	print('Canceled order to purchase $' + str(stock_usd) + ' of stock ' + str(stock) + ', because market is closed and --notmarketclosed was set')
+	exit(1)
+
+if ( tda_gobot_helper.check_blacklist(stock) == True and args.force == False ):
+	print('(' + str(stock) + ') Error: stock found in blacklist file, exiting.')
+	exit(1)
 
 
 # Initialize and log into TD Ameritrade
@@ -107,10 +113,15 @@ while True:
 
 	# Loop continuously while after hours if --multiday was set
 	# Trying to call the API or do anything below beyond post-market hours will result in an error
-	if ( tda_gobot_helper.ismarketopen_US() == False and args.multiday == True ):
-		prev_rsi = cur_rsi = 0
-		time.sleep(loopt*5)
-		continue
+	if ( tda_gobot_helper.ismarketopen_US() == False ):
+		if ( args.multiday == True ):
+			prev_rsi = cur_rsi = 0
+			time.sleep(loopt*5)
+			continue
+
+		else:
+			print('(' + str(stock) + ') Market closed, exiting.')
+			exit(0)
 
 	# Helpful datetime conversion hints: convert epoch milisecond to string:
 	#   start = int( datetime.datetime.strptime('2021-03-26 09:30:00', '%Y-%m-%d %H:%M:%S').replace(tzinfo=mytimezone).timestamp() * 1000 )
@@ -129,7 +140,7 @@ while True:
 	#print(time_prev_epoch)
 
 	# Pull the data stock history to calculate the RSI
-	data, epochs = tda_gobot_helper.get_pricehistory(stock, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, debug=False)
+	data, epochs = tda_gobot_helper.get_pricehistory(stock, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, needExtendedHoursData=True, debug=False)
 	if ( data == False ):
 		time.sleep(5)
 		if ( tda_gobot_helper.tdalogin(passcode) != True ):
@@ -216,7 +227,8 @@ while True:
 					print('Error: stock ' + str(stock) + ' not purchased because market is closed, exiting.')
 					exit(1)
 
-				orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
+#fortesting			orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
+				orig_base_price = last_price
 				base_price = orig_base_price
 				net_change = 0
 
@@ -260,6 +272,9 @@ while True:
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, sold=True)
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 
+				# Add to blacklist when sold at a loss
+				write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
+
 				prev_rsi = cur_rsi = 0
 				signal_mode = 'buy'
 				continue
@@ -276,6 +291,8 @@ while True:
 				base_price = last_price
 				print('Stock "' + str(stock) + '" increased above the incr_percent_threshold (' + str(incr_percent_threshold) + '%), resetting base price to '  + str(base_price))
 
+			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id)
+
 		# No price change
 		else:
 			tda_gobot_helper.log_monitor(stock, 0, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id)
@@ -288,6 +305,11 @@ while True:
 
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, sold=True)
 			print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+
+			# Add to blacklist if sold at a loss
+			if ( last_price < orig_base_price ):
+				write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
+
 			exit(0)
 
 		# Nothing to do if RSI hasn't dropped below rsi_high_limit (typically 70)
@@ -311,6 +333,10 @@ while True:
 #				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, sold=True)
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+
+				# Add to blacklist if sold at a loss
+				if ( last_price < orig_base_price ):
+					write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
 
 				signal_mode = 'buy'
 

@@ -2,7 +2,7 @@
 
 import os, fcntl, re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pytz import timezone
 import tulipy as ti
 import numpy as np
@@ -49,6 +49,8 @@ def ismarketopen_US():
 			if ( int(est_time.strftime('%-H')) == 9 ):
 				if ( int(est_time.strftime('%-M')) < 30 ):
 					return False
+				else:
+					return True
 			else:
 				if ( int(est_time.strftime('%-H')) <= 15 and int(est_time.strftime('%-M')) <= 59 ):
 					return True
@@ -70,7 +72,6 @@ def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, ba
 			proc_id = process_id
 
 	logfile = './LOGS/' + str(ticker) + '-' + str(proc_id) + '.txt'
-
 	try:
 		fh = open( logfile, "wt" )
 	except OSError as e:
@@ -131,6 +132,99 @@ def check_stock_symbol(stock=None):
 		return False
 
 	return True
+
+
+# Write a stock blacklist that can be used to avoid wash sales
+def write_blacklist(ticker=None, stock_qty=-1, orig_base_price=-1, last_price=-1, net_change=-1, percent_change=-1, debug=1):
+	if ( ticker == None ):
+		return False
+
+	blacklist = '.stock-blacklist'
+	try:
+		fh = open( blacklist, "wt" )
+	except OSError as e:
+		if ( debug == 1 ):
+			print('Error: write_blacklist(): Unable to open file ' + str(blacklist) + ', ' + e)
+		return False
+
+	try:
+		mytimezone
+	except:
+		mytimezone = timezone("US/Eastern")
+
+	time_now = round( datetime.now(mytimezone).timestamp() )
+
+	# Log format - stock|stock_qty|orig_base_price|last_price|net_change|percent_change|timestamp
+	if ( float(last_price) < float(orig_base_price) ):
+		percent_change = '-' + str(round(percent_change,2))
+	else:
+		percent_change = '+' + str(round(percent_change,2))
+
+	msg =	str(ticker)		+ '|' + \
+		str(stock_qty)		+ '|' + \
+		str(orig_base_price)	+ '|' + \
+		str(last_price)		+ '|' + \
+		str(net_change)		+ '|' + \
+		str(percent_change)	+ '|' + \
+		str(time_now)
+
+	fcntl.lockf( fh, fcntl.LOCK_EX )
+	print( msg, file=fh, flush=True )
+	fcntl.lockf( fh, fcntl.LOCK_UN )
+
+	fh.close()
+
+	return True
+
+
+# Check stock blacklist to avoid wash sales
+# Returns True if ticker is in the file and time_stamp is < 30 days ago
+def check_blacklist(ticker=None, debug=1):
+	if ( ticker == None ):
+		return False
+
+	found = False
+
+	blacklist = '.stock-blacklist'
+	try:
+		fh = open( blacklist, "rt" )
+	except OSError as e:
+		if ( debug == 1 ):
+			print('Error: check_blacklist(): Unable to open file ' + str(blacklist) + ', ' + e)
+		return False
+
+	try:
+		mytimezone
+	except:
+		mytimezone = timezone("US/Eastern")
+
+	time_now = datetime.now(mytimezone)
+	for line in fh:
+		if ( re.match(r'[\s\t]*#', line) ):
+			continue
+
+		line = line.replace(" ", "")
+		line = line.rstrip()
+
+		try:
+			stock, stock_qty, orig_base_price, last_price, net_change, percent_change, time_stamp = line.split('|', 7)
+		except:
+			continue
+
+		if ( str(stock) == str(ticker) ):
+			time_stamp = datetime.fromtimestamp(time_stamp, tz=mytimezone)
+			if ( time_stamp + timedelta(days=31) > time_now ):
+				# time_stamp is less than 30 days in the past
+				found = True
+				break
+
+			# Note that we keep processing the file as it could contain duplicate
+			#  entries for each ticker, since we're only appending to this file
+			#  and not re-writing it.
+
+	fh.close()
+
+	return found
 
 
 # Get the lastPrice for a stock ticker

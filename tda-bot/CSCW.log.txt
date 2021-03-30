@@ -1,0 +1,464 @@
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 37.8 / Previous RSI: 37.8
+(CSCW) Time now: 2021-03-30 09:45:43, timestamp received from API 2021-03-30 13:45:00.000000 (1617111900000)
+(CSCW) RSI is above 30 (37.8 / 37.8)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 34.48 / Previous RSI: 37.8
+(CSCW) Time now: 2021-03-30 09:46:43, timestamp received from API 2021-03-30 13:46:00.000000 (1617111960000)
+(CSCW) RSI is above 30 (37.8 / 34.48)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 32.3 / Previous RSI: 32.3
+(CSCW) Time now: 2021-03-30 09:48:33, timestamp received from API 2021-03-30 13:48:00.000000 (1617112080000)
+(CSCW) RSI is above 30 (32.3 / 32.3)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 30.55 / Previous RSI: 32.3
+(CSCW) Time now: 2021-03-30 09:49:33, timestamp received from API 2021-03-30 13:49:00.000000 (1617112140000)
+(CSCW) RSI is above 30 (32.3 / 30.55)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 28.79 / Previous RSI: 30.55
+(CSCW) Time now: 2021-03-30 09:50:33, timestamp received from API 2021-03-30 13:50:00.000000 (1617112200000)
+(CSCW) RSI has dropped below 30 (30.55 / 28.79)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 32.39 / Previous RSI: 28.79
+(CSCW) Time now: 2021-03-30 09:51:34, timestamp received from API 2021-03-30 13:51:00.000000 (1617112260000)
+(CSCW) RSI below 30 and is now rising (28.79 / 32.39)
+(CSCW) BUY SIGNAL: RSI passed the low_limit threshold (28.79 / 32.39)
+Purchasing 478 shares of CSCW
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 35.65 / Previous RSI: 32.39
+(CSCW) Time now: 2021-03-30 09:52:34, timestamp received from API 2021-03-30 13:52:00.000000 (1617112320000)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 33.11 / Previous RSI: 35.65
+(CSCW) Time now: 2021-03-30 09:53:35, timestamp received from API 2021-03-30 13:53:00.000000 (1617112380000)
+Stock "CSCW" -0.72% (2.075)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 38.69 / Previous RSI: 33.11
+(CSCW) Time now: 2021-03-30 09:54:35, timestamp received from API 2021-03-30 13:54:00.000000 (1617112440000)
+Stock "CSCW" +1.43% (2.1204)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 43.65 / Previous RSI: 38.69
+(CSCW) Time now: 2021-03-30 09:55:35, timestamp received from API 2021-03-30 13:55:00.000000 (1617112500000)
+Stock "CSCW" +1.9% (2.1305)
+Stock "CSCW" increased above the incr_percent_threshold (1.5%), resetting base price to 2.1305
+
+Error: get_price_history(CSCW, day, minute, 1, None, 1617095796085, 1617112596085): 401 Client Error: Unauthorized for url: https://api.tdameritrade.com/v1/marketdata/CSCW/pricehistory?periodType=day&frequencyType=minute&frequency=1&needExtendedHoursData=True&startDate=1617095796085&endDate=1617112596085
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 39.1 / Previous RSI: 43.65
+(CSCW) Time now: 2021-03-30 09:56:41, timestamp received from API 2021-03-30 13:56:00.000000 (1617112560000)
+Stock "CSCW" -2.14% (2.085)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 41.28 / Previous RSI: 39.1
+(CSCW) Time now: 2021-03-30 09:57:41, timestamp received from API 2021-03-30 13:57:00.000000 (1617112620000)
+Stock "CSCW" +1.32% (2.1589)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 45.18 / Previous RSI: 41.28
+(CSCW) Time now: 2021-03-30 09:58:41, timestamp received from API 2021-03-30 13:58:00.000000 (1617112680000)
+Stock "CSCW" +0.45% (2.1401)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 45.04 / Previous RSI: 45.18
+(CSCW) Time now: 2021-03-30 09:59:41, timestamp received from API 2021-03-30 13:59:00.000000 (1617112740000)
+Stock "CSCW" +1.14% (2.155)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 49.44 / Previous RSI: 45.04
+(CSCW) Time now: 2021-03-30 10:00:42, timestamp received from API 2021-03-30 14:00:00.000000 (1617112800000)
+Stock "CSCW" +2.69% (2.1894)
+Stock "CSCW" increased above the incr_percent_threshold (1.5%), resetting base price to 2.1894
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 48.02 / Previous RSI: 49.44
+(CSCW) Time now: 2021-03-30 10:01:42, timestamp received from API 2021-03-30 14:01:00.000000 (1617112860000)
+Stock "CSCW" -1.57% (2.155)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 44.18 / Previous RSI: 48.02
+(CSCW) Time now: 2021-03-30 10:02:42, timestamp received from API 2021-03-30 14:02:00.000000 (1617112920000)
+Stock "CSCW" -3.17% (2.12)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 42.83 / Previous RSI: 44.18
+(CSCW) Time now: 2021-03-30 10:03:42, timestamp received from API 2021-03-30 14:03:00.000000 (1617112980000)
+Stock "CSCW" -2.26% (2.14)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 47.34 / Previous RSI: 42.83
+(CSCW) Time now: 2021-03-30 10:04:43, timestamp received from API 2021-03-30 14:04:00.000000 (1617113040000)
+Stock "CSCW" -0.88% (2.1701)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 46.98 / Previous RSI: 47.34
+(CSCW) Time now: 2021-03-30 10:05:43, timestamp received from API 2021-03-30 14:05:00.000000 (1617113100000)
+Stock "CSCW" -1.8% (2.1501)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 44.33 / Previous RSI: 46.98
+(CSCW) Time now: 2021-03-30 10:06:43, timestamp received from API 2021-03-30 14:06:00.000000 (1617113160000)
+Stock "CSCW" -2.26% (2.14)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 43.95 / Previous RSI: 44.33
+(CSCW) Time now: 2021-03-30 10:07:43, timestamp received from API 2021-03-30 14:07:00.000000 (1617113220000)
+Stock "CSCW" -2.38% (2.1373)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 38.57 / Previous RSI: 43.95
+(CSCW) Time now: 2021-03-30 10:08:44, timestamp received from API 2021-03-30 14:08:00.000000 (1617113280000)
+Stock "CSCW" -5.23% (2.075)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 39.36 / Previous RSI: 38.57
+(CSCW) Time now: 2021-03-30 10:09:44, timestamp received from API 2021-03-30 14:09:00.000000 (1617113340000)
+Stock "CSCW" -3.85% (2.105)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 41.97 / Previous RSI: 39.36
+(CSCW) Time now: 2021-03-30 10:10:44, timestamp received from API 2021-03-30 14:10:00.000000 (1617113400000)
+Stock "CSCW" -3.85% (2.105)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 39.27 / Previous RSI: 41.97
+(CSCW) Time now: 2021-03-30 10:11:44, timestamp received from API 2021-03-30 14:11:00.000000 (1617113460000)
+Stock "CSCW" -5.45% (2.07)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 37.57 / Previous RSI: 39.27
+(CSCW) Time now: 2021-03-30 10:12:45, timestamp received from API 2021-03-30 14:12:00.000000 (1617113520000)
+Stock "CSCW" -5.1% (2.0777)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 34.36 / Previous RSI: 37.57
+(CSCW) Time now: 2021-03-30 10:13:45, timestamp received from API 2021-03-30 14:13:00.000000 (1617113580000)
+Stock "CSCW" -7.28% (2.0301)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 36.65 / Previous RSI: 34.36
+(CSCW) Time now: 2021-03-30 10:14:45, timestamp received from API 2021-03-30 14:14:00.000000 (1617113640000)
+Stock "CSCW" -5.45% (2.07)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 37.05 / Previous RSI: 36.65
+(CSCW) Time now: 2021-03-30 10:15:45, timestamp received from API 2021-03-30 14:15:00.000000 (1617113700000)
+Stock "CSCW" -5.91% (2.06)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 34.18 / Previous RSI: 37.05
+(CSCW) Time now: 2021-03-30 10:16:46, timestamp received from API 2021-03-30 14:16:00.000000 (1617113760000)
+Stock "CSCW" -7.05% (2.035)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 27.15 / Previous RSI: 34.18
+(CSCW) Time now: 2021-03-30 10:17:46, timestamp received from API 2021-03-30 14:17:00.000000 (1617113820000)
+Stock "CSCW" -10.96% (1.9495)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 23.08 / Previous RSI: 27.15
+(CSCW) Time now: 2021-03-30 10:18:46, timestamp received from API 2021-03-30 14:18:00.000000 (1617113880000)
+Stock "CSCW" -12.53% (1.915)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 21.95 / Previous RSI: 23.08
+(CSCW) Time now: 2021-03-30 10:19:46, timestamp received from API 2021-03-30 14:19:00.000000 (1617113940000)
+Stock "CSCW" -12.99% (1.905)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 20.41 / Previous RSI: 21.95
+(CSCW) Time now: 2021-03-30 10:20:47, timestamp received from API 2021-03-30 14:20:00.000000 (1617114000000)
+Stock "CSCW" -13.9% (1.885)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 19.41 / Previous RSI: 20.41
+(CSCW) Time now: 2021-03-30 10:21:47, timestamp received from API 2021-03-30 14:21:00.000000 (1617114060000)
+Stock "CSCW" -15.05% (1.86)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 21.28 / Previous RSI: 19.41
+(CSCW) Time now: 2021-03-30 10:22:47, timestamp received from API 2021-03-30 14:22:00.000000 (1617114120000)
+Stock "CSCW" -13.22% (1.9)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 25.29 / Previous RSI: 21.28
+(CSCW) Time now: 2021-03-30 10:23:47, timestamp received from API 2021-03-30 14:23:00.000000 (1617114180000)
+Stock "CSCW" -13.22% (1.9)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 27.12 / Previous RSI: 25.29
+(CSCW) Time now: 2021-03-30 10:24:48, timestamp received from API 2021-03-30 14:24:00.000000 (1617114240000)
+Stock "CSCW" -12.84% (1.9082)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 31.09 / Previous RSI: 27.12
+(CSCW) Time now: 2021-03-30 10:25:48, timestamp received from API 2021-03-30 14:25:00.000000 (1617114300000)
+Stock "CSCW" -11.39% (1.94)
+
+Error: get_price_history(CSCW, day, minute, 1, None, 1617097608659, 1617114408659): 401 Client Error: Unauthorized for url: https://api.tdameritrade.com/v1/marketdata/CSCW/pricehistory?periodType=day&frequencyType=minute&frequency=1&needExtendedHoursData=True&startDate=1617097608659&endDate=1617114408659
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 37.2 / Previous RSI: 31.09
+(CSCW) Time now: 2021-03-30 10:26:53, timestamp received from API 2021-03-30 14:26:00.000000 (1617114360000)
+Stock "CSCW" -10.98% (1.9489)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 38.8 / Previous RSI: 37.2
+(CSCW) Time now: 2021-03-30 10:27:54, timestamp received from API 2021-03-30 14:27:00.000000 (1617114420000)
+Stock "CSCW" -10.48% (1.96)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 39.02 / Previous RSI: 38.8
+(CSCW) Time now: 2021-03-30 10:28:54, timestamp received from API 2021-03-30 14:28:00.000000 (1617114480000)
+Stock "CSCW" -11.39% (1.94)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 33.65 / Previous RSI: 39.02
+(CSCW) Time now: 2021-03-30 10:29:54, timestamp received from API 2021-03-30 14:29:00.000000 (1617114540000)
+Stock "CSCW" -12.64% (1.9126)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 32.33 / Previous RSI: 33.65
+(CSCW) Time now: 2021-03-30 10:30:54, timestamp received from API 2021-03-30 14:30:00.000000 (1617114600000)
+Stock "CSCW" -13.21% (1.9001)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 31.26 / Previous RSI: 32.33
+(CSCW) Time now: 2021-03-30 10:31:55, timestamp received from API 2021-03-30 14:31:00.000000 (1617114660000)
+Stock "CSCW" -12.76% (1.91)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 32.83 / Previous RSI: 31.26
+(CSCW) Time now: 2021-03-30 10:32:55, timestamp received from API 2021-03-30 14:32:00.000000 (1617114720000)
+Stock "CSCW" -13.15% (1.9014)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 35.06 / Previous RSI: 32.83
+(CSCW) Time now: 2021-03-30 10:33:55, timestamp received from API 2021-03-30 14:33:00.000000 (1617114780000)
+Stock "CSCW" -12.3% (1.9201)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 42.2 / Previous RSI: 35.06
+(CSCW) Time now: 2021-03-30 10:34:55, timestamp received from API 2021-03-30 14:34:00.000000 (1617114840000)
+Stock "CSCW" -10.71% (1.955)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 44.09 / Previous RSI: 42.2
+(CSCW) Time now: 2021-03-30 10:35:56, timestamp received from API 2021-03-30 14:35:00.000000 (1617114900000)
+Stock "CSCW" -12.08% (1.925)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 41.37 / Previous RSI: 44.09
+(CSCW) Time now: 2021-03-30 10:36:56, timestamp received from API 2021-03-30 14:36:00.000000 (1617114960000)
+Stock "CSCW" -11.53% (1.937)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 40.38 / Previous RSI: 41.37
+(CSCW) Time now: 2021-03-30 10:37:56, timestamp received from API 2021-03-30 14:37:00.000000 (1617115020000)
+Stock "CSCW" -12.08% (1.925)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 40.01 / Previous RSI: 40.38
+(CSCW) Time now: 2021-03-30 10:38:56, timestamp received from API 2021-03-30 14:38:00.000000 (1617115080000)
+Stock "CSCW" -12.08% (1.925)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 41.14 / Previous RSI: 40.01
+(CSCW) Time now: 2021-03-30 10:39:57, timestamp received from API 2021-03-30 14:39:00.000000 (1617115140000)
+Stock "CSCW" -11.84% (1.9301)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 42.53 / Previous RSI: 41.14
+(CSCW) Time now: 2021-03-30 10:40:58, timestamp received from API 2021-03-30 14:40:00.000000 (1617115200000)
+Stock "CSCW" -11.84% (1.9301)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 41.46 / Previous RSI: 42.53
+(CSCW) Time now: 2021-03-30 10:41:58, timestamp received from API 2021-03-30 14:41:00.000000 (1617115260000)
+Stock "CSCW" -11.93% (1.9281)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 36.35 / Previous RSI: 41.46
+(CSCW) Time now: 2021-03-30 10:42:59, timestamp received from API 2021-03-30 14:42:00.000000 (1617115320000)
+Stock "CSCW" -13.67% (1.89)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 29.11 / Previous RSI: 36.35
+(CSCW) Time now: 2021-03-30 10:43:59, timestamp received from API 2021-03-30 14:43:00.000000 (1617115380000)
+Stock "CSCW" -15.5% (1.85)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 28.52 / Previous RSI: 29.11
+(CSCW) Time now: 2021-03-30 10:44:59, timestamp received from API 2021-03-30 14:44:00.000000 (1617115440000)
+Stock "CSCW" -14.59% (1.87)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 32.25 / Previous RSI: 28.52
+(CSCW) Time now: 2021-03-30 10:46:00, timestamp received from API 2021-03-30 14:45:00.000000 (1617115500000)
+Stock "CSCW" -14.58% (1.8701)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 30.89 / Previous RSI: 32.25
+(CSCW) Time now: 2021-03-30 10:47:00, timestamp received from API 2021-03-30 14:47:00.000000 (1617115620000)
+Stock "CSCW" -14.59% (1.87)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 31.37 / Previous RSI: 30.89
+(CSCW) Time now: 2021-03-30 10:48:00, timestamp received from API 2021-03-30 14:48:00.000000 (1617115680000)
+Stock "CSCW" -14.82% (1.865)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 28.22 / Previous RSI: 31.37
+(CSCW) Time now: 2021-03-30 10:49:00, timestamp received from API 2021-03-30 14:49:00.000000 (1617115740000)
+Stock "CSCW" -15.15% (1.8576)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 23.25 / Previous RSI: 28.22
+(CSCW) Time now: 2021-03-30 10:50:01, timestamp received from API 2021-03-30 14:50:00.000000 (1617115800000)
+Stock "CSCW" -17.21% (1.8127)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 23.0 / Previous RSI: 23.25
+(CSCW) Time now: 2021-03-30 10:51:01, timestamp received from API 2021-03-30 14:51:00.000000 (1617115860000)
+Stock "CSCW" -17.32% (1.8101)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 19.23 / Previous RSI: 23.0
+(CSCW) Time now: 2021-03-30 10:52:01, timestamp received from API 2021-03-30 14:52:00.000000 (1617115920000)
+Stock "CSCW" -18.24% (1.79)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 25.93 / Previous RSI: 19.23
+(CSCW) Time now: 2021-03-30 10:53:01, timestamp received from API 2021-03-30 14:53:00.000000 (1617115980000)
+Stock "CSCW" -17.56% (1.805)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 24.63 / Previous RSI: 25.93
+(CSCW) Time now: 2021-03-30 10:54:02, timestamp received from API 2021-03-30 14:54:00.000000 (1617116040000)
+Stock "CSCW" -17.56% (1.805)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 22.7 / Previous RSI: 24.63
+(CSCW) Time now: 2021-03-30 10:55:02, timestamp received from API 2021-03-30 14:55:00.000000 (1617116100000)
+Stock "CSCW" -18.6% (1.7822)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 25.08 / Previous RSI: 22.7
+(CSCW) Time now: 2021-03-30 10:56:02, timestamp received from API 2021-03-30 14:56:00.000000 (1617116160000)
+Stock "CSCW" -17.79% (1.8)
+
+Error: get_price_history(CSCW, day, minute, 1, None, 1617099423047, 1617116223047): 401 Client Error: Unauthorized for url: https://api.tdameritrade.com/v1/marketdata/CSCW/pricehistory?periodType=day&frequencyType=minute&frequency=1&needExtendedHoursData=True&startDate=1617099423047&endDate=1617116223047
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 37.7 / Previous RSI: 25.08
+(CSCW) Time now: 2021-03-30 10:57:08, timestamp received from API 2021-03-30 14:57:00.000000 (1617116220000)
+Stock "CSCW" -16.42% (1.83)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 43.83 / Previous RSI: 37.7
+(CSCW) Time now: 2021-03-30 10:58:08, timestamp received from API 2021-03-30 14:58:00.000000 (1617116280000)
+Stock "CSCW" -15.5% (1.85)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 47.17 / Previous RSI: 43.83
+(CSCW) Time now: 2021-03-30 10:59:08, timestamp received from API 2021-03-30 14:59:00.000000 (1617116340000)
+Stock "CSCW" -14.73% (1.867)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 49.32 / Previous RSI: 47.17
+(CSCW) Time now: 2021-03-30 11:00:08, timestamp received from API 2021-03-30 15:00:00.000000 (1617116400000)
+Stock "CSCW" -15.01% (1.8607)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 39.64 / Previous RSI: 49.32
+(CSCW) Time now: 2021-03-30 11:01:09, timestamp received from API 2021-03-30 15:01:00.000000 (1617116460000)
+Stock "CSCW" -16.87% (1.82)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 39.45 / Previous RSI: 39.64
+(CSCW) Time now: 2021-03-30 11:02:09, timestamp received from API 2021-03-30 15:02:00.000000 (1617116520000)
+Stock "CSCW" -16.87% (1.82)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 45.0 / Previous RSI: 39.45
+(CSCW) Time now: 2021-03-30 11:03:09, timestamp received from API 2021-03-30 15:03:00.000000 (1617116580000)
+Stock "CSCW" -15.63% (1.8473)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 40.14 / Previous RSI: 45.0
+(CSCW) Time now: 2021-03-30 11:04:09, timestamp received from API 2021-03-30 15:04:00.000000 (1617116640000)
+Stock "CSCW" -16.87% (1.82)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 41.18 / Previous RSI: 40.14
+(CSCW) Time now: 2021-03-30 11:05:10, timestamp received from API 2021-03-30 15:05:00.000000 (1617116700000)
+Stock "CSCW" -16.53% (1.8275)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 38.53 / Previous RSI: 41.18
+(CSCW) Time now: 2021-03-30 11:06:10, timestamp received from API 2021-03-30 15:06:00.000000 (1617116760000)
+Stock "CSCW" -16.87% (1.82)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 52.47 / Previous RSI: 38.53
+(CSCW) Time now: 2021-03-30 11:07:10, timestamp received from API 2021-03-30 15:07:00.000000 (1617116820000)
+Stock "CSCW" -14.59% (1.87)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 58.2 / Previous RSI: 52.47
+(CSCW) Time now: 2021-03-30 11:08:10, timestamp received from API 2021-03-30 15:08:00.000000 (1617116880000)
+Stock "CSCW" -13.9% (1.885)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 56.44 / Previous RSI: 58.2
+(CSCW) Time now: 2021-03-30 11:09:11, timestamp received from API 2021-03-30 15:09:00.000000 (1617116940000)
+Stock "CSCW" -14.82% (1.865)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 55.53 / Previous RSI: 56.44
+(CSCW) Time now: 2021-03-30 11:10:11, timestamp received from API 2021-03-30 15:10:00.000000 (1617117000000)
+Stock "CSCW" -14.58% (1.8701)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 55.08 / Previous RSI: 55.53
+(CSCW) Time now: 2021-03-30 11:11:11, timestamp received from API 2021-03-30 15:11:00.000000 (1617117060000)
+Stock "CSCW" -14.14% (1.8799)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 63.38 / Previous RSI: 55.08
+(CSCW) Time now: 2021-03-30 11:12:11, timestamp received from API 2021-03-30 15:12:00.000000 (1617117120000)
+Stock "CSCW" -12.76% (1.91)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 69.32 / Previous RSI: 63.38
+(CSCW) Time now: 2021-03-30 11:13:12, timestamp received from API 2021-03-30 15:13:00.000000 (1617117180000)
+Stock "CSCW" -11.39% (1.94)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 68.97 / Previous RSI: 69.32
+(CSCW) Time now: 2021-03-30 11:14:12, timestamp received from API 2021-03-30 15:14:00.000000 (1617117240000)
+Stock "CSCW" -11.37% (1.9405)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 71.31 / Previous RSI: 68.97
+(CSCW) Time now: 2021-03-30 11:15:12, timestamp received from API 2021-03-30 15:15:00.000000 (1617117300000)
+Stock "CSCW" -11.39% (1.9401)
+(CSCW) RSI has risen above 70 (68.97 / 71.31)
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 66.05 / Previous RSI: 71.31
+(CSCW) Time now: 2021-03-30 11:16:12, timestamp received from API 2021-03-30 15:16:00.000000 (1617117360000)
+Stock "CSCW" -11.72% (1.9329)
+(CSCW) RSI above 70 and is now dropping (71.31 / 66.05)
+(CSCW) SELL SIGNAL: RSI passed below the high_limit threshold (71.31 / 66.05) - selling the security
+Net change (CSCW): -75.094 USD
+
+(CSCW) RSI period: 14 / RSI type: ohlc4
+(CSCW) Current RSI: 57.5 / Previous RSI: 66.05
+(CSCW) Time now: 2021-03-30 11:17:13, timestamp received from API 2021-03-30 15:17:00.000000 (1617117420000)
+(CSCW) Max number of purchases exhuasted, exiting.

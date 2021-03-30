@@ -1,0 +1,807 @@
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 74.19 / Previous RSI: 74.19
+(PFMT) Time now: 2021-03-30 09:45:43, timestamp received from API 2021-03-30 13:45:00.000000 (1617111900000)
+(PFMT) RSI is above 30 (74.19 / 74.19)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 72.84 / Previous RSI: 74.19
+(PFMT) Time now: 2021-03-30 09:46:43, timestamp received from API 2021-03-30 13:46:00.000000 (1617111960000)
+(PFMT) RSI is above 30 (74.19 / 72.84)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 54.81 / Previous RSI: 54.81
+(PFMT) Time now: 2021-03-30 09:48:33, timestamp received from API 2021-03-30 13:48:00.000000 (1617112080000)
+(PFMT) RSI is above 30 (54.81 / 54.81)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 53.56 / Previous RSI: 54.81
+(PFMT) Time now: 2021-03-30 09:49:33, timestamp received from API 2021-03-30 13:49:00.000000 (1617112140000)
+(PFMT) RSI is above 30 (54.81 / 53.56)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 50.49 / Previous RSI: 53.56
+(PFMT) Time now: 2021-03-30 09:50:33, timestamp received from API 2021-03-30 13:50:00.000000 (1617112200000)
+(PFMT) RSI is above 30 (53.56 / 50.49)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 50.92 / Previous RSI: 50.49
+(PFMT) Time now: 2021-03-30 09:51:34, timestamp received from API 2021-03-30 13:51:00.000000 (1617112260000)
+(PFMT) RSI is above 30 (50.49 / 50.92)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 53.38 / Previous RSI: 50.92
+(PFMT) Time now: 2021-03-30 09:52:34, timestamp received from API 2021-03-30 13:52:00.000000 (1617112320000)
+(PFMT) RSI is above 30 (50.92 / 53.38)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 61.05 / Previous RSI: 53.38
+(PFMT) Time now: 2021-03-30 09:53:35, timestamp received from API 2021-03-30 13:53:00.000000 (1617112380000)
+(PFMT) RSI is above 30 (53.38 / 61.05)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 63.72 / Previous RSI: 61.05
+(PFMT) Time now: 2021-03-30 09:54:35, timestamp received from API 2021-03-30 13:54:00.000000 (1617112440000)
+(PFMT) RSI is above 30 (61.05 / 63.72)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 63.5 / Previous RSI: 63.72
+(PFMT) Time now: 2021-03-30 09:55:35, timestamp received from API 2021-03-30 13:55:00.000000 (1617112500000)
+(PFMT) RSI is above 30 (63.72 / 63.5)
+
+Error: get_price_history(PFMT, day, minute, 1, None, 1617095795448, 1617112595448): 401 Client Error: Unauthorized for url: https://api.tdameritrade.com/v1/marketdata/PFMT/pricehistory?periodType=day&frequencyType=minute&frequency=1&needExtendedHoursData=True&startDate=1617095795448&endDate=1617112595448
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 64.37 / Previous RSI: 63.5
+(PFMT) Time now: 2021-03-30 09:56:40, timestamp received from API 2021-03-30 13:56:00.000000 (1617112560000)
+(PFMT) RSI is above 30 (63.5 / 64.37)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 60.73 / Previous RSI: 64.37
+(PFMT) Time now: 2021-03-30 09:57:40, timestamp received from API 2021-03-30 13:57:00.000000 (1617112620000)
+(PFMT) RSI is above 30 (64.37 / 60.73)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 65.83 / Previous RSI: 60.73
+(PFMT) Time now: 2021-03-30 09:58:40, timestamp received from API 2021-03-30 13:58:00.000000 (1617112680000)
+(PFMT) RSI is above 30 (60.73 / 65.83)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 60.29 / Previous RSI: 65.83
+(PFMT) Time now: 2021-03-30 09:59:41, timestamp received from API 2021-03-30 13:59:00.000000 (1617112740000)
+(PFMT) RSI is above 30 (65.83 / 60.29)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 60.32 / Previous RSI: 60.29
+(PFMT) Time now: 2021-03-30 10:00:41, timestamp received from API 2021-03-30 14:00:00.000000 (1617112800000)
+(PFMT) RSI is above 30 (60.29 / 60.32)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 63.06 / Previous RSI: 60.32
+(PFMT) Time now: 2021-03-30 10:01:41, timestamp received from API 2021-03-30 14:01:00.000000 (1617112860000)
+(PFMT) RSI is above 30 (60.32 / 63.06)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 62.65 / Previous RSI: 63.06
+(PFMT) Time now: 2021-03-30 10:02:41, timestamp received from API 2021-03-30 14:02:00.000000 (1617112920000)
+(PFMT) RSI is above 30 (63.06 / 62.65)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 62.87 / Previous RSI: 62.65
+(PFMT) Time now: 2021-03-30 10:03:41, timestamp received from API 2021-03-30 14:03:00.000000 (1617112980000)
+(PFMT) RSI is above 30 (62.65 / 62.87)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 69.65 / Previous RSI: 62.87
+(PFMT) Time now: 2021-03-30 10:04:41, timestamp received from API 2021-03-30 14:04:00.000000 (1617113040000)
+(PFMT) RSI is above 30 (62.87 / 69.65)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 75.64 / Previous RSI: 69.65
+(PFMT) Time now: 2021-03-30 10:05:41, timestamp received from API 2021-03-30 14:05:00.000000 (1617113100000)
+(PFMT) RSI is above 30 (69.65 / 75.64)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 78.96 / Previous RSI: 75.64
+(PFMT) Time now: 2021-03-30 10:06:42, timestamp received from API 2021-03-30 14:06:00.000000 (1617113160000)
+(PFMT) RSI is above 30 (75.64 / 78.96)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 78.75 / Previous RSI: 78.96
+(PFMT) Time now: 2021-03-30 10:07:42, timestamp received from API 2021-03-30 14:07:00.000000 (1617113220000)
+(PFMT) RSI is above 30 (78.96 / 78.75)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 74.1 / Previous RSI: 78.75
+(PFMT) Time now: 2021-03-30 10:08:42, timestamp received from API 2021-03-30 14:08:00.000000 (1617113280000)
+(PFMT) RSI is above 30 (78.75 / 74.1)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 67.35 / Previous RSI: 74.1
+(PFMT) Time now: 2021-03-30 10:09:42, timestamp received from API 2021-03-30 14:09:00.000000 (1617113340000)
+(PFMT) RSI is above 30 (74.1 / 67.35)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 64.3 / Previous RSI: 67.35
+(PFMT) Time now: 2021-03-30 10:10:42, timestamp received from API 2021-03-30 14:10:00.000000 (1617113400000)
+(PFMT) RSI is above 30 (67.35 / 64.3)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 69.12 / Previous RSI: 64.3
+(PFMT) Time now: 2021-03-30 10:11:42, timestamp received from API 2021-03-30 14:11:00.000000 (1617113460000)
+(PFMT) RSI is above 30 (64.3 / 69.12)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 74.57 / Previous RSI: 69.12
+(PFMT) Time now: 2021-03-30 10:12:42, timestamp received from API 2021-03-30 14:12:00.000000 (1617113520000)
+(PFMT) RSI is above 30 (69.12 / 74.57)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 75.9 / Previous RSI: 74.57
+(PFMT) Time now: 2021-03-30 10:13:42, timestamp received from API 2021-03-30 14:13:00.000000 (1617113580000)
+(PFMT) RSI is above 30 (74.57 / 75.9)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 78.09 / Previous RSI: 75.9
+(PFMT) Time now: 2021-03-30 10:14:43, timestamp received from API 2021-03-30 14:14:00.000000 (1617113640000)
+(PFMT) RSI is above 30 (75.9 / 78.09)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 76.66 / Previous RSI: 78.09
+(PFMT) Time now: 2021-03-30 10:15:43, timestamp received from API 2021-03-30 14:15:00.000000 (1617113700000)
+(PFMT) RSI is above 30 (78.09 / 76.66)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 80.12 / Previous RSI: 76.66
+(PFMT) Time now: 2021-03-30 10:16:43, timestamp received from API 2021-03-30 14:16:00.000000 (1617113760000)
+(PFMT) RSI is above 30 (76.66 / 80.12)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 73.52 / Previous RSI: 80.12
+(PFMT) Time now: 2021-03-30 10:17:43, timestamp received from API 2021-03-30 14:17:00.000000 (1617113820000)
+(PFMT) RSI is above 30 (80.12 / 73.52)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 67.35 / Previous RSI: 73.52
+(PFMT) Time now: 2021-03-30 10:18:43, timestamp received from API 2021-03-30 14:18:00.000000 (1617113880000)
+(PFMT) RSI is above 30 (73.52 / 67.35)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 72.1 / Previous RSI: 67.35
+(PFMT) Time now: 2021-03-30 10:19:43, timestamp received from API 2021-03-30 14:19:00.000000 (1617113940000)
+(PFMT) RSI is above 30 (67.35 / 72.1)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 73.48 / Previous RSI: 72.1
+(PFMT) Time now: 2021-03-30 10:20:43, timestamp received from API 2021-03-30 14:20:00.000000 (1617114000000)
+(PFMT) RSI is above 30 (72.1 / 73.48)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 67.37 / Previous RSI: 73.48
+(PFMT) Time now: 2021-03-30 10:21:44, timestamp received from API 2021-03-30 14:21:00.000000 (1617114060000)
+(PFMT) RSI is above 30 (73.48 / 67.37)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 58.21 / Previous RSI: 67.37
+(PFMT) Time now: 2021-03-30 10:22:44, timestamp received from API 2021-03-30 14:22:00.000000 (1617114120000)
+(PFMT) RSI is above 30 (67.37 / 58.21)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 53.89 / Previous RSI: 58.21
+(PFMT) Time now: 2021-03-30 10:23:44, timestamp received from API 2021-03-30 14:23:00.000000 (1617114180000)
+(PFMT) RSI is above 30 (58.21 / 53.89)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 50.02 / Previous RSI: 53.89
+(PFMT) Time now: 2021-03-30 10:24:44, timestamp received from API 2021-03-30 14:24:00.000000 (1617114240000)
+(PFMT) RSI is above 30 (53.89 / 50.02)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 52.05 / Previous RSI: 50.02
+(PFMT) Time now: 2021-03-30 10:25:44, timestamp received from API 2021-03-30 14:25:00.000000 (1617114300000)
+(PFMT) RSI is above 30 (50.02 / 52.05)
+
+Error: get_price_history(PFMT, day, minute, 1, None, 1617097604930, 1617114404930): 401 Client Error: Unauthorized for url: https://api.tdameritrade.com/v1/marketdata/PFMT/pricehistory?periodType=day&frequencyType=minute&frequency=1&needExtendedHoursData=True&startDate=1617097604930&endDate=1617114404930
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 52.28 / Previous RSI: 52.05
+(PFMT) Time now: 2021-03-30 10:26:50, timestamp received from API 2021-03-30 14:26:00.000000 (1617114360000)
+(PFMT) RSI is above 30 (52.05 / 52.28)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 52.55 / Previous RSI: 52.28
+(PFMT) Time now: 2021-03-30 10:27:50, timestamp received from API 2021-03-30 14:27:00.000000 (1617114420000)
+(PFMT) RSI is above 30 (52.28 / 52.55)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 60.84 / Previous RSI: 52.55
+(PFMT) Time now: 2021-03-30 10:28:50, timestamp received from API 2021-03-30 14:28:00.000000 (1617114480000)
+(PFMT) RSI is above 30 (52.55 / 60.84)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 54.43 / Previous RSI: 60.84
+(PFMT) Time now: 2021-03-30 10:29:50, timestamp received from API 2021-03-30 14:29:00.000000 (1617114540000)
+(PFMT) RSI is above 30 (60.84 / 54.43)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 59.73 / Previous RSI: 54.43
+(PFMT) Time now: 2021-03-30 10:30:50, timestamp received from API 2021-03-30 14:30:00.000000 (1617114600000)
+(PFMT) RSI is above 30 (54.43 / 59.73)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 57.45 / Previous RSI: 59.73
+(PFMT) Time now: 2021-03-30 10:31:50, timestamp received from API 2021-03-30 14:31:00.000000 (1617114660000)
+(PFMT) RSI is above 30 (59.73 / 57.45)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 52.96 / Previous RSI: 57.45
+(PFMT) Time now: 2021-03-30 10:32:50, timestamp received from API 2021-03-30 14:32:00.000000 (1617114720000)
+(PFMT) RSI is above 30 (57.45 / 52.96)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 40.6 / Previous RSI: 52.96
+(PFMT) Time now: 2021-03-30 10:33:51, timestamp received from API 2021-03-30 14:33:00.000000 (1617114780000)
+(PFMT) RSI is above 30 (52.96 / 40.6)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 35.91 / Previous RSI: 40.6
+(PFMT) Time now: 2021-03-30 10:34:51, timestamp received from API 2021-03-30 14:34:00.000000 (1617114840000)
+(PFMT) RSI is above 30 (40.6 / 35.91)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 37.29 / Previous RSI: 35.91
+(PFMT) Time now: 2021-03-30 10:35:51, timestamp received from API 2021-03-30 14:35:00.000000 (1617114900000)
+(PFMT) RSI is above 30 (35.91 / 37.29)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 39.09 / Previous RSI: 37.29
+(PFMT) Time now: 2021-03-30 10:36:51, timestamp received from API 2021-03-30 14:36:00.000000 (1617114960000)
+(PFMT) RSI is above 30 (37.29 / 39.09)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 40.54 / Previous RSI: 39.09
+(PFMT) Time now: 2021-03-30 10:37:51, timestamp received from API 2021-03-30 14:37:00.000000 (1617115020000)
+(PFMT) RSI is above 30 (39.09 / 40.54)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 40.54 / Previous RSI: 40.54
+(PFMT) Time now: 2021-03-30 10:38:51, timestamp received from API 2021-03-30 14:38:00.000000 (1617115080000)
+(PFMT) RSI is above 30 (40.54 / 40.54)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 46.54 / Previous RSI: 40.54
+(PFMT) Time now: 2021-03-30 10:39:51, timestamp received from API 2021-03-30 14:39:00.000000 (1617115140000)
+(PFMT) RSI is above 30 (40.54 / 46.54)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 51.99 / Previous RSI: 46.54
+(PFMT) Time now: 2021-03-30 10:40:52, timestamp received from API 2021-03-30 14:40:00.000000 (1617115200000)
+(PFMT) RSI is above 30 (46.54 / 51.99)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 50.28 / Previous RSI: 51.99
+(PFMT) Time now: 2021-03-30 10:41:52, timestamp received from API 2021-03-30 14:41:00.000000 (1617115260000)
+(PFMT) RSI is above 30 (51.99 / 50.28)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 49.18 / Previous RSI: 50.28
+(PFMT) Time now: 2021-03-30 10:42:52, timestamp received from API 2021-03-30 14:42:00.000000 (1617115320000)
+(PFMT) RSI is above 30 (50.28 / 49.18)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 48.67 / Previous RSI: 49.18
+(PFMT) Time now: 2021-03-30 10:43:52, timestamp received from API 2021-03-30 14:43:00.000000 (1617115380000)
+(PFMT) RSI is above 30 (49.18 / 48.67)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 46.98 / Previous RSI: 48.67
+(PFMT) Time now: 2021-03-30 10:44:52, timestamp received from API 2021-03-30 14:44:00.000000 (1617115440000)
+(PFMT) RSI is above 30 (48.67 / 46.98)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 39.86 / Previous RSI: 46.98
+(PFMT) Time now: 2021-03-30 10:45:52, timestamp received from API 2021-03-30 14:45:00.000000 (1617115500000)
+(PFMT) RSI is above 30 (46.98 / 39.86)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 38.98 / Previous RSI: 39.86
+(PFMT) Time now: 2021-03-30 10:46:53, timestamp received from API 2021-03-30 14:46:00.000000 (1617115560000)
+(PFMT) RSI is above 30 (39.86 / 38.98)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 43.37 / Previous RSI: 38.98
+(PFMT) Time now: 2021-03-30 10:47:53, timestamp received from API 2021-03-30 14:47:00.000000 (1617115620000)
+(PFMT) RSI is above 30 (38.98 / 43.37)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 53.6 / Previous RSI: 43.37
+(PFMT) Time now: 2021-03-30 10:48:53, timestamp received from API 2021-03-30 14:48:00.000000 (1617115680000)
+(PFMT) RSI is above 30 (43.37 / 53.6)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 59.76 / Previous RSI: 53.6
+(PFMT) Time now: 2021-03-30 10:49:53, timestamp received from API 2021-03-30 14:49:00.000000 (1617115740000)
+(PFMT) RSI is above 30 (53.6 / 59.76)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 61.47 / Previous RSI: 59.76
+(PFMT) Time now: 2021-03-30 10:50:53, timestamp received from API 2021-03-30 14:50:00.000000 (1617115800000)
+(PFMT) RSI is above 30 (59.76 / 61.47)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 60.66 / Previous RSI: 61.47
+(PFMT) Time now: 2021-03-30 10:51:53, timestamp received from API 2021-03-30 14:51:00.000000 (1617115860000)
+(PFMT) RSI is above 30 (61.47 / 60.66)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 63.65 / Previous RSI: 60.66
+(PFMT) Time now: 2021-03-30 10:52:53, timestamp received from API 2021-03-30 14:52:00.000000 (1617115920000)
+(PFMT) RSI is above 30 (60.66 / 63.65)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 64.53 / Previous RSI: 63.65
+(PFMT) Time now: 2021-03-30 10:53:54, timestamp received from API 2021-03-30 14:53:00.000000 (1617115980000)
+(PFMT) RSI is above 30 (63.65 / 64.53)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 66.34 / Previous RSI: 64.53
+(PFMT) Time now: 2021-03-30 10:54:54, timestamp received from API 2021-03-30 14:54:00.000000 (1617116040000)
+(PFMT) RSI is above 30 (64.53 / 66.34)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 65.6 / Previous RSI: 66.34
+(PFMT) Time now: 2021-03-30 10:55:54, timestamp received from API 2021-03-30 14:55:00.000000 (1617116100000)
+(PFMT) RSI is above 30 (66.34 / 65.6)
+
+Error: get_price_history(PFMT, day, minute, 1, None, 1617099414563, 1617116214563): 401 Client Error: Unauthorized for url: https://api.tdameritrade.com/v1/marketdata/PFMT/pricehistory?periodType=day&frequencyType=minute&frequency=1&needExtendedHoursData=True&startDate=1617099414563&endDate=1617116214563
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 61.92 / Previous RSI: 65.6
+(PFMT) Time now: 2021-03-30 10:57:00, timestamp received from API 2021-03-30 14:56:00.000000 (1617116160000)
+(PFMT) RSI is above 30 (65.6 / 61.92)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 58.94 / Previous RSI: 61.92
+(PFMT) Time now: 2021-03-30 10:58:00, timestamp received from API 2021-03-30 14:58:00.000000 (1617116280000)
+(PFMT) RSI is above 30 (61.92 / 58.94)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 58.92 / Previous RSI: 58.94
+(PFMT) Time now: 2021-03-30 10:59:00, timestamp received from API 2021-03-30 14:58:00.000000 (1617116280000)
+(PFMT) RSI is above 30 (58.94 / 58.92)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 43.07 / Previous RSI: 58.92
+(PFMT) Time now: 2021-03-30 11:00:00, timestamp received from API 2021-03-30 15:00:00.000000 (1617116400000)
+(PFMT) RSI is above 30 (58.92 / 43.07)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 41.61 / Previous RSI: 43.07
+(PFMT) Time now: 2021-03-30 11:01:00, timestamp received from API 2021-03-30 15:01:00.000000 (1617116460000)
+(PFMT) RSI is above 30 (43.07 / 41.61)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 44.25 / Previous RSI: 41.61
+(PFMT) Time now: 2021-03-30 11:02:00, timestamp received from API 2021-03-30 15:02:00.000000 (1617116520000)
+(PFMT) RSI is above 30 (41.61 / 44.25)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 43.85 / Previous RSI: 44.25
+(PFMT) Time now: 2021-03-30 11:03:00, timestamp received from API 2021-03-30 15:03:00.000000 (1617116580000)
+(PFMT) RSI is above 30 (44.25 / 43.85)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 51.31 / Previous RSI: 43.85
+(PFMT) Time now: 2021-03-30 11:04:01, timestamp received from API 2021-03-30 15:04:00.000000 (1617116640000)
+(PFMT) RSI is above 30 (43.85 / 51.31)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 49.9 / Previous RSI: 51.31
+(PFMT) Time now: 2021-03-30 11:05:01, timestamp received from API 2021-03-30 15:05:00.000000 (1617116700000)
+(PFMT) RSI is above 30 (51.31 / 49.9)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 59.02 / Previous RSI: 49.9
+(PFMT) Time now: 2021-03-30 11:06:01, timestamp received from API 2021-03-30 15:06:00.000000 (1617116760000)
+(PFMT) RSI is above 30 (49.9 / 59.02)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 57.01 / Previous RSI: 59.02
+(PFMT) Time now: 2021-03-30 11:07:01, timestamp received from API 2021-03-30 15:07:00.000000 (1617116820000)
+(PFMT) RSI is above 30 (59.02 / 57.01)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 52.65 / Previous RSI: 57.01
+(PFMT) Time now: 2021-03-30 11:08:01, timestamp received from API 2021-03-30 15:08:00.000000 (1617116880000)
+(PFMT) RSI is above 30 (57.01 / 52.65)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 66.34 / Previous RSI: 52.65
+(PFMT) Time now: 2021-03-30 11:09:01, timestamp received from API 2021-03-30 15:09:00.000000 (1617116940000)
+(PFMT) RSI is above 30 (52.65 / 66.34)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 55.7 / Previous RSI: 66.34
+(PFMT) Time now: 2021-03-30 11:10:01, timestamp received from API 2021-03-30 15:10:00.000000 (1617117000000)
+(PFMT) RSI is above 30 (66.34 / 55.7)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 51.94 / Previous RSI: 55.7
+(PFMT) Time now: 2021-03-30 11:11:02, timestamp received from API 2021-03-30 15:11:00.000000 (1617117060000)
+(PFMT) RSI is above 30 (55.7 / 51.94)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 52.28 / Previous RSI: 51.94
+(PFMT) Time now: 2021-03-30 11:12:02, timestamp received from API 2021-03-30 15:12:00.000000 (1617117120000)
+(PFMT) RSI is above 30 (51.94 / 52.28)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 58.0 / Previous RSI: 52.28
+(PFMT) Time now: 2021-03-30 11:13:02, timestamp received from API 2021-03-30 15:13:00.000000 (1617117180000)
+(PFMT) RSI is above 30 (52.28 / 58.0)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 57.27 / Previous RSI: 58.0
+(PFMT) Time now: 2021-03-30 11:14:02, timestamp received from API 2021-03-30 15:14:00.000000 (1617117240000)
+(PFMT) RSI is above 30 (58.0 / 57.27)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 56.36 / Previous RSI: 57.27
+(PFMT) Time now: 2021-03-30 11:15:02, timestamp received from API 2021-03-30 15:15:00.000000 (1617117300000)
+(PFMT) RSI is above 30 (57.27 / 56.36)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 41.76 / Previous RSI: 56.36
+(PFMT) Time now: 2021-03-30 11:16:02, timestamp received from API 2021-03-30 15:16:00.000000 (1617117360000)
+(PFMT) RSI is above 30 (56.36 / 41.76)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 31.48 / Previous RSI: 41.76
+(PFMT) Time now: 2021-03-30 11:17:02, timestamp received from API 2021-03-30 15:17:00.000000 (1617117420000)
+(PFMT) RSI is above 30 (41.76 / 31.48)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 30.22 / Previous RSI: 31.48
+(PFMT) Time now: 2021-03-30 11:18:03, timestamp received from API 2021-03-30 15:18:00.000000 (1617117480000)
+(PFMT) RSI is above 30 (31.48 / 30.22)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 27.33 / Previous RSI: 30.22
+(PFMT) Time now: 2021-03-30 11:19:03, timestamp received from API 2021-03-30 15:19:00.000000 (1617117540000)
+(PFMT) RSI has dropped below 30 (30.22 / 27.33)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 26.05 / Previous RSI: 27.33
+(PFMT) Time now: 2021-03-30 11:20:03, timestamp received from API 2021-03-30 15:20:00.000000 (1617117600000)
+(PFMT) RSI below 30 and still dropping (27.33 / 26.05)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 25.8 / Previous RSI: 26.05
+(PFMT) Time now: 2021-03-30 11:21:03, timestamp received from API 2021-03-30 15:21:00.000000 (1617117660000)
+(PFMT) RSI below 30 and still dropping (26.05 / 25.8)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 26.86 / Previous RSI: 25.8
+(PFMT) Time now: 2021-03-30 11:22:03, timestamp received from API 2021-03-30 15:22:00.000000 (1617117720000)
+(PFMT) RSI below 30 and is now rising (25.8 / 26.86)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 24.53 / Previous RSI: 26.86
+(PFMT) Time now: 2021-03-30 11:23:03, timestamp received from API 2021-03-30 15:23:00.000000 (1617117780000)
+(PFMT) RSI below 30 and still dropping (26.86 / 24.53)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 22.82 / Previous RSI: 24.53
+(PFMT) Time now: 2021-03-30 11:24:04, timestamp received from API 2021-03-30 15:24:00.000000 (1617117840000)
+(PFMT) RSI below 30 and still dropping (24.53 / 22.82)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 26.9 / Previous RSI: 22.82
+(PFMT) Time now: 2021-03-30 11:25:04, timestamp received from API 2021-03-30 15:25:00.000000 (1617117900000)
+(PFMT) RSI below 30 and is now rising (22.82 / 26.9)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 23.56 / Previous RSI: 26.9
+(PFMT) Time now: 2021-03-30 11:26:04, timestamp received from API 2021-03-30 15:26:00.000000 (1617117960000)
+(PFMT) RSI below 30 and still dropping (26.9 / 23.56)
+
+Error: get_price_history(PFMT, day, minute, 1, None, 1617101224794, 1617118024794): 401 Client Error: Unauthorized for url: https://api.tdameritrade.com/v1/marketdata/PFMT/pricehistory?periodType=day&frequencyType=minute&frequency=1&needExtendedHoursData=True&startDate=1617101224794&endDate=1617118024794
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 24.04 / Previous RSI: 23.56
+(PFMT) Time now: 2021-03-30 11:27:09, timestamp received from API 2021-03-30 15:27:00.000000 (1617118020000)
+(PFMT) RSI below 30 and is now rising (23.56 / 24.04)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 23.03 / Previous RSI: 24.04
+(PFMT) Time now: 2021-03-30 11:28:10, timestamp received from API 2021-03-30 15:28:00.000000 (1617118080000)
+(PFMT) RSI below 30 and still dropping (24.04 / 23.03)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 20.06 / Previous RSI: 23.03
+(PFMT) Time now: 2021-03-30 11:29:10, timestamp received from API 2021-03-30 15:29:00.000000 (1617118140000)
+(PFMT) RSI below 30 and still dropping (23.03 / 20.06)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 24.37 / Previous RSI: 20.06
+(PFMT) Time now: 2021-03-30 11:30:10, timestamp received from API 2021-03-30 15:30:00.000000 (1617118200000)
+(PFMT) RSI below 30 and is now rising (20.06 / 24.37)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 24.01 / Previous RSI: 24.37
+(PFMT) Time now: 2021-03-30 11:31:10, timestamp received from API 2021-03-30 15:31:00.000000 (1617118260000)
+(PFMT) RSI below 30 and still dropping (24.37 / 24.01)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 22.64 / Previous RSI: 24.01
+(PFMT) Time now: 2021-03-30 11:32:10, timestamp received from API 2021-03-30 15:32:00.000000 (1617118320000)
+(PFMT) RSI below 30 and still dropping (24.01 / 22.64)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 29.82 / Previous RSI: 22.64
+(PFMT) Time now: 2021-03-30 11:33:10, timestamp received from API 2021-03-30 15:33:00.000000 (1617118380000)
+(PFMT) RSI below 30 and is now rising (22.64 / 29.82)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 29.34 / Previous RSI: 29.82
+(PFMT) Time now: 2021-03-30 11:34:11, timestamp received from API 2021-03-30 15:34:00.000000 (1617118440000)
+(PFMT) RSI below 30 and still dropping (29.82 / 29.34)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 33.52 / Previous RSI: 29.34
+(PFMT) Time now: 2021-03-30 11:35:11, timestamp received from API 2021-03-30 15:35:00.000000 (1617118500000)
+(PFMT) RSI below 30 and is now rising (29.34 / 33.52)
+(PFMT) BUY SIGNAL: RSI passed the low_limit threshold (29.34 / 33.52)
+Purchasing 480 shares of PFMT
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 32.59 / Previous RSI: 33.52
+(PFMT) Time now: 2021-03-30 11:36:11, timestamp received from API 2021-03-30 15:36:00.000000 (1617118560000)
+Stock "PFMT" -0.07% (2.0786)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 30.09 / Previous RSI: 32.59
+(PFMT) Time now: 2021-03-30 11:37:12, timestamp received from API 2021-03-30 15:37:00.000000 (1617118620000)
+Stock "PFMT" -0.72% (2.065)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 20.01 / Previous RSI: 30.09
+(PFMT) Time now: 2021-03-30 11:38:12, timestamp received from API 2021-03-30 15:38:00.000000 (1617118680000)
+Stock "PFMT" -4.33% (1.9899)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 23.72 / Previous RSI: 20.01
+(PFMT) Time now: 2021-03-30 11:39:13, timestamp received from API 2021-03-30 15:39:00.000000 (1617118740000)
+Stock "PFMT" -3.85% (2.0)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 27.84 / Previous RSI: 23.72
+(PFMT) Time now: 2021-03-30 11:40:13, timestamp received from API 2021-03-30 15:40:00.000000 (1617118800000)
+Stock "PFMT" -3.37% (2.01)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 26.6 / Previous RSI: 27.84
+(PFMT) Time now: 2021-03-30 11:41:13, timestamp received from API 2021-03-30 15:41:00.000000 (1617118860000)
+Stock "PFMT" -3.85% (2.0)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 27.53 / Previous RSI: 26.6
+(PFMT) Time now: 2021-03-30 11:42:13, timestamp received from API 2021-03-30 15:42:00.000000 (1617118920000)
+Stock "PFMT" -3.37% (2.01)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 25.13 / Previous RSI: 27.53
+(PFMT) Time now: 2021-03-30 11:43:14, timestamp received from API 2021-03-30 15:43:00.000000 (1617118980000)
+Stock "PFMT" -4.33% (1.99)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 25.53 / Previous RSI: 25.13
+(PFMT) Time now: 2021-03-30 11:44:14, timestamp received from API 2021-03-30 15:44:00.000000 (1617119040000)
+Stock "PFMT" -4.33% (1.99)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 26.16 / Previous RSI: 25.53
+(PFMT) Time now: 2021-03-30 11:45:14, timestamp received from API 2021-03-30 15:45:00.000000 (1617119100000)
+Stock "PFMT" -4.33% (1.9899)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 25.97 / Previous RSI: 26.16
+(PFMT) Time now: 2021-03-30 11:46:14, timestamp received from API 2021-03-30 15:46:00.000000 (1617119160000)
+Stock "PFMT" -4.33% (1.99)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 30.38 / Previous RSI: 25.97
+(PFMT) Time now: 2021-03-30 11:47:15, timestamp received from API 2021-03-30 15:47:00.000000 (1617119220000)
+Stock "PFMT" -3.37% (2.01)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 33.19 / Previous RSI: 30.38
+(PFMT) Time now: 2021-03-30 11:48:15, timestamp received from API 2021-03-30 15:48:00.000000 (1617119280000)
+Stock "PFMT" -3.37% (2.01)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 27.74 / Previous RSI: 33.19
+(PFMT) Time now: 2021-03-30 11:49:15, timestamp received from API 2021-03-30 15:49:00.000000 (1617119340000)
+Stock "PFMT" -4.71% (1.982)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 28.07 / Previous RSI: 27.74
+(PFMT) Time now: 2021-03-30 11:50:15, timestamp received from API 2021-03-30 15:50:00.000000 (1617119400000)
+Stock "PFMT" -4.33% (1.99)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 27.1 / Previous RSI: 28.07
+(PFMT) Time now: 2021-03-30 11:51:16, timestamp received from API 2021-03-30 15:51:00.000000 (1617119460000)
+Stock "PFMT" -4.33% (1.99)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 24.85 / Previous RSI: 27.1
+(PFMT) Time now: 2021-03-30 11:52:17, timestamp received from API 2021-03-30 15:52:00.000000 (1617119520000)
+Stock "PFMT" -5.29% (1.97)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 21.23 / Previous RSI: 24.85
+(PFMT) Time now: 2021-03-30 11:53:17, timestamp received from API 2021-03-30 15:53:00.000000 (1617119580000)
+Stock "PFMT" -5.77% (1.9599)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 20.11 / Previous RSI: 21.23
+(PFMT) Time now: 2021-03-30 11:54:17, timestamp received from API 2021-03-30 15:54:00.000000 (1617119640000)
+Stock "PFMT" -5.77% (1.96)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 22.17 / Previous RSI: 20.11
+(PFMT) Time now: 2021-03-30 11:55:18, timestamp received from API 2021-03-30 15:55:00.000000 (1617119700000)
+Stock "PFMT" -5.77% (1.96)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 24.34 / Previous RSI: 22.17
+(PFMT) Time now: 2021-03-30 11:56:18, timestamp received from API 2021-03-30 15:56:00.000000 (1617119760000)
+Stock "PFMT" -5.77% (1.96)
+
+Error: get_price_history(PFMT, day, minute, 1, None, 1617103038553, 1617119838553): 401 Client Error: Unauthorized for url: https://api.tdameritrade.com/v1/marketdata/PFMT/pricehistory?periodType=day&frequencyType=minute&frequency=1&needExtendedHoursData=True&startDate=1617103038553&endDate=1617119838553
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 31.34 / Previous RSI: 24.34
+(PFMT) Time now: 2021-03-30 11:57:23, timestamp received from API 2021-03-30 15:57:00.000000 (1617119820000)
+Stock "PFMT" -5.7% (1.9614)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 34.34 / Previous RSI: 31.34
+(PFMT) Time now: 2021-03-30 11:58:23, timestamp received from API 2021-03-30 15:58:00.000000 (1617119880000)
+Stock "PFMT" -5.14% (1.973)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 33.61 / Previous RSI: 34.34
+(PFMT) Time now: 2021-03-30 11:59:24, timestamp received from API 2021-03-30 15:59:00.000000 (1617119940000)
+Stock "PFMT" -4.81% (1.98)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 46.06 / Previous RSI: 33.61
+(PFMT) Time now: 2021-03-30 12:00:24, timestamp received from API 2021-03-30 16:00:00.000000 (1617120000000)
+Stock "PFMT" -3.38% (2.0097)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 51.16 / Previous RSI: 46.06
+(PFMT) Time now: 2021-03-30 12:01:24, timestamp received from API 2021-03-30 16:01:00.000000 (1617120060000)
+Stock "PFMT" -3.85% (2.0)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 51.35 / Previous RSI: 51.16
+(PFMT) Time now: 2021-03-30 12:02:24, timestamp received from API 2021-03-30 16:02:00.000000 (1617120120000)
+Stock "PFMT" -3.62% (2.0048)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 48.67 / Previous RSI: 51.35
+(PFMT) Time now: 2021-03-30 12:03:25, timestamp received from API 2021-03-30 16:03:00.000000 (1617120180000)
+Stock "PFMT" -3.61% (2.005)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 49.74 / Previous RSI: 48.67
+(PFMT) Time now: 2021-03-30 12:04:25, timestamp received from API 2021-03-30 16:04:00.000000 (1617120240000)
+Stock "PFMT" -3.85% (2.0)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 40.52 / Previous RSI: 49.74
+(PFMT) Time now: 2021-03-30 12:05:25, timestamp received from API 2021-03-30 16:05:00.000000 (1617120300000)
+Stock "PFMT" -4.81% (1.98)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 41.51 / Previous RSI: 40.52
+(PFMT) Time now: 2021-03-30 12:06:25, timestamp received from API 2021-03-30 16:06:00.000000 (1617120360000)
+Stock "PFMT" -5.05% (1.975)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 36.97 / Previous RSI: 41.51
+(PFMT) Time now: 2021-03-30 12:07:26, timestamp received from API 2021-03-30 16:07:00.000000 (1617120420000)
+Stock "PFMT" -5.29% (1.97)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 40.98 / Previous RSI: 36.97
+(PFMT) Time now: 2021-03-30 12:08:26, timestamp received from API 2021-03-30 16:08:00.000000 (1617120480000)
+Stock "PFMT" -5.05% (1.975)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 40.69 / Previous RSI: 40.98
+(PFMT) Time now: 2021-03-30 12:09:26, timestamp received from API 2021-03-30 16:09:00.000000 (1617120540000)
+Stock "PFMT" -5.29% (1.97)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 44.86 / Previous RSI: 40.69
+(PFMT) Time now: 2021-03-30 12:10:26, timestamp received from API 2021-03-30 16:10:00.000000 (1617120600000)
+Stock "PFMT" -4.81% (1.98)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 42.96 / Previous RSI: 44.86
+(PFMT) Time now: 2021-03-30 12:11:26, timestamp received from API 2021-03-30 16:11:00.000000 (1617120660000)
+Stock "PFMT" -4.81% (1.98)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 40.74 / Previous RSI: 42.96
+(PFMT) Time now: 2021-03-30 12:12:27, timestamp received from API 2021-03-30 16:12:00.000000 (1617120720000)
+Stock "PFMT" -4.81% (1.98)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 40.7 / Previous RSI: 40.74
+(PFMT) Time now: 2021-03-30 12:13:27, timestamp received from API 2021-03-30 16:13:00.000000 (1617120780000)
+Stock "PFMT" -5.77% (1.96)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 29.55 / Previous RSI: 40.7
+(PFMT) Time now: 2021-03-30 12:14:27, timestamp received from API 2021-03-30 16:14:00.000000 (1617120840000)
+Stock "PFMT" -6.73% (1.9401)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 40.28 / Previous RSI: 29.55
+(PFMT) Time now: 2021-03-30 12:15:27, timestamp received from API 2021-03-30 16:15:00.000000 (1617120900000)
+Stock "PFMT" -5.53% (1.965)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 39.8 / Previous RSI: 40.28
+(PFMT) Time now: 2021-03-30 12:16:28, timestamp received from API 2021-03-30 16:16:00.000000 (1617120960000)
+Stock "PFMT" -5.29% (1.97)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 38.35 / Previous RSI: 39.8
+(PFMT) Time now: 2021-03-30 12:17:28, timestamp received from API 2021-03-30 16:17:00.000000 (1617121020000)
+Stock "PFMT" -5.53% (1.965)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 41.86 / Previous RSI: 38.35
+(PFMT) Time now: 2021-03-30 12:18:28, timestamp received from API 2021-03-30 16:18:00.000000 (1617121080000)
+Stock "PFMT" -5.29% (1.97)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 36.21 / Previous RSI: 41.86
+(PFMT) Time now: 2021-03-30 12:19:28, timestamp received from API 2021-03-30 16:19:00.000000 (1617121140000)
+Stock "PFMT" -6.23% (1.9505)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 57.48 / Previous RSI: 36.21
+(PFMT) Time now: 2021-03-30 12:20:29, timestamp received from API 2021-03-30 16:20:00.000000 (1617121200000)
+Stock "PFMT" -4.13% (1.9941)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 55.14 / Previous RSI: 57.48
+(PFMT) Time now: 2021-03-30 12:21:29, timestamp received from API 2021-03-30 16:21:00.000000 (1617121260000)
+Stock "PFMT" -4.33% (1.99)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 55.73 / Previous RSI: 55.14
+(PFMT) Time now: 2021-03-30 12:22:29, timestamp received from API 2021-03-30 16:22:00.000000 (1617121320000)
+Stock "PFMT" -4.33% (1.99)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 61.63 / Previous RSI: 55.73
+(PFMT) Time now: 2021-03-30 12:23:29, timestamp received from API 2021-03-30 16:23:00.000000 (1617121380000)
+Stock "PFMT" -2.88% (2.02)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 62.1 / Previous RSI: 61.63
+(PFMT) Time now: 2021-03-30 12:24:30, timestamp received from API 2021-03-30 16:24:00.000000 (1617121440000)
+Stock "PFMT" -3.61% (2.005)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 68.62 / Previous RSI: 62.1
+(PFMT) Time now: 2021-03-30 12:25:30, timestamp received from API 2021-03-30 16:25:00.000000 (1617121500000)
+Stock "PFMT" -2.55% (2.027)
+
+(PFMT) RSI period: 14 / RSI type: ohlc4
+(PFMT) Current RSI: 66.46 / Previous RSI: 68.62
+(PFMT) Time now: 2021-03-30 12:26:30, timestamp received from API 2021-03-30 16:26:00.000000 (1617121560000)
+Stock "PFMT" -2.88% (2.0202)
+

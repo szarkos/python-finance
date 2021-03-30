@@ -1,0 +1,811 @@
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 29.54 / Previous RSI: 29.54
+(PLTR) Time now: 2021-03-30 09:45:43, timestamp received from API 2021-03-30 13:45:00.000000 (1617111900000)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 42.18 / Previous RSI: 29.54
+(PLTR) Time now: 2021-03-30 09:46:43, timestamp received from API 2021-03-30 13:46:00.000000 (1617111960000)
+(PLTR) RSI below 30 and is now rising (29.54 / 42.18)
+(PLTR) BUY SIGNAL: RSI passed the low_limit threshold (29.54 / 42.18)
+Purchasing 47 shares of PLTR
+Traceback (most recent call last):
+  File "./tda-rsi-gobot.py", line 223, in <module>
+    orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
+KeyError: 'orderActivityCollection'
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 42.51 / Previous RSI: 42.51
+(PLTR) Time now: 2021-03-30 09:48:33, timestamp received from API 2021-03-30 13:48:00.000000 (1617112080000)
+(PLTR) RSI is above 30 (42.51 / 42.51)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 36.25 / Previous RSI: 42.51
+(PLTR) Time now: 2021-03-30 09:49:33, timestamp received from API 2021-03-30 13:49:00.000000 (1617112140000)
+(PLTR) RSI is above 30 (42.51 / 36.25)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 34.5 / Previous RSI: 36.25
+(PLTR) Time now: 2021-03-30 09:50:33, timestamp received from API 2021-03-30 13:50:00.000000 (1617112200000)
+(PLTR) RSI is above 30 (36.25 / 34.5)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 32.09 / Previous RSI: 34.5
+(PLTR) Time now: 2021-03-30 09:51:33, timestamp received from API 2021-03-30 13:51:00.000000 (1617112260000)
+(PLTR) RSI is above 30 (34.5 / 32.09)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 35.18 / Previous RSI: 32.09
+(PLTR) Time now: 2021-03-30 09:52:34, timestamp received from API 2021-03-30 13:52:00.000000 (1617112320000)
+(PLTR) RSI is above 30 (32.09 / 35.18)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 42.88 / Previous RSI: 35.18
+(PLTR) Time now: 2021-03-30 09:53:34, timestamp received from API 2021-03-30 13:53:00.000000 (1617112380000)
+(PLTR) RSI is above 30 (35.18 / 42.88)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 47.34 / Previous RSI: 42.88
+(PLTR) Time now: 2021-03-30 09:54:35, timestamp received from API 2021-03-30 13:54:00.000000 (1617112440000)
+(PLTR) RSI is above 30 (42.88 / 47.34)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 42.99 / Previous RSI: 47.34
+(PLTR) Time now: 2021-03-30 09:55:35, timestamp received from API 2021-03-30 13:55:00.000000 (1617112500000)
+(PLTR) RSI is above 30 (47.34 / 42.99)
+
+Error: get_price_history(PLTR, day, minute, 1, None, 1617095795365, 1617112595365): 401 Client Error: Unauthorized for url: https://api.tdameritrade.com/v1/marketdata/PLTR/pricehistory?periodType=day&frequencyType=minute&frequency=1&needExtendedHoursData=True&startDate=1617095795365&endDate=1617112595365
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 45.28 / Previous RSI: 42.99
+(PLTR) Time now: 2021-03-30 09:56:40, timestamp received from API 2021-03-30 13:56:00.000000 (1617112560000)
+(PLTR) RSI is above 30 (42.99 / 45.28)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 44.37 / Previous RSI: 45.28
+(PLTR) Time now: 2021-03-30 09:57:40, timestamp received from API 2021-03-30 13:57:00.000000 (1617112620000)
+(PLTR) RSI is above 30 (45.28 / 44.37)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 49.64 / Previous RSI: 44.37
+(PLTR) Time now: 2021-03-30 09:58:40, timestamp received from API 2021-03-30 13:58:00.000000 (1617112680000)
+(PLTR) RSI is above 30 (44.37 / 49.64)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 52.13 / Previous RSI: 49.64
+(PLTR) Time now: 2021-03-30 09:59:40, timestamp received from API 2021-03-30 13:59:00.000000 (1617112740000)
+(PLTR) RSI is above 30 (49.64 / 52.13)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 51.33 / Previous RSI: 52.13
+(PLTR) Time now: 2021-03-30 10:00:41, timestamp received from API 2021-03-30 14:00:00.000000 (1617112800000)
+(PLTR) RSI is above 30 (52.13 / 51.33)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 55.93 / Previous RSI: 51.33
+(PLTR) Time now: 2021-03-30 10:01:41, timestamp received from API 2021-03-30 14:01:00.000000 (1617112860000)
+(PLTR) RSI is above 30 (51.33 / 55.93)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 52.36 / Previous RSI: 55.93
+(PLTR) Time now: 2021-03-30 10:02:41, timestamp received from API 2021-03-30 14:02:00.000000 (1617112920000)
+(PLTR) RSI is above 30 (55.93 / 52.36)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 47.8 / Previous RSI: 52.36
+(PLTR) Time now: 2021-03-30 10:03:41, timestamp received from API 2021-03-30 14:03:00.000000 (1617112980000)
+(PLTR) RSI is above 30 (52.36 / 47.8)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 50.66 / Previous RSI: 47.8
+(PLTR) Time now: 2021-03-30 10:04:41, timestamp received from API 2021-03-30 14:04:00.000000 (1617113040000)
+(PLTR) RSI is above 30 (47.8 / 50.66)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 53.8 / Previous RSI: 50.66
+(PLTR) Time now: 2021-03-30 10:05:41, timestamp received from API 2021-03-30 14:05:00.000000 (1617113100000)
+(PLTR) RSI is above 30 (50.66 / 53.8)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 58.37 / Previous RSI: 53.8
+(PLTR) Time now: 2021-03-30 10:06:41, timestamp received from API 2021-03-30 14:06:00.000000 (1617113160000)
+(PLTR) RSI is above 30 (53.8 / 58.37)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 63.2 / Previous RSI: 58.37
+(PLTR) Time now: 2021-03-30 10:07:42, timestamp received from API 2021-03-30 14:07:00.000000 (1617113220000)
+(PLTR) RSI is above 30 (58.37 / 63.2)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 69.98 / Previous RSI: 63.2
+(PLTR) Time now: 2021-03-30 10:08:42, timestamp received from API 2021-03-30 14:08:00.000000 (1617113280000)
+(PLTR) RSI is above 30 (63.2 / 69.98)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 70.97 / Previous RSI: 69.98
+(PLTR) Time now: 2021-03-30 10:09:42, timestamp received from API 2021-03-30 14:09:00.000000 (1617113340000)
+(PLTR) RSI is above 30 (69.98 / 70.97)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 73.87 / Previous RSI: 70.97
+(PLTR) Time now: 2021-03-30 10:10:42, timestamp received from API 2021-03-30 14:10:00.000000 (1617113400000)
+(PLTR) RSI is above 30 (70.97 / 73.87)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 76.79 / Previous RSI: 73.87
+(PLTR) Time now: 2021-03-30 10:11:42, timestamp received from API 2021-03-30 14:11:00.000000 (1617113460000)
+(PLTR) RSI is above 30 (73.87 / 76.79)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 76.84 / Previous RSI: 76.79
+(PLTR) Time now: 2021-03-30 10:12:42, timestamp received from API 2021-03-30 14:12:00.000000 (1617113520000)
+(PLTR) RSI is above 30 (76.79 / 76.84)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 74.99 / Previous RSI: 76.84
+(PLTR) Time now: 2021-03-30 10:13:42, timestamp received from API 2021-03-30 14:13:00.000000 (1617113580000)
+(PLTR) RSI is above 30 (76.84 / 74.99)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 80.22 / Previous RSI: 74.99
+(PLTR) Time now: 2021-03-30 10:14:43, timestamp received from API 2021-03-30 14:14:00.000000 (1617113640000)
+(PLTR) RSI is above 30 (74.99 / 80.22)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 73.93 / Previous RSI: 80.22
+(PLTR) Time now: 2021-03-30 10:15:43, timestamp received from API 2021-03-30 14:15:00.000000 (1617113700000)
+(PLTR) RSI is above 30 (80.22 / 73.93)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 61.69 / Previous RSI: 73.93
+(PLTR) Time now: 2021-03-30 10:16:43, timestamp received from API 2021-03-30 14:16:00.000000 (1617113760000)
+(PLTR) RSI is above 30 (73.93 / 61.69)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 59.3 / Previous RSI: 61.69
+(PLTR) Time now: 2021-03-30 10:17:43, timestamp received from API 2021-03-30 14:17:00.000000 (1617113820000)
+(PLTR) RSI is above 30 (61.69 / 59.3)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 54.12 / Previous RSI: 59.3
+(PLTR) Time now: 2021-03-30 10:18:43, timestamp received from API 2021-03-30 14:18:00.000000 (1617113880000)
+(PLTR) RSI is above 30 (59.3 / 54.12)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 45.92 / Previous RSI: 54.12
+(PLTR) Time now: 2021-03-30 10:19:43, timestamp received from API 2021-03-30 14:19:00.000000 (1617113940000)
+(PLTR) RSI is above 30 (54.12 / 45.92)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 44.2 / Previous RSI: 45.92
+(PLTR) Time now: 2021-03-30 10:20:43, timestamp received from API 2021-03-30 14:20:00.000000 (1617114000000)
+(PLTR) RSI is above 30 (45.92 / 44.2)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 42.77 / Previous RSI: 44.2
+(PLTR) Time now: 2021-03-30 10:21:43, timestamp received from API 2021-03-30 14:21:00.000000 (1617114060000)
+(PLTR) RSI is above 30 (44.2 / 42.77)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 47.16 / Previous RSI: 42.77
+(PLTR) Time now: 2021-03-30 10:22:44, timestamp received from API 2021-03-30 14:22:00.000000 (1617114120000)
+(PLTR) RSI is above 30 (42.77 / 47.16)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 47.06 / Previous RSI: 47.16
+(PLTR) Time now: 2021-03-30 10:23:44, timestamp received from API 2021-03-30 14:23:00.000000 (1617114180000)
+(PLTR) RSI is above 30 (47.16 / 47.06)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 46.53 / Previous RSI: 47.06
+(PLTR) Time now: 2021-03-30 10:24:44, timestamp received from API 2021-03-30 14:24:00.000000 (1617114240000)
+(PLTR) RSI is above 30 (47.06 / 46.53)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 48.6 / Previous RSI: 46.53
+(PLTR) Time now: 2021-03-30 10:25:44, timestamp received from API 2021-03-30 14:25:00.000000 (1617114300000)
+(PLTR) RSI is above 30 (46.53 / 48.6)
+
+Error: get_price_history(PLTR, day, minute, 1, None, 1617097604601, 1617114404601): 401 Client Error: Unauthorized for url: https://api.tdameritrade.com/v1/marketdata/PLTR/pricehistory?periodType=day&frequencyType=minute&frequency=1&needExtendedHoursData=True&startDate=1617097604601&endDate=1617114404601
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 52.43 / Previous RSI: 48.6
+(PLTR) Time now: 2021-03-30 10:26:49, timestamp received from API 2021-03-30 14:26:00.000000 (1617114360000)
+(PLTR) RSI is above 30 (48.6 / 52.43)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 51.36 / Previous RSI: 52.43
+(PLTR) Time now: 2021-03-30 10:27:50, timestamp received from API 2021-03-30 14:27:00.000000 (1617114420000)
+(PLTR) RSI is above 30 (52.43 / 51.36)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 55.14 / Previous RSI: 51.36
+(PLTR) Time now: 2021-03-30 10:28:50, timestamp received from API 2021-03-30 14:28:00.000000 (1617114480000)
+(PLTR) RSI is above 30 (51.36 / 55.14)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 59.55 / Previous RSI: 55.14
+(PLTR) Time now: 2021-03-30 10:29:50, timestamp received from API 2021-03-30 14:29:00.000000 (1617114540000)
+(PLTR) RSI is above 30 (55.14 / 59.55)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 58.91 / Previous RSI: 59.55
+(PLTR) Time now: 2021-03-30 10:30:50, timestamp received from API 2021-03-30 14:30:00.000000 (1617114600000)
+(PLTR) RSI is above 30 (59.55 / 58.91)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 57.47 / Previous RSI: 58.91
+(PLTR) Time now: 2021-03-30 10:31:50, timestamp received from API 2021-03-30 14:31:00.000000 (1617114660000)
+(PLTR) RSI is above 30 (58.91 / 57.47)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 54.44 / Previous RSI: 57.47
+(PLTR) Time now: 2021-03-30 10:32:50, timestamp received from API 2021-03-30 14:32:00.000000 (1617114720000)
+(PLTR) RSI is above 30 (57.47 / 54.44)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 48.02 / Previous RSI: 54.44
+(PLTR) Time now: 2021-03-30 10:33:50, timestamp received from API 2021-03-30 14:33:00.000000 (1617114780000)
+(PLTR) RSI is above 30 (54.44 / 48.02)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 52.2 / Previous RSI: 48.02
+(PLTR) Time now: 2021-03-30 10:34:51, timestamp received from API 2021-03-30 14:34:00.000000 (1617114840000)
+(PLTR) RSI is above 30 (48.02 / 52.2)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 57.94 / Previous RSI: 52.2
+(PLTR) Time now: 2021-03-30 10:35:51, timestamp received from API 2021-03-30 14:35:00.000000 (1617114900000)
+(PLTR) RSI is above 30 (52.2 / 57.94)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 64.76 / Previous RSI: 57.94
+(PLTR) Time now: 2021-03-30 10:36:51, timestamp received from API 2021-03-30 14:36:00.000000 (1617114960000)
+(PLTR) RSI is above 30 (57.94 / 64.76)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 67.37 / Previous RSI: 64.76
+(PLTR) Time now: 2021-03-30 10:37:51, timestamp received from API 2021-03-30 14:37:00.000000 (1617115020000)
+(PLTR) RSI is above 30 (64.76 / 67.37)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 62.15 / Previous RSI: 67.37
+(PLTR) Time now: 2021-03-30 10:38:51, timestamp received from API 2021-03-30 14:38:00.000000 (1617115080000)
+(PLTR) RSI is above 30 (67.37 / 62.15)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 59.87 / Previous RSI: 62.15
+(PLTR) Time now: 2021-03-30 10:39:51, timestamp received from API 2021-03-30 14:39:00.000000 (1617115140000)
+(PLTR) RSI is above 30 (62.15 / 59.87)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 63.6 / Previous RSI: 59.87
+(PLTR) Time now: 2021-03-30 10:40:52, timestamp received from API 2021-03-30 14:40:00.000000 (1617115200000)
+(PLTR) RSI is above 30 (59.87 / 63.6)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 66.72 / Previous RSI: 63.6
+(PLTR) Time now: 2021-03-30 10:41:52, timestamp received from API 2021-03-30 14:41:00.000000 (1617115260000)
+(PLTR) RSI is above 30 (63.6 / 66.72)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 66.68 / Previous RSI: 66.72
+(PLTR) Time now: 2021-03-30 10:42:52, timestamp received from API 2021-03-30 14:42:00.000000 (1617115320000)
+(PLTR) RSI is above 30 (66.72 / 66.68)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 63.07 / Previous RSI: 66.68
+(PLTR) Time now: 2021-03-30 10:43:52, timestamp received from API 2021-03-30 14:43:00.000000 (1617115380000)
+(PLTR) RSI is above 30 (66.68 / 63.07)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 68.47 / Previous RSI: 63.07
+(PLTR) Time now: 2021-03-30 10:44:52, timestamp received from API 2021-03-30 14:44:00.000000 (1617115440000)
+(PLTR) RSI is above 30 (63.07 / 68.47)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 71.77 / Previous RSI: 68.47
+(PLTR) Time now: 2021-03-30 10:45:52, timestamp received from API 2021-03-30 14:45:00.000000 (1617115500000)
+(PLTR) RSI is above 30 (68.47 / 71.77)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 71.99 / Previous RSI: 71.77
+(PLTR) Time now: 2021-03-30 10:46:52, timestamp received from API 2021-03-30 14:46:00.000000 (1617115560000)
+(PLTR) RSI is above 30 (71.77 / 71.99)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 74.07 / Previous RSI: 71.99
+(PLTR) Time now: 2021-03-30 10:47:53, timestamp received from API 2021-03-30 14:47:00.000000 (1617115620000)
+(PLTR) RSI is above 30 (71.99 / 74.07)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 75.06 / Previous RSI: 74.07
+(PLTR) Time now: 2021-03-30 10:48:53, timestamp received from API 2021-03-30 14:48:00.000000 (1617115680000)
+(PLTR) RSI is above 30 (74.07 / 75.06)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 70.42 / Previous RSI: 75.06
+(PLTR) Time now: 2021-03-30 10:49:53, timestamp received from API 2021-03-30 14:49:00.000000 (1617115740000)
+(PLTR) RSI is above 30 (75.06 / 70.42)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 60.22 / Previous RSI: 70.42
+(PLTR) Time now: 2021-03-30 10:50:53, timestamp received from API 2021-03-30 14:50:00.000000 (1617115800000)
+(PLTR) RSI is above 30 (70.42 / 60.22)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 57.14 / Previous RSI: 60.22
+(PLTR) Time now: 2021-03-30 10:51:53, timestamp received from API 2021-03-30 14:51:00.000000 (1617115860000)
+(PLTR) RSI is above 30 (60.22 / 57.14)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 58.94 / Previous RSI: 57.14
+(PLTR) Time now: 2021-03-30 10:52:53, timestamp received from API 2021-03-30 14:52:00.000000 (1617115920000)
+(PLTR) RSI is above 30 (57.14 / 58.94)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 52.31 / Previous RSI: 58.94
+(PLTR) Time now: 2021-03-30 10:53:53, timestamp received from API 2021-03-30 14:53:00.000000 (1617115980000)
+(PLTR) RSI is above 30 (58.94 / 52.31)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 53.54 / Previous RSI: 52.31
+(PLTR) Time now: 2021-03-30 10:54:54, timestamp received from API 2021-03-30 14:54:00.000000 (1617116040000)
+(PLTR) RSI is above 30 (52.31 / 53.54)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 56.76 / Previous RSI: 53.54
+(PLTR) Time now: 2021-03-30 10:55:54, timestamp received from API 2021-03-30 14:55:00.000000 (1617116100000)
+(PLTR) RSI is above 30 (53.54 / 56.76)
+
+Error: get_price_history(PLTR, day, minute, 1, None, 1617099414325, 1617116214325): 401 Client Error: Unauthorized for url: https://api.tdameritrade.com/v1/marketdata/PLTR/pricehistory?periodType=day&frequencyType=minute&frequency=1&needExtendedHoursData=True&startDate=1617099414325&endDate=1617116214325
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 61.01 / Previous RSI: 56.76
+(PLTR) Time now: 2021-03-30 10:56:59, timestamp received from API 2021-03-30 14:56:00.000000 (1617116160000)
+(PLTR) RSI is above 30 (56.76 / 61.01)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 63.07 / Previous RSI: 61.01
+(PLTR) Time now: 2021-03-30 10:57:59, timestamp received from API 2021-03-30 14:57:00.000000 (1617116220000)
+(PLTR) RSI is above 30 (61.01 / 63.07)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 65.46 / Previous RSI: 63.07
+(PLTR) Time now: 2021-03-30 10:59:00, timestamp received from API 2021-03-30 14:58:00.000000 (1617116280000)
+(PLTR) RSI is above 30 (63.07 / 65.46)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 75.07 / Previous RSI: 65.46
+(PLTR) Time now: 2021-03-30 11:00:00, timestamp received from API 2021-03-30 15:00:00.000000 (1617116400000)
+(PLTR) RSI is above 30 (65.46 / 75.07)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 71.33 / Previous RSI: 75.07
+(PLTR) Time now: 2021-03-30 11:01:00, timestamp received from API 2021-03-30 15:01:00.000000 (1617116460000)
+(PLTR) RSI is above 30 (75.07 / 71.33)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 76.36 / Previous RSI: 71.33
+(PLTR) Time now: 2021-03-30 11:02:00, timestamp received from API 2021-03-30 15:02:00.000000 (1617116520000)
+(PLTR) RSI is above 30 (71.33 / 76.36)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 77.01 / Previous RSI: 76.36
+(PLTR) Time now: 2021-03-30 11:03:00, timestamp received from API 2021-03-30 15:03:00.000000 (1617116580000)
+(PLTR) RSI is above 30 (76.36 / 77.01)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 77.85 / Previous RSI: 77.01
+(PLTR) Time now: 2021-03-30 11:04:00, timestamp received from API 2021-03-30 15:03:00.000000 (1617116580000)
+(PLTR) RSI is above 30 (77.01 / 77.85)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 78.63 / Previous RSI: 77.85
+(PLTR) Time now: 2021-03-30 11:05:00, timestamp received from API 2021-03-30 15:05:00.000000 (1617116700000)
+(PLTR) RSI is above 30 (77.85 / 78.63)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 71.14 / Previous RSI: 78.63
+(PLTR) Time now: 2021-03-30 11:06:00, timestamp received from API 2021-03-30 15:06:00.000000 (1617116760000)
+(PLTR) RSI is above 30 (78.63 / 71.14)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 65.56 / Previous RSI: 71.14
+(PLTR) Time now: 2021-03-30 11:07:01, timestamp received from API 2021-03-30 15:07:00.000000 (1617116820000)
+(PLTR) RSI is above 30 (71.14 / 65.56)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 70.64 / Previous RSI: 65.56
+(PLTR) Time now: 2021-03-30 11:08:01, timestamp received from API 2021-03-30 15:08:00.000000 (1617116880000)
+(PLTR) RSI is above 30 (65.56 / 70.64)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 72.63 / Previous RSI: 70.64
+(PLTR) Time now: 2021-03-30 11:09:01, timestamp received from API 2021-03-30 15:08:00.000000 (1617116880000)
+(PLTR) RSI is above 30 (70.64 / 72.63)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 78.0 / Previous RSI: 72.63
+(PLTR) Time now: 2021-03-30 11:10:01, timestamp received from API 2021-03-30 15:10:00.000000 (1617117000000)
+(PLTR) RSI is above 30 (72.63 / 78.0)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 69.21 / Previous RSI: 78.0
+(PLTR) Time now: 2021-03-30 11:11:01, timestamp received from API 2021-03-30 15:11:00.000000 (1617117060000)
+(PLTR) RSI is above 30 (78.0 / 69.21)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 69.63 / Previous RSI: 69.21
+(PLTR) Time now: 2021-03-30 11:12:01, timestamp received from API 2021-03-30 15:12:00.000000 (1617117120000)
+(PLTR) RSI is above 30 (69.21 / 69.63)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 72.62 / Previous RSI: 69.63
+(PLTR) Time now: 2021-03-30 11:13:01, timestamp received from API 2021-03-30 15:13:00.000000 (1617117180000)
+(PLTR) RSI is above 30 (69.63 / 72.62)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 65.19 / Previous RSI: 72.62
+(PLTR) Time now: 2021-03-30 11:14:02, timestamp received from API 2021-03-30 15:14:00.000000 (1617117240000)
+(PLTR) RSI is above 30 (72.62 / 65.19)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 66.05 / Previous RSI: 65.19
+(PLTR) Time now: 2021-03-30 11:15:02, timestamp received from API 2021-03-30 15:15:00.000000 (1617117300000)
+(PLTR) RSI is above 30 (65.19 / 66.05)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 70.92 / Previous RSI: 66.05
+(PLTR) Time now: 2021-03-30 11:16:02, timestamp received from API 2021-03-30 15:16:00.000000 (1617117360000)
+(PLTR) RSI is above 30 (66.05 / 70.92)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 64.73 / Previous RSI: 70.92
+(PLTR) Time now: 2021-03-30 11:17:02, timestamp received from API 2021-03-30 15:17:00.000000 (1617117420000)
+(PLTR) RSI is above 30 (70.92 / 64.73)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 68.64 / Previous RSI: 64.73
+(PLTR) Time now: 2021-03-30 11:18:02, timestamp received from API 2021-03-30 15:18:00.000000 (1617117480000)
+(PLTR) RSI is above 30 (64.73 / 68.64)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 74.13 / Previous RSI: 68.64
+(PLTR) Time now: 2021-03-30 11:19:02, timestamp received from API 2021-03-30 15:19:00.000000 (1617117540000)
+(PLTR) RSI is above 30 (68.64 / 74.13)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 72.27 / Previous RSI: 74.13
+(PLTR) Time now: 2021-03-30 11:20:02, timestamp received from API 2021-03-30 15:20:00.000000 (1617117600000)
+(PLTR) RSI is above 30 (74.13 / 72.27)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 56.4 / Previous RSI: 72.27
+(PLTR) Time now: 2021-03-30 11:21:03, timestamp received from API 2021-03-30 15:21:00.000000 (1617117660000)
+(PLTR) RSI is above 30 (72.27 / 56.4)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 54.86 / Previous RSI: 56.4
+(PLTR) Time now: 2021-03-30 11:22:03, timestamp received from API 2021-03-30 15:22:00.000000 (1617117720000)
+(PLTR) RSI is above 30 (56.4 / 54.86)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 54.02 / Previous RSI: 54.86
+(PLTR) Time now: 2021-03-30 11:23:03, timestamp received from API 2021-03-30 15:23:00.000000 (1617117780000)
+(PLTR) RSI is above 30 (54.86 / 54.02)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 52.52 / Previous RSI: 54.02
+(PLTR) Time now: 2021-03-30 11:24:03, timestamp received from API 2021-03-30 15:24:00.000000 (1617117840000)
+(PLTR) RSI is above 30 (54.02 / 52.52)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 47.04 / Previous RSI: 52.52
+(PLTR) Time now: 2021-03-30 11:25:03, timestamp received from API 2021-03-30 15:25:00.000000 (1617117900000)
+(PLTR) RSI is above 30 (52.52 / 47.04)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 45.86 / Previous RSI: 47.04
+(PLTR) Time now: 2021-03-30 11:26:03, timestamp received from API 2021-03-30 15:26:00.000000 (1617117960000)
+(PLTR) RSI is above 30 (47.04 / 45.86)
+
+Error: get_price_history(PLTR, day, minute, 1, None, 1617101223960, 1617118023960): 401 Client Error: Unauthorized for url: https://api.tdameritrade.com/v1/marketdata/PLTR/pricehistory?periodType=day&frequencyType=minute&frequency=1&needExtendedHoursData=True&startDate=1617101223960&endDate=1617118023960
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 51.66 / Previous RSI: 45.86
+(PLTR) Time now: 2021-03-30 11:27:09, timestamp received from API 2021-03-30 15:27:00.000000 (1617118020000)
+(PLTR) RSI is above 30 (45.86 / 51.66)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 57.37 / Previous RSI: 51.66
+(PLTR) Time now: 2021-03-30 11:28:09, timestamp received from API 2021-03-30 15:28:00.000000 (1617118080000)
+(PLTR) RSI is above 30 (51.66 / 57.37)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 54.64 / Previous RSI: 57.37
+(PLTR) Time now: 2021-03-30 11:29:09, timestamp received from API 2021-03-30 15:29:00.000000 (1617118140000)
+(PLTR) RSI is above 30 (57.37 / 54.64)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 58.78 / Previous RSI: 54.64
+(PLTR) Time now: 2021-03-30 11:30:09, timestamp received from API 2021-03-30 15:30:00.000000 (1617118200000)
+(PLTR) RSI is above 30 (54.64 / 58.78)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 47.66 / Previous RSI: 58.78
+(PLTR) Time now: 2021-03-30 11:31:10, timestamp received from API 2021-03-30 15:31:00.000000 (1617118260000)
+(PLTR) RSI is above 30 (58.78 / 47.66)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 54.97 / Previous RSI: 47.66
+(PLTR) Time now: 2021-03-30 11:32:10, timestamp received from API 2021-03-30 15:32:00.000000 (1617118320000)
+(PLTR) RSI is above 30 (47.66 / 54.97)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 65.87 / Previous RSI: 54.97
+(PLTR) Time now: 2021-03-30 11:33:10, timestamp received from API 2021-03-30 15:33:00.000000 (1617118380000)
+(PLTR) RSI is above 30 (54.97 / 65.87)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 66.37 / Previous RSI: 65.87
+(PLTR) Time now: 2021-03-30 11:34:10, timestamp received from API 2021-03-30 15:34:00.000000 (1617118440000)
+(PLTR) RSI is above 30 (65.87 / 66.37)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 66.6 / Previous RSI: 66.37
+(PLTR) Time now: 2021-03-30 11:35:10, timestamp received from API 2021-03-30 15:35:00.000000 (1617118500000)
+(PLTR) RSI is above 30 (66.37 / 66.6)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 65.33 / Previous RSI: 66.6
+(PLTR) Time now: 2021-03-30 11:36:10, timestamp received from API 2021-03-30 15:36:00.000000 (1617118560000)
+(PLTR) RSI is above 30 (66.6 / 65.33)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 68.13 / Previous RSI: 65.33
+(PLTR) Time now: 2021-03-30 11:37:10, timestamp received from API 2021-03-30 15:37:00.000000 (1617118620000)
+(PLTR) RSI is above 30 (65.33 / 68.13)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 69.48 / Previous RSI: 68.13
+(PLTR) Time now: 2021-03-30 11:38:11, timestamp received from API 2021-03-30 15:38:00.000000 (1617118680000)
+(PLTR) RSI is above 30 (68.13 / 69.48)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 60.18 / Previous RSI: 69.48
+(PLTR) Time now: 2021-03-30 11:39:11, timestamp received from API 2021-03-30 15:39:00.000000 (1617118740000)
+(PLTR) RSI is above 30 (69.48 / 60.18)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 55.79 / Previous RSI: 60.18
+(PLTR) Time now: 2021-03-30 11:40:11, timestamp received from API 2021-03-30 15:40:00.000000 (1617118800000)
+(PLTR) RSI is above 30 (60.18 / 55.79)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 54.13 / Previous RSI: 55.79
+(PLTR) Time now: 2021-03-30 11:41:11, timestamp received from API 2021-03-30 15:41:00.000000 (1617118860000)
+(PLTR) RSI is above 30 (55.79 / 54.13)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 50.27 / Previous RSI: 54.13
+(PLTR) Time now: 2021-03-30 11:42:11, timestamp received from API 2021-03-30 15:42:00.000000 (1617118920000)
+(PLTR) RSI is above 30 (54.13 / 50.27)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 48.39 / Previous RSI: 50.27
+(PLTR) Time now: 2021-03-30 11:43:11, timestamp received from API 2021-03-30 15:43:00.000000 (1617118980000)
+(PLTR) RSI is above 30 (50.27 / 48.39)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 50.16 / Previous RSI: 48.39
+(PLTR) Time now: 2021-03-30 11:44:11, timestamp received from API 2021-03-30 15:44:00.000000 (1617119040000)
+(PLTR) RSI is above 30 (48.39 / 50.16)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 54.12 / Previous RSI: 50.16
+(PLTR) Time now: 2021-03-30 11:45:12, timestamp received from API 2021-03-30 15:45:00.000000 (1617119100000)
+(PLTR) RSI is above 30 (50.16 / 54.12)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 53.02 / Previous RSI: 54.12
+(PLTR) Time now: 2021-03-30 11:46:12, timestamp received from API 2021-03-30 15:46:00.000000 (1617119160000)
+(PLTR) RSI is above 30 (54.12 / 53.02)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 39.01 / Previous RSI: 53.02
+(PLTR) Time now: 2021-03-30 11:47:12, timestamp received from API 2021-03-30 15:47:00.000000 (1617119220000)
+(PLTR) RSI is above 30 (53.02 / 39.01)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 39.44 / Previous RSI: 39.01
+(PLTR) Time now: 2021-03-30 11:48:12, timestamp received from API 2021-03-30 15:48:00.000000 (1617119280000)
+(PLTR) RSI is above 30 (39.01 / 39.44)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 34.19 / Previous RSI: 39.44
+(PLTR) Time now: 2021-03-30 11:49:12, timestamp received from API 2021-03-30 15:49:00.000000 (1617119340000)
+(PLTR) RSI is above 30 (39.44 / 34.19)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 35.63 / Previous RSI: 34.19
+(PLTR) Time now: 2021-03-30 11:50:12, timestamp received from API 2021-03-30 15:50:00.000000 (1617119400000)
+(PLTR) RSI is above 30 (34.19 / 35.63)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 34.55 / Previous RSI: 35.63
+(PLTR) Time now: 2021-03-30 11:51:13, timestamp received from API 2021-03-30 15:51:00.000000 (1617119460000)
+(PLTR) RSI is above 30 (35.63 / 34.55)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 28.57 / Previous RSI: 34.55
+(PLTR) Time now: 2021-03-30 11:52:13, timestamp received from API 2021-03-30 15:52:00.000000 (1617119520000)
+(PLTR) RSI has dropped below 30 (34.55 / 28.57)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 30.12 / Previous RSI: 28.57
+(PLTR) Time now: 2021-03-30 11:53:13, timestamp received from API 2021-03-30 15:53:00.000000 (1617119580000)
+(PLTR) RSI below 30 and is now rising (28.57 / 30.12)
+(PLTR) BUY SIGNAL: RSI passed the low_limit threshold (28.57 / 30.12)
+Purchasing 46 shares of PLTR
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 30.66 / Previous RSI: 30.12
+(PLTR) Time now: 2021-03-30 11:54:13, timestamp received from API 2021-03-30 15:54:00.000000 (1617119640000)
+Stock "PLTR" +0.02% (21.697)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 27.48 / Previous RSI: 30.66
+(PLTR) Time now: 2021-03-30 11:55:13, timestamp received from API 2021-03-30 15:55:00.000000 (1617119700000)
+Stock "PLTR" -0.15% (21.66)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 34.66 / Previous RSI: 27.48
+(PLTR) Time now: 2021-03-30 11:56:14, timestamp received from API 2021-03-30 15:56:00.000000 (1617119760000)
+Stock "PLTR" +0.05% (21.7025)
+
+Error: get_price_history(PLTR, day, minute, 1, None, 1617103034377, 1617119834377): 401 Client Error: Unauthorized for url: https://api.tdameritrade.com/v1/marketdata/PLTR/pricehistory?periodType=day&frequencyType=minute&frequency=1&needExtendedHoursData=True&startDate=1617103034377&endDate=1617119834377
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 36.0 / Previous RSI: 34.66
+(PLTR) Time now: 2021-03-30 11:57:19, timestamp received from API 2021-03-30 15:57:00.000000 (1617119820000)
+Stock "PLTR" +0.04% (21.7)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 41.65 / Previous RSI: 36.0
+(PLTR) Time now: 2021-03-30 11:58:20, timestamp received from API 2021-03-30 15:58:00.000000 (1617119880000)
+Stock "PLTR" +0.13% (21.72)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 39.46 / Previous RSI: 41.65
+(PLTR) Time now: 2021-03-30 11:59:20, timestamp received from API 2021-03-30 15:59:00.000000 (1617119940000)
+Stock "PLTR" -0.05% (21.68)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 35.35 / Previous RSI: 39.46
+(PLTR) Time now: 2021-03-30 12:00:20, timestamp received from API 2021-03-30 16:00:00.000000 (1617120000000)
+Stock "PLTR" -0.11% (21.6688)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 45.91 / Previous RSI: 35.35
+(PLTR) Time now: 2021-03-30 12:01:20, timestamp received from API 2021-03-30 16:01:00.000000 (1617120060000)
+Stock "PLTR" +0.26% (21.748)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 43.91 / Previous RSI: 45.91
+(PLTR) Time now: 2021-03-30 12:02:21, timestamp received from API 2021-03-30 16:02:00.000000 (1617120120000)
+Stock "PLTR" +0.04% (21.7)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 42.9 / Previous RSI: 43.91
+(PLTR) Time now: 2021-03-30 12:03:21, timestamp received from API 2021-03-30 16:03:00.000000 (1617120180000)
+Stock "PLTR" +0.25% (21.745)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 50.14 / Previous RSI: 42.9
+(PLTR) Time now: 2021-03-30 12:04:21, timestamp received from API 2021-03-30 16:04:00.000000 (1617120240000)
+Stock "PLTR" +0.36% (21.77)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 51.96 / Previous RSI: 50.14
+(PLTR) Time now: 2021-03-30 12:05:22, timestamp received from API 2021-03-30 16:05:00.000000 (1617120300000)
+Stock "PLTR" +0.37% (21.772)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 53.39 / Previous RSI: 51.96
+(PLTR) Time now: 2021-03-30 12:06:22, timestamp received from API 2021-03-30 16:06:00.000000 (1617120360000)
+Stock "PLTR" +0.43% (21.785)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 48.14 / Previous RSI: 53.39
+(PLTR) Time now: 2021-03-30 12:07:22, timestamp received from API 2021-03-30 16:07:00.000000 (1617120420000)
+Stock "PLTR" +0.29% (21.755)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 47.78 / Previous RSI: 48.14
+(PLTR) Time now: 2021-03-30 12:08:22, timestamp received from API 2021-03-30 16:08:00.000000 (1617120480000)
+Stock "PLTR" +0.31% (21.76)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 47.96 / Previous RSI: 47.78
+(PLTR) Time now: 2021-03-30 12:09:23, timestamp received from API 2021-03-30 16:09:00.000000 (1617120540000)
+Stock "PLTR" +0.27% (21.75)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 52.09 / Previous RSI: 47.96
+(PLTR) Time now: 2021-03-30 12:10:23, timestamp received from API 2021-03-30 16:10:00.000000 (1617120600000)
+Stock "PLTR" +0.34% (21.765)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 44.5 / Previous RSI: 52.09
+(PLTR) Time now: 2021-03-30 12:11:23, timestamp received from API 2021-03-30 16:11:00.000000 (1617120660000)
+Stock "PLTR" +0.2% (21.735)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 35.72 / Previous RSI: 44.5
+(PLTR) Time now: 2021-03-30 12:12:23, timestamp received from API 2021-03-30 16:12:00.000000 (1617120720000)
+Stock "PLTR" -0.19% (21.65)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 33.53 / Previous RSI: 35.72
+(PLTR) Time now: 2021-03-30 12:13:24, timestamp received from API 2021-03-30 16:13:00.000000 (1617120780000)
+Stock "PLTR" -0.26% (21.635)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 35.94 / Previous RSI: 33.53
+(PLTR) Time now: 2021-03-30 12:14:24, timestamp received from API 2021-03-30 16:14:00.000000 (1617120840000)
+Stock "PLTR" -0.14% (21.6613)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 40.91 / Previous RSI: 35.94
+(PLTR) Time now: 2021-03-30 12:15:24, timestamp received from API 2021-03-30 16:15:00.000000 (1617120900000)
+Stock "PLTR" -0.05% (21.68)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 47.58 / Previous RSI: 40.91
+(PLTR) Time now: 2021-03-30 12:16:24, timestamp received from API 2021-03-30 16:16:00.000000 (1617120960000)
+Stock "PLTR" +0.27% (21.75)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 52.4 / Previous RSI: 47.58
+(PLTR) Time now: 2021-03-30 12:17:25, timestamp received from API 2021-03-30 16:17:00.000000 (1617121020000)
+Stock "PLTR" +0.27% (21.75)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 50.86 / Previous RSI: 52.4
+(PLTR) Time now: 2021-03-30 12:18:25, timestamp received from API 2021-03-30 16:18:00.000000 (1617121080000)
+Stock "PLTR" +0.18% (21.73)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 44.85 / Previous RSI: 50.86
+(PLTR) Time now: 2021-03-30 12:19:25, timestamp received from API 2021-03-30 16:19:00.000000 (1617121140000)
+Stock "PLTR" -0.01% (21.6887)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 42.68 / Previous RSI: 44.85
+(PLTR) Time now: 2021-03-30 12:20:25, timestamp received from API 2021-03-30 16:20:00.000000 (1617121200000)
+Stock "PLTR" -0.11% (21.6682)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 40.34 / Previous RSI: 42.68
+(PLTR) Time now: 2021-03-30 12:21:26, timestamp received from API 2021-03-30 16:21:00.000000 (1617121260000)
+Stock "PLTR" -0.1% (21.67)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 51.54 / Previous RSI: 40.34
+(PLTR) Time now: 2021-03-30 12:22:26, timestamp received from API 2021-03-30 16:22:00.000000 (1617121320000)
+Stock "PLTR" +0.22% (21.74)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 50.23 / Previous RSI: 51.54
+(PLTR) Time now: 2021-03-30 12:23:26, timestamp received from API 2021-03-30 16:23:00.000000 (1617121380000)
+Stock "PLTR" +0.18% (21.7299)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 52.18 / Previous RSI: 50.23
+(PLTR) Time now: 2021-03-30 12:24:27, timestamp received from API 2021-03-30 16:24:00.000000 (1617121440000)
+Stock "PLTR" +0.22% (21.74)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 53.41 / Previous RSI: 52.18
+(PLTR) Time now: 2021-03-30 12:25:27, timestamp received from API 2021-03-30 16:25:00.000000 (1617121500000)
+Stock "PLTR" +0.22% (21.74)
+
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 56.64 / Previous RSI: 53.41
+(PLTR) Time now: 2021-03-30 12:26:27, timestamp received from API 2021-03-30 16:26:00.000000 (1617121560000)
+Stock "PLTR" +0.36% (21.77)
+

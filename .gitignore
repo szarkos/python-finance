@@ -115,7 +115,8 @@ venv.bak/
 *.logs.txt
 LOGS
 log.txt
-.blacklist
+.stock-blacklist
+stocks.txt
 
 # Spyder project settings
 .spyderproject

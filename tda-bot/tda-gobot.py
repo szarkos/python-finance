@@ -33,7 +33,7 @@ args = parser.parse_args()
 
 debug = 1			# Should default to 0 eventually, testing for now
 incr_percent_threshold = 1.5	# Reset base_price if stock increases by this percent
-decr_percent_threshold = 1.5	# Max allowed drop percentag of the stock price
+decr_percent_threshold = 1.5	# Max allowed drop percentage of the stock price
 if args.debug:
 	debug = 1
 if args.decr_threshold:
@@ -156,8 +156,8 @@ while True:
 		percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
 		print('Stock "' +  str(stock) + '" +' + str(round(percent_change,2)) + '% (' + str(last_price) + ')')
 
-		# Re-set the base_price to the last_price if we increase by 5% or more
-		# This way we can continue to ride a price increase until it starts dropping.
+		# Re-set the base_price to the last_price if we increase by incr_percent_threshold or more
+		# This way we can continue to ride a price increase until it starts dropping
 		if ( percent_change >= incr_percent_threshold ):
 			base_price = last_price
 			print('Stock "' + str(stock) + '" increased above the incr_percent_threshold (' + str(incr_percent_threshold) + '%), resetting base price to ' + str(base_price))

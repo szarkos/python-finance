@@ -22,16 +22,25 @@ loopt = 60
 parser = argparse.ArgumentParser()
 parser.add_argument("stock", help='Stock ticker to purchase')
 parser.add_argument("stock_usd", help='Amount of money (USD) to invest', nargs='?', default=1000, type=float)
-parser.add_argument("-m", "--multiday", help="Watch stock until decr_threshold is reached. Do not sell and exit when market closes", action="store_true")
-parser.add_argument("-n", "--num_purchases", help="Number of purchases allowed per day", nargs='?', default=1, type=int)
-parser.add_argument("-o", "--notmarketclosed", help="Cancel order and exit if US stock market is closed", action="store_true")
-parser.add_argument("-d", "--debug", help="Enable debug output", action="store_true")
+parser.add_argument("-i", "--incr_threshold", help='Reset base_price if stock increases by this percent', type=float)
+parser.add_argument("-u", "--decr_threshold", help='Max allowed drop percentage of the stock price', type=float)
+parser.add_argument("-m", "--multiday", help='Watch stock until decr_threshold is reached. Do not sell and exit when market closes', action="store_true")
+parser.add_argument("-n", "--num_purchases", help='Number of purchases allowed per day', nargs='?', default=1, type=int)
+parser.add_argument("-o", "--notmarketclosed", help='Cancel order and exit if US stock market is closed', action="store_true")
+parser.add_argument("-s", "--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
+parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
 args = parser.parse_args()
 
+debug = 1			# Should default to 0 eventually, testing for now
+incr_percent_threshold = 1.5	# Reset base_price if stock increases by this percent
+decr_percent_threshold = 10	# Max allowed drop percentage of the stock price
 
-debug = 1 # Should default to 0 eventually, testing for now
 if args.debug:
 	debug = 1
+if args.decr_threshold:
+        decr_percent_threshold = args.decr_threshold
+if args.incr_threshold:
+        incr_percent_threshold = args.incr_threshold
 
 stock = args.stock
 stock_usd = args.stock_usd
@@ -94,13 +103,20 @@ while True:
 	# TODO: Test during pre-market and trading day.
 	#       Monitor any delay in market data and quality of the data
 
+	# Loop continuously while after hours if --multiday was set
+	# Trying to call the API or do anything below beyond post-market hours will result in an error
+	if ( tda_gobot_helper.ismarketopen_US() == False and args.multiday == True ):
+		prev_rsi = cur_rsi = 0
+		time.sleep(loopt*5)
+		continue
+
 	# Helpful datetime conversion hints: convert epoch milisecond to string:
 	#   start = int( datetime.datetime.strptime('2021-03-26 09:30:00', '%Y-%m-%d %H:%M:%S').replace(tzinfo=mytimezone).timestamp() * 1000 )
 	#   datetime.datetime.fromtimestamp(<epoch>/1000).strftime('%Y-%m-%d %H:%M:%S.%f')
 	#   datetime.datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
-	time_now = datetime.datetime.strptime('2021-03-29 15:59:00', '%Y-%m-%d %H:%M:%S').replace(tzinfo=mytimezone)
-#	time_now = datetime.datetime.now(mytimezone)
-	time_prev = time_now - datetime.timedelta( minutes=int(freq)*(rsiPeriod * 10) ) # Subtract enough time to ensure we get an RSI for the current period
+#	time_now = datetime.datetime.strptime('2021-03-29 15:59:00', '%Y-%m-%d %H:%M:%S').replace(tzinfo=mytimezone)
+	time_now = datetime.datetime.now(mytimezone)
+	time_prev = time_now - datetime.timedelta( minutes=int(freq)*(rsiPeriod * 20) ) # Subtract enough time to ensure we get an RSI for the current period
 	time_now_epoch = int( time_now.timestamp() * 1000 )
 	time_prev_epoch = int( time_prev.timestamp() * 1000 )
 
@@ -143,10 +159,10 @@ while True:
 			print('(' + str(stock) + ') Max number of purchases exhuasted, exiting.')
 			exit(0)
 
-		# End of trading day - exit
-#		if ( tda_gobot_helper.isendofday() == True or tda_gobot_helper.ismarketopen_US() == False ):
-#			print('(' + str(stock) + ') Market closed, exiting.')
-#			exit(0)
+		# End of trading day
+		if ( (tda_gobot_helper.isendofday() == True or tda_gobot_helper.ismarketopen_US() == False) and args.multiday == False ):
+			print('(' + str(stock) + ') Market closed, exiting.')
+			exit(0)
 
 		# Nothing to do if RSI hasn't dropped below rsi_low_limit (typically 30)
 		if ( cur_rsi > rsi_low_limit and prev_rsi > rsi_low_limit ):
@@ -188,17 +204,17 @@ while True:
 				# Purchase stock
 				if ( tda_gobot_helper.ismarketopen_US() == True ):
 					print('Purchasing ' + str(stock_qty) + ' shares of ' + str(stock))
-					data = tda_gobot_helper.buy_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
-					if ( data == False ):
-						print('Error: Unable to buy stock "' + str(ticker) + '"')
-						exit(1)
+#					data = tda_gobot_helper.buy_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+#					if ( data == False ):
+#						print('Error: Unable to buy stock "' + str(ticker) + '"')
+#						exit(1)
 
 				else:
 					print('Error: stock ' + str(stock) + ' not purchased because market is closed, exiting.')
 					exit(1)
 
 				orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
-				base_price = orig_base_price # Compat for now
+				base_price = orig_base_price
 				net_change = 0
 
 				tda_gobot_helper.log_monitor(stock, 0, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id)
@@ -223,12 +239,49 @@ while True:
 			continue
 
 		net_change = round( (last_price - orig_base_price) * stock_qty, 3 )
-		tda_gobot_helper.log_monitor(stock, 0, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id)
 
-		# End of trading day - dump the stock and exit
+		# If price decreases
+		if ( float(last_price) < float(base_price) ):
+			percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
+			if ( debug == 1 ):
+				print('Stock "' +  str(stock) + '" -' + str(round(percent_change, 2)) + '% (' + str(last_price) + ')')
+
+			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id)
+
+			if ( percent_change >= decr_percent_threshold and args.stoploss == True ):
+
+				# Sell the security
+				print('Stock ' + str(stock) + '" dropped below the decr_percent_threshold (' + str(decr_percent_threshold) + '%), selling the security...')
+#				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+
+				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, sold=True)
+				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+
+				prev_rsi = cur_rsi = 0
+				signal_mode = 'buy'
+				continue
+
+		# If price increases
+		elif ( float(last_price) > float(base_price) ):
+			percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
+			if ( debug == 1 ):
+				print('Stock "' +  str(stock) + '" +' + str(round(percent_change,2)) + '% (' + str(last_price) + ')')
+
+			# Re-set the base_price to the last_price if we increase by incr_percent_threshold or more
+			# This way we can continue to ride a price increase until it starts dropping
+			if ( percent_change >= incr_percent_threshold ):
+				base_price = last_price
+				print('Stock "' + str(stock) + '" increased above the incr_percent_threshold (' + str(incr_percent_threshold) + '%), resetting base price to '  + str(base_price))
+
+		# No price change
+		else:
+			tda_gobot_helper.log_monitor(stock, 0, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id)
+
+
+		# End of trading day - dump the stock and exit unless --multiday was set
 		if ( tda_gobot_helper.isendofday() == True and args.multiday == False ):
 			print('Market closing, selling stock ' + str(stock))
-			data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+#			data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, sold=True)
 			print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
@@ -252,7 +305,7 @@ while True:
 			if ( cur_rsi <= rsi_high_limit ):
 				print('(' + str(stock) + ') SELL SIGNAL: RSI passed below the high_limit threshold (' + str(round(prev_rsi, 2)) + ' / ' + str(round(cur_rsi, 2)) + ') - selling the security')
 
-				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+#				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, sold=True)
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 
@@ -270,5 +323,6 @@ while True:
 	time.sleep(loopt)
 
 
+# End main loop
 
 exit(0)

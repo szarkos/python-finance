@@ -275,7 +275,7 @@ while True:
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 
 				# Add to blacklist when sold at a loss
-				write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
+				tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
 
 				prev_rsi = cur_rsi = 0
 				signal_mode = 'buy'
@@ -310,7 +310,7 @@ while True:
 
 			# Add to blacklist if sold at a loss
 			if ( last_price < orig_base_price ):
-				write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
+				tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
 
 			exit(0)
 
@@ -338,7 +338,7 @@ while True:
 
 				# Add to blacklist if sold at a loss
 				if ( last_price < orig_base_price ):
-					write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
+					tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
 
 				signal_mode = 'buy'
 

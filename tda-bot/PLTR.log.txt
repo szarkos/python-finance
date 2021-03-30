@@ -809,3 +809,9 @@ Stock "PLTR" +0.22% (21.74)
 (PLTR) Time now: 2021-03-30 12:26:27, timestamp received from API 2021-03-30 16:26:00.000000 (1617121560000)
 Stock "PLTR" +0.36% (21.77)
 
+Error: get_price_history(PLTR, day, minute, 1, None, 1617104847932, 1617121647932): 401 Client Error: Unauthorized for url: https://api.tdameritrade.com/v1/marketdata/PLTR/pricehistory?periodType=day&frequencyType=minute&frequency=1&needExtendedHoursData=True&startDate=1617104847932&endDate=1617121647932
+(PLTR) RSI period: 14 / RSI type: ohlc4
+(PLTR) Current RSI: 55.21 / Previous RSI: 56.64
+(PLTR) Time now: 2021-03-30 12:27:33, timestamp received from API 2021-03-30 16:27:00.000000 (1617121620000)
+Stock "PLTR" +0.36% (21.7699)
+

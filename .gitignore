@@ -111,6 +111,8 @@ env.bak/
 venv.bak/
 .tokens
 *.log
+*.log.txt
+*.logs.txt
 LOGS
 log.txt
 .blacklist

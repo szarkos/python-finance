@@ -110,6 +110,10 @@ ENV/
 env.bak/
 venv.bak/
 .tokens
+*.log
+LOGS
+log.txt
+.blacklist
 
 # Spyder project settings
 .spyderproject

@@ -65,13 +65,14 @@ my %ignore = ( 	"AM"		=> 1,
 my @tickers = ();
 my $ticker = "";
 
-while ( $clean_body =~ /[\s\t\.,]+[A-Z]{2,6}([.-])?([A-Z]{3,6})?[\s\t,]/g )  {
+while ( $clean_body =~ /[\s\t\.,\(]+[A-Z]{2,6}([.-])?([A-Z]{3,6})?[\s\t,.\)]?/g )  {
 	$ticker = "$&";
 	$ticker =~ s/[\s\t]//g;
 	$ticker =~ s/\.$//;
 	$ticker =~ s/^\.//;
 	$ticker =~ s/\-$//;
 	$ticker =~ s/,//g;
+	$ticker =~ s/[\(\)]//g;
 	$ticker =~ s/\.//g if ( $ticker =~ /([A-Z]+\.){2,}/ ); # Fix A.B.C.D
 
 	next if ( exists($ignore{$ticker}) );

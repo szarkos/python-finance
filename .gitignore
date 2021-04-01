@@ -116,6 +116,7 @@ venv.bak/
 LOGS
 log.txt
 stocks.txt
+*.swp
 
 # Spyder project settings
 .spyderproject

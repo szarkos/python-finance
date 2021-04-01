@@ -546,11 +546,11 @@ def get_rsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 	return rsi
 
 
-# Return 10-day analysis for a stock ticker
+# Return 10-day and 5-day analysis for a stock ticker using the RSI algorithm
 def rsi_analyze(ticker=None, rsi_period=14, rsi_type='close', rsi_low_limit=30, rsi_high_limit=70, debug=False):
 
 	if ( ticker == None ):
-		return False
+		return False, []
 
 	try:
 		mytimezone
@@ -561,7 +561,7 @@ def rsi_analyze(ticker=None, rsi_period=14, rsi_type='close', rsi_low_limit=30, 
 	# Note: Not asking for extended hours for now since our bot doesn't even trade after hours
 	data, epochs = get_pricehistory(ticker, 'day', 'minute', '1', '10', needExtendedHoursData=False, debug=False)
 	if ( data == False ):
-		return False
+		return False, []
 
 	# with 10-day/1-min history there should be ~3900 datapoints in data['candles'] (6.5hrs * 60mins * 10days)
 	# Therefore, with an rsi_period of 14, get_rsi() will return a list of 3886 items
@@ -572,7 +572,12 @@ def rsi_analyze(ticker=None, rsi_period=14, rsi_type='close', rsi_low_limit=30, 
 
 
 	# Run through the RSI values and log the results
+	final_epoch = datetime.fromtimestamp(float(epochs[-1])/1000, tz=mytimezone)
+	fiveday_epoch = final_epoch - timedelta(days=5)
+
 	results = []
+	results_5d = []
+
 	prev_rsi = 0
 	counter = 13
 	signal_mode = 'buy'
@@ -595,15 +600,18 @@ def rsi_analyze(ticker=None, rsi_period=14, rsi_type='close', rsi_low_limit=30, 
 					# Sell
 					sell_price = float(data['candles'][counter]['close'])
 					net_change = sell_price - purchase_price
-					sell_time = datetime.fromtimestamp(float(data['candles'][counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
-
+					sell_time = datetime.fromtimestamp(float(data['candles'][counter]['datetime'])/1000, tz=mytimezone)
 					results.append( str(purchase_price) + ',' + str(sell_price) + ',' + str(net_change) + ',' +
-						str(purchase_time) + ',' + str(sell_time) )
+						str(purchase_time) + ',' + str(sell_time.strftime('%Y-%m-%d %H:%M:%S.%f')) )
+
+					if ( sell_time >= fiveday_epoch ):
+						results_5d.append( str(purchase_price) + ',' + str(sell_price) + ',' + str(net_change) + ',' +
+							str(purchase_time) + ',' + str(sell_time.strftime('%Y-%m-%d %H:%M:%S.%f')) )
 
 					signal_mode = 'buy'
 
 		prev_rsi = cur_rsi
 		counter += 1
 
-	return results
+	return results, results_5d
 

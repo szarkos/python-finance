@@ -104,42 +104,50 @@ rsi_high_limit = args.rsi_high_limit
 
 # --analyze
 if ( args.analyze == True):
-	print('Analyzing 10-day history for stock ' + str(stock) + ":\n")
-	results = tda_gobot_helper.rsi_analyze(stock, rsi_period, rsi_type, rsi_low_limit, rsi_high_limit, debug=True)
+	print('Analyzing 10-day history for stock ' + str(stock) + ':')
+	results, results_5d = tda_gobot_helper.rsi_analyze(stock, rsi_period, rsi_type, rsi_low_limit, rsi_high_limit, debug=True)
 	if ( results == False ):
 		exit(1)
 
-	success = fail = 0
-	net_gain = net_loss = 0
-	for r in results:
-		try:
-			purchase_price, sell_price, net_change, purchase_time, sell_time = r.split(',', 5)
-		except:
-			print('Err: nodata')
-			continue
-
-		if ( float(net_change) <= 0 ):
-			fail += 1
-			net_loss += float(net_change)
-
+	# Print the results for the full 10-days and the most recent 5-days
+	for i in ['results', 'results_5d']:
+		print()
+		if ( i == 'results' ):
+			print('Full 10-day results:')
 		else:
-			success += 1
-			net_gain += float(net_change)
+			print('5-day results:')
 
-		print(str(r))
+		success = fail = 0
+		net_gain = net_loss = 0
+		for r in locals()[i]:
+			try:
+				purchase_price, sell_price, net_change, purchase_time, sell_time = r.split(',', 5)
+			except:
+				print('Err: nodata')
+				continue
 
-	success_pct = (int(success) / int(len(results))) * 100	# % Successful trades using algorithm
-	fail_pct = ( int(fail) / int(len(results)) ) * 100	# % Failed trades using algorithm
-	average_gain = net_gain / int(len(results))		# Average improvement in price using algorithm
-	average_loss = net_loss / int(len(results))		# Average regression in price using algorithm
-	txs = int(len(results)) / 10				# Average buy or sell triggers per day
+			if ( float(net_change) <= 0 ):
+				fail += 1
+				net_loss += float(net_change)
+			else:
+				success += 1
+				net_gain += float(net_change)
 
-	print()
-	print( 'Average txs/day: ' + str(round(txs,2)))
-	print( 'Success rate: ' + str(round(success_pct, 2)) + '%' )
-	print( 'Fail rate: ' + str(round(fail_pct, 2)) + '%' )
-	print( 'Average gain: $' + str(round(average_gain, 2)) + ' / share' )
-	print( 'Average loss: $' + str(round(average_loss, 2)) + ' / share' )
+			print(str(r))
+
+		success_pct = (int(success) / int(len(results))) * 100	# % Successful trades using algorithm
+		fail_pct = ( int(fail) / int(len(results)) ) * 100	# % Failed trades using algorithm
+		average_gain = net_gain / int(len(results))		# Average improvement in price using algorithm
+		average_loss = net_loss / int(len(results))		# Average regression in price using algorithm
+		txs = int(len(results)) / 10				# Average buy or sell triggers per day
+
+		print()
+		print( 'Average txs/day: ' + str(round(txs,2)))
+		print( 'Success rate: ' + str(round(success_pct, 2)) + '%' )
+		print( 'Fail rate: ' + str(round(fail_pct, 2)) + '%' )
+		print( 'Average gain: $' + str(round(average_gain, 2)) + ' / share' )
+		print( 'Average loss: $' + str(round(average_loss, 2)) + ' / share' )
+
 	exit(0)
 
 

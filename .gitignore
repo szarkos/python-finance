@@ -115,7 +115,6 @@ venv.bak/
 *.logs.txt
 LOGS
 log.txt
-.stock-blacklist
 stocks.txt
 
 # Spyder project settings

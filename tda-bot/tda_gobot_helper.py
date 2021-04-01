@@ -44,6 +44,37 @@ def isendofday():
 def ismarketopen_US():
 	eastern = timezone('US/Eastern') # Observes EST and EDT
 	est_time = datetime.now(eastern)
+
+	# US market holidays - source: http://www.nasdaqtrader.com/trader.aspx?id=calendar
+	# I'm hardcoding these dates for now since the other python modules (i.e. python3-holidays)
+	#  do not quite line up with these days (i.e. Good Friday is not a federal holiday).
+
+	# 2021-01-01 - New Year's Day
+	# 2021-01-18 - Martin Luther King Jr. Day
+	# 2021-02-15 - President's Day
+	# 2021-04-02 - Good Friday
+	# 2021-05-31 - Memorial Day
+	# 2021-07-05 - Independence Day
+	# 2021-09-06 - Labor Day
+	# 2021-11-25 - Thanksgiving
+	# 2021-11-26 - This is actually an early close day (1:00PM Eastern)
+	# 2021-12-24 - Christmas Eve
+	#  Note: 12-25 is on Saturday this year
+
+	holidays = [	'2021-01-01',
+			'2021-01-18',
+			'2021-02-15',
+			'2021-04-02',
+			'2021-05-31',
+			'2021-07-05',
+			'2021-09-06',
+			'2021-11-25',
+			'2021-11-26',
+			'2021-12-24' ]
+
+	if ( est_time.strftime('%Y-%m-%d') ) in holidays:
+		return False
+
 	if ( int(est_time.strftime('%w')) != 0 and int(est_time.strftime('%w')) != 6 ): # 0=Sunday, 6=Saturday
 		if ( int(est_time.strftime('%-H')) >= 9 ):
 			if ( int(est_time.strftime('%-H')) == 9 ):
@@ -90,13 +121,13 @@ def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, ba
 	else:
 		net_change = '\033[0;32m' + str(net_change) + '\033[0m'
 
-	msg =	str(ticker)			+ ':' + \
-		str(percent_change)		+ ':' + \
-		str(round(last_price, 3))	+ ':' + \
-		str(round(net_change, 3))	+ ':' + \
-		str(round(base_price, 3))	+ ':' + \
-		str(round(orig_base_price, 3))	+ ':' + \
-		str(stock_qty)			+ ':' + \
+	msg =	str(ticker)				+ ':' + \
+		str(percent_change)			+ ':' + \
+		str(round(float(last_price), 3))	+ ':' + \
+		str(net_change)				+ ':' + \
+		str(round(float(base_price), 3))	+ ':' + \
+		str(round(float(orig_base_price), 3))	+ ':' + \
+		str(stock_qty)				+ ':' + \
 		str(sold)
 
 	fcntl.lockf( fh, fcntl.LOCK_EX )

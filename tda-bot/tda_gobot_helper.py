@@ -492,7 +492,7 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 #   hl2		[(H+L) / 2]
 #   hlc3	[(H+L+C) / 3]
 #   ohlc4	[(O+H+L+C) / 4]
-def get_rsi(pricehistory=None, rsiPeriod=14, type='close', debug=False):
+def get_rsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 
 	if ( pricehistory == None ):
 		return False
@@ -534,14 +534,76 @@ def get_rsi(pricehistory=None, rsiPeriod=14, type='close', debug=False):
 		# Undefined type
 		return False
 
-	if ( len(prices) < rsiPeriod ):
+	if ( len(prices) < rsi_period ):
 		# Something is wrong with the data we got back from tda.get_price_history()
-		print('Error: len(pricehistory) is less than rsiPeriod')
+		print('Error: len(pricehistory) is less than rsi_period')
 		return False
 
 	# Calculate the RSI for the entire numpy array
 	pricehistory = np.array( prices )
-	rsi = ti.rsi( pricehistory, period=rsiPeriod )
+	rsi = ti.rsi( pricehistory, period=rsi_period )
 
 	return rsi
+
+
+# Return 10-day analysis for a stock ticker
+def rsi_analyze(ticker=None, rsi_period=14, rsi_type='close', rsi_low_limit=30, rsi_high_limit=70, debug=False):
+
+	if ( ticker == None ):
+		return False
+
+	try:
+		mytimezone
+	except:
+		mytimezone = timezone("US/Eastern")
+
+	# Pull the 10-day, 1-minute stock history
+	# Note: Not asking for extended hours for now since our bot doesn't even trade after hours
+	data, epochs = get_pricehistory(ticker, 'day', 'minute', '1', '10', needExtendedHoursData=False, debug=False)
+	if ( data == False ):
+		return False
+
+	# with 10-day/1-min history there should be ~3900 datapoints in data['candles'] (6.5hrs * 60mins * 10days)
+	# Therefore, with an rsi_period of 14, get_rsi() will return a list of 3886 items
+	rsi = get_rsi(data, rsi_period, rsi_type, debug=False)
+	if ( debug == True ):
+		if ( len(rsi) != len(data['candles']) - rsi_period ):
+			print('Warning, unexpected length of rsi (data[candles]=' + str(len(data['candles'])) + ', rsi=' + str(len(rsi)) + ')')
+
+
+	# Run through the RSI values and log the results
+	results = []
+	prev_rsi = 0
+	counter = 13
+	signal_mode = 'buy'
+	for cur_rsi in rsi:
+
+		if ( prev_rsi == 0 ):
+			prev_rsi = cur_rsi
+
+		if ( signal_mode == 'buy' ):
+			if ( prev_rsi < rsi_low_limit and cur_rsi > prev_rsi ):
+				if ( cur_rsi >= rsi_low_limit ):
+					# Buy
+					purchase_price = float(data['candles'][counter]['close'])
+					purchase_time = datetime.fromtimestamp(float(data['candles'][counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+					signal_mode = 'sell'
+
+		if ( signal_mode == 'sell' ):
+			if ( prev_rsi > rsi_high_limit and cur_rsi < prev_rsi ):
+				if ( cur_rsi <= rsi_high_limit ):
+					# Sell
+					sell_price = float(data['candles'][counter]['close'])
+					net_change = sell_price - purchase_price
+					sell_time = datetime.fromtimestamp(float(data['candles'][counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+					results.append( str(purchase_price) + ',' + str(sell_price) + ',' + str(net_change) + ',' +
+						str(purchase_time) + ',' + str(sell_time) )
+
+					signal_mode = 'buy'
+
+		prev_rsi = cur_rsi
+		counter += 1
+
+	return results
 

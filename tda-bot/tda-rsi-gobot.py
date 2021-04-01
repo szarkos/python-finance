@@ -21,6 +21,7 @@ loopt = 60
 parser = argparse.ArgumentParser()
 parser.add_argument("stock", help='Stock ticker to purchase')
 parser.add_argument("stock_usd", help='Amount of money (USD) to invest', nargs='?', default=1000, type=float)
+parser.add_argument("-a", "--analyze", help='Analyze the 10-day history for a stock ticker using this bot\'s algorithim(s)', action="store_true")
 parser.add_argument("-f", "--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("-i", "--incr_threshold", help='Reset base_price if stock increases by this percent', type=float)
 parser.add_argument("-u", "--decr_threshold", help='Max allowed drop percentage of the stock price', type=float)
@@ -51,7 +52,7 @@ stock_usd = args.stock_usd
 num_purchases = args.num_purchases
 
 
-# Early exit criteria
+# Early exit criteria goes here
 if ( args.notmarketclosed == True and tda_gobot_helper.ismarketopen_US() == False ):
 	print('Canceled order to purchase $' + str(stock_usd) + ' of stock ' + str(stock) + ', because market is closed and --notmarketclosed was set')
 	exit(1)
@@ -84,13 +85,6 @@ if ( tda_gobot_helper.check_stock_symbol(stock) != True ):
 	print('Error: check_stock_symbol(' + str(stock) + ') returned False, exiting.')
 	exit(1)
 
-
-# This bot has two modes of operation -
-#   We start in the 'buy' mode where we are waiting for the right signal to purchase stock.
-#   Then after purchasing stock we switch to the 'sell' mode where we begin searching
-#   the signal to sell the stock.
-signal_mode = 'buy'
-
 # tda.get_price_history() variables
 mytimezone = pytz.timezone("US/Eastern")
 tda_gobot_helper.mytimezone = mytimezone
@@ -107,7 +101,56 @@ prev_rsi = 0
 rsi_low_limit = args.rsi_low_limit
 rsi_high_limit = args.rsi_high_limit
 
+
+# --analyze
+if ( args.analyze == True):
+	print('Analyzing 10-day history for stock ' + str(stock) + ":\n")
+	results = tda_gobot_helper.rsi_analyze(stock, rsi_period, rsi_type, rsi_low_limit, rsi_high_limit, debug=True)
+	if ( results == False ):
+		exit(1)
+
+	success = fail = 0
+	net_gain = net_loss = 0
+	for r in results:
+		try:
+			purchase_price, sell_price, net_change, purchase_time, sell_time = r.split(',', 5)
+		except:
+			print('Err: nodata')
+			continue
+
+		if ( float(net_change) <= 0 ):
+			fail += 1
+			net_loss += float(net_change)
+
+		else:
+			success += 1
+			net_gain += float(net_change)
+
+		print(str(r))
+
+	success_pct = (int(success) / int(len(results))) * 100	# % Successful trades using algorithm
+	fail_pct = ( int(fail) / int(len(results)) ) * 100	# % Failed trades using algorithm
+	average_gain = net_gain / int(len(results))		# Average improvement in price using algorithm
+	average_loss = net_loss / int(len(results))		# Average regression in price using algorithm
+	txs = int(len(results)) / 10				# Average buy or sell triggers per day
+
+	print()
+	print( 'Average txs/day: ' + str(round(txs,2)))
+	print( 'Success rate: ' + str(round(success_pct, 2)) + '%' )
+	print( 'Fail rate: ' + str(round(fail_pct, 2)) + '%' )
+	print( 'Average gain: $' + str(round(average_gain, 2)) + ' / share' )
+	print( 'Average loss: $' + str(round(average_loss, 2)) + ' / share' )
+	exit(0)
+
+
 # Main Loop
+#
+# This bot has two modes of operation -
+#   We start in the 'buy' mode where we are waiting for the right signal to purchase stock.
+#   Then after purchasing stock we switch to the 'sell' mode where we begin searching
+#   the signal to sell the stock.
+signal_mode = 'buy'
+
 while True:
 
 	# TODO: Test during pre-market and trading day.
@@ -150,7 +193,7 @@ while True:
 		continue
 
 	# Get the RSI values
-	rsi = tda_gobot_helper.get_rsi(data, rsi_period, type=rsi_type, debug=False)
+	rsi = tda_gobot_helper.get_rsi(data, rsi_period, rsi_type, debug=False)
 	if ( isinstance(rsi, bool) and rsi == False ):
 		time.sleep(loopt)
 		continue

@@ -571,7 +571,7 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 	# With 10-day/1-min history there should be ~3900 datapoints in data['candles'] (6.5hrs * 60mins * 10days)
 	# Therefore, with an rsi_period of 14, get_rsi() will return a list of 3886 items
 	rsi = get_rsi(data, rsi_period, rsi_type, debug=False)
-	if ( rsi == False ):
+	if ( isinstance(rsi, bool) and rsi == False ):
 		print('Error: get_rsi() returned false - no data')
 		return False
 	if ( debug == True ):

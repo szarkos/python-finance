@@ -536,7 +536,7 @@ def get_rsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 
 	if ( len(prices) < rsi_period ):
 		# Something is wrong with the data we got back from tda.get_price_history()
-		print('Error: len(pricehistory) is less than rsi_period')
+		print('Error: len(pricehistory) is less than rsi_period - is this a new stock ticker?')
 		return False
 
 	# Calculate the RSI for the entire numpy array
@@ -564,10 +564,16 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 	data, epochs = get_pricehistory(ticker, 'day', 'minute', '1', days, needExtendedHoursData=False, debug=False)
 	if ( data == False ):
 		return False
+	if ( int(len(data['candles'])) <= rsi_period ):
+		print('Not enough data - returned candles=' + str(len(data['candles'])) + ', rsi_period=' + str(rsi_period))
+		exit(0)
 
 	# With 10-day/1-min history there should be ~3900 datapoints in data['candles'] (6.5hrs * 60mins * 10days)
 	# Therefore, with an rsi_period of 14, get_rsi() will return a list of 3886 items
 	rsi = get_rsi(data, rsi_period, rsi_type, debug=False)
+	if ( rsi == False ):
+		print('Error: get_rsi() returned false - no data')
+		return False
 	if ( debug == True ):
 		if ( len(rsi) != len(data['candles']) - rsi_period ):
 			print('Warning, unexpected length of rsi (data[candles]=' + str(len(data['candles'])) + ', rsi=' + str(len(rsi)) + ')')

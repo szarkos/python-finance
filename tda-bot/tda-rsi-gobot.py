@@ -112,6 +112,9 @@ if ( args.analyze == True):
 		results = tda_gobot_helper.rsi_analyze(stock, days, rsi_period, rsi_type, rsi_low_limit, rsi_high_limit, debug=True)
 		if ( results == False ):
 			exit(1)
+		if ( int(len(results)) == 0 ):
+			print('There were no trades for requested time period, exiting.')
+			exit(0)
 
 		success = fail = 0
 		net_gain = net_loss = 0
@@ -143,6 +146,8 @@ if ( args.analyze == True):
 		print( 'Fail rate: ' + str(round(fail_pct, 2)) + '%' )
 		print( 'Average gain: $' + str(round(average_gain, 2)) + ' / share' )
 		print( 'Average loss: $' + str(round(average_loss, 2)) + ' / share' )
+
+		time.sleep(0.5)
 
 	exit(0)
 

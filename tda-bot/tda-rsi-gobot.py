@@ -21,7 +21,7 @@ loopt = 60
 parser = argparse.ArgumentParser()
 parser.add_argument("stock", help='Stock ticker to purchase')
 parser.add_argument("stock_usd", help='Amount of money (USD) to invest', nargs='?', default=1000, type=float)
-parser.add_argument("-a", "--analyze", help='Analyze the 10-day history for a stock ticker using this bot\'s algorithim(s)', action="store_true")
+parser.add_argument("-a", "--analyze", help='Analyze the most recent 5-day and 10-day history for a stock ticker using this bot\'s algorithim(s)', action="store_true")
 parser.add_argument("-f", "--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("-i", "--incr_threshold", help='Reset base_price if stock increases by this percent', type=float)
 parser.add_argument("-u", "--decr_threshold", help='Max allowed drop percentage of the stock price', type=float)
@@ -104,22 +104,18 @@ rsi_high_limit = args.rsi_high_limit
 
 # --analyze
 if ( args.analyze == True):
-	print('Analyzing 10-day history for stock ' + str(stock) + ':')
-	results, results_5d = tda_gobot_helper.rsi_analyze(stock, rsi_period, rsi_type, rsi_low_limit, rsi_high_limit, debug=True)
-	if ( results == False ):
-		exit(1)
 
-	# Print the results for the full 10-days and the most recent 5-days
-	for i in ['results', 'results_5d']:
+	# Print analysis results for the most recent 10 and 5 days of data
+	for days in ['10', '5']:
 		print()
-		if ( i == 'results' ):
-			print('Full 10-day results:')
-		else:
-			print('5-day results:')
+		print('Analyzing ' + str(days) + '-day history for stock ' + str(stock) + ':')
+		results = tda_gobot_helper.rsi_analyze(stock, days, rsi_period, rsi_type, rsi_low_limit, rsi_high_limit, debug=True)
+		if ( results == False ):
+			exit(1)
 
 		success = fail = 0
 		net_gain = net_loss = 0
-		for r in locals()[i]:
+		for r in results:
 			try:
 				purchase_price, sell_price, net_change, purchase_time, sell_time = r.split(',', 5)
 			except:

@@ -547,37 +547,33 @@ def get_rsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 
 
 # Return 10-day and 5-day analysis for a stock ticker using the RSI algorithm
-def rsi_analyze(ticker=None, rsi_period=14, rsi_type='close', rsi_low_limit=30, rsi_high_limit=70, debug=False):
+def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_limit=30, rsi_high_limit=70, debug=False):
 
 	if ( ticker == None ):
-		return False, []
+		return False
+	if ( int(days) > 10 ):
+		days = 10 # TDA API only allows 10-days of 1-minute daily data
 
 	try:
 		mytimezone
 	except:
 		mytimezone = timezone("US/Eastern")
 
-	# Pull the 10-day, 1-minute stock history
+	# Pull the 1-minute stock history
 	# Note: Not asking for extended hours for now since our bot doesn't even trade after hours
-	data, epochs = get_pricehistory(ticker, 'day', 'minute', '1', '10', needExtendedHoursData=False, debug=False)
+	data, epochs = get_pricehistory(ticker, 'day', 'minute', '1', days, needExtendedHoursData=False, debug=False)
 	if ( data == False ):
-		return False, []
+		return False
 
-	# with 10-day/1-min history there should be ~3900 datapoints in data['candles'] (6.5hrs * 60mins * 10days)
+	# With 10-day/1-min history there should be ~3900 datapoints in data['candles'] (6.5hrs * 60mins * 10days)
 	# Therefore, with an rsi_period of 14, get_rsi() will return a list of 3886 items
 	rsi = get_rsi(data, rsi_period, rsi_type, debug=False)
 	if ( debug == True ):
 		if ( len(rsi) != len(data['candles']) - rsi_period ):
 			print('Warning, unexpected length of rsi (data[candles]=' + str(len(data['candles'])) + ', rsi=' + str(len(rsi)) + ')')
 
-
 	# Run through the RSI values and log the results
-	final_epoch = datetime.fromtimestamp(float(epochs[-1])/1000, tz=mytimezone)
-	fiveday_epoch = final_epoch - timedelta(days=5)
-
 	results = []
-	results_5d = []
-
 	prev_rsi = 0
 	counter = 13
 	signal_mode = 'buy'
@@ -603,15 +599,10 @@ def rsi_analyze(ticker=None, rsi_period=14, rsi_type='close', rsi_low_limit=30, 
 					sell_time = datetime.fromtimestamp(float(data['candles'][counter]['datetime'])/1000, tz=mytimezone)
 					results.append( str(purchase_price) + ',' + str(sell_price) + ',' + str(net_change) + ',' +
 						str(purchase_time) + ',' + str(sell_time.strftime('%Y-%m-%d %H:%M:%S.%f')) )
-
-					if ( sell_time >= fiveday_epoch ):
-						results_5d.append( str(purchase_price) + ',' + str(sell_price) + ',' + str(net_change) + ',' +
-							str(purchase_time) + ',' + str(sell_time.strftime('%Y-%m-%d %H:%M:%S.%f')) )
-
 					signal_mode = 'buy'
 
 		prev_rsi = cur_rsi
 		counter += 1
 
-	return results, results_5d
+	return results
 

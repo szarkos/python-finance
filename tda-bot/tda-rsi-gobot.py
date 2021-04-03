@@ -14,7 +14,7 @@ import robin_stocks.tda as tda
 import tulipy as ti
 import tda_gobot_helper
 
-process_id = random.randint(1000, 9999) # Used to identify this process (i.e. for log_monitor)
+tx_id = random.randint(1000, 9999) # Used to identify each buy/sell transaction
 loopt = 60
 
 # Parse and check variables
@@ -206,9 +206,6 @@ signal_mode = 'buy'
 
 while True:
 
-	# TODO: Test during pre-market and trading day.
-	#       Monitor any delay in market data and quality of the data
-
 	# Loop continuously while after hours if --multiday was set
 	# Trying to call the API or do anything below beyond post-market hours will result in an error
 	if ( tda_gobot_helper.ismarketopen_US() == False ):
@@ -330,7 +327,7 @@ while True:
 				base_price = orig_base_price
 				net_change = 0
 
-				tda_gobot_helper.log_monitor(stock, 0, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id)
+				tda_gobot_helper.log_monitor(stock, 0, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id)
 
 				num_purchases -= 1
 				signal_mode = 'sell' # Switch to 'sell' mode for the next loop
@@ -359,7 +356,7 @@ while True:
 			if ( debug == 1 ):
 				print('Stock "' +  str(stock) + '" -' + str(round(percent_change, 2)) + '% (' + str(last_price) + ')')
 
-			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id)
+			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id)
 
 			if ( percent_change >= decr_percent_threshold and args.stoploss == True ):
 
@@ -367,13 +364,15 @@ while True:
 				print('Stock ' + str(stock) + '" dropped below the decr_percent_threshold (' + str(decr_percent_threshold) + '%), selling the security...')
 #				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
-				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, sold=True)
+				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, sold=True)
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 
 				# Add to blacklist when sold at a loss (>$100)
 				if ( net_change > 100 ):
 					tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
 
+				# Change signal to 'buy' and generate new tx_id for next iteration
+				tx_id = random.randint(1000, 9999)
 				prev_rsi = cur_rsi = 0
 				signal_mode = 'buy'
 				continue
@@ -390,11 +389,11 @@ while True:
 				base_price = last_price
 				print('Stock "' + str(stock) + '" increased above the incr_percent_threshold (' + str(incr_percent_threshold) + '%), resetting base price to '  + str(base_price))
 
-			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id)
+			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id)
 
 		# No price change
 		else:
-			tda_gobot_helper.log_monitor(stock, 0, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id)
+			tda_gobot_helper.log_monitor(stock, 0, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id)
 
 
 		# End of trading day - dump the stock and exit unless --multiday was set
@@ -402,7 +401,7 @@ while True:
 			print('Market closing, selling stock ' + str(stock))
 #			data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
-			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, sold=True)
+			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, sold=True)
 			print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 
 			# Add to blacklist if sold at a loss (>$100)
@@ -430,13 +429,15 @@ while True:
 				print('(' + str(stock) + ') SELL SIGNAL: RSI passed below the high_limit threshold (' + str(round(prev_rsi, 2)) + ' / ' + str(round(cur_rsi, 2)) + ') - selling the security')
 
 #				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
-				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, sold=True)
+				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, sold=True)
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 
 				# Add to blacklist if sold at a loss (>$100)
 				if ( last_price < orig_base_price and net_change > 100 ):
 					tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
 
+				# Change signal to 'buy' and generate new tx_id for next iteration
+				tx_id = random.randint(1000, 9999)
 				signal_mode = 'buy'
 
 

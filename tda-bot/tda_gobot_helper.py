@@ -1,7 +1,8 @@
 #!/usr/bin/python3 -u
 
-import os, fcntl, re
+import os, sys, fcntl
 import time
+import re
 from datetime import datetime, timedelta
 from pytz import timezone
 import tulipy as ti
@@ -40,7 +41,6 @@ def isendofday():
 
 # Returns True the US markets are open
 # Nasdaq and NYSE open at 9:30AM and close at 4:00PM, Monday-Friday
-# FIXME: This will still return True on US holidays
 def ismarketopen_US():
 	eastern = timezone('US/Eastern') # Observes EST and EDT
 	est_time = datetime.now(eastern)
@@ -106,7 +106,7 @@ def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, ba
 		fh = open( logfile, "wt" )
 	except OSError as e:
 		if ( debug == 1 ):
-			print('Error: log_monitor(): Unable to open file ' + str(logfile) + ', ' + e)
+			print('Error: log_monitor(): Unable to open file ' + str(logfile) + ', ' + e, file=sys.stderr)
 		return False
 
 	# Log format - stock:%change:last_price:net_change:base_price:orig_base_price
@@ -174,7 +174,7 @@ def write_blacklist(ticker=None, stock_qty=-1, orig_base_price=-1, last_price=-1
 		fh = open( blacklist, "wt" )
 	except OSError as e:
 		if ( debug == 1 ):
-			print('Error: write_blacklist(): Unable to open file ' + str(blacklist) + ', ' + e)
+			print('Error: write_blacklist(): Unable to open file ' + str(blacklist) + ', ' + e, file=sys.stderr)
 		return False
 
 	try:
@@ -220,7 +220,7 @@ def check_blacklist(ticker=None, debug=1):
 		fh = open( blacklist, "rt" )
 	except OSError as e:
 		if ( debug == 1 ):
-			print('Error: check_blacklist(): Unable to open file ' + str(blacklist) + ', ' + e)
+			print('Error: check_blacklist(): Unable to open file ' + str(blacklist) + ', ' + e, file=sys.stderr)
 		return False
 
 	try:
@@ -269,10 +269,10 @@ def get_lastprice(ticker=None, WarnDelayed=True, debug=False):
 
 	data,err = tda.stocks.get_quote(ticker, True)
 	if ( err != None ):
-		print('Error: get_lastprice(' + str(ticker) + '): ' + str(err))
+		print('Error: get_lastprice(' + str(ticker) + '): ' + str(err), file=sys.stderr)
 		return False
 	elif ( data == {} ):
-		print('Error: get_lastprice(' + str(ticker) + '): Empty data set')
+		print('Error: get_lastprice(' + str(ticker) + '): Empty data set', file=sys.stderr)
 		return False
 
 	if ( WarnDelayed == True and data[ticker]['delayed'] == 'true' ):
@@ -324,13 +324,13 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 			print(err)
 
 		if ( err != None ):
-			print('Error: buy_stock_marketprice(' + str(ticker) + '): attempt ' + str(attempt+1) + ', ' + str(err))
+			print('Error: buy_stock_marketprice(' + str(ticker) + '): attempt ' + str(attempt+1) + ', ' + str(err), file=sys.stderr)
 			if ( attempt == num_attempts-1 ):
 				return False
 
 			# Try to log in again
 			if ( tdalogin(passcode) != True ):
-				print('Error: buy_stock_marketprice(): Login failure')
+				print('Error: buy_stock_marketprice(): Login failure', file=sys.stderr)
 
 			time.sleep(5)
 		else:
@@ -340,14 +340,14 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 	if ( debug == 1 ):
 		print(order_id)
 	if ( str(order_id) == '' ):
-		print('Error: buy_stock_marketprice('+ str(ticker) + '): Unable to get order ID')
+		print('Error: buy_stock_marketprice('+ str(ticker) + '): Unable to get order ID', file=sys.stderr)
 		return False
 
 	data,err = tda.get_order(tda_account_number, order_id, True)
 	if ( debug == 1 ):
 		print(data)
 	if ( err != None ):
-		print('Error: buy_stock_marketprice(' + str(ticker) + '): ' + str(err))
+		print('Error: buy_stock_marketprice(' + str(ticker) + '): ' + str(err), file=sys.stderr)
 		return False
 
 	print('buy_stock_marketprice(' + str(ticker) + '): Order successfully placed (Order ID:' + str(order_id) + ')')
@@ -403,13 +403,13 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 			print(err)
 
 		if ( err != None ):
-			print('Error: sell_stock_marketprice(' + str(ticker) + '): attempt ' + str(attempt+1) + ',  ' + str(err))
+			print('Error: sell_stock_marketprice(' + str(ticker) + '): attempt ' + str(attempt+1) + ',  ' + str(err), file=sys.stderr)
 			if ( attempt == num_attempts-1 ):
 				return False
 
 			# Try to log in again
 			if ( tdalogin(passcode) != True ):
-				print('Error: sell_stock_marketprice(): Login failure')
+				print('Error: sell_stock_marketprice(): Login failure', file=sys.stderr)
 
 			time.sleep(5)
 		else:
@@ -419,14 +419,14 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 	if ( debug == 1 ):
 		print(order_id)
 	if ( str(order_id) == '' ):
-		print('Error: sell_stock_marketprice('+ str(ticker) + '): Unable to get order ID')
+		print('Error: sell_stock_marketprice('+ str(ticker) + '): Unable to get order ID', file=sys.stderr)
 		return False
 
 	data,err = tda.get_order(tda_account_number, order_id, True)
 	if ( debug == 1 ):
 		print(data)
 	if ( err != None ):
-		print('Error: sell_stock_marketprice(' + str(ticker) + '): ' + str(err))
+		print('Error: sell_stock_marketprice(' + str(ticker) + '): ' + str(err), file=sys.stderr)
 		return False
 
 	print('buy_stock_marketprice(' + str(ticker) + '): Order successfully placed (Order ID:' + str(order_id) + ')')
@@ -461,7 +461,7 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 
 		# 0=Sunday, 6=Saturday
 		if ( start == 0 or start == 6 or end == 0 or end == 6 ):
-			print('Error: start_date or end_date is out of market open and extended hours (weekend)')
+			print('Error: get_pricehistory(): start_date or end_date is out of market open and extended hours (weekend)')
 			return False, []
 
 	# Example: {'open': 236.25, 'high': 236.25, 'low': 236.25, 'close': 236.25, 'volume': 500, 'datetime': 1616796960000}
@@ -469,7 +469,7 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 	if ( err != None ):
 		print('Error: get_price_history(' + str(ticker) + ', ' + str(p_type) + ', ' +
 			str(f_type) + ', ' + str(freq) + ', ' + str(period) + ', ' +
-			str(start_date) + ', ' + str(end_date) +'): ' + str(err))
+			str(start_date) + ', ' + str(end_date) +'): ' + str(err), file=sys.stderr)
 
 		return False, []
 
@@ -535,7 +535,7 @@ def get_rsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 
 	if ( len(prices) < rsi_period ):
 		# Something is wrong with the data we got back from tda.get_price_history()
-		print('Error: len(pricehistory) is less than rsi_period - is this a new stock ticker?')
+		print('Error: get_pricehistory(): len(pricehistory) is less than rsi_period - is this a new stock ticker?', file=sys.stderr)
 		return False
 
 	# Calculate the RSI for the entire numpy array
@@ -571,7 +571,7 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 	# Therefore, with an rsi_period of 14, get_rsi() will return a list of 3886 items
 	rsi = get_rsi(data, rsi_period, rsi_type, debug=False)
 	if ( isinstance(rsi, bool) and rsi == False ):
-		print('Error: get_rsi() returned false - no data')
+		print('Error: get_rsi() returned false - no data', file=sys.stderr)
 		return False
 	if ( debug == True ):
 		if ( len(rsi) != len(data['candles']) - rsi_period ):

@@ -6,7 +6,7 @@
 #  - When the RSI begins to rise again we run tda-gobot.py to purchase and
 #      monitor the stock performance.
 
-import os
+import os, sys
 import time, datetime, pytz, random
 import argparse
 
@@ -65,7 +65,7 @@ if ( tda_gobot_helper.check_blacklist(stock) == True and args.force == False ):
 # Initialize and log into TD Ameritrade
 from dotenv import load_dotenv
 if ( load_dotenv() != True ):
-        print('Error: unable to load .env file')
+        print('Error: unable to load .env file', file=sys.stderr)
         exit(1)
 
 tda_account_number = os.environ["tda_account_number"]
@@ -76,7 +76,7 @@ tda_gobot_helper.tda_account_number = tda_account_number
 tda_gobot_helper.passcode = passcode
 
 if ( tda_gobot_helper.tdalogin(passcode) != True ):
-	print('Error: Login failure')
+	print('Error: Login failure', file=sys.stderr)
 	exit(1)
 
 # Fix up and sanity check the stock symbol before proceeding
@@ -111,6 +111,7 @@ if ( args.analyze == True):
 		print('Analyzing ' + str(days) + '-day history for stock ' + str(stock) + ':')
 		results = tda_gobot_helper.rsi_analyze(stock, days, rsi_period, rsi_type, rsi_low_limit, rsi_high_limit, debug=True)
 		if ( results == False ):
+			print('Error: rsi_analyze() returned false', file=sys.stderr)
 			exit(1)
 		if ( int(len(results)) == 0 ):
 			print('There were no possible trades for requested time period, exiting.')
@@ -317,11 +318,11 @@ while True:
 					print('Purchasing ' + str(stock_qty) + ' shares of ' + str(stock))
 #					data = tda_gobot_helper.buy_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 #					if ( data == False ):
-#						print('Error: Unable to buy stock "' + str(ticker) + '"')
+#						print('Error: Unable to buy stock "' + str(ticker) + '"', file=sys.stderr)
 #						exit(1)
 
 				else:
-					print('Error: stock ' + str(stock) + ' not purchased because market is closed, exiting.')
+					print('Stock ' + str(stock) + ' not purchased because market is closed, exiting.')
 					exit(1)
 
 #fortesting			orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])

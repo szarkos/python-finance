@@ -289,6 +289,7 @@ def get_lastprice(ticker=None, WarnDelayed=True, debug=False):
 #  Ticker = stock ticker
 #  Quantity = amount of stock to purchase
 #  fillwait = (boolean) wait for order to be filled before returning
+#
 # Notes:
 #  - Global object "tda" needs to exist, and tdalogin() should be called first.
 def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False):
@@ -351,12 +352,18 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 		return False
 
 	print('buy_stock_marketprice(' + str(ticker) + '): Order successfully placed (Order ID:' + str(order_id) + ')')
-	if ( fillwait == True ):
-		while data['filledQuantity'] != quantity :
-			time.sleep(10)
+
+	# Loop and wait for order to be filled if fillwait==True
+	if ( fillwait == True and data['filledQuantity'] != quantity ):
+		while time.sleep(10):
 			data,err = tda.get_order(tda_account_number, order_id, True)
 			if ( debug == True ):
 				print(data)
+			if ( err != None ):
+				print('Error: buy_stock_marketprice(' + str(ticker) + '): problem in fillwait loop, ' + str(err), file=sys.stderr)
+				continue
+			if ( data['filledQuantity'] == quantity ):
+				break
 
 		print('buy_stock_marketprice(' + str(ticker) + '): Order completed (Order ID:' + str(order_id) + ')')
 
@@ -429,13 +436,19 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 		print('Error: sell_stock_marketprice(' + str(ticker) + '): ' + str(err), file=sys.stderr)
 		return False
 
-	print('buy_stock_marketprice(' + str(ticker) + '): Order successfully placed (Order ID:' + str(order_id) + ')')
-	if ( fillwait == True ):
-		while data['filledQuantity'] != quantity :
-			time.sleep(10)
+	print('sell_stock_marketprice(' + str(ticker) + '): Order successfully placed (Order ID:' + str(order_id) + ')')
+
+	# Loop and wait for order to be filled if fillwait==True
+	if ( fillwait == True and data['filledQuantity'] != quantity ):
+		while time.sleep(10):
 			data,err = tda.get_order(tda_account_number, order_id, True)
 			if ( debug == True ):
 				print(data)
+			if ( err != None ):
+				print('Error: sell_stock_marketprice(' + str(ticker) + '): problem in fillwait loop, ' + str(err), file=sys.stderr)
+				continue
+			if ( data['filledQuantity'] == quantity ):
+				break
 
 		print('sell_stock_marketprice(' + str(ticker) + '): Order completed (Order ID:' + str(order_id) + ')')
 

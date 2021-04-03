@@ -113,9 +113,10 @@ if ( args.analyze == True):
 		if ( results == False ):
 			exit(1)
 		if ( int(len(results)) == 0 ):
-			print('There were no trades for requested time period, exiting.')
+			print('There were no possible trades for requested time period, exiting.')
 			exit(0)
 
+		rating = 0
 		success = fail = 0
 		net_gain = net_loss = 0
 		for r in results:
@@ -142,11 +143,13 @@ if ( args.analyze == True):
 
 		print()
 		if ( txs < 1 ):
+			rating -= 1
 			print( 'Average txs/day: \033[0;31m' + str(round(txs,2)) + '\033[0m' )
 		else:
 			print( 'Average txs/day: \033[0;32m' + str(round(txs,2)) + '\033[0m' )
 
 		if ( success_pct <= fail_pct ):
+			rating -= 4
 			print( 'Success rate: \033[0;31m' + str(round(success_pct, 2)) + '%\033[0m' )
 			print( 'Fail rate: \033[0;31m' + str(round(fail_pct, 2)) + '%\033[0m' )
 		else:
@@ -154,6 +157,7 @@ if ( args.analyze == True):
 			print( 'Fail rate: \033[0;32m' + str(round(fail_pct, 2)) + '%\033[0m' )
 
 		if ( average_gain <= average_loss ):
+			rating -= 8
 			print( 'Average gain: \033[0;31m$' + str(round(average_gain, 2)) + ' / share\033[0m' )
 			print( 'Average loss: \033[0;31m$' + str(round(average_loss, 2)) + ' / share\033[0m' )
 		else:
@@ -164,11 +168,27 @@ if ( args.analyze == True):
 		if ( last_price != False ):
 			avg_gain_per_share = float(average_gain) / float(last_price) * 100
 			if ( avg_gain_per_share < 1 ):
+				rating -= 1
 				print( 'Average gain per share: \033[0;31m' + str(round(avg_gain_per_share, 3)) + '%\033[0m' )
-				print( 'Warning: Average return per share is less than 1%' )
 			else:
 				print( 'Average gain per share: \033[0;32m' + str(round(avg_gain_per_share, 3)) + '%\033[0m' )
 
+		# First attempt to rate the stock based on above metrics
+		#   txs < 1 = -1 point
+		#   avg_gain_per_share < 1 = -1 points
+		#   success_pct <= fail_pct = -4 points
+		#   average_gain <= average_loss = -8 points
+		if ( success_pct <= fail_pct and average_gain <= average_loss ):
+			print( 'Stock rating: \033[0;31mFAIL\033[0m' )
+			continue
+		if ( rating == 0 ):
+			print( 'Stock rating: \033[0;32mVery Good\033[0m' )
+		elif ( rating == -1 ):
+			print( 'Stock rating: \033[0;32mGood\033[0m' )
+		elif ( rating <= -4 ):
+			print( 'Stock rating: \033[0;31mBad\033[0m' )
+		elif ( rating <= -2 ):
+			print( 'Stock rating: \033[0;31mPoor\033[0m' )
 
 		time.sleep(0.5)
 

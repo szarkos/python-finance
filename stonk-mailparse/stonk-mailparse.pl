@@ -27,9 +27,10 @@ $clean_body =~ s/[\r\n]/ /g;
 $obj->eof;
 
 # For Deadnsyde we are only interested in the $100 subscription emails
-if ( $clean_body =~ /Deadnsyde/i && $clean_body !~ /\$100/ )  {
+#if ( $clean_body =~ /Deadnsyde/i && $clean_body !~ /\$100/ )  {
+if ( $clean_body =~ /Deadnsyde/i && $clean_body =~ /99C Members/i )  {
 	if ( $debug == 1 )  {
-		do_log('Did not find mention of "$100" members in Deadnsyde email');
+		do_log('Ignoring the 99C members email');
 	}
 	exit(0);
 }
@@ -46,6 +47,7 @@ my %ignore = ( 	"AM"		=> 1,
 		"CFO"		=> 1,
 		"VR"		=> 1,
 		"LLC"		=> 1,
+		"FDA"		=> 1,
 		"CA"		=> 1,
 		"LOT"		=> 1,
 		"ETF"		=> 1,

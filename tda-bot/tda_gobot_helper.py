@@ -60,7 +60,6 @@ def ismarketopen_US():
 	# 2021-11-26 - This is actually an early close day (1:00PM Eastern)
 	# 2021-12-24 - Christmas Eve
 	#  Note: 12-25 is on Saturday this year
-
 	holidays = [	'2021-01-01',
 			'2021-01-18',
 			'2021-02-15',

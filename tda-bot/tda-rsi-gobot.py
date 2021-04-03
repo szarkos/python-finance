@@ -27,6 +27,8 @@ parser.add_argument("-m", "--multiday", help='Watch stock until decr_threshold i
 parser.add_argument("-n", "--num_purchases", help='Number of purchases allowed per day', nargs='?', default=1, type=int)
 parser.add_argument("-o", "--notmarketclosed", help='Cancel order and exit if US stock market is closed', action="store_true")
 parser.add_argument("-s", "--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
+parser.add_argument("-t", "--max_failed_txs", help='Maximum number of failed transactions allowed for a given stock before stock is blacklisted', default=2, type=int)
+parser.add_argument("-x", "--max_failed_usd", help='Maximum allowed USD for a failed transaction before the stock is blacklisted', default=100, type=int)
 parser.add_argument("-p", "--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
 parser.add_argument("-r", "--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='ohlc4', type=str)
 parser.add_argument("-g", "--rsi_high_limit", help='RSI high limit', default=70, type=int)
@@ -48,7 +50,7 @@ if args.incr_threshold:
 stock = args.stock
 stock_usd = args.stock_usd
 num_purchases = args.num_purchases
-
+failed_txs = args.max_failed_txs
 
 # Early exit criteria goes here
 if ( args.notmarketclosed == True and tda_gobot_helper.ismarketopen_US() == False ):
@@ -248,21 +250,15 @@ while True:
 			print('(' + str(stock) + ') Market closed, exiting.')
 			exit(0)
 
-	# Helpful datetime conversion hints: convert epoch milisecond to string:
+	# Helpful datetime conversion hints:
 	#   start = int( datetime.datetime.strptime('2021-03-26 09:30:00', '%Y-%m-%d %H:%M:%S').replace(tzinfo=mytimezone).timestamp() * 1000 )
 	#   datetime.datetime.fromtimestamp(<epoch>/1000).strftime('%Y-%m-%d %H:%M:%S.%f')
 	#   datetime.datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
-#	time_now = datetime.datetime.strptime('2021-03-29 15:59:00', '%Y-%m-%d %H:%M:%S').replace(tzinfo=mytimezone)
+	#   time_now = datetime.datetime.strptime('2021-03-29 15:59:00', '%Y-%m-%d %H:%M:%S').replace(tzinfo=mytimezone)
 	time_now = datetime.datetime.now(mytimezone)
 	time_prev = time_now - datetime.timedelta( minutes=int(freq)*(rsi_period * 20) ) # Subtract enough time to ensure we get an RSI for the current period
 	time_now_epoch = int( time_now.timestamp() * 1000 )
 	time_prev_epoch = int( time_prev.timestamp() * 1000 )
-
-	# Debug stuff
-	#print(time_now.strftime('%Y-%m-%d %H:%M:%S'))
-	#print(time_prev.strftime('%Y-%m-%d %H:%M:%S'))
-	#print(time_now_epoch)
-	#print(time_prev_epoch)
 
 	# Pull the data stock history to calculate the RSI
 	data, epochs = tda_gobot_helper.get_pricehistory(stock, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, needExtendedHoursData=True, debug=False)
@@ -292,6 +288,10 @@ while True:
 
 	# BUY MODE - looking for a signal to purchase the stock
 	if ( signal_mode == 'buy' ):
+
+		# Exit if we've exhausted our maximum number of failed transactions for this stock
+		if ( failed_txs <= 0 ):
+			print('(' + str(stock) + ') Max number of failed transactions reached (' + str(failed_txs) + '), exiting.')
 
 		# Exit if we've exhausted our maximum number of purchases for the day
 		if ( num_purchases < 1 ):
@@ -397,9 +397,12 @@ while True:
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, sold=True)
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 
-				# Add to blacklist when sold at a loss (>$100)
-				if ( net_change > 100 ):
-					tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
+				# Add to blacklist when sold at a loss greater than max_failed_usd, or if we've exceeded failed_tx
+				if ( net_change < 0 ):
+					failed_txs -= 1
+					if ( abs(net_change) > args.max_failed_usd or failed_txs == 0 ):
+						failed_txs = 0
+						tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
 
 				# Change signal to 'buy' and generate new tx_id for next iteration
 				tx_id = random.randint(1000, 9999)
@@ -434,8 +437,8 @@ while True:
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, sold=True)
 			print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 
-			# Add to blacklist if sold at a loss (>$100)
-			if ( last_price < orig_base_price and net_change > 100 ):
+			# Add to blacklist if sold at a loss greater than max_failed_usd
+			if ( net_change < 0 and abs(net_change) > args.max_failed_usd ):
 				tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
 
 			exit(0)
@@ -462,9 +465,12 @@ while True:
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, sold=True)
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 
-				# Add to blacklist if sold at a loss (>$100)
-				if ( last_price < orig_base_price and net_change > 100 ):
-					tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
+				# Add to blacklist if sold at a loss greater than max_failed_usd, or if we've exceeded failed_txs
+				if ( net_change < 0 ):
+					failed_txs -= 1
+					if ( abs(net_change) > args.max_failed_usd or failed_txs == 0 ):
+						failed_txs = 0
+						tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
 
 				# Change signal to 'buy' and generate new tx_id for next iteration
 				tx_id = random.randint(1000, 9999)

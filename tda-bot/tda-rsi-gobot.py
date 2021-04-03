@@ -141,11 +141,34 @@ if ( args.analyze == True):
 		txs = int(len(results)) / 10				# Average buy or sell triggers per day
 
 		print()
-		print( 'Average txs/day: ' + str(round(txs,2)))
-		print( 'Success rate: ' + str(round(success_pct, 2)) + '%' )
-		print( 'Fail rate: ' + str(round(fail_pct, 2)) + '%' )
-		print( 'Average gain: $' + str(round(average_gain, 2)) + ' / share' )
-		print( 'Average loss: $' + str(round(average_loss, 2)) + ' / share' )
+		if ( txs < 1 ):
+			print( 'Average txs/day: \033[0;31m' + str(round(txs,2)) + '\033[0m' )
+		else:
+			print( 'Average txs/day: \033[0;32m' + str(round(txs,2)) + '\033[0m' )
+
+		if ( success_pct <= fail_pct ):
+			print( 'Success rate: \033[0;31m' + str(round(success_pct, 2)) + '%\033[0m' )
+			print( 'Fail rate: \033[0;31m' + str(round(fail_pct, 2)) + '%\033[0m' )
+		else:
+			print( 'Success rate: \033[0;32m' + str(round(success_pct, 2)) + '%\033[0m' )
+			print( 'Fail rate: \033[0;32m' + str(round(fail_pct, 2)) + '%\033[0m' )
+
+		if ( average_gain <= average_loss ):
+			print( 'Average gain: \033[0;31m$' + str(round(average_gain, 2)) + ' / share\033[0m' )
+			print( 'Average loss: \033[0;31m$' + str(round(average_loss, 2)) + ' / share\033[0m' )
+		else:
+			print( 'Average gain: \033[0;32m$' + str(round(average_gain, 2)) + ' / share\033[0m' )
+			print( 'Average loss: \033[0;32m$' + str(round(average_loss, 2)) + ' / share\033[0m' )
+
+		last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=False)
+		if ( last_price != False ):
+			avg_gain_per_share = float(average_gain) / float(last_price) * 100
+			if ( avg_gain_per_share < 1 ):
+				print( 'Average gain per share: \033[0;31m' + str(round(avg_gain_per_share, 3)) + '%\033[0m' )
+				print( 'Warning: Average return per share is less than 1%' )
+			else:
+				print( 'Average gain per share: \033[0;32m' + str(round(avg_gain_per_share, 3)) + '%\033[0m' )
+
 
 		time.sleep(0.5)
 

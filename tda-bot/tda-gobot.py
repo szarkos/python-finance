@@ -98,7 +98,7 @@ else:
 
 orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
 base_price = orig_base_price
-
+percent_change = 0
 
 # Main loop
 while True:

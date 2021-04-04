@@ -233,6 +233,7 @@ if ( args.analyze == True):
 #   Then after purchasing stock we switch to the 'sell' mode where we begin searching
 #   the signal to sell the stock.
 tx_id = random.randint(1000, 9999) # Used to identify each buy/sell transaction
+percent_change = 0
 signal_mode = 'buy'
 loopt = 60
 

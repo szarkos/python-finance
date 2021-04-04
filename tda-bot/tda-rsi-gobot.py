@@ -367,6 +367,11 @@ while True:
 	# SELL MODE - looking for a signal to sell the stock
 	elif ( signal_mode == 'sell' ):
 
+		# Check to see if we are near the beginning of a new trading day
+		# The intent of this variable is to tune the algorithm to be more sensitive
+		#   to the typical volitility during the opening minutes of the trading day.
+		newday = tda_gobot_helper.isnewday()
+
 		# In 'sell' mode we also want to monitor the stock price along with RSI
 		last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=False)
 		if ( last_price == False ):
@@ -459,8 +464,14 @@ while True:
 				print('(' + str(stock) + ') RSI above ' + str(rsi_high_limit) + ' and is now dropping (' + str(round(prev_rsi, 2)) + ' / ' + str(round(cur_rsi, 2)) + ')')
 
 			# RSI crossed below the rsi_high_limit threshold - this is the SELL signal
-			if ( cur_rsi <= rsi_high_limit ):
-				print('(' + str(stock) + ') SELL SIGNAL: RSI passed below the high_limit threshold (' + str(round(prev_rsi, 2)) + ' / ' + str(round(cur_rsi, 2)) + ') - selling the security')
+			#
+			# At this point we know the RSI is dropping from a high above rsi_high_limit (i.e. 70).
+			#   We will always sell if the RSI drops below the rsi_high_limit, but if newday=True then
+			#   we take a more conservative approach and sell as soon as it start dropping.
+			if ( cur_rsi <= rsi_high_limit or newday == True ):
+				print('(' + str(stock) + ') SELL SIGNAL: RSI passed below the high_limit threshold (' +
+					str(round(prev_rsi, 2)) + ' / ' + str(round(cur_rsi, 2)) + ' / newday=' + str(newday) +
+					') - selling the security')
 
 #				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, sold=True)

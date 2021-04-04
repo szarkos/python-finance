@@ -22,8 +22,8 @@ def tdalogin(passcode=None):
 	return True
 
 
-# Returns True if it's near the end of the trading day
-#  Currently returns true if it's 5-minutes or less from 4:00PM Eastern
+# Returns True if it is near the end of the trading day
+#  Currently returns True if it's 5-minutes or less from 4:00PM Eastern
 # Nasdaq and NYSE open at 9:30AM and close at 4:00PM
 def isendofday():
 	eastern = timezone('US/Eastern') # Observes EST and EDT
@@ -35,6 +35,18 @@ def isendofday():
 #	if ( int(est_time.strftime('%-H')) == 10 and int(est_time.strftime('%-M')) >= 30 ):
 #		return True
 	## Testing
+
+	return False
+
+
+# Returns True if it is currently near the beginning of a new trading day
+#  Currently returns True if it's 15 minutes from the market open
+def isnewday():
+	eastern = timezone('US/Eastern') # Observes EST and EDT
+	est_time = datetime.now(eastern)
+	if ( int(est_time.strftime('%-H')) == 9 ):
+		if ( int(est_time.strftime('%-M')) >= 30 and int(est_time.strftime('%-M')) <= 45 ):
+			return True
 
 	return False
 
@@ -285,6 +297,71 @@ def get_lastprice(ticker=None, WarnDelayed=True, debug=False):
 	return float(data[ticker]['lastPrice'])
 
 
+# Return a list with the price history of a given stock
+# Useful for calculating various indicators such as RSI
+def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=None, start_date=None, end_date=None, needExtendedHoursData=False, debug=False):
+
+	if ( ticker == None ):
+		return False, []
+
+	# TDA API is picky, validate start/end dates
+	if ( start_date != None and end_date != None):
+		try:
+			mytimezone
+		except:
+			mytimezone = timezone("US/Eastern")
+
+		start = int( datetime.fromtimestamp(start_date/1000, tz=mytimezone).strftime('%w') )
+		end = int( datetime.fromtimestamp(start_date/1000, tz=mytimezone).strftime('%w') )
+
+		# 0=Sunday, 6=Saturday
+		if ( start == 0 or start == 6 or end == 0 or end == 6 ):
+			print('Error: get_pricehistory(): start_date or end_date is out of market open and extended hours (weekend)')
+			return False, []
+
+	# Example: {'open': 236.25, 'high': 236.25, 'low': 236.25, 'close': 236.25, 'volume': 500, 'datetime': 1616796960000}
+	data,err = tda.get_price_history(ticker, p_type, f_type, freq, period, start_date=start_date, end_date=end_date, needExtendedHoursData=needExtendedHoursData, jsonify=True)
+	if ( err != None ):
+		print('Error: get_price_history(' + str(ticker) + ', ' + str(p_type) + ', ' +
+			str(f_type) + ', ' + str(freq) + ', ' + str(period) + ', ' +
+			str(start_date) + ', ' + str(end_date) +'): ' + str(err), file=sys.stderr)
+
+		return False, []
+
+	epochs = []
+	for key in data['candles']:
+		epochs.append(float(key['datetime']))
+
+	return data, epochs
+
+
+# Calculate the high, low and average stock price
+def get_price_stats(ticker=None, days=10, debug=False):
+
+	if ( ticker == None ):
+		return False, 0, 0
+	if ( int(days) > 10 ):
+		days = 10 # TDA API only allows 10-days of 1-minute data
+
+	data, epochs = get_pricehistory(ticker, 'day', 'minute', '1', days, needExtendedHoursData=True, debug=False)
+	if ( data == False ):
+		return False, 0, 0
+
+	high = avg = 0
+	low = 999999
+	for key in data['candles']:
+		avg += float(key['close'])
+		if ( float(key['close']) > high ):
+			high = float(key['close'])
+		if ( float(key['close']) < low ):
+			low = float(key['close'])
+
+	avg = round(avg / int(len(data['candles'])), 4)
+
+	# Return the high, low and average stock price
+	return high, low, avg
+
+
 # Purchase a stock at Market price
 #  Ticker = stock ticker
 #  Quantity = amount of stock to purchase
@@ -453,44 +530,6 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 		print('sell_stock_marketprice(' + str(ticker) + '): Order completed (Order ID:' + str(order_id) + ')')
 
 	return data
-
-
-# Return a list with the price history of a given stock
-# Useful for calculating various indicators such as RSI
-def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=None, start_date=None, end_date=None, needExtendedHoursData=False, debug=False):
-
-	if ( ticker == None ):
-		return False, []
-
-	# TDA API is picky, validate start/end dates
-	if ( start_date != None and end_date != None):
-		try:
-			mytimezone
-		except:
-			mytimezone = timezone("US/Eastern")
-
-		start = int( datetime.fromtimestamp(start_date/1000, tz=mytimezone).strftime('%w') )
-		end = int( datetime.fromtimestamp(start_date/1000, tz=mytimezone).strftime('%w') )
-
-		# 0=Sunday, 6=Saturday
-		if ( start == 0 or start == 6 or end == 0 or end == 6 ):
-			print('Error: get_pricehistory(): start_date or end_date is out of market open and extended hours (weekend)')
-			return False, []
-
-	# Example: {'open': 236.25, 'high': 236.25, 'low': 236.25, 'close': 236.25, 'volume': 500, 'datetime': 1616796960000}
-	data,err = tda.get_price_history(ticker, p_type, f_type, freq, period, start_date=start_date, end_date=end_date, needExtendedHoursData=needExtendedHoursData, jsonify=True)
-	if ( err != None ):
-		print('Error: get_price_history(' + str(ticker) + ', ' + str(p_type) + ', ' +
-			str(f_type) + ', ' + str(freq) + ', ' + str(period) + ', ' +
-			str(start_date) + ', ' + str(end_date) +'): ' + str(err), file=sys.stderr)
-
-		return False, []
-
-	epochs = []
-	for key in data['candles']:
-		epochs.append(float(key['datetime']))
-
-	return data, epochs
 
 
 # Return numpy array of RSI values for a given price history.

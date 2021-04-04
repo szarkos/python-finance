@@ -587,7 +587,7 @@ def get_rsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 
 	if ( len(prices) < rsi_period ):
 		# Something is wrong with the data we got back from tda.get_price_history()
-		print('Error: get_pricehistory(): len(pricehistory) is less than rsi_period - is this a new stock ticker?', file=sys.stderr)
+		print('Error: get_rsi(): len(pricehistory) is less than rsi_period - is this a new stock ticker?', file=sys.stderr)
 		return False
 
 	# Calculate the RSI for the entire numpy array
@@ -595,6 +595,61 @@ def get_rsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 	rsi = ti.rsi( pricehistory, period=rsi_period )
 
 	return rsi
+
+
+# Return numpy array of Stochastic RSI values for a given price history.
+# 'pricehistory' should be a data list obtained from get_pricehistory()
+def get_stochrsi(pricehistory=None, rsi_period=14, type='close', debug=False):
+
+	if ( pricehistory == None ):
+		return False
+
+	prices = []
+	if ( type == 'close' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['close']))
+
+	elif ( type == 'high' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['high']))
+
+	elif ( type == 'low' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['low']))
+
+	elif ( type == 'open' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['open']))
+
+	elif ( type == 'volume' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['volume']))
+
+	elif ( type == 'hl2' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+
+	elif ( type == 'hlc3' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+
+	elif ( type == 'ohlc4' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+
+	else:
+		# Undefined type
+		return False
+
+	if ( len(prices) < rsi_period ):
+		# Something is wrong with the data we got back from tda.get_price_history()
+		print('Error: get_stochrsi(): len(pricehistory) is less than rsi_period - is this a new stock ticker?', file=sys.stderr)
+		return False
+
+	pricehistory = np.array( prices )
+	stochrsi = ti.stochrsi( pricehistory, period=rsi_period )
+
+	return stochrsi
 
 
 # Return 10-day and 5-day analysis for a stock ticker using the RSI algorithm

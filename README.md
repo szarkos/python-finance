@@ -35,3 +35,7 @@ TODO / Notes
 
 - Add timestamps to print/log messages
 
+- Add email alerts
+  - This is a cheap alert mechanism, and might be useful to notify when a stock is put on the blacklist,
+    or to send out a report at the end of the day.
+

@@ -3,8 +3,7 @@
 # Monitor a stock's RSI value and make purchase decisions based off that value.
 #  - If the RSI drops below 30, then we monitor the RSI every minute until it
 #      starts to increase again.
-#  - When the RSI begins to rise again we run tda-gobot.py to purchase and
-#      monitor the stock performance.
+#  - When the RSI begins to rise again we purchase and monitor the stock performance.
 
 import os, sys
 import time, datetime, pytz, random
@@ -37,8 +36,8 @@ parser.add_argument("-d", "--debug", help='Enable debug output', action="store_t
 args = parser.parse_args()
 
 debug = 1			# Should default to 0 eventually, testing for now
-incr_percent_threshold = 1.5	# Reset base_price if stock increases by this percent
-decr_percent_threshold = 4.5	# Max allowed drop percentage of the stock price
+incr_percent_threshold = 1	# Reset base_price if stock increases by this percent
+decr_percent_threshold = 4	# Max allowed drop percentage of the stock price
 
 if args.debug:
 	debug = 1
@@ -52,6 +51,7 @@ stock_usd = args.stock_usd
 num_purchases = args.num_purchases
 failed_txs = args.max_failed_txs
 
+
 # Early exit criteria goes here
 if ( args.notmarketclosed == True and tda_gobot_helper.ismarketopen_US() == False ):
 	print('Canceled order to purchase $' + str(stock_usd) + ' of stock ' + str(stock) + ', because market is closed and --notmarketclosed was set')
@@ -60,7 +60,6 @@ if ( args.notmarketclosed == True and tda_gobot_helper.ismarketopen_US() == Fals
 if ( tda_gobot_helper.check_blacklist(stock) == True and args.force == False ):
 	print('(' + str(stock) + ') Error: stock found in blacklist file, exiting.')
 	exit(1)
-
 
 # Initialize and log into TD Ameritrade
 from dotenv import load_dotenv
@@ -256,12 +255,12 @@ while True:
 	#   datetime.datetime.fromtimestamp(<epoch>/1000).strftime('%Y-%m-%d %H:%M:%S.%f')
 	#   datetime.datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 	#   time_now = datetime.datetime.strptime('2021-03-29 15:59:00', '%Y-%m-%d %H:%M:%S').replace(tzinfo=mytimezone)
-	time_now = datetime.datetime.now(mytimezone)
+	time_now = datetime.datetime.now( mytimezone )
 	time_prev = time_now - datetime.timedelta( minutes=int(freq)*(rsi_period * 20) ) # Subtract enough time to ensure we get an RSI for the current period
 	time_now_epoch = int( time_now.timestamp() * 1000 )
 	time_prev_epoch = int( time_prev.timestamp() * 1000 )
 
-	# Pull the data stock history to calculate the RSI
+	# Pull the stock history that we'll use to calculate the RSI
 	data, epochs = tda_gobot_helper.get_pricehistory(stock, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, needExtendedHoursData=True, debug=False)
 	if ( data == False ):
 		time.sleep(5)
@@ -292,7 +291,7 @@ while True:
 
 		# Exit if we've exhausted our maximum number of failed transactions for this stock
 		if ( failed_txs <= 0 ):
-			print('(' + str(stock) + ') Max number of failed transactions reached (' + str(failed_txs) + '), exiting.')
+			print('(' + str(stock) + ') Max number of failed transactions reached (' + str(args.max_failed_txs) + '), exiting.')
 
 		# Exit if we've exhausted our maximum number of purchases for the day
 		if ( num_purchases < 1 ):
@@ -367,7 +366,7 @@ while True:
 	# SELL MODE - looking for a signal to sell the stock
 	elif ( signal_mode == 'sell' ):
 
-		# Check to see if we are near the beginning of a new trading day
+		# Check to see if we are near the beginning of a new trading day.
 		# The intent of this variable is to tune the algorithm to be more sensitive
 		#   to the typical volitility during the opening minutes of the trading day.
 		newday = tda_gobot_helper.isnewday()
@@ -394,9 +393,9 @@ while True:
 
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id)
 
+			# SELL the security if we are using a trailing stoploss
 			if ( percent_change >= decr_percent_threshold and args.stoploss == True ):
 
-				# Sell the security
 				print('Stock ' + str(stock) + '" dropped below the decr_percent_threshold (' + str(decr_percent_threshold) + '%), selling the security...')
 #				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
@@ -407,7 +406,6 @@ while True:
 				if ( net_change < 0 ):
 					failed_txs -= 1
 					if ( abs(net_change) > args.max_failed_usd or failed_txs == 0 ):
-						failed_txs = 0
 						tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
 
 				# Change signal to 'buy' and generate new tx_id for next iteration
@@ -463,7 +461,7 @@ while True:
 			if ( debug == 1 ):
 				print('(' + str(stock) + ') RSI above ' + str(rsi_high_limit) + ' and is now dropping (' + str(round(prev_rsi, 2)) + ' / ' + str(round(cur_rsi, 2)) + ')')
 
-			# RSI crossed below the rsi_high_limit threshold - this is the SELL signal
+			# Check if RSI crossed below the rsi_high_limit threshold - this is the SELL signal
 			#
 			# At this point we know the RSI is dropping from a high above rsi_high_limit (i.e. 70).
 			#   We will always sell if the RSI drops below the rsi_high_limit, but if newday=True then
@@ -481,13 +479,25 @@ while True:
 				if ( net_change < 0 ):
 					failed_txs -= 1
 					if ( abs(net_change) > args.max_failed_usd or failed_txs == 0 ):
-						failed_txs = 0
 						tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
 
 				# Change signal to 'buy' and generate new tx_id for next iteration
 				tx_id = random.randint(1000, 9999)
 				signal_mode = 'buy'
 
+
+	# SHORT SELL the stock
+	# In this mode we will monitor the RSI and initiate a short sale if the RSI is very high
+	elif ( signal_mode == 'short' ):
+		signal_mode = 'buy_to_cover'
+
+	# BUY_TO_COVER a previous short sale
+	# This mode must always follow a previous "short" signal. We will monitor the RSI and initiate
+	#   a buy-to-cover transaction to cover a previous short sale if the RSI if very low. We also
+	#   need to monitor stoploss in case the stock rises above a threshold.
+	elif ( signal_mode == 'buy_to_cover' ):
+		tx_id = random.randint(1000, 9999)
+		signal_mode = 'buy'
 
 	# Undefined mode - this shouldn't happen
 	else:

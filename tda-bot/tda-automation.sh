@@ -45,35 +45,27 @@ while [ 1 ]; do
 	printf "\033c"
 	echo -e "Stock\t% Change\tLast Price\tNet Change\tBase Price\tOriginal Base Price\tQuantity\tSold"
 
-	let OPEN_POSITIONS=0
 	for i in LOGS/*; do
 		line=$( cat "$i" | awk -F : '{print $1"\t"$2"%\t\t"$3"\t\t"$4"\t\t"$5"\t\t"$6"\t\t\t"$7"\t\t"$8}' )
 		echo -e "$line"
-
-		if [[ "$line" == *'False'* ]]; then
-			let OPEN_POSITIONS=$OPEN_POSITIONS+1
-		fi
 	done
 
-	# OPEN_POSITIONS==0 indicates that all securities have been sold and we should exit
-	if [ "$OPEN_POSITIONS" -eq 0 ]; then
-		let net_change=0
-		for i in LOGS/*; do
-			change=$( cat "$i" | awk -F : '{print $4}' | sed -r 's/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g' ) # Net Change
-			regexp='^-?[0-9]*([.][0-9]*)?$'
-			if ! [[ $change =~ $regexp ]] ; then
-				# $change is not a number, corrupted log? Skip it anyway...
-				echo "Err: $change is not a number?"
-				continue
-			fi
+	echo
 
-			net_change=$( echo "$net_change + $change" | bc )
-		done
+	let net_change=0
+	for i in LOGS/*; do
+		change=$( cat "$i" | awk -F : '{print $4}' | sed -r 's/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g' ) # Net Change
+		regexp='^-?[0-9]*([.][0-9]*)?$'
+		if ! [[ $change =~ $regexp ]] ; then
+			# $change is not a number, corrupted log? Skip it anyway...
+			#echo "Err: $change is not a number?"
+			continue
+		fi
 
-		echo -e "\nTotal Net Change: ${net_change}\n"
-		exit
-	fi
+		net_change=$( echo "$net_change + $change" | bc )
+	done
 
+	echo -e "\nTotal Net Change: ${net_change}\n"
 	sleep 10
 
 done

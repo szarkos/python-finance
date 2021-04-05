@@ -298,8 +298,11 @@ while True:
 			print('(' + str(stock) + ') Max number of purchases exhuasted, exiting.')
 			exit(0)
 
-		# End of trading day
-		if ( (tda_gobot_helper.isendofday() == True or tda_gobot_helper.ismarketopen_US() == False) and args.multiday == False ):
+		# Exit if end of trading day
+		# If --multiday isn't set then we do not want to start trading if the market is closed.
+		# Also if --multiday isn't set we should avoid buying any securities if it's within
+		#  1-hour from market close. Otherwise we may be forced to sell too early.
+		if ( (tda_gobot_helper.isendofday(60) == True or tda_gobot_helper.ismarketopen_US() == False) and args.multiday == False ):
 			print('(' + str(stock) + ') Market closed, exiting.')
 			exit(0)
 
@@ -343,17 +346,17 @@ while True:
 				# Purchase stock
 				if ( tda_gobot_helper.ismarketopen_US() == True ):
 					print('Purchasing ' + str(stock_qty) + ' shares of ' + str(stock))
-#					data = tda_gobot_helper.buy_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
-#					if ( data == False ):
-#						print('Error: Unable to buy stock "' + str(ticker) + '"', file=sys.stderr)
-#						exit(1)
+					data = tda_gobot_helper.buy_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+					if ( data == False ):
+						print('Error: Unable to buy stock "' + str(ticker) + '"', file=sys.stderr)
+						exit(1)
 
 				else:
 					print('Stock ' + str(stock) + ' not purchased because market is closed, exiting.')
 					exit(1)
 
-#fortesting			orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
-				orig_base_price = last_price
+				orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
+#fortesting			orig_base_price = last_price
 				base_price = orig_base_price
 				net_change = 0
 
@@ -397,7 +400,7 @@ while True:
 			if ( percent_change >= decr_percent_threshold and args.stoploss == True ):
 
 				print('Stock ' + str(stock) + '" dropped below the decr_percent_threshold (' + str(decr_percent_threshold) + '%), selling the security...')
-#				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, sold=True)
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
@@ -436,7 +439,7 @@ while True:
 		# End of trading day - dump the stock and exit unless --multiday was set
 		if ( tda_gobot_helper.isendofday() == True and args.multiday == False ):
 			print('Market closing, selling stock ' + str(stock))
-#			data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+			data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, sold=True)
 			print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
@@ -471,7 +474,7 @@ while True:
 					str(round(prev_rsi, 2)) + ' / ' + str(round(cur_rsi, 2)) + ' / newday=' + str(newday) +
 					') - selling the security')
 
-#				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, sold=True)
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 

@@ -22,19 +22,24 @@ def tdalogin(passcode=None):
 	return True
 
 
-# Returns True if it is near the end of the trading day
-#  Currently returns True if it's 5-minutes or less from 4:00PM Eastern
-# Nasdaq and NYSE open at 9:30AM and close at 4:00PM
-def isendofday():
+# Returns True if it is near the end of the trading day based
+#  on the number of minutes from the top of the hour (4:00PM Eastern)
+#
+# Note: Nasdaq and NYSE open at 9:30AM and close at 4:00PM
+#
+# Examples:
+#   isendofday(5) returns True if it's 5-minutes or less from market close (3:55)
+#   isendofday(60) returns True if it's 60-minutes or less from market close (3:00)
+def isendofday(mins=5):
+	if ( mins < 0 or mins > 60 ):
+		return False
+
 	eastern = timezone('US/Eastern') # Observes EST and EDT
 	est_time = datetime.now(eastern)
-	if ( int(est_time.strftime('%-H')) == 15 and int(est_time.strftime('%-M')) >= 55 ):
-		return True
 
-	## Testing (return true at 10:30AM ET)
-#	if ( int(est_time.strftime('%-H')) == 10 and int(est_time.strftime('%-M')) >= 30 ):
-#		return True
-	## Testing
+	mins = 60 - int(mins)
+	if ( int(est_time.strftime('%-H')) == 15 and int(est_time.strftime('%-M')) >= mins ):
+		return True
 
 	return False
 

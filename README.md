@@ -3,16 +3,12 @@
 TODO / Notes
 
 - Add short sell capability:
-  - Write new functions shortsell_stock_marketprice() and buytocover_stock_marketprice()
-    - I think the json is mostly the same, except "instruction" will be "SELL_SHORT" and "BUY_TO_COVER"
-      respectively. Need to test this.
-  - Add --short option to both tda-gobot.py and tda-rsi-gobot.py to enable short sale
+  - tda-rsi-gobot.py now has short selling capability (including --analyze)
   - Also add --short option to tda-sell-stock.py in case we immediately need to initiate a BUY_TO_COVER
-  - Fixup both tda-gobot.py and tda-rsi-gobot.py to enable short sale algorithm
-    - Add new "signal_mode" options "short" and "buy_to_cover"
-    - Essentially turns the algorithm upside down
-  - Enable algorithms to tda-rsi-gobot.py --analyze as well
+  - Fixup tda-gobot.py to enable short sale algorithm
+  - tda-automation.sh will probably need some work
   - See if we can find an automated way to determine if a stock is ETB (easy to buy) to avoid higher fees
+  -  No - the only way is to use a scanner to filter put NTB/HTB stocks
 
 - isnewday() functionality
   - Added to return True if we are withing 15-minutes of market opening where volitility is often higher.

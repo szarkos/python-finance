@@ -43,10 +43,10 @@ fi
 while [ 1 ]; do
 
 	printf "\033c"
-	echo -e "Stock\t% Change\tLast Price\tNet Change\tBase Price\tOriginal Base Price\tQuantity\tSold\tShort"
+	echo -e "Stock\t% Change\tLast Price\tNet Change\tBase Price\tOriginal Base Price\tQuantity\tShort\tSold"
 
 	for i in LOGS/*; do
-		line=$( cat "$i" | awk -F : '{print $1"\t"$2"%\t\t"$3"\t\t"$4"\t\t"$5"\t\t"$6"\t\t\t"$7"\t\t"$8"\t"$9}' )
+		line=$( cat "$i" | awk -F : '{print $1"\t"$2"%\t\t"$3"\t\t"$4"\t\t"$5"\t\t"$6"\t\t\t"$7"\t\t"$9"\t"$8}' )
 		echo -e "$line"
 	done
 
@@ -54,6 +54,7 @@ while [ 1 ]; do
 
 	let net_change=0
 	for i in LOGS/*; do
+		short=$( cat "$i" | awk -F : '{print $9}' )
 		change=$( cat "$i" | awk -F : '{print $4}' | sed -r 's/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g' ) # Net Change
 		regexp='^-?[0-9]*([.][0-9]*)?$'
 		if ! [[ $change =~ $regexp ]] ; then
@@ -62,7 +63,11 @@ while [ 1 ]; do
 			continue
 		fi
 
-		net_change=$( echo "$net_change + $change" | bc )
+		if [ "$short" == "False" ]; then
+			net_change=$( echo "$net_change + $change" | bc )
+		else
+			net_change=$( echo "$net_cahnge - $change" | bc )
+		fi
 	done
 
 	echo -e "\nTotal Net Change: ${net_change}\n"

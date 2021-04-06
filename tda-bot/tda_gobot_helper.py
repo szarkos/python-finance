@@ -553,7 +553,6 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 
 	ticker = str(ticker).upper()
 	num_attempts = 3 # Number of attempts to buy the stock in case of failure
-
 	order = {
 		"orderType": "MARKET",
 		"session": "NORMAL",
@@ -604,11 +603,14 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 	if ( err != None ):
 		print('Error: short_stock_marketprice(' + str(ticker) + '): ' + str(err), file=sys.stderr)
 		return False
+	elif ( data['status'] == 'AWAITING_MANUAL_REVIEW' ):
+		print('Error: short_stock_marketprice(' + str(ticker) + '): returned status indicates that stock is not available for shorting', file=sys.stderr)
+		return False
 
 	print('short_stock_marketprice(' + str(ticker) + '): Order successfully placed (Order ID:' + str(order_id) + ')')
 
 	# Loop and wait for order to be filled if fillwait==True
-	if ( fillwait == True and data['filledQuantity'] != quantity ):
+	if ( fillwait == True and float(data['filledQuantity']) != float(quantity) ):
 		while time.sleep(10):
 			data,err = tda.get_order(tda_account_number, order_id, True)
 			if ( debug == True ):
@@ -616,7 +618,7 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 			if ( err != None ):
 				print('Error: short_stock_marketprice(' + str(ticker) + '): problem in fillwait loop, ' + str(err), file=sys.stderr)
 				continue
-			if ( data['filledQuantity'] == quantity ):
+			if ( float(data['filledQuantity']) == float(quantity) ):
 				break
 
 		print('short_stock_marketprice(' + str(ticker) + '): Order completed (Order ID:' + str(order_id) + ')')

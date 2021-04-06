@@ -90,6 +90,21 @@ if ( tda_gobot_helper.check_stock_symbol(stock) != True ):
 	print('Error: check_stock_symbol(' + str(stock) + ') returned False, exiting.')
 	exit(1)
 
+# Confirm that we can short this stock
+if ( args.short == True or args.shortonly == True ):
+	data,err = tda.stocks.get_quote(stock, True)
+	if ( err != None ):
+		print('Error: get_quote(' + str(stock) + '): ' + str(err), file=sys.stderr)
+
+	if ( str(data[stock]['shortable']) == str(False) or str(data[stock]['marginable']) == str(False) ):
+		if ( args.shortonly == True ):
+			print('Error: stock(' + str(stock) + '): does not appear to be shortable, exiting.')
+			exit(1)
+		elif ( args.short == True ):
+			args.short = False
+			print('Warning: stock(' + str(stock) + '): does not appear to be shortable, disabling --short')
+
+
 # tda.get_price_history() variables
 mytimezone = pytz.timezone("US/Eastern")
 tda_gobot_helper.mytimezone = mytimezone
@@ -609,6 +624,17 @@ while True:
 				stock_qty = int( float(stock_usd) / float(last_price) )
 				if ( args.fake == False ):
 					data = tda_gobot_helper.short_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+					if ( data == False ):
+						if ( args.shortonly == True ):
+							print('Error: Unable to short "' + str(ticker) + '" - exiting.', file=sys.stderr)
+							exit(1)
+						elif ( args.short == True ):
+							print('Error: Unable to short "' + str(ticker) + '" - disabling shorting', file=sys.stderr)
+							args.short = False
+							signal_mode = 'buy'
+							time.sleep(1)
+							continue
+
 					orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
 				else:
 					orig_base_price = last_price

@@ -117,6 +117,7 @@ LOGS
 log.txt
 stocks.txt
 *.swp
+*.csv
 
 # Spyder project settings
 .spyderproject

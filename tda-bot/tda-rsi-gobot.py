@@ -567,6 +567,8 @@ while True:
 
 				if ( args.short == True ):
 					signal_mode = 'short'
+					time.sleep(1)
+					continue
 				else:
 					signal_mode = 'buy'
 
@@ -649,6 +651,8 @@ while True:
 				# Change signal to 'buy' and generate new tx_id for next iteration
 				tx_id = random.randint(1000, 9999)
 				signal_mode = 'buy'
+				time.sleep(1)
+				continue
 
 	# Undefined mode - this shouldn't happen
 	else:

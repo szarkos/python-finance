@@ -892,6 +892,8 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 						str(purchase_time) + ',' + str(sell_time) )
 
 					signal_mode = 'short'
+					counter += 1
+					continue
 
 		if ( signal_mode == 'short' ):
 			short = True
@@ -914,6 +916,8 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 						str(short_time) + ',' + str(buy_to_cover_time) )
 
 					signal_mode = 'buy'
+					counter += 1
+					continue
 
 		prev_rsi = cur_rsi
 		counter += 1

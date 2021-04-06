@@ -43,10 +43,10 @@ fi
 while [ 1 ]; do
 
 	printf "\033c"
-	echo -e "Stock\t% Change\tLast Price\tNet Change\tBase Price\tOriginal Base Price\tQuantity\tSold"
+	echo -e "Stock\t% Change\tLast Price\tNet Change\tBase Price\tOriginal Base Price\tQuantity\tSold\tShort"
 
 	for i in LOGS/*; do
-		line=$( cat "$i" | awk -F : '{print $1"\t"$2"%\t\t"$3"\t\t"$4"\t\t"$5"\t\t"$6"\t\t\t"$7"\t\t"$8}' )
+		line=$( cat "$i" | awk -F : '{print $1"\t"$2"%\t\t"$3"\t\t"$4"\t\t"$5"\t\t"$6"\t\t\t"$7"\t\t"$8"\t"$9}' )
 		echo -e "$line"
 	done
 

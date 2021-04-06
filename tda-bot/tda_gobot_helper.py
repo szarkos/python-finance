@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from pytz import timezone
 import tulipy as ti
 import numpy as np
-
+import pandas as pd
 
 # Login to tda using a passcode
 def tdalogin(passcode=None):
@@ -827,6 +827,50 @@ def get_stochrsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 	stochrsi = ti.stochrsi( pricehistory, period=rsi_period )
 
 	return stochrsi
+
+
+# Takes the pricehistory and returns a pandas dataframe with the VWAP
+# Example:
+#   data, epochs = tda_gobot_helper.get_pricehistory(stock, 'day', 'minute', '1', 1, needExtendedHoursData=True, debug=False)
+#   tda_gobot_helper.get_vwap(data)
+#
+# I'm honestly not sure I'm doing this right :)
+#
+#  1) Calculate the Typical Price for the period. [(High + Low + Close)/3)]
+#  2) Multiply the Typical Price by the period Volume (Typical Price x Volume)
+#  3) Create a Cumulative Total of Typical Price. Cumulative(Typical Price x Volume)
+#  4) Create a Cumulative Total of Volume. Cumulative(Volume)
+#  5) Divide the Cumulative Totals.
+#
+#  VWAP = Cumulative(Typical Price x Volume) / Cumulative(Volume)
+def get_vwap(pricehistory=None, debug=False):
+
+	if ( pricehistory == None ):
+		return False
+
+	prices = np.array([[1,1,1]])
+	for key in pricehistory['candles']:
+		price = ( float(key['high']) + float(key['low']) + float(key['close']) ) / 3
+		prices = np.append( prices, [[float(key['datetime']), price, float(key['volume'])]], axis=0 )
+
+	prices = np.delete(prices, 0, axis=0)
+
+	columns = ['DateTime', 'AvgPrice', 'Volume']
+	df = pd.DataFrame(data=prices, columns=columns)
+	q = df.Volume.values
+	p = df.AvgPrice.values
+
+	# vwap = Cumulative(Typical Price x Volume) / Cumulative(Volume)
+	vwap = df.assign(vwap=(p * q).cumsum() / q.cumsum())
+
+	if ( debug == True ):
+		pd.set_option('display.max_rows', None)
+		pd.set_option('display.max_columns', None)
+		pd.set_option('display.width', None)
+		pd.set_option('display.max_colwidth', None)
+		print(vwap)
+
+	return vwap
 
 
 # Return an N-day analysis for a stock ticker using the RSI algorithm

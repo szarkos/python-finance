@@ -2,8 +2,10 @@
 
 # Command-line options:
 #  ./tda-quote-stock.py <ticker>
-
+#
 # Returns stock information as obtained from TDA's Get Quote API (https://api.tdameritrade.com/v1/marketdata/)
+#
+# Example: ./tda-quote-stock.py AAPL --pretty
 
 import robin_stocks.tda as tda
 import os, sys, time

@@ -104,6 +104,58 @@ rsi_high_limit = args.rsi_high_limit
 # --analyze
 if ( args.analyze == True):
 
+	print('Analysis of stock ticker "'+ str(stock) + '"' + "\n")
+
+	red = '\033[0;31m'
+	green = '\033[0;32m'
+	reset_color = '\033[0m'
+	text_color = ''
+
+	# Get general info about the stock
+	marginable = None
+	shortable = None
+	delayed = True
+	volatility = 0
+	lastprice = 0
+	high = low = 0
+	try:
+		data,err = tda.stocks.get_quote(stock, True)
+		if ( err == None and data != {} ):
+			if ( str(data[stock]['marginable']) == 'True' ):
+				marginable = True
+			if ( str(data[stock]['shortable']) == 'True' ):
+				shortable = True
+			if ( str(data[stock]['delayed']) == 'False' ):
+				delayed = False
+
+			volatility = data[stock]['volatility'] # FIXME: I don't know what this means yet
+			lastprice = data[stock]['lastPrice']
+			high = data[stock]['52WkHigh']
+			low = data[stock]['52WkLow']
+	except:
+		pass
+
+	print( 'Last Price: $' + str(lastprice) )
+	print( '52WkHigh: $' + str(high) )
+	print( '52WkLow: $' + str(low) )
+
+	text_color = green
+	if ( shortable == False ):
+		text_color = red
+	print( 'Shortable: ' + text_color + str(shortable) + reset_color )
+
+	text_color = green
+	if ( marginable == False ):
+		text_color = red
+	print( 'Marginable: ' + text_color + str(marginable) + reset_color )
+
+	text_color = green
+	if ( delayed == True ):
+		text_color = red
+	print( 'Delayed: ' + text_color + str(delayed) + reset_color )
+	print( 'Volatility: ' + str(volatility) )
+	print()
+
 	# Print analysis results for the most recent 10 and 5 days of data
 	for days in ['10', '5']:
 		print('Analyzing ' + str(days) + '-day history for stock ' + str(stock) + ':')
@@ -140,6 +192,9 @@ if ( args.analyze == True):
 		#   success_pct < 10% higher than fail % = -2 points
 		#   success_pct <= fail_pct		 = -4 points
 		#   average_gain <= average_loss	 = -8 points
+		#   shortable == False			 = -4 points
+		#   marginable == False			 = -2 points
+		#   delayed == True			 = -2 points
 		#
 		# Rating:
 		#   0 			 = Very Good
@@ -153,11 +208,6 @@ if ( args.analyze == True):
 		average_gain = net_gain / int(len(results))		# Average improvement in price using algorithm
 		average_loss = net_loss / int(len(results))		# Average regression in price using algorithm
 		txs = int(len(results)) / int(days)			# Average buy or sell triggers per day
-
-		red = '\033[0;31m'
-		green = '\033[0;32m'
-		reset_color = '\033[0m'
-		text_color = ''
 
 		print()
 
@@ -204,6 +254,14 @@ if ( args.analyze == True):
 				text_color = green
 
 			print( 'Average gain per share: ' + text_color + str(round(avg_gain_per_share, 3)) + '%' + reset_color )
+
+		# Shortable / marginable / delayed / etc.
+		if ( shortable == False ):
+			rating -= 4
+		if ( marginable == False ):
+			rating -= 2
+		if ( delayed == True ):
+			rating -= 2
 
 		# Print stock rating (see comments above)
 		if ( success_pct <= fail_pct or average_gain <= average_loss ):

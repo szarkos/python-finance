@@ -537,6 +537,171 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 	return data
 
 
+# Short sell a stock
+#  Ticker = stock ticker
+#  Quantity = amount of stock to sell short
+#  fillwait = (boolean) wait for order to be filled before returning
+def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False):
+
+	if ( ticker == None or quantity == None ):
+		return False
+
+	ticker = str(ticker).upper()
+	num_attempts = 3 # Number of attempts to buy the stock in case of failure
+
+	order = {
+		"orderType": "MARKET",
+		"session": "NORMAL",
+		"duration": "DAY",
+		"orderStrategyType": "SINGLE",
+		"orderLegCollection": [ {
+			"instruction": "SELL_SHORT",
+			"quantity": quantity,
+			"instrument": {
+				"symbol": ticker,
+				"assetType": "EQUITY"
+			}
+		} ]
+	}
+
+	# Try to buy the stock num_attempts tries or return False
+	for attempt in range(num_attempts):
+		data, err = tda.place_order(tda_account_number, order, True)
+		if ( debug == 1 ):
+			print('DEBUG: short_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
+			print(order)
+			print(data)
+			print(err)
+
+		if ( err != None ):
+			print('Error: short_stock_marketprice(' + str(ticker) + '): attempt ' + str(attempt+1) + ', ' + str(err), file=sys.stderr)
+			if ( attempt == num_attempts-1 ):
+				return False
+
+			# Try to log in again
+			if ( tdalogin(passcode) != True ):
+				print('Error: short_stock_marketprice(): Login failure', file=sys.stderr)
+
+			time.sleep(5)
+		else:
+			break
+
+	order_id = tda.get_order_number(data)
+	if ( debug == 1 ):
+		print(order_id)
+	if ( str(order_id) == '' ):
+		print('Error: short_stock_marketprice('+ str(ticker) + '): Unable to get order ID', file=sys.stderr)
+		return False
+
+	data,err = tda.get_order(tda_account_number, order_id, True)
+	if ( debug == 1 ):
+		print(data)
+	if ( err != None ):
+		print('Error: short_stock_marketprice(' + str(ticker) + '): ' + str(err), file=sys.stderr)
+		return False
+
+	print('short_stock_marketprice(' + str(ticker) + '): Order successfully placed (Order ID:' + str(order_id) + ')')
+
+	# Loop and wait for order to be filled if fillwait==True
+	if ( fillwait == True and data['filledQuantity'] != quantity ):
+		while time.sleep(10):
+			data,err = tda.get_order(tda_account_number, order_id, True)
+			if ( debug == True ):
+				print(data)
+			if ( err != None ):
+				print('Error: short_stock_marketprice(' + str(ticker) + '): problem in fillwait loop, ' + str(err), file=sys.stderr)
+				continue
+			if ( data['filledQuantity'] == quantity ):
+				break
+
+		print('short_stock_marketprice(' + str(ticker) + '): Order completed (Order ID:' + str(order_id) + ')')
+
+	return data
+
+
+# Buy to cover (market) a stock we previously sold short
+#  Ticker = stock ticker
+#  Quantity = amount of stock to buy-to-cover
+#  fillwait = (boolean) wait for order to be filled before returning
+def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False):
+
+	if ( ticker == None or quantity == None ):
+		return False
+
+	ticker = str(ticker).upper()
+	num_attempts = 3 # Number of attempts to sell the stock in case of failure
+
+	order = {
+		"orderType": "MARKET",
+		"session": "NORMAL",
+		"duration": "DAY",
+		"orderStrategyType": "SINGLE",
+		"orderLegCollection": [ {
+			"instruction": "BUY_TO_COVER",
+			"quantity": quantity,
+			"instrument": {
+				"symbol": ticker,
+				"assetType": "EQUITY"
+			}
+		} ]
+	}
+
+
+	# Try to sell the stock num_attempts tries or return False
+	for attempt in range(num_attempts):
+		data, err = tda.place_order(tda_account_number, order, True)
+		if ( debug == 1 ):
+			print('DEBUG: buytocover_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
+			print(order)
+			print(data)
+			print(err)
+
+		if ( err != None ):
+			print('Error: buytocover_stock_marketprice(' + str(ticker) + '): attempt ' + str(attempt+1) + ',  ' + str(err), file=sys.stderr)
+			if ( attempt == num_attempts-1 ):
+				return False
+
+			# Try to log in again
+			if ( tdalogin(passcode) != True ):
+				print('Error: buytocover_stock_marketprice(): Login failure', file=sys.stderr)
+
+			time.sleep(5)
+		else:
+			break
+
+	order_id = tda.get_order_number(data)
+	if ( debug == 1 ):
+		print(order_id)
+	if ( str(order_id) == '' ):
+		print('Error: buytocover_stock_marketprice('+ str(ticker) + '): Unable to get order ID', file=sys.stderr)
+		return False
+
+	data,err = tda.get_order(tda_account_number, order_id, True)
+	if ( debug == 1 ):
+		print(data)
+	if ( err != None ):
+		print('Error: buytocover_stock_marketprice(' + str(ticker) + '): ' + str(err), file=sys.stderr)
+		return False
+
+	print('buytocover_stock_marketprice(' + str(ticker) + '): Order successfully placed (Order ID:' + str(order_id) + ')')
+
+	# Loop and wait for order to be filled if fillwait==True
+	if ( fillwait == True and data['filledQuantity'] != quantity ):
+		while time.sleep(10):
+			data,err = tda.get_order(tda_account_number, order_id, True)
+			if ( debug == True ):
+				print(data)
+			if ( err != None ):
+				print('Error: buytocover_stock_marketprice(' + str(ticker) + '): problem in fillwait loop, ' + str(err), file=sys.stderr)
+				continue
+			if ( data['filledQuantity'] == quantity ):
+				break
+
+		print('buytocover_stock_marketprice(' + str(ticker) + '): Order completed (Order ID:' + str(order_id) + ')')
+
+	return data
+
+
 # Return numpy array of RSI values for a given price history.
 # 'pricehistory' should be a data list obtained from get_pricehistory()
 # Supports the following calculation types:
@@ -657,7 +822,7 @@ def get_stochrsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 	return stochrsi
 
 
-# Return 10-day and 5-day analysis for a stock ticker using the RSI algorithm
+# Return an N-day analysis for a stock ticker using the RSI algorithm
 def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_limit=30, rsi_high_limit=70, debug=False):
 
 	if ( ticker == None ):

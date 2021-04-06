@@ -32,6 +32,7 @@ parser.add_argument("-p", "--rsi_period", help='RSI period to use for calculatio
 parser.add_argument("-r", "--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='ohlc4', type=str)
 parser.add_argument("-g", "--rsi_high_limit", help='RSI high limit', default=70, type=int)
 parser.add_argument("-l", "--rsi_low_limit", help='RSI low limit', default=30, type=int)
+parser.add_argument("-z", "--short", help='Enable short selling of stock', action="store_true")
 parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
 args = parser.parse_args()
 
@@ -58,8 +59,11 @@ if ( args.notmarketclosed == True and tda_gobot_helper.ismarketopen_US() == Fals
 	exit(1)
 
 if ( tda_gobot_helper.check_blacklist(stock) == True and args.force == False ):
-	print('(' + str(stock) + ') Error: stock found in blacklist file, exiting.')
-	exit(1)
+	if ( args.analyze == True ):
+		print('(' + str(stock) + ') Warning: stock ' + str(stock) + ' found in blacklist file')
+	else:
+		print('(' + str(stock) + ') Error: stock ' + str(stock) + ' found in blacklist file, exiting.')
+		exit(1)
 
 # Initialize and log into TD Ameritrade
 from dotenv import load_dotenv
@@ -172,17 +176,25 @@ if ( args.analyze == True):
 		net_gain = net_loss = 0
 		for r in results:
 			try:
-				purchase_price, sell_price, net_change, purchase_time, sell_time = r.split(',', 5)
+				purchase_price, sell_price, net_change, short, purchase_time, sell_time = r.split(',', 6)
 			except:
 				print('Err: nodata')
 				continue
 
-			if ( float(net_change) <= 0 ):
-				fail += 1
-				net_loss += float(net_change)
+			if ( short == str(False) ):
+				if ( float(net_change) <= 0 ):
+					fail += 1
+					net_loss += float(net_change)
+				else:
+					success += 1
+					net_gain += float(net_change)
 			else:
-				success += 1
-				net_gain += float(net_change)
+				if ( float(net_change) < 0 ):
+					success += 1
+					net_gain += abs(float(net_change))
+				else:
+					fail += 1
+					net_loss -= float(net_change)
 
 			print(str(r))
 
@@ -285,10 +297,18 @@ if ( args.analyze == True):
 
 # Main Loop
 #
-# This bot has two modes of operation -
-#   We start in the 'buy' mode where we are waiting for the right signal to purchase stock.
+# This bot has four modes of operation -
+#   Start in the 'buy' mode where we are waiting for the right signal to purchase stock.
 #   Then after purchasing stock we switch to the 'sell' mode where we begin searching
 #   the signal to sell the stock.
+#
+# Ideal signal mode workflow looks like this:
+#   buy -> sell -> short -> buy_to_cover -> buy -> ...
+#
+#  RSI passes from below rsi_low_limit to above = BUY
+#  RSI passes from above rsi_high_limit to below = SELL and SHORT
+#  RSI passes from below rsi_low_limit to above = BUY_TO_COVER and BUY
+
 tx_id = random.randint(1000, 9999) # Used to identify each buy/sell transaction
 percent_change = 0
 signal_mode = 'buy'
@@ -414,7 +434,7 @@ while True:
 					exit(1)
 
 				orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
-#fortesting			orig_base_price = last_price
+#uncomment for testing		orig_base_price = last_price
 				base_price = orig_base_price
 				net_change = 0
 
@@ -542,23 +562,93 @@ while True:
 					if ( abs(net_change) > args.max_failed_usd or failed_txs == 0 ):
 						tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
 
-				# Change signal to 'buy' and generate new tx_id for next iteration
+				# Change signal to 'buy' or 'short' and generate new tx_id for next iteration
 				tx_id = random.randint(1000, 9999)
-				signal_mode = 'buy'
+
+				if ( args.short == True ):
+					signal_mode = 'short'
+				else:
+					signal_mode = 'buy'
 
 
 	# SHORT SELL the stock
 	# In this mode we will monitor the RSI and initiate a short sale if the RSI is very high
 	elif ( signal_mode == 'short' ):
-		signal_mode = 'buy_to_cover'
+
+		if ( prev_rsi > rsi_high_limit and cur_rsi < prev_rsi ):
+			if ( cur_rsi <= rsi_high_limit ):
+				print('(' + str(stock) + ') SHORT SIGNAL: RSI passed below the high_limit threshold (' +
+					str(round(prev_rsi, 2)) + ' / ' + str(round(cur_rsi, 2)) + ' / newday=' + str(newday) +
+					') - shorting the security')
+
+				# Calculate stock quantity from investment amount
+				last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=False)
+				if ( last_price == False ):
+					print('Error: get_lastprice() returned False')
+					time.sleep(5)
+
+					# Try logging in and looping around again
+					if ( tda_gobot_helper.tdalogin(passcode) != True ):
+						print('Error: Login failure')
+
+					continue
+
+				stock_qty = int( float(stock_usd) / float(last_price) )
+
+				data = tda_gobot_helper.short_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True, sold=False)
+
+				try:
+					orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
+				except:
+					print('signal_mode=short: there is a bug in data returned for orig_base_price')
+					pass
+#uncomment for testing		orig_base_price = last_price
+				base_price = orig_base_price
+				net_change = 0
+
+				signal_mode = 'buy_to_cover'
+
 
 	# BUY_TO_COVER a previous short sale
 	# This mode must always follow a previous "short" signal. We will monitor the RSI and initiate
 	#   a buy-to-cover transaction to cover a previous short sale if the RSI if very low. We also
 	#   need to monitor stoploss in case the stock rises above a threshold.
 	elif ( signal_mode == 'buy_to_cover' ):
-		tx_id = random.randint(1000, 9999)
-		signal_mode = 'buy'
+
+		last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=False)
+		if ( last_price == False ):
+			print('Error: get_lastprice() returned False')
+
+			# Try logging in and looping around again
+			time.sleep(5)
+			if ( tda_gobot_helper.tdalogin(passcode) != True ):
+				print('Error: Login failure')
+
+			continue
+
+		net_change = round( (last_price - orig_base_price) * stock_qty, 3 )
+
+		if ( float(last_price) < float(base_price) ):
+			percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
+		elif ( float(last_price) > float(base_price) ):
+			percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
+
+		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id)
+
+		# RSI is rising toward the rsi_low_limit
+		if ( prev_rsi < rsi_low_limit and cur_rsi > prev_rsi ):
+
+			# RSI crossed the rsi_low_limit threshold - this is the BUY_TO_COVER signal
+			if ( cur_rsi >= rsi_low_limit ):
+				print('(' + str(stock) + ') BUY_TO_COVER SIGNAL: RSI passed the low_limit threshold (' + str(round(prev_rsi, 2)) + ' / ' + str(round(cur_rsi, 2)) + ')')
+
+				data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True, sold=True)
+
+				# Change signal to 'buy' and generate new tx_id for next iteration
+				tx_id = random.randint(1000, 9999)
+				signal_mode = 'buy'
 
 	# Undefined mode - this shouldn't happen
 	else:

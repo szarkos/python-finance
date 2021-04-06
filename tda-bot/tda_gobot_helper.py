@@ -106,7 +106,7 @@ def ismarketopen_US():
 
 
 # Write logs for each ticker for live monitoring of the stock performance
-def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, base_price=-1, orig_base_price=-1, stock_qty=-1, sold=False, debug=0, proc_id=None):
+def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, base_price=-1, orig_base_price=-1, stock_qty=-1, sold=False, short=False, proc_id=None, debug=0):
 	if ( ticker == None ):
 		return False
 
@@ -132,10 +132,14 @@ def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, ba
 	else:
 		percent_change = '+' + str(round(percent_change,2))
 
-	if ( net_change < 0 ):
-		net_change = '\033[0;31m' + str(net_change) + '\033[0m'
-	else:
-		net_change = '\033[0;32m' + str(net_change) + '\033[0m'
+	red = '\033[0;31m'
+	green = '\033[0;32m'
+	reset_color = '\033[0m'
+	text_color = green
+
+	if ( (net_change < 0 and short == False) or (net_change > 0 and short == True) ):
+		text_color = red
+	net_change = text_color + str(net_change) + reset_color
 
 	msg =	str(ticker)				+ ':' + \
 		str(percent_change)			+ ':' + \
@@ -144,7 +148,8 @@ def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, ba
 		str(round(float(base_price), 3))	+ ':' + \
 		str(round(float(orig_base_price), 3))	+ ':' + \
 		str(stock_qty)				+ ':' + \
-		str(sold)
+		str(sold)				+ ':' + \
+		str(short)
 
 	fcntl.lockf( fh, fcntl.LOCK_EX )
 	print( msg, file=fh, flush=True )
@@ -259,7 +264,7 @@ def check_blacklist(ticker=None, debug=1):
 			continue
 
 		if ( str(stock) == str(ticker) ):
-			time_stamp = datetime.fromtimestamp(time_stamp, tz=mytimezone)
+			time_stamp = datetime.fromtimestamp(float(time_stamp), tz=mytimezone)
 			if ( time_stamp + timedelta(days=31) > time_now ):
 				# time_stamp is less than 30 days in the past
 				found = True
@@ -823,6 +828,8 @@ def get_stochrsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 
 
 # Return an N-day analysis for a stock ticker using the RSI algorithm
+# Returns a comma-delimited log of each sell/buy/short/buy-to-cover transaction
+#   purchase_price, sell_price, net_change, short, purchase_time, sell_time = result.split(',', 6)
 def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_limit=30, rsi_high_limit=70, debug=False):
 
 	if ( ticker == None ):
@@ -865,11 +872,13 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 			prev_rsi = cur_rsi
 
 		if ( signal_mode == 'buy' ):
+			short = False
 			if ( prev_rsi < rsi_low_limit and cur_rsi > prev_rsi ):
 				if ( cur_rsi >= rsi_low_limit ):
 					# Buy
 					purchase_price = float(data['candles'][counter]['close'])
 					purchase_time = datetime.fromtimestamp(float(data['candles'][counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
 					signal_mode = 'sell'
 
 		if ( signal_mode == 'sell' ):
@@ -878,9 +887,32 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 					# Sell
 					sell_price = float(data['candles'][counter]['close'])
 					net_change = sell_price - purchase_price
-					sell_time = datetime.fromtimestamp(float(data['candles'][counter]['datetime'])/1000, tz=mytimezone)
-					results.append( str(purchase_price) + ',' + str(sell_price) + ',' + str(net_change) + ',' +
-						str(purchase_time) + ',' + str(sell_time.strftime('%Y-%m-%d %H:%M:%S.%f')) )
+					sell_time = datetime.fromtimestamp(float(data['candles'][counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+					results.append( str(purchase_price) + ',' + str(sell_price) + ',' + str(net_change) + ',' + str(short) + ',' +
+						str(purchase_time) + ',' + str(sell_time) )
+
+					signal_mode = 'short'
+
+		if ( signal_mode == 'short' ):
+			short = True
+			if ( prev_rsi > rsi_high_limit and cur_rsi < prev_rsi ):
+				if ( cur_rsi <= rsi_high_limit ):
+					# Short
+					short_price = float(data['candles'][counter]['close'])
+					short_time = datetime.fromtimestamp(float(data['candles'][counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+					signal_mode = 'buy_to_cover'
+
+		if ( signal_mode == 'buy_to_cover' ):
+			if ( prev_rsi < rsi_low_limit and cur_rsi > prev_rsi ):
+				if ( cur_rsi >= rsi_low_limit ):
+					# Buy-to-cover
+					buy_to_cover_price = float(data['candles'][counter]['close'])
+					net_change = buy_to_cover_price - short_price
+					buy_to_cover_time = datetime.fromtimestamp(float(data['candles'][counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+					results.append( str(short_price) + ',' + str(buy_to_cover_price) + ',' + str(net_change) + ',' + str(short) + ',' +
+						str(short_time) + ',' + str(buy_to_cover_time) )
+
 					signal_mode = 'buy'
 
 		prev_rsi = cur_rsi

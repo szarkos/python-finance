@@ -348,6 +348,11 @@ while True:
 			print('(' + str(stock) + ') Market closed, exiting.')
 			exit(0)
 
+	# Check to see if we are near the beginning of a new trading day.
+	# The intent of this variable is to tune the algorithm to be more sensitive
+	#   to the typical volitility during the opening minutes of the trading day.
+	newday = tda_gobot_helper.isnewday()
+
 	# Helpful datetime conversion hints:
 	#   start = int( datetime.datetime.strptime('2021-03-26 09:30:00', '%Y-%m-%d %H:%M:%S').replace(tzinfo=mytimezone).timestamp() * 1000 )
 	#   datetime.datetime.fromtimestamp(<epoch>/1000).strftime('%Y-%m-%d %H:%M:%S.%f')
@@ -383,13 +388,13 @@ while True:
 			datetime.datetime.fromtimestamp(float(epochs[-1])/1000).strftime('%Y-%m-%d %H:%M:%S.%f') +
 			' (' + str(int(epochs[-1])) + ')' )
 
-
 	# BUY MODE - looking for a signal to purchase the stock
 	if ( signal_mode == 'buy' ):
 
 		# Exit if we've exhausted our maximum number of failed transactions for this stock
 		if ( failed_txs <= 0 ):
 			print('(' + str(stock) + ') Max number of failed transactions reached (' + str(args.max_failed_txs) + '), exiting.')
+			exit(0)
 
 		# Exit if we've exhausted our maximum number of purchases for the day
 		if ( num_purchases < 1 ):
@@ -403,6 +408,14 @@ while True:
 		if ( (tda_gobot_helper.isendofday(60) == True or tda_gobot_helper.ismarketopen_US() == False) and args.multiday == False ):
 			print('(' + str(stock) + ') Market closed, exiting.')
 			exit(0)
+
+		# Switch to short mode if RSI is already above rsi_high_limit
+		# The intent here is if the bot starts up while the RSI is high we don't want to wait until the stock
+		#  does a full loop again before acting on it.
+		if ( cur_rsi > rsi_high_limit and args.short == True ):
+			print('(' + str(stock) + ') RSI is already above ' + str(rsi_high_limit) + ', switching to short mode.')
+			signal_mode = 'short'
+			continue
 
 		# Nothing to do if RSI hasn't dropped below rsi_low_limit (typically 30)
 		if ( cur_rsi > rsi_low_limit and prev_rsi > rsi_low_limit ):
@@ -469,11 +482,6 @@ while True:
 
 	# SELL MODE - looking for a signal to sell the stock
 	elif ( signal_mode == 'sell' ):
-
-		# Check to see if we are near the beginning of a new trading day.
-		# The intent of this variable is to tune the algorithm to be more sensitive
-		#   to the typical volitility during the opening minutes of the trading day.
-		newday = tda_gobot_helper.isnewday()
 
 		# In 'sell' mode we also want to monitor the stock price along with RSI
 		last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=False)
@@ -603,6 +611,14 @@ while True:
 	# In this mode we will monitor the RSI and initiate a short sale if the RSI is very high
 	elif ( signal_mode == 'short' ):
 
+		# Exit if end of trading day
+		# If --multiday isn't set then we do not want to start trading if the market is closed.
+		# Also if --multiday isn't set we should avoid buying any securities if it's within
+		#  1-hour from market close.
+		if ( (tda_gobot_helper.isendofday(60) == True or tda_gobot_helper.ismarketopen_US() == False) and args.multiday == False ):
+			signal_mode = 'buy'
+			continue
+
 		if ( prev_rsi > rsi_high_limit and cur_rsi < prev_rsi ):
 			if ( cur_rsi <= rsi_high_limit ):
 				print('(' + str(stock) + ') SHORT SIGNAL: RSI passed below the high_limit threshold (' +
@@ -639,8 +655,8 @@ while True:
 				else:
 					orig_base_price = last_price
 
-				base_price = orig_base_price
 				net_change = 0
+				base_price = orig_base_price
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True, sold=False)
 
 				signal_mode = 'buy_to_cover'
@@ -670,10 +686,19 @@ while True:
 		elif ( float(last_price) > float(base_price) ):
 			percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
 
-		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id)
+		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True)
+
+		# End of trading day - cover the shorted stock unless --multiday was set
+		if ( tda_gobot_helper.isendofday() == True and args.multiday == False ):
+			print('Market closing, covering shorted stock ' + str(stock))
+			if ( args.fake == False ):
+				data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+
+			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True, sold=True)
+			signal_mode = 'buy'
 
 		# RSI is rising toward the rsi_low_limit
-		if ( prev_rsi < rsi_low_limit and cur_rsi > prev_rsi ):
+		elif ( prev_rsi < rsi_low_limit and cur_rsi > prev_rsi ):
 
 			# RSI crossed the rsi_low_limit threshold - this is the BUY_TO_COVER signal
 			if ( cur_rsi >= rsi_low_limit ):

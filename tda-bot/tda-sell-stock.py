@@ -4,6 +4,7 @@
 #  ./tda-sell-stock.py <ticker>
 
 # Sell all owned stock of <ticker>
+# If the stock is shorted, it will initiate a buy_to_cover instead of a sell
 import robin_stocks.tda as tda
 import os, time
 import argparse
@@ -18,10 +19,6 @@ args = parser.parse_args()
 debug = 1			# Should default to 0 eventually, testing for now
 if args.debug == True:
 	debug = 1
-
-if ( args.stock == None and args.panic == False ):
-	print('Error: you need to enter a stock to sell, or use --panic to sell all')
-	exit(1)
 
 stock = args.stock
 
@@ -58,14 +55,20 @@ if ( stock != None ):
 	for asset in data[0]['securitiesAccount']['positions']:
 		if ( str(asset['instrument']['symbol']).upper() == str(stock).upper() ):
 			last_price = tda_gobot_helper.get_lastprice(stock)
-			sell_value = float(last_price) * float(asset['longQuantity'])
 			wait = tda_gobot_helper.ismarketopen_US()
 
-			print('Selling ' + str(asset['longQuantity']) + ' shares of ' + str(stock) + ' at market price (~$' + str(sell_value) + ")\n")
-			data = tda_gobot_helper.sell_stock_marketprice(stock, asset['longQuantity'], fillwait=wait, debug=True)
+			if ( float(asset['shortQuantity']) > 0 ):
+				sell_value = float(last_price) * float(asset['shortQuantity'])
+				print('Covering ' + str(asset['shortQuantity']) + ' shares of ' + str(stock) + ' at market price (~$' + str(sell_value) + ")\n")
+				data = tda_gobot_helper.buytocover_stock_marketprice(stock, asset['shortQuantity'], fillwait=wait, debug=True)
+			else:
+				sell_value = float(last_price) * float(asset['longQuantity'])
+				print('Selling ' + str(asset['longQuantity']) + ' shares of ' + str(stock) + ' at market price (~$' + str(sell_value) + ")\n")
+				data = tda_gobot_helper.sell_stock_marketprice(stock, asset['longQuantity'], fillwait=wait, debug=True)
 
 			found = 1
 			break
+
 
 	if ( found == 0 ):
 		print('Error: no ' + str(stock) + ' stock found under account number ' + str(tda_account_number))
@@ -86,10 +89,16 @@ elif ( args.panic == True ): ## Panic button
 
 		stock = str(asset['instrument']['symbol']).upper()
 		last_price = tda_gobot_helper.get_lastprice(stock)
-		sell_value = float(last_price) * float(asset['longQuantity'])
 
-		print('Selling ' + str(asset['longQuantity']) + ' shares of ' + str(stock) + ' at market price (~$' + str(sell_value) + ")\n")
-		data = tda_gobot_helper.sell_stock_marketprice(stock, asset['longQuantity'], fillwait=False, debug=True)
+		if ( float(asset['shortQuantity']) > 0 ):
+			sell_value = float(last_price) * float(asset['shortQuantity'])
+			print('Covering ' + str(asset['shortQuantity']) + ' shares of ' + str(stock) + ' at market price (~$' + str(sell_value) + ")\n")
+			data = tda_gobot_helper.buytocover_stock_marketprice(stock, asset['shortQuantity'], fillwait=False, debug=True)
+		else:
+			sell_value = float(last_price) * float(asset['longQuantity'])
+			print('Selling ' + str(asset['longQuantity']) + ' shares of ' + str(stock) + ' at market price (~$' + str(sell_value) + ")\n")
+			data = tda_gobot_helper.sell_stock_marketprice(stock, asset['longQuantity'], fillwait=False, debug=True)
+
 		time.sleep(0.2) # Avoid hammering
 
 		found = True
@@ -99,8 +108,13 @@ elif ( args.panic == True ): ## Panic button
 
 
 else:
-	# Not expected, argparse() should have handled by now
-	exit(1)
+	# If no arguments are given just print all the account positions.
+	import pprint
+	pp = pprint.PrettyPrinter(indent=4)
+
+	data = tda.get_account(tda_account_number, options='positions', jsonify=True)
+	pp.pprint(data)
+	exit(0)
 
 
 exit(0)

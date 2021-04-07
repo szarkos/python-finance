@@ -653,7 +653,6 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 		} ]
 	}
 
-
 	# Try to sell the stock num_attempts tries or return False
 	for attempt in range(num_attempts):
 		data, err = tda.place_order(tda_account_number, order, True)
@@ -840,7 +839,7 @@ def get_stochrsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 #  2) Multiply the Typical Price by the period Volume (Typical Price x Volume)
 #  3) Create a Cumulative Total of Typical Price. Cumulative(Typical Price x Volume)
 #  4) Create a Cumulative Total of Volume. Cumulative(Volume)
-#  5) Divide the Cumulative Totals.
+#  5) Divide the Cumulative Totals
 #
 #  VWAP = Cumulative(Typical Price x Volume) / Cumulative(Volume)
 def get_vwap(pricehistory=None, debug=False):

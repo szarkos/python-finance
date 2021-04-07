@@ -59,14 +59,14 @@ while [ 1 ]; do
 		regexp='^-?[0-9]*([.][0-9]*)?$'
 		if ! [[ $change =~ $regexp ]] ; then
 			# $change is not a number, corrupted log? Skip it anyway...
-			#echo "Err: $change is not a number?"
+			echo "Err: $change is not a number?"
 			continue
 		fi
 
 		if [ "$short" == "False" ]; then
 			net_change=$( echo "$net_change + $change" | bc )
 		else
-			net_change=$( echo "$net_cahnge - $change" | bc )
+			net_change=$( echo "$net_change - $change" | bc )
 		fi
 	done
 

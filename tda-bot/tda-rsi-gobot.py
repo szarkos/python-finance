@@ -460,12 +460,14 @@ while True:
 					if ( args.fake == False ):
 						data = tda_gobot_helper.buy_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 						if ( data == False ):
-							print('Error: Unable to buy stock "' + str(ticker) + '"', file=sys.stderr)
+							print('Error: Unable to buy stock "' + str(stock) + '"', file=sys.stderr)
 							exit(1)
+						try:
+							orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
+						except:
+							orig_base_price = last_price
 
-						orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
 					else:
-						orig_base_price = last_price
 
 				else:
 					print('Stock ' + str(stock) + ' not purchased because market is closed, exiting.')
@@ -642,16 +644,19 @@ while True:
 					data = tda_gobot_helper.short_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 					if ( data == False ):
 						if ( args.shortonly == True ):
-							print('Error: Unable to short "' + str(ticker) + '" - exiting.', file=sys.stderr)
+							print('Error: Unable to short "' + str(stock) + '" - exiting.', file=sys.stderr)
 							exit(1)
 						elif ( args.short == True ):
-							print('Error: Unable to short "' + str(ticker) + '" - disabling shorting', file=sys.stderr)
+							print('Error: Unable to short "' + str(stock) + '" - disabling shorting', file=sys.stderr)
 							args.short = False
 							signal_mode = 'buy'
 							time.sleep(1)
 							continue
+					try:
+						orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
+					except:
+						orig_base_price = last_price
 
-					orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
 				else:
 					orig_base_price = last_price
 

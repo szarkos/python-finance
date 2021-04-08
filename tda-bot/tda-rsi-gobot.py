@@ -271,12 +271,10 @@ while True:
 						if ( data == False ):
 							print('Error: Unable to buy stock "' + str(stock) + '"', file=sys.stderr)
 							exit(1)
-						try:
-							orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
-						except:
-							orig_base_price = last_price
-
-					else:
+					try:
+						orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
+					except:
+						orig_base_price = last_price
 
 				else:
 					print('Stock ' + str(stock) + ' not purchased because market is closed, exiting.')

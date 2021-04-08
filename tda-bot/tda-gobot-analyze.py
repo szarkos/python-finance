@@ -254,11 +254,11 @@ if ( args.analyze == 'rsi' ):
 		#   <-3			 = Bad
 		#   Success % <= Fail %  = FAIL
 		#   Avg Gain <= Avg Loss = FAIL
-		success_pct = (int(success) / int(len(results))) * 100	# % Successful trades using algorithm
-		fail_pct = ( int(fail) / int(len(results)) ) * 100	# % Failed trades using algorithm
-		average_gain = net_gain / int(len(results))		# Average improvement in price using algorithm
-		average_loss = net_loss / int(len(results))		# Average regression in price using algorithm
-		txs = int(len(results)) / int(days)			# Average buy or sell triggers per day
+		success_pct = (int(success) / int(len(results) / 2) ) * 100	# % Successful trades using algorithm
+		fail_pct = ( int(fail) / int(len(results) / 2) ) * 100		# % Failed trades using algorithm
+		average_gain = net_gain / int(len(results) / 2)			# Average improvement in price using algorithm
+		average_loss = net_loss / int(len(results) / 2)			# Average regression in price using algorithm
+		txs = int(len(results) / 2) / int(days)				# Average buy or sell triggers per day
 
 		print()
 
@@ -285,7 +285,7 @@ if ( args.analyze == 'rsi' ):
 		print( 'Fail rate: ' + text_color + str(round(fail_pct, 2)) + reset_color )
 
 		# Compare average gain vs average loss
-		if ( average_gain <= average_loss ):
+		if ( average_gain <= abs(average_loss) ):
 			rating -= 8
 			text_color = red
 		else:

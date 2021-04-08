@@ -165,8 +165,8 @@ if ( args.analyze == 'rsi' ):
 
 	# Print results for the most recent 10 and 5 days of data
 	for days in ['10', '5']:
-		print('Analyzing ' + str(days) + '-day history for stock ' + str(stock) + ':')
-		results, success_txs, failed_txs = tda_gobot_helper.rsi_analyze(stock, days, rsi_period, rsi_type, rsi_low_limit, rsi_high_limit, noshort=args.noshort, shortonly=args.shortonly, debug=True)
+		print('Analyzing ' + str(days) + '-day history for stock ' + str(stock) + ":\n")
+		results = tda_gobot_helper.rsi_analyze(stock, days, rsi_period, rsi_type, rsi_low_limit, rsi_high_limit, noshort=args.noshort, shortonly=args.shortonly, debug=True)
 		if ( results == False ):
 			print('Error: rsi_analyze() returned false', file=sys.stderr)
 			exit(1)
@@ -174,16 +174,17 @@ if ( args.analyze == 'rsi' ):
 			print('There were no possible trades for requested time period, exiting.')
 			exit(0)
 
+		print("Buy/Sell Price    Net Change        VWAP               RSI              StochRSI          Time")
+
 		rating = 0
 		success = fail = 0
 		net_gain = net_loss = 0
-		for r in results:
-			try:
-				purchase_price, sell_price, net_change, short, purchase_time, sell_time = r.split(',', 6)
-			except:
-				print('Err: nodata')
-				continue
+		counter = 0
+		while ( counter < len(results) - 1 ):
+			price_tx, short, vwap_tx, rsi_tx, stochrsi_tx, time_tx = results[counter].split(',', 6)
+			price_rx, short, vwap_rx, rsi_rx, stochrsi_rx, time_rx = results[counter+1].split(',', 6)
 
+			net_change = float(price_rx) - float(price_tx)
 			if ( short == str(False) ):
 				if ( float(net_change) <= 0 ):
 					fail += 1
@@ -199,10 +200,43 @@ if ( args.analyze == 'rsi' ):
 					fail += 1
 					net_loss -= float(net_change)
 
-			print(str(r))
+			price_tx = round( float(price_tx), 2 )
+			price_rx = round( float(price_rx), 2 )
+			net_change = round( net_change, 2 )
+			vwap_tx = round( float(vwap_tx), 2 )
+			vwap_rx = round( float(vwap_rx), 2 )
+			rsi_tx = round( float(rsi_tx), 1 )
+			rsi_rx = round( float(rsi_rx), 1 )
+			stochrsi_tx = round( float(stochrsi_tx), 4 )
+			stochrsi_rx = round( float(stochrsi_rx), 4 )
+
+			is_success = False
+			if ( short == 'True' ):
+				if ( net_change < 0 ):
+					is_success = True
+
+				price_tx = str(price_tx) + '*'
+				price_rx = str(price_rx) + '*'
+
+			else:
+				if ( net_change > 0 ):
+					is_success = True
+
+			text_color = red
+			if ( is_success == True ):
+				text_color = green
+
+			for i in [str(price_tx), ' ', str(vwap_tx), str(rsi_tx), str(stochrsi_tx), time_tx]:
+				print(text_color + '{0:<18}'.format(i) + reset_color, end='')
+
+			print()
+			for i in [str(price_rx), str(net_change), str(vwap_rx), str(rsi_rx), str(stochrsi_rx), time_rx]:
+				print(text_color + '{0:<18}'.format(i) + reset_color, end='')
+
+			print()
+			counter += 2
 
 		print()
-
 
 # Rate the stock
 #   txs/day < 1				 = -1 point

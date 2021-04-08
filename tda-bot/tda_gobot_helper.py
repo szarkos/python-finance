@@ -874,11 +874,11 @@ def get_vwap(pricehistory=None, debug=False):
 
 # Return an N-day analysis for a stock ticker using the RSI algorithm
 # Returns a comma-delimited log of each sell/buy/short/buy-to-cover transaction
-#   purchase_price, sell_price, net_change, short, purchase_time, sell_time = result.split(',', 6)
+#   price, sell_price, net_change, bool(short), bool(success), vwap, rsi, stochrsi, purchase_time, sell_time = result.split(',', 10)
 def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_limit=30, rsi_high_limit=70, noshort=False, shortonly=False, debug=False):
 
 	if ( ticker == None ):
-		return False, [], []
+		return False
 	if ( int(days) > 10 ):
 		days = 10 # TDA API only allows 10-days of 1-minute daily data
 
@@ -891,7 +891,7 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 	# Note: Not asking for extended hours for now since our bot doesn't even trade after hours
 	data, epochs = get_pricehistory(ticker, 'day', 'minute', '1', days, needExtendedHoursData=False, debug=False)
 	if ( data == False ):
-		return False, [], []
+		return False
 	if ( int(len(data['candles'])) <= rsi_period ):
 		print('Not enough data - returned candles=' + str(len(data['candles'])) + ', rsi_period=' + str(rsi_period))
 		exit(0)
@@ -902,16 +902,17 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 	rsi = get_rsi(data, rsi_period, rsi_type, debug=False)
 	if ( isinstance(rsi, bool) and rsi == False ):
 		print('Error: get_rsi() returned false - no data', file=sys.stderr)
-		return False, [], []
+		return False
 	if ( debug == True ):
 		if ( len(rsi) != len(data['candles']) - rsi_period ):
 			print('Warning, unexpected length of rsi (data[candles]=' + str(len(data['candles'])) + ', len(rsi)=' + str(len(rsi)) + ')')
 
 	# Get stochactic RSI
+	# Length of stochrsi will be rsi_period*2 - 1 (which is shorter than rsi[])
 	stochrsi = get_stochrsi(data, rsi_period, rsi_type, debug=False)
 	if ( isinstance(stochrsi, bool) and stochrsi == False ):
 		print('Error: get_stochrsi() returned false - no data', file=sys.stderr)
-		return False, [], []
+		return False
 	if ( debug == True ):
 		if ( len(stochrsi) != len(data['candles']) - (rsi_period*2 - 1) ):
 			print('Warning, unexpected length of stochrsi (data[candles]=' + str(len(data['candles'])) + ', len(stochrsi)=' + str(len(stochrsi)) + ')')
@@ -920,23 +921,27 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 	vwap = get_vwap(data)
 	if ( isinstance(vwap, bool) and vwap == False ):
 		print('Error: get_stochrsi() returned false - no data', file=sys.stderr)
-		return False, [], []
+		return False
 	if ( debug == True ):
 		if ( len(vwap) != len(data['candles']) ):
 			print('Warning, unexpected length of vwap (data[candles]=' + str(len(data['candles'])) + ', len(vwap)=' + str(len(vwap)) + ')')
 
 	# Run through the RSI values and log the results
 	results = []
-	success_txs = []
-	failed_txs = []
 	prev_rsi = 0
-	counter = 13
+	counter = int(rsi_period) - 1
 
 	signal_mode = 'buy'
 	if ( shortonly == True ):
 		signal_mode = 'short'
 
 	for cur_rsi in rsi:
+
+		# Fix stochrsi since it's shorter than the rsi array by an additional rsi_period-1
+		if ( counter > len(rsi) + int(rsi_period) - 1 ):
+			srsi = stochrsi[:1]
+		else:
+			srsi = stochrsi[counter - rsi_period * 2 - 1]
 
 		if ( prev_rsi == 0 ):
 			prev_rsi = cur_rsi
@@ -949,6 +954,10 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 					purchase_price = float(data['candles'][counter]['close'])
 					purchase_time = datetime.fromtimestamp(float(data['candles'][counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
+					results.append( str(purchase_price) + ',' + str(short) + ',' +
+							str(vwap.loc[counter,'vwap']) + ',' + str(cur_rsi) + ',' + str(srsi) + ',' +
+							str(purchase_time) )
+
 					signal_mode = 'sell'
 
 		if ( signal_mode == 'sell' ):
@@ -956,28 +965,12 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 				if ( cur_rsi <= rsi_high_limit ):
 					# Sell
 					sell_price = float(data['candles'][counter]['close'])
-					net_change = sell_price - purchase_price
-
-					if ( net_change <= 0 ):
-						# failed transaction
-						# Datestamp,vwap,rsi,stochrsi,bool(short)
-						failed_txs.append( str(int(data['candles'][counter]['datetime'])) + ',' +
-								 str(vwap.loc[counter,'vwap']) + ',' +
-								 str(cur_rsi) + ',' +
-								 str(stochrsi[counter]) + ',' +
-								 str(short) )
-					else:
-						# profitable transaction
-						# Datestamp,vwap,rsi,stochrsi,bool(short)
-						success_txs.append( str(int(data['candles'][counter]['datetime'])) + ',' +
-								 str(vwap.loc[counter,'vwap']) + ',' +
-								 str(cur_rsi) + ',' +
-								 str(stochrsi[counter]) + ',' +
-								 str(short) )
-
 					sell_time = datetime.fromtimestamp(float(data['candles'][counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
-					results.append( str(purchase_price) + ',' + str(sell_price) + ',' + str(net_change) + ',' + str(short) + ',' +
-						str(purchase_time) + ',' + str(sell_time) )
+
+					# sell_price,bool(short),vwap,rsi,stochrsi,sell_time
+					results.append( str(sell_price) + ',' + str(short) + ',' +
+							str(vwap.loc[counter,'vwap']) + ',' + str(cur_rsi) + ',' + str(srsi) + ',' +
+							str(sell_time) )
 
 					if ( noshort == False ):
 						signal_mode = 'short'
@@ -994,6 +987,10 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 					short_price = float(data['candles'][counter]['close'])
 					short_time = datetime.fromtimestamp(float(data['candles'][counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
+					results.append( str(short_price) + ',' + str(short) + ',' +
+							str(vwap.loc[counter,'vwap']) + ',' + str(cur_rsi) + ',' + str(srsi) + ',' +
+							str(short_time) )
+
 					signal_mode = 'buy_to_cover'
 
 		if ( signal_mode == 'buy_to_cover' ):
@@ -1001,27 +998,11 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 				if ( cur_rsi >= rsi_low_limit ):
 					# Buy-to-cover
 					buy_to_cover_price = float(data['candles'][counter]['close'])
-					net_change = buy_to_cover_price - short_price
-					if ( net_change >= 0 ):
-						# failed transaction
-						# Datestamp,vwap,rsi,stochrsi,bool(short)
-						failed_txs.append( str(int(data['candles'][counter]['datetime'])) + ',' +
-								 str(vwap.loc[counter,'vwap']) + ',' +
-								 str(cur_rsi) + ',' +
-								 str(stochrsi[counter]) + ',' +
-								 str(short) )
-					else:
-						# profitable transaction
-						# Datestamp,vwap,rsi,stochrsi,bool(short)
-						success_txs.append( str(int(data['candles'][counter]['datetime'])) + ',' +
-								 str(vwap.loc[counter,'vwap']) + ',' +
-								 str(cur_rsi) + ',' +
-								 str(stochrsi[counter]) + ',' +
-								 str(short) )
-
 					buy_to_cover_time = datetime.fromtimestamp(float(data['candles'][counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
-					results.append( str(short_price) + ',' + str(buy_to_cover_price) + ',' + str(net_change) + ',' + str(short) + ',' +
-						str(short_time) + ',' + str(buy_to_cover_time) )
+
+					results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
+							str(vwap.loc[counter,'vwap']) + ',' + str(cur_rsi) + ',' + str(srsi) + ',' +
+							str(buy_to_cover_time) )
 
 					if ( shortonly == True ):
 						signal_mode = 'short'
@@ -1033,5 +1014,5 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 		prev_rsi = cur_rsi
 		counter += 1
 
-	return results, success_txs, failed_txs
+	return results
 

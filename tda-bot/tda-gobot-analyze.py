@@ -236,99 +236,98 @@ if ( args.analyze == 'rsi' ):
 			print()
 			counter += 2
 
+
+		# Rate the stock
+		#   txs/day < 1				 = -1 point
+		#   avg_gain_per_share < 1		 = -1 points
+		#   success_pct < 10% higher than fail % = -2 points
+		#   success_pct <= fail_pct		 = -4 points
+		#   average_gain <= average_loss	 = -8 points
+		#   shortable == False			 = -4 points
+		#   marginable == False			 = -2 points
+		#   delayed == True			 = -2 points
+		#
+		# Rating:
+		#   0 			 = Very Good
+		#   -1			 = Good
+		#   <-2 & >-4		 = Poor
+		#   <-3			 = Bad
+		#   Success % <= Fail %  = FAIL
+		#   Avg Gain <= Avg Loss = FAIL
+		success_pct = (int(success) / int(len(results))) * 100	# % Successful trades using algorithm
+		fail_pct = ( int(fail) / int(len(results)) ) * 100	# % Failed trades using algorithm
+		average_gain = net_gain / int(len(results))		# Average improvement in price using algorithm
+		average_loss = net_loss / int(len(results))		# Average regression in price using algorithm
+		txs = int(len(results)) / int(days)			# Average buy or sell triggers per day
+
 		print()
 
-# Rate the stock
-#   txs/day < 1				 = -1 point
-#   avg_gain_per_share < 1		 = -1 points
-#   success_pct < 10% higher than fail % = -2 points
-#   success_pct <= fail_pct		 = -4 points
-#   average_gain <= average_loss	 = -8 points
-#   shortable == False			 = -4 points
-#   marginable == False			 = -2 points
-#   delayed == True			 = -2 points
-#
-# Rating:
-#   0 			 = Very Good
-#   -1			 = Good
-#   <-2 & >-4		 = Poor
-#   <-3			 = Bad
-#   Success % <= Fail %  = FAIL
-#   Avg Gain <= Avg Loss = FAIL
-success_pct = (int(success) / int(len(results))) * 100	# % Successful trades using algorithm
-fail_pct = ( int(fail) / int(len(results)) ) * 100	# % Failed trades using algorithm
-average_gain = net_gain / int(len(results))		# Average improvement in price using algorithm
-average_loss = net_loss / int(len(results))		# Average regression in price using algorithm
-txs = int(len(results)) / int(days)			# Average buy or sell triggers per day
+		# Check number of transactions/day
+		if ( txs < 1 ):
+			rating -= 1
+			text_color = red
+		else:
+			text_color = green
 
-print()
+		print( 'Average txs/day: ' + text_color + str(round(txs,2)) + reset_color )
 
-# Check number of transactions/day
-if ( txs < 1 ):
-	rating -= 1
-	text_color = red
-else:
-	text_color = green
+		# Compare success/fail percentage
+		if ( success_pct <= fail_pct ):
+			rating -= 4
+			text_color = red
+		elif ( success_pct - fail_pct < 10 ):
+			rating -= 2
+			text_color = red
+		else:
+			text_color = green
 
-print( 'Average txs/day: ' + text_color + str(round(txs,2)) + reset_color )
+		print( 'Success rate: ' + text_color + str(round(success_pct, 2)) + reset_color )
+		print( 'Fail rate: ' + text_color + str(round(fail_pct, 2)) + reset_color )
 
-# Compare success/fail percentage
-if ( success_pct <= fail_pct ):
-	rating -= 4
-	text_color = red
-elif ( success_pct - fail_pct < 10 ):
-	rating -= 2
-	text_color = red
-else:
-	text_color = green
+		# Compare average gain vs average loss
+		if ( average_gain <= average_loss ):
+			rating -= 8
+			text_color = red
+		else:
+			text_color = green
 
-print( 'Success rate: ' + text_color + str(round(success_pct, 2)) + reset_color )
-print( 'Fail rate: ' + text_color + str(round(fail_pct, 2)) + reset_color )
+		print( 'Average gain: ' + text_color + str(round(average_gain, 2)) + ' / share' + reset_color )
+		print( 'Average loss: ' + text_color + str(round(average_loss, 2)) + ' / share' + reset_color )
 
-# Compare average gain vs average loss
-if ( average_gain <= average_loss ):
-	rating -= 8
-	text_color = red
-else:
-	text_color = green
+		# Calculate the average gain per share price
+		last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=False)
+		if ( last_price != False ):
+			avg_gain_per_share = float(average_gain) / float(last_price) * 100
+			if ( avg_gain_per_share < 1 ):
+				rating -= 1
+				text_color = red
+			else:
+				text_color = green
 
-print( 'Average gain: ' + text_color + str(round(average_gain, 2)) + ' / share' + reset_color )
-print( 'Average loss: ' + text_color + str(round(average_loss, 2)) + ' / share' + reset_color )
+			print( 'Average gain per share: ' + text_color + str(round(avg_gain_per_share, 3)) + '%' + reset_color )
 
-# Calculate the average gain per share price
-last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=False)
-if ( last_price != False ):
-	avg_gain_per_share = float(average_gain) / float(last_price) * 100
-	if ( avg_gain_per_share < 1 ):
-		rating -= 1
-		text_color = red
-	else:
-		text_color = green
+		# Shortable / marginable / delayed / etc.
+		if ( shortable == False ):
+			rating -= 4
+		if ( marginable == False ):
+			rating -= 2
+		if ( delayed == True ):
+			rating -= 2
 
-	print( 'Average gain per share: ' + text_color + str(round(avg_gain_per_share, 3)) + '%' + reset_color )
+		# Print stock rating (see comments above)
+		if ( success_pct <= fail_pct or average_gain <= average_loss ):
+			rating = red + 'FAIL' + reset_color
+		elif ( rating == 0 ):
+			rating = green + 'Very Good' + reset_color
+		elif ( rating == -1 ):
+			rating = green + 'Good' + reset_color
+		elif ( rating <= -4 ):
+			rating = red + 'Bad' + reset_color
+		elif ( rating <= -2 ):
+			rating = red + 'Poor' + reset_color
 
-# Shortable / marginable / delayed / etc.
-if ( shortable == False ):
-	rating -= 4
-if ( marginable == False ):
-	rating -= 2
-if ( delayed == True ):
-	rating -= 2
-
-# Print stock rating (see comments above)
-if ( success_pct <= fail_pct or average_gain <= average_loss ):
-	rating = red + 'FAIL' + reset_color
-elif ( rating == 0 ):
-	rating = green + 'Very Good' + reset_color
-elif ( rating == -1 ):
-	rating = green + 'Good' + reset_color
-elif ( rating <= -4 ):
-	rating = red + 'Bad' + reset_color
-elif ( rating <= -2 ):
-	rating = red + 'Poor' + reset_color
-
-print( 'Stock rating: ' + str(rating) )
-print()
+		print( 'Stock rating: ' + str(rating) )
+		print()
 
 
 exit(0)

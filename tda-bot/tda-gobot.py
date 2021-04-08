@@ -1,15 +1,10 @@
 #!/usr/bin/python3 -u
 
 # Command-line options:
-#  ./tda-gobot.py <ticker> <investment-in-usd>
+#  ./tda-gobot.py <ticker> <investment-in-usd> [--short] [--multiday]
 
-# The goal of this bot is to purchase some shares and ideally ride it upward,
-# or if the price drops below some % threshold, then sell the shares immediately.
-
-# Notes/Ideas:
-#  - Have a way to scan and choose stocks automatically
-#  - Use pypfopt to allocate number of shares to buy among a set of shares vs. just purchase
-#    the same number of each.
+# The goal of this bot is to purchase or short some shares and ride it until the price
+# drops below (or above, for shorting) some % threshold, then sell the shares immediately.
 
 import robin_stocks.tda as tda
 import os, sys, time, random
@@ -28,6 +23,7 @@ parser.add_argument("-i", "--incr_threshold", help="Reset base_price if stock in
 parser.add_argument("-u", "--decr_threshold", help="Max allowed drop percentage of the stock price", type=float)
 parser.add_argument("-m", "--multiday", help="Watch stock until decr_threshold is reached. Do not sell and exit when market closes", action="store_true")
 parser.add_argument("-o", "--notmarketclosed", help="Cancel order and exit if US stock market is closed", action="store_true")
+parser.add_argument("-y", "--short", help='Enable short selling of stock', action="store_true")
 parser.add_argument("-d", "--debug", help="Enable debug output", action="store_true")
 args = parser.parse_args()
 
@@ -87,16 +83,27 @@ stock_qty = int( float(stock_usd) / float(last_price) )
 
 # Purchase stock, set orig_base_price to the price that we purchases the stock
 if ( tda_gobot_helper.ismarketopen_US() == True ):
-	print('Purchasing ' + str(stock_qty) + ' shares of ' + str(stock))
-	data = tda_gobot_helper.buy_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
-	if ( data == False ):
-		print('Error: Unable to buy stock "' + str(ticker) + '"')
-		exit(1)
+	if ( args.short == True ):
+		print('SHORTING ' + str(stock_qty) + ' shares of ' + str(stock))
+		data = tda_gobot_helper.short_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+		if ( data == False ):
+			print('Error: Unable to short "' + str(stock) + '"', file=sys.stderr)
+			exit(1)
+	else:
+		print('PURCHASING ' + str(stock_qty) + ' shares of ' + str(stock))
+		data = tda_gobot_helper.buy_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+		if ( data == False ):
+			print('Error: Unable to buy stock "' + str(ticker) + '"', file=sys.stderr)
+			exit(1)
 else:
 	print('Error: stock ' + str(stock) + ' not purchased because market is closed, exiting.')
 	exit(1)
 
-orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
+try:
+	orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
+except:
+	orig_base_price = last_price
+
 base_price = orig_base_price
 percent_change = 0
 
@@ -138,13 +145,18 @@ while True:
 		percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
 		print('Stock "' +  str(stock) + '" -' + str(round(percent_change, 2)) + '% (' + str(last_price) + ')')
 
-		# Log format - stock:%change:last_price:net_change:base_price:orig_base_price
-		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id)
+		# Log format - stock:%change:last_price:net_change:base_price:orig_base_price:stock_qty:proc_id:short
+		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, short=args.short)
 
-		if ( percent_change >= decr_percent_threshold):
+		if ( args.short == True ):
+			if ( percent_change >= incr_percent_threshold ):
+				base_price = last_price
+				print('SHORTED Stock "' + str(stock) + '" decreased below the incr_percent_threshold (' + str(incr_percent_threshold) + '%), resetting base price to ' + str(base_price))
+
+		elif ( percent_change >= decr_percent_threshold ):
 
 			# Sell the security
-			print('Stock ' + str(stock) + '" dropped below the decr_percent_threshold (' + str(decr_percent_threshold) + '%), selling the security...')
+			print('SELLING stock ' + str(stock) + '" - the security moved below the decr_percent_threshold (' + str(decr_percent_threshold) + '%)')
 			data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, sold=True)
@@ -156,14 +168,22 @@ while True:
 		percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
 		print('Stock "' +  str(stock) + '" +' + str(round(percent_change,2)) + '% (' + str(last_price) + ')')
 
-		# Re-set the base_price to the last_price if we increase by incr_percent_threshold or more
-		# This way we can continue to ride a price increase until it starts dropping
-		if ( percent_change >= incr_percent_threshold ):
+		# Log format - stock:%change:last_price:net_change:base_price:orig_base_price
+		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, short=args.short)
+
+		if ( args.short == True ):
+			if (percent_change >= decr_percent_threshold):
+				# Buy-to-cover the security
+				print('BUY_TO_COVOR stock ' + str(stock) + '" - the security moved above the decr_percent_threshold (' + str(decr_percent_threshold) + '%)')
+				data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, short=args.short, sold=True)
+
+		elif ( percent_change >= incr_percent_threshold ):
+
+			# Re-set the base_price to the last_price if we increase by incr_percent_threshold or more
+			# This way we can continue to ride a price increase until it starts dropping
 			base_price = last_price
 			print('Stock "' + str(stock) + '" increased above the incr_percent_threshold (' + str(incr_percent_threshold) + '%), resetting base price to ' + str(base_price))
-
-		# Log format - stock:%change:last_price:net_change:base_price:orig_base_price
-		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id)
 
 	# No price change
 	else:
@@ -171,7 +191,7 @@ while True:
 			print('Stock "' +  str(stock) + '" no change (' + str(last_price) + ')')
 
 		# Log format - stock:%change:last_price:net_change:base_price:orig_base_price
-		tda_gobot_helper.log_monitor(stock, 0, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id)
+		tda_gobot_helper.log_monitor(stock, 0, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, short=args.short)
 
 	time.sleep(loopt)
 

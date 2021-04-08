@@ -60,11 +60,8 @@ if ( args.notmarketclosed == True and tda_gobot_helper.ismarketopen_US() == Fals
 	exit(1)
 
 if ( tda_gobot_helper.check_blacklist(stock) == True and args.force == False ):
-	if ( args.analyze == True ):
-		print('(' + str(stock) + ') Warning: stock ' + str(stock) + ' found in blacklist file')
-	else:
-		print('(' + str(stock) + ') Error: stock ' + str(stock) + ' found in blacklist file, exiting.')
-		exit(1)
+	print('(' + str(stock) + ') Error: stock ' + str(stock) + ' found in blacklist file, exiting.')
+	exit(1)
 
 # Initialize and log into TD Ameritrade
 from dotenv import load_dotenv
@@ -104,7 +101,7 @@ if ( args.short == True or args.shortonly == True ):
 			print('Warning: stock(' + str(stock) + '): does not appear to be shortable, disabling --short')
 
 
-# tda.get_price_history() variables
+# tda.get_pricehistory() variables
 mytimezone = pytz.timezone("US/Eastern")
 tda_gobot_helper.mytimezone = mytimezone
 p_type = 'day'

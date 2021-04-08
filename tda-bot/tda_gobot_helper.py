@@ -15,7 +15,13 @@ def tdalogin(passcode=None):
 	if ( passcode == None ):
 		return False
 
-	enc = tda.login(passcode)
+	try:
+		enc = tda.login(passcode)
+
+	except Exception as e:
+		print('Caught Exception: tdalogin(): ' + str(e))
+		return False
+
 	if ( enc == '' ):
 		return False
 
@@ -112,18 +118,16 @@ def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, ba
 
 	if ( proc_id == None ):
 		try:
-			process_id
+			proc_id = process_id
 		except NameError:
 			proc_id = '0000'
-		else:
-			proc_id = process_id
 
 	logfile = './LOGS/' + str(ticker) + '-' + str(proc_id) + '.txt'
 	try:
 		fh = open( logfile, "wt" )
+
 	except OSError as e:
-		if ( debug == 1 ):
-			print('Error: log_monitor(): Unable to open file ' + str(logfile) + ', ' + e, file=sys.stderr)
+		print('Error: log_monitor(): Unable to open file ' + str(logfile) + ': ' + e, file=sys.stderr)
 		return False
 
 	# Log format - stock:%change:last_price:net_change:base_price:orig_base_price
@@ -178,7 +182,13 @@ def check_stock_symbol(stock=None):
 	if ( stock == None ):
 		return False
 
-	last_price = get_lastprice(stock, WarnDelayed=False)
+	try:
+		last_price = get_lastprice(stock, WarnDelayed=False)
+
+	except Exception as e:
+		print('Caught Exception: get_lastprice(' + str(ticker) + '): ' + str(e))
+		return False
+
 	if ( last_price == False ):
 		# Ticker may be invalid
 		return False
@@ -194,9 +204,9 @@ def write_blacklist(ticker=None, stock_qty=-1, orig_base_price=-1, last_price=-1
 	blacklist = '.stock-blacklist'
 	try:
 		fh = open( blacklist, "wt" )
+
 	except OSError as e:
-		if ( debug == 1 ):
-			print('Error: write_blacklist(): Unable to open file ' + str(blacklist) + ', ' + e, file=sys.stderr)
+		print('Error: write_blacklist(): Unable to open file ' + str(blacklist) + ': ' + e, file=sys.stderr)
 		return False
 
 	try:
@@ -241,8 +251,7 @@ def check_blacklist(ticker=None, debug=1):
 	try:
 		fh = open( blacklist, "rt" )
 	except OSError as e:
-		if ( debug == 1 ):
-			print('Error: check_blacklist(): Unable to open file ' + str(blacklist) + ', ' + e, file=sys.stderr)
+		print('Error: check_blacklist(): Unable to open file ' + str(blacklist) + ': ' + e, file=sys.stderr)
 		return False
 
 	try:
@@ -289,7 +298,13 @@ def get_lastprice(ticker=None, WarnDelayed=True, debug=False):
 	if ( ticker == None ):
 		return False
 
-	data,err = tda.stocks.get_quote(ticker, True)
+	try:
+		data,err = tda.stocks.get_quote(ticker, True)
+
+	except Exception as e:
+		print('Caught Exception: get_lastprice(' + str(ticker) + '): tda.stocks.get_quote(): ' + str(e))
+		return False
+
 	if ( err != None ):
 		print('Error: get_lastprice(' + str(ticker) + '): ' + str(err), file=sys.stderr)
 		return False
@@ -330,7 +345,13 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 			return False, []
 
 	# Example: {'open': 236.25, 'high': 236.25, 'low': 236.25, 'close': 236.25, 'volume': 500, 'datetime': 1616796960000}
-	data,err = tda.get_price_history(ticker, p_type, f_type, freq, period, start_date=start_date, end_date=end_date, needExtendedHoursData=needExtendedHoursData, jsonify=True)
+	try:
+		data = err = ''
+		data,err = tda.get_price_history(ticker, p_type, f_type, freq, period, start_date=start_date, end_date=end_date, needExtendedHoursData=needExtendedHoursData, jsonify=True)
+	except Exception as e:
+		print('Caught Exception: get_pricehistory(' + str(ticker) + '): ' + str(e))
+		return False, []
+
 	if ( err != None ):
 		print('Error: get_price_history(' + str(ticker) + ', ' + str(p_type) + ', ' +
 			str(f_type) + ', ' + str(freq) + ', ' + str(period) + ', ' +
@@ -353,7 +374,12 @@ def get_price_stats(ticker=None, days=10, debug=False):
 	if ( int(days) > 10 ):
 		days = 10 # TDA API only allows 10-days of 1-minute data
 
-	data, epochs = get_pricehistory(ticker, 'day', 'minute', '1', days, needExtendedHoursData=True, debug=False)
+	try:
+		data, epochs = get_pricehistory(ticker, 'day', 'minute', '1', days, needExtendedHoursData=True, debug=False)
+
+	except Exception as e:
+		print('Caught Exception: get_price_stats(' + str(ticker) + '): ' + str(e))
+
 	if ( data == False ):
 		return False, 0, 0
 
@@ -404,36 +430,55 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 
 	# Try to buy the stock num_attempts tries or return False
 	for attempt in range(num_attempts):
-		data, err = tda.place_order(tda_account_number, order, True)
-		if ( debug == 1 ):
-			print('DEBUG: buy_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
-			print(order)
-			print(data)
-			print(err)
+		try:
+			data, err = tda.place_order(tda_account_number, order, True)
+			if ( debug == 1 ):
+				print('DEBUG: buy_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
+				print(order)
+				print(data)
+				print(err)
+
+		except Exception as e:
+			print('Caught Exception: buy_stock_marketprice(' + str(ticker) + '): tda.place_order(): ' + str(e))
+			return False
 
 		if ( err != None ):
-			print('Error: buy_stock_marketprice(' + str(ticker) + '): attempt ' + str(attempt+1) + ', ' + str(err), file=sys.stderr)
+			print('Error: buy_stock_marketprice(' + str(ticker) + '): tda.place_order(): attempt ' + str(attempt+1) + ', ' + str(err), file=sys.stderr)
 			if ( attempt == num_attempts-1 ):
 				return False
 
 			# Try to log in again
 			if ( tdalogin(passcode) != True ):
-				print('Error: buy_stock_marketprice(): Login failure', file=sys.stderr)
+				print('Error: buy_stock_marketprice(): tdalogin(): Login failure', file=sys.stderr)
 
 			time.sleep(5)
 		else:
 			break
 
-	order_id = tda.get_order_number(data)
-	if ( debug == 1 ):
-		print(order_id)
+	# Get the order number to feed to tda.get_order
+	try:
+		order_id = tda.get_order_number(data)
+		if ( debug == 1 ):
+			print(order_id)
+
+	except Exception as e:
+		print('Caught Exception: buy_stock_marketprice(' + str(ticker) + '): tda.get_order_number(): ' + str(e))
+		return data
+
 	if ( str(order_id) == '' ):
 		print('Error: buy_stock_marketprice('+ str(ticker) + '): Unable to get order ID', file=sys.stderr)
-		return False
+		return data
 
-	data,err = tda.get_order(tda_account_number, order_id, True)
-	if ( debug == 1 ):
-		print(data)
+	# Get order information to determine if it was filled
+	try:
+		data,err = tda.get_order(tda_account_number, order_id, True)
+		if ( debug == 1 ):
+			print(data)
+
+	except Exception as e:
+		print('Caught Exception: buy_stock_marketprice(' + str(ticker) + '): tda.get_order(): ' + str(e))
+		return data
+
 	if ( err != None ):
 		print('Error: buy_stock_marketprice(' + str(ticker) + '): ' + str(err), file=sys.stderr)
 		return False
@@ -443,12 +488,18 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 	# Loop and wait for order to be filled if fillwait==True
 	if ( fillwait == True and data['filledQuantity'] != quantity ):
 		while time.sleep(10):
-			data,err = tda.get_order(tda_account_number, order_id, True)
-			if ( debug == True ):
-				print(data)
+			try:
+				data,err = tda.get_order(tda_account_number, order_id, True)
+				if ( debug == True ):
+					print(data)
+
+			except Exception as e:
+				print('Caught Exception: buy_stock_marketprice(' + str(ticker) + '): tda.get_order() in fillwait loop: ' + str(e))
+
 			if ( err != None ):
-				print('Error: buy_stock_marketprice(' + str(ticker) + '): problem in fillwait loop, ' + str(err), file=sys.stderr)
+				print('Error: buy_stock_marketprice(' + str(ticker) + '): problem in fillwait loop: ' + str(err), file=sys.stderr)
 				continue
+
 			if ( data['filledQuantity'] == quantity ):
 				break
 
@@ -489,36 +540,55 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 
 	# Try to sell the stock num_attempts tries or return False
 	for attempt in range(num_attempts):
-		data, err = tda.place_order(tda_account_number, order, True)
-		if ( debug == 1 ):
-			print('DEBUG: sell_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
-			print(order)
-			print(data)
-			print(err)
+		try:
+			data, err = tda.place_order(tda_account_number, order, True)
+			if ( debug == 1 ):
+				print('DEBUG: sell_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
+				print(order)
+				print(data)
+				print(err)
+
+		except Exception as e:
+			print('Caught Exception: sell_stock_marketprice(' + str(ticker) + '): tda.place_order(): ' + str(e))
+			return False
 
 		if ( err != None ):
-			print('Error: sell_stock_marketprice(' + str(ticker) + '): attempt ' + str(attempt+1) + ',  ' + str(err), file=sys.stderr)
+			print('Error: sell_stock_marketprice(' + str(ticker) + '): tda.place_order(): attempt ' + str(attempt+1) + ',  ' + str(err), file=sys.stderr)
 			if ( attempt == num_attempts-1 ):
 				return False
 
 			# Try to log in again
 			if ( tdalogin(passcode) != True ):
-				print('Error: sell_stock_marketprice(): Login failure', file=sys.stderr)
+				print('Error: sell_stock_marketprice(): tdalogin(): Login failure', file=sys.stderr)
 
 			time.sleep(5)
 		else:
 			break
 
-	order_id = tda.get_order_number(data)
-	if ( debug == 1 ):
-		print(order_id)
+	# Get the order number to feed to tda.get_order
+	try:
+		order_id = tda.get_order_number(data)
+		if ( debug == 1 ):
+			print(order_id)
+
+	except Exception as e:
+		print('Caught Exception: sell_stock_marketprice(' + str(ticker) + '): tda.get_order_number(): ' + str(e))
+		return data
+
 	if ( str(order_id) == '' ):
 		print('Error: sell_stock_marketprice('+ str(ticker) + '): Unable to get order ID', file=sys.stderr)
-		return False
+		return data
 
-	data,err = tda.get_order(tda_account_number, order_id, True)
-	if ( debug == 1 ):
-		print(data)
+	# Get order information to determine if it was filled
+	try:
+		data,err = tda.get_order(tda_account_number, order_id, True)
+		if ( debug == 1 ):
+			print(data)
+
+	except Exception as e:
+		print('Caught Exception: sell_stock_marketprice(' + str(ticker) + '): tda.get_order(): ' + str(e))
+		return data
+
 	if ( err != None ):
 		print('Error: sell_stock_marketprice(' + str(ticker) + '): ' + str(err), file=sys.stderr)
 		return False
@@ -528,12 +598,18 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 	# Loop and wait for order to be filled if fillwait==True
 	if ( fillwait == True and data['filledQuantity'] != quantity ):
 		while time.sleep(10):
-			data,err = tda.get_order(tda_account_number, order_id, True)
-			if ( debug == True ):
-				print(data)
+			try:
+				data,err = tda.get_order(tda_account_number, order_id, True)
+				if ( debug == True ):
+					print(data)
+
+			except Exception as e:
+				print('Caught Exception: sell_stock_marketprice(' + str(ticker) + '): tda.get_order() in fillwait loop: ' + str(e))
+
 			if ( err != None ):
-				print('Error: sell_stock_marketprice(' + str(ticker) + '): problem in fillwait loop, ' + str(err), file=sys.stderr)
+				print('Error: sell_stock_marketprice(' + str(ticker) + '): problem in fillwait loop: ' + str(err), file=sys.stderr)
 				continue
+
 			if ( data['filledQuantity'] == quantity ):
 				break
 
@@ -570,41 +646,62 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 
 	# Try to buy the stock num_attempts tries or return False
 	for attempt in range(num_attempts):
-		data, err = tda.place_order(tda_account_number, order, True)
-		if ( debug == 1 ):
-			print('DEBUG: short_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
-			print(order)
-			print(data)
-			print(err)
+		try:
+			data, err = tda.place_order(tda_account_number, order, True)
+			if ( debug == 1 ):
+				print('DEBUG: short_stock_marketprice(' + str(ticker) + '): tda.place_order(): attempt ' + str(attempt+1))
+				print(order)
+				print(data)
+				print(err)
+
+		except Exception as e:
+			print('Caught Exception: short_stock_marketprice(' + str(ticker) + ': tda.place_order(): ' + str(e))
+			return False
 
 		if ( err != None ):
-			print('Error: short_stock_marketprice(' + str(ticker) + '): attempt ' + str(attempt+1) + ', ' + str(err), file=sys.stderr)
+			print('Error: short_stock_marketprice(' + str(ticker) + '): tda.place_order(): attempt ' + str(attempt+1) + ', ' + str(err), file=sys.stderr)
 			if ( attempt == num_attempts-1 ):
 				return False
 
 			# Try to log in again
 			if ( tdalogin(passcode) != True ):
-				print('Error: short_stock_marketprice(): Login failure', file=sys.stderr)
+				print('Error: short_stock_marketprice(): tdalogin(): Login failure', file=sys.stderr)
 
 			time.sleep(5)
 		else:
 			break
 
-	order_id = tda.get_order_number(data)
-	if ( debug == 1 ):
-		print(order_id)
+	# Get the order number to feed to tda.get_order
+	try:
+		order_id = tda.get_order_number(data)
+		if ( debug == 1 ):
+			print(order_id)
+
+	except Exception as e:
+		print('Caught Exception: short_stock_marketprice(' + str(ticker) + '): tda.get_order_number(): ' + str(e))
+		return data
+
 	if ( str(order_id) == '' ):
-		print('Error: short_stock_marketprice('+ str(ticker) + '): Unable to get order ID', file=sys.stderr)
+		print('Error: short_stock_marketprice(' + str(ticker) + '): tda.get_order_number(): Unable to get order ID', file=sys.stderr)
+		return data
+
+	# Get order information to determine if it was filled
+	try:
+		data,err = tda.get_order(tda_account_number, order_id, True)
+		if ( debug == 1 ):
+			print(data)
+
+	except Exception as e:
+		print('Caught Exception: short_stock_marketprice(' + str(ticker) + '): tda.get_order(): ' + str(e))
+		return data
+
+	if ( err != None ):
+		print('Error: short_stock_marketprice(' + str(ticker) + '): tda.get_order(): ' + str(err), file=sys.stderr)
 		return False
 
-	data,err = tda.get_order(tda_account_number, order_id, True)
-	if ( debug == 1 ):
-		print(data)
-	if ( err != None ):
-		print('Error: short_stock_marketprice(' + str(ticker) + '): ' + str(err), file=sys.stderr)
-		return False
-	elif ( data['status'] == 'AWAITING_MANUAL_REVIEW' ):
-		print('Error: short_stock_marketprice(' + str(ticker) + '): returned status indicates that stock is not available for shorting', file=sys.stderr)
+	# Check if we were unable to short this stock
+	if ( data['status'] == 'AWAITING_MANUAL_REVIEW' ):
+		print('Error: short_stock_marketprice(' + str(ticker) + '): tda.get_order(): returned status indicates that stock is not available for shorting', file=sys.stderr)
 		return False
 
 	print('short_stock_marketprice(' + str(ticker) + '): Order successfully placed (Order ID:' + str(order_id) + ')')
@@ -612,11 +709,16 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 	# Loop and wait for order to be filled if fillwait==True
 	if ( fillwait == True and float(data['filledQuantity']) != float(quantity) ):
 		while time.sleep(10):
-			data,err = tda.get_order(tda_account_number, order_id, True)
-			if ( debug == True ):
-				print(data)
+			try:
+				data,err = tda.get_order(tda_account_number, order_id, True)
+				if ( debug == True ):
+					print(data)
+
+			except Exception as e:
+				print('Caught Exception: short_stock_marketprice(' + str(ticker) + '): tda.get_order() in fillwait loop: ' + str(e))
+
 			if ( err != None ):
-				print('Error: short_stock_marketprice(' + str(ticker) + '): problem in fillwait loop, ' + str(err), file=sys.stderr)
+				print('Error: short_stock_marketprice(' + str(ticker) + '): tda.get_order() problem in fillwait loop: ' + str(err), file=sys.stderr)
 				continue
 			if ( float(data['filledQuantity']) == float(quantity) ):
 				break
@@ -655,38 +757,57 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 
 	# Try to sell the stock num_attempts tries or return False
 	for attempt in range(num_attempts):
-		data, err = tda.place_order(tda_account_number, order, True)
-		if ( debug == 1 ):
-			print('DEBUG: buytocover_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
-			print(order)
-			print(data)
-			print(err)
+		try:
+			data, err = tda.place_order(tda_account_number, order, True)
+			if ( debug == 1 ):
+				print('DEBUG: buytocover_stock_marketprice(' + str(ticker) + '): tda.place_order(): attempt ' + str(attempt+1))
+				print(order)
+				print(data)
+				print(err)
+
+		except Exception as e:
+			print('Caught Exception: buytocover_stock_marketprice(' + str(ticker) + '): tda.place_order(): ' + str(e))
+			return False
 
 		if ( err != None ):
-			print('Error: buytocover_stock_marketprice(' + str(ticker) + '): attempt ' + str(attempt+1) + ',  ' + str(err), file=sys.stderr)
+			print('Error: buytocover_stock_marketprice(' + str(ticker) + '): tda.place_order(): attempt ' + str(attempt+1) + ',  ' + str(err), file=sys.stderr)
 			if ( attempt == num_attempts-1 ):
 				return False
 
 			# Try to log in again
 			if ( tdalogin(passcode) != True ):
-				print('Error: buytocover_stock_marketprice(): Login failure', file=sys.stderr)
+				print('Error: buytocover_stock_marketprice(): tdalogin(): Login failure', file=sys.stderr)
 
 			time.sleep(5)
 		else:
 			break
 
-	order_id = tda.get_order_number(data)
-	if ( debug == 1 ):
-		print(order_id)
-	if ( str(order_id) == '' ):
-		print('Error: buytocover_stock_marketprice('+ str(ticker) + '): Unable to get order ID', file=sys.stderr)
-		return False
+	# Get the order number to feed to tda.get_order
+	try:
+		order_id = tda.get_order_number(data)
+		if ( debug == 1 ):
+			print(order_id)
 
-	data,err = tda.get_order(tda_account_number, order_id, True)
-	if ( debug == 1 ):
-		print(data)
+	except Exception as e:
+		print('Caught Exception: buytocover_stock_marketprice(' + str(ticker) + '): tda.get_order_number(): ' + str(e))
+		return data
+
+	if ( str(order_id) == '' ):
+		print('Error: buytocover_stock_marketprice('+ str(ticker) + '): tda.get_order_number(): Unable to get order ID', file=sys.stderr)
+		return data
+
+	# Get order information to determine if it was filled
+	try:
+		data,err = tda.get_order(tda_account_number, order_id, True)
+		if ( debug == 1 ):
+			print(data)
+
+	except Exception as e:
+		print('Caught Exception: buytocover_stock_marketprice(' + str(ticker) + '): tda.get_order(): ' + str(e))
+		return data
+
 	if ( err != None ):
-		print('Error: buytocover_stock_marketprice(' + str(ticker) + '): ' + str(err), file=sys.stderr)
+		print('Error: buytocover_stock_marketprice(' + str(ticker) + '): tda.get_order(): ' + str(err), file=sys.stderr)
 		return False
 
 	print('buytocover_stock_marketprice(' + str(ticker) + '): Order successfully placed (Order ID:' + str(order_id) + ')')
@@ -694,11 +815,16 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 	# Loop and wait for order to be filled if fillwait==True
 	if ( fillwait == True and data['filledQuantity'] != quantity ):
 		while time.sleep(10):
-			data,err = tda.get_order(tda_account_number, order_id, True)
-			if ( debug == True ):
-				print(data)
+			try:
+				data,err = tda.get_order(tda_account_number, order_id, True)
+				if ( debug == True ):
+					print(data)
+
+			except Exception as e:
+				print('Caught Exception: buytocover_stock_marketprice(' + str(ticker) + '): tda.get_order() in fillwait loop: ' + str(e))
+
 			if ( err != None ):
-				print('Error: buytocover_stock_marketprice(' + str(ticker) + '): problem in fillwait loop, ' + str(err), file=sys.stderr)
+				print('Error: buytocover_stock_marketprice(' + str(ticker) + '): problem in fillwait loop: ' + str(err), file=sys.stderr)
 				continue
 			if ( data['filledQuantity'] == quantity ):
 				break
@@ -723,6 +849,10 @@ def get_rsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 
 	if ( pricehistory == None ):
 		return False
+
+	ticker = ''
+	if ( pricehistory['symbol'] ):
+		ticker = pricehistory['symbol']
 
 	prices = []
 	if ( type == 'close' ):
@@ -763,12 +893,17 @@ def get_rsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 
 	if ( len(prices) < rsi_period ):
 		# Something is wrong with the data we got back from tda.get_price_history()
-		print('Error: get_rsi(): len(pricehistory) is less than rsi_period - is this a new stock ticker?', file=sys.stderr)
+		print('Error: get_rsi(' + str(ticker) + '): len(prices) is less than rsi_period - is this a new stock ticker?', file=sys.stderr)
 		return False
 
 	# Calculate the RSI for the entire numpy array
-	pricehistory = np.array( prices )
-	rsi = ti.rsi( pricehistory, period=rsi_period )
+	try:
+		pricehistory = np.array( prices )
+		rsi = ti.rsi( pricehistory, period=rsi_period )
+
+	except Exception as e:
+		print('Caught Exception: get_rsi(' + str(ticker) + '): ' + str(e))
+		return False
 
 	return rsi
 
@@ -779,6 +914,10 @@ def get_stochrsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 
 	if ( pricehistory == None ):
 		return False
+
+	ticker = ''
+	if ( pricehistory['symbol'] ):
+		ticker = pricehistory['symbol']
 
 	prices = []
 	if ( type == 'close' ):
@@ -822,8 +961,13 @@ def get_stochrsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 		print('Error: get_stochrsi(): len(pricehistory) is less than rsi_period - is this a new stock ticker?', file=sys.stderr)
 		return False
 
-	pricehistory = np.array( prices )
-	stochrsi = ti.stochrsi( pricehistory, period=rsi_period )
+	try:
+		pricehistory = np.array( prices )
+		stochrsi = ti.stochrsi( pricehistory, period=rsi_period )
+
+	except Exception as e:
+		print('Caught Exception: get_stochrsi(' + str(ticker) + '): ' + str(e))
+		return False
 
 	return stochrsi
 
@@ -848,10 +992,17 @@ def get_vwap(pricehistory=None, debug=False):
 		return False
 
 	prices = np.array([[1,1,1]])
-	for key in pricehistory['candles']:
-		price = ( float(key['high']) + float(key['low']) + float(key['close']) ) / 3
-		prices = np.append( prices, [[float(key['datetime']), price, float(key['volume'])]], axis=0 )
+	try:
+		ticker = pricehistory['symbol']
+		for key in pricehistory['candles']:
+			price = ( float(key['high']) + float(key['low']) + float(key['close']) ) / 3
+			prices = np.append( prices, [[float(key['datetime']), price, float(key['volume'])]], axis=0 )
 
+	except Exception as e:
+		print('Caught Exception: get_vwap(' + str(ticker) + '): ' + str(e))
+		return False
+
+	# Remove the first value used to initialize np array
 	prices = np.delete(prices, 0, axis=0)
 
 	columns = ['DateTime', 'AvgPrice', 'Volume']
@@ -889,9 +1040,16 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 
 	# Pull the 1-minute stock history
 	# Note: Not asking for extended hours for now since our bot doesn't even trade after hours
-	data, epochs = get_pricehistory(ticker, 'day', 'minute', '1', days, needExtendedHoursData=False, debug=False)
+	try:
+		data, epochs = get_pricehistory(ticker, 'day', 'minute', '1', days, needExtendedHoursData=False, debug=False)
+
+	except Exception as e:
+		print('Caught Exception: rsi_analyze(' + str(ticker) + '): ' + str(e))
+		return False
+
 	if ( data == False ):
 		return False
+
 	if ( int(len(data['candles'])) <= rsi_period ):
 		print('Not enough data - returned candles=' + str(len(data['candles'])) + ', rsi_period=' + str(rsi_period))
 		exit(0)
@@ -899,7 +1057,13 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 	# Get RSI
 	# With 10-day/1-min history there should be ~3900 datapoints in data['candles'] (6.5hrs * 60mins * 10days)
 	# Therefore, with an rsi_period of 14, get_rsi() will return a list of 3886 items
-	rsi = get_rsi(data, rsi_period, rsi_type, debug=False)
+	try:
+		rsi = get_rsi(data, rsi_period, rsi_type, debug=False)
+
+	except Exception as e:
+		print('Caught Exception: rsi_analyze(' + str(ticker) + '): get_rsi(): ' + str(e))
+		return False
+
 	if ( isinstance(rsi, bool) and rsi == False ):
 		print('Error: get_rsi() returned false - no data', file=sys.stderr)
 		return False
@@ -909,7 +1073,13 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 
 	# Get stochactic RSI
 	# Length of stochrsi will be rsi_period*2 - 1 (which is shorter than rsi[])
-	stochrsi = get_stochrsi(data, rsi_period, rsi_type, debug=False)
+	try:
+		stochrsi = get_stochrsi(data, rsi_period, rsi_type, debug=False)
+
+	except:
+		print('Caught Exception: rsi_analyze(' + str(ticker) + '): get_stochrsi(): ' + str(e))
+		return False
+
 	if ( isinstance(stochrsi, bool) and stochrsi == False ):
 		print('Error: get_stochrsi() returned false - no data', file=sys.stderr)
 		return False
@@ -918,7 +1088,13 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 			print('Warning, unexpected length of stochrsi (data[candles]=' + str(len(data['candles'])) + ', len(stochrsi)=' + str(len(stochrsi)) + ')')
 
 	# Get the VWAP data
-	vwap = get_vwap(data)
+	try:
+		vwap = get_vwap(data)
+
+	except Exception as e:
+		print('Caught Exception: rsi_analyze(' + str(ticker) + '): get_vwap(): ' + str(e))
+		return False
+
 	if ( isinstance(vwap, bool) and vwap == False ):
 		print('Error: get_stochrsi() returned false - no data', file=sys.stderr)
 		return False

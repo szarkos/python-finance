@@ -22,7 +22,7 @@ parser.add_argument("-f", "--force", help='Force bot to purchase the stock even 
 parser.add_argument("-i", "--incr_threshold", help='Reset base_price if stock increases by this percent', type=float)
 parser.add_argument("-u", "--decr_threshold", help='Max allowed drop percentage of the stock price', type=float)
 parser.add_argument("-m", "--multiday", help='Watch stock until decr_threshold is reached. Do not sell and exit when market closes', action="store_true")
-parser.add_argument("-n", "--num_purchases", help='Number of purchases allowed per day', nargs='?', default=1, type=int)
+parser.add_argument("-n", "--num_purchases", help='Number of purchases allowed per day', nargs='?', default=4, type=int)
 parser.add_argument("-o", "--notmarketclosed", help='Cancel order and exit if US stock market is closed', action="store_true")
 parser.add_argument("-s", "--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
 parser.add_argument("-t", "--max_failed_txs", help='Maximum number of failed transactions allowed for a given stock before stock is blacklisted', default=2, type=int)
@@ -39,7 +39,7 @@ args = parser.parse_args()
 
 debug = 1			# Should default to 0 eventually, testing for now
 incr_percent_threshold = 1	# Reset base_price if stock increases by this percent
-decr_percent_threshold = 4	# Max allowed drop percentage of the stock price
+decr_percent_threshold = 2	# Max allowed drop percentage of the stock price
 
 if args.debug:
 	debug = 1
@@ -303,6 +303,23 @@ while True:
 
 		net_change = round( (last_price - orig_base_price) * stock_qty, 3 )
 
+		# End of trading day - dump the stock and exit unless --multiday was set
+		if ( tda_gobot_helper.isendofday() == True and args.multiday == False ):
+			print('Market closing, selling stock ' + str(stock))
+			if ( args.fake == False ):
+				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+
+			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, sold=True)
+			print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+
+			# Add to blacklist if sold at a loss greater than max_failed_usd
+			if ( net_change < 0 and abs(net_change) > args.max_failed_usd ):
+				tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
+
+			exit(0)
+
+
+		# STOPLOSS MONITOR
 		# If price decreases
 		if ( float(last_price) < float(base_price) ):
 			percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
@@ -352,21 +369,7 @@ while True:
 			tda_gobot_helper.log_monitor(stock, 0, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id)
 
 
-		# End of trading day - dump the stock and exit unless --multiday was set
-		if ( tda_gobot_helper.isendofday() == True and args.multiday == False ):
-			print('Market closing, selling stock ' + str(stock))
-			if ( args.fake == False ):
-				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
-
-			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, sold=True)
-			print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
-
-			# Add to blacklist if sold at a loss greater than max_failed_usd
-			if ( net_change < 0 and abs(net_change) > args.max_failed_usd ):
-				tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
-
-			exit(0)
-
+		# RSI MONITOR
 		# Nothing to do if RSI hasn't dropped below rsi_high_limit (typically 70)
 		if ( cur_rsi > rsi_high_limit and prev_rsi > rsi_high_limit ):
 			if ( debug == 1 ):
@@ -490,13 +493,6 @@ while True:
 
 		net_change = round( (last_price - orig_base_price) * stock_qty, 3 )
 
-		if ( float(last_price) < float(base_price) ):
-			percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
-		elif ( float(last_price) > float(base_price) ):
-			percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
-
-		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True)
-
 		# End of trading day - cover the shorted stock unless --multiday was set
 		if ( tda_gobot_helper.isendofday() == True and args.multiday == False ):
 			print('Market closing, covering shorted stock ' + str(stock))
@@ -506,8 +502,58 @@ while True:
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True, sold=True)
 			signal_mode = 'buy'
 
+
+		# STOPLOSS MONITOR
+		# If price decreases
+		if ( float(last_price) < float(base_price) ):
+			percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
+
+			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, short=True, proc_id=tx_id)
+
+			# Re-set the base_price to the last_price if we increase by incr_percent_threshold or more
+			# This way we can continue to ride a price increase until it starts dropping
+			if ( percent_change >= incr_percent_threshold ):
+				base_price = last_price
+
+				print('SHORTED Stock "' + str(stock) + '" decreased below the incr_percent_threshold (' + str(incr_percent_threshold) + '%), resetting base price to '  + str(base_price))
+				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+
+		# If price increases
+		elif ( float(last_price) > float(base_price) ):
+			percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
+
+			# BUY-TO-COVER the security if we are using a trailing stoploss
+			if ( percent_change >= decr_percent_threshold and args.stoploss == True ):
+
+				print('SHORTED Stock "' + str(stock) + '" increased above the decr_percent_threshold (' + str(decr_percent_threshold) + '%), covering shorted stock...')
+				if ( args.fake == False ):
+					data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+
+				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True, sold=True)
+
+				# Add to blacklist when sold at a loss greater than max_failed_usd, or if we've exceeded failed_tx
+				if ( net_change > 0 ):
+					failed_txs -= 1
+					if ( abs(net_change) > args.max_failed_usd or failed_txs == 0 ):
+						tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
+
+				# Change signal to 'buy' and generate new tx_id for next iteration
+				tx_id = random.randint(1000, 9999)
+				if ( args.shortonly == True ):
+					signal_mode = 'short'
+				else:
+					signal_mode = 'buy'
+					time.sleep(1)
+					continue
+
+		# No price change
+		else:
+			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True)
+
+
+		# RSI MONITOR
 		# RSI is rising toward the rsi_low_limit
-		elif ( prev_rsi < rsi_low_limit and cur_rsi > prev_rsi ):
+		if ( prev_rsi < rsi_low_limit and cur_rsi > prev_rsi ):
 
 			# RSI crossed the rsi_low_limit threshold - this is the BUY_TO_COVER signal
 			if ( cur_rsi >= rsi_low_limit ):

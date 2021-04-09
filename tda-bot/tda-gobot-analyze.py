@@ -10,11 +10,6 @@ import robin_stocks.tda as tda
 import tulipy as ti
 import tda_gobot_helper
 
-# TODO
-# - take into account multiday
-# - take into account stoploss
-# - take into account noshort, shortonly
-# - take into account max_failed_txs
 
 # Parse and check variables
 parser = argparse.ArgumentParser()
@@ -24,8 +19,6 @@ parser.add_argument("-a", "--analyze", help='Analyze the most recent 5-day and 1
 parser.add_argument("-i", "--incr_threshold", help='Reset base_price if stock increases by this percent', type=float)
 parser.add_argument("-u", "--decr_threshold", help='Max allowed drop percentage of the stock price', type=float)
 parser.add_argument("-s", "--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
-parser.add_argument("-t", "--max_failed_txs", help='Maximum number of failed transactions allowed for a given stock before stock is blacklisted', default=2, type=int)
-parser.add_argument("-x", "--max_failed_usd", help='Maximum allowed USD for a failed transaction before the stock is blacklisted', default=100, type=int)
 parser.add_argument("-p", "--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
 parser.add_argument("-r", "--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='ohlc4', type=str)
 parser.add_argument("-g", "--rsi_high_limit", help='RSI high limit', default=70, type=int)
@@ -74,6 +67,10 @@ if ( tda_gobot_helper.check_stock_symbol(stock) != True ):
 	print('Error: check_stock_symbol(' + str(stock) + ') returned False, exiting.')
 	exit(1)
 
+# Check if stock is in the blacklist
+if ( tda_gobot_helper.check_blacklist(stock) == True ):
+	print('(' + str(stock) + ') WARNING: stock ' + str(stock) + ' is currently blacklisted')
+
 # Confirm that we can short this stock
 if ( args.noshort == False or args.shortonly == True ):
 	data,err = tda.stocks.get_quote(stock, True)
@@ -119,6 +116,7 @@ delayed = True
 volatility = 0
 lastprice = 0
 high = low = 0
+
 try:
 	data,err = tda.stocks.get_quote(stock, True)
 	if ( err == None and data != {} ):
@@ -133,9 +131,10 @@ try:
 		lastprice = data[stock]['lastPrice']
 		high = data[stock]['52WkHigh']
 		low = data[stock]['52WkLow']
-except:
-	pass
 
+except Exception as e:
+	print('Caught exception in tda.stocks.get_quote(' + str(stock) + '): ' + str(e))
+	pass
 
 print()
 print('Analysis of stock ticker "' + str(stock) + '"' + ' using the ' + str(algo) + " algorithm\n")
@@ -161,12 +160,15 @@ print( 'Volatility: ' + str(volatility) )
 print()
 
 
+# --analyze=rsi
 if ( args.analyze == 'rsi' ):
 
 	# Print results for the most recent 10 and 5 days of data
 	for days in ['10', '5']:
 		print('Analyzing ' + str(days) + '-day history for stock ' + str(stock) + ":\n")
-		results = tda_gobot_helper.rsi_analyze(stock, days, rsi_period, rsi_type, rsi_low_limit, rsi_high_limit, noshort=args.noshort, shortonly=args.shortonly, debug=True)
+		results = tda_gobot_helper.rsi_analyze( stock, days, rsi_period, rsi_type, rsi_low_limit, rsi_high_limit,
+							stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly, debug=True)
+
 		if ( results == False ):
 			print('Error: rsi_analyze() returned false', file=sys.stderr)
 			exit(1)
@@ -181,8 +183,12 @@ if ( args.analyze == 'rsi' ):
 		net_gain = net_loss = 0
 		counter = 0
 		while ( counter < len(results) - 1 ):
-			price_tx, short, vwap_tx, rsi_tx, stochrsi_tx, time_tx = results[counter].split(',', 6)
-			price_rx, short, vwap_rx, rsi_rx, stochrsi_rx, time_rx = results[counter+1].split(',', 6)
+			price_tx, short, vwap_tx, rsi_tx, stochrsi_tx, time_tx = results[counter].split( ',', 6 )
+			price_rx, short, vwap_rx, rsi_rx, stochrsi_rx, time_rx = results[counter+1].split( ',', 6 )
+
+			# Returned RSI format is "prev_rsi/cur_rsi"
+			rsi_prev_tx,rsi_cur_tx = rsi_tx.split( '/', 2 )
+			rsi_prev_rx,rsi_cur_rx = rsi_rx.split( '/', 2 )
 
 			net_change = float(price_rx) - float(price_tx)
 			if ( short == str(False) ):
@@ -202,11 +208,17 @@ if ( args.analyze == 'rsi' ):
 
 			price_tx = round( float(price_tx), 2 )
 			price_rx = round( float(price_rx), 2 )
+
 			net_change = round( net_change, 2 )
+
 			vwap_tx = round( float(vwap_tx), 2 )
 			vwap_rx = round( float(vwap_rx), 2 )
-			rsi_tx = round( float(rsi_tx), 1 )
-			rsi_rx = round( float(rsi_rx), 1 )
+
+			rsi_prev_tx = round( float(rsi_prev_tx), 1 )
+			rsi_cur_tx = round( float(rsi_cur_tx), 1 )
+			rsi_prev_rx = round( float(rsi_prev_rx), 1 )
+			rsi_cur_rx = round( float(rsi_cur_rx), 1 )
+
 			stochrsi_tx = round( float(stochrsi_tx), 4 )
 			stochrsi_rx = round( float(stochrsi_rx), 4 )
 
@@ -225,6 +237,9 @@ if ( args.analyze == 'rsi' ):
 			text_color = red
 			if ( is_success == True ):
 				text_color = green
+
+			rsi_tx = str(rsi_prev_tx) + '/' + str(rsi_cur_tx)
+			rsi_rx = str(rsi_prev_rx) + '/' + str(rsi_cur_rx)
 
 			for i in [str(price_tx), ' ', str(vwap_tx), str(rsi_tx), str(stochrsi_tx), time_tx]:
 				print(text_color + '{0:<18}'.format(i) + reset_color, end='')

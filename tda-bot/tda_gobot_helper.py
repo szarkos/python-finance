@@ -348,6 +348,7 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 	try:
 		data = err = ''
 		data,err = tda.get_price_history(ticker, p_type, f_type, freq, period, start_date=start_date, end_date=end_date, needExtendedHoursData=needExtendedHoursData, jsonify=True)
+
 	except Exception as e:
 		print('Caught Exception: get_pricehistory(' + str(ticker) + '): ' + str(e))
 		return False, []
@@ -1026,7 +1027,9 @@ def get_vwap(pricehistory=None, debug=False):
 # Return an N-day analysis for a stock ticker using the RSI algorithm
 # Returns a comma-delimited log of each sell/buy/short/buy-to-cover transaction
 #   price, sell_price, net_change, bool(short), bool(success), vwap, rsi, stochrsi, purchase_time, sell_time = result.split(',', 10)
-def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_limit=30, rsi_high_limit=70, noshort=False, shortonly=False, debug=False):
+def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_limit=30, rsi_high_limit=70,
+		stoploss=False, incr_percent_threshold=1, decr_percent_threshold=2,
+		noshort=False, shortonly=False, debug=False ):
 
 	if ( ticker == None ):
 		return False
@@ -1067,14 +1070,16 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 	if ( isinstance(rsi, bool) and rsi == False ):
 		print('Error: get_rsi() returned false - no data', file=sys.stderr)
 		return False
-	if ( debug == True ):
-		if ( len(rsi) != len(data['candles']) - rsi_period ):
-			print('Warning, unexpected length of rsi (data[candles]=' + str(len(data['candles'])) + ', len(rsi)=' + str(len(rsi)) + ')')
+
+	if ( len(rsi) != len(data['candles']) - rsi_period ):
+		print('Warning, unexpected length of rsi (data[candles]=' + str(len(data['candles'])) + ', len(rsi)=' + str(len(rsi)) + ')')
+
 
 	# Get stochactic RSI
-	# Length of stochrsi will be rsi_period*2 - 1 (which is shorter than rsi[])
+	stochrsi_period = rsi_period * 12
 	try:
-		stochrsi = get_stochrsi(data, rsi_period, rsi_type, debug=False)
+#		data_30min, epochs_30min = get_pricehistory(ticker, 'day', 'minute', '30', 10, needExtendedHoursData=False, debug=False)
+		stochrsi = get_stochrsi(data, stochrsi_period, rsi_type, debug=False)
 
 	except:
 		print('Caught Exception: rsi_analyze(' + str(ticker) + '): get_stochrsi(): ' + str(e))
@@ -1083,9 +1088,11 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 	if ( isinstance(stochrsi, bool) and stochrsi == False ):
 		print('Error: get_stochrsi() returned false - no data', file=sys.stderr)
 		return False
-	if ( debug == True ):
-		if ( len(stochrsi) != len(data['candles']) - (rsi_period*2 - 1) ):
-			print('Warning, unexpected length of stochrsi (data[candles]=' + str(len(data['candles'])) + ', len(stochrsi)=' + str(len(stochrsi)) + ')')
+
+	# If using the same 1-minute data, the len of stochrsi will be stochrsi_period * (stochrsi_period * 2) - 1
+	if ( len(stochrsi) != len(data['candles']) - (stochrsi_period * 2 - 1) ):
+		print('Warning, unexpected length of stochrsi (data[candles]=' + str(len(data['candles'])) + ', len(stochrsi)=' + str(len(stochrsi)) + ')')
+
 
 	# Get the VWAP data
 	try:
@@ -1105,90 +1112,177 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 	# Run through the RSI values and log the results
 	results = []
 	prev_rsi = 0
-	counter = int(rsi_period) - 1
-
+	stochrsi_idx = len(rsi) - len(stochrsi) + 1	# Used to index stochrsi[] below
+	c_counter = int(rsi_period) - 1			# Candle counter - because rsi[] is smaller than the full dataset,
+							# this represents the index of data['candles'] when iterating through rsi[]
 	signal_mode = 'buy'
 	if ( shortonly == True ):
 		signal_mode = 'short'
 
-	for cur_rsi in rsi:
 
-		# Fix stochrsi since it's shorter than the rsi array by an additional rsi_period-1
-		if ( counter > len(rsi) + int(rsi_period) - 1 ):
-			srsi = stochrsi[:1]
-		else:
-			srsi = stochrsi[counter - rsi_period * 2 - 1]
+	# Main loop
+	for idx,cur_rsi in enumerate(rsi):
 
 		if ( prev_rsi == 0 ):
 			prev_rsi = cur_rsi
 
+		# Fix stochrsi since it's shorter than the rsi array
+		if ( idx <= stochrsi_idx - 1 ):
+			# We can't reference stochrsi[idx] yet since
+			#  there is no data for this time period
+			srsi = -1
+		else:
+			srsi = float(stochrsi[idx-stochrsi_idx])
+
+
+		# BUY mode
 		if ( signal_mode == 'buy' ):
 			short = False
 			if ( prev_rsi < rsi_low_limit and cur_rsi > prev_rsi ):
 				if ( cur_rsi >= rsi_low_limit ):
 					# Buy
-					purchase_price = float(data['candles'][counter]['close'])
-					purchase_time = datetime.fromtimestamp(float(data['candles'][counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+					purchase_price = float(data['candles'][c_counter]['close'])
+					base_price = purchase_price
+
+					purchase_time = datetime.fromtimestamp(float(data['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 					results.append( str(purchase_price) + ',' + str(short) + ',' +
-							str(vwap.loc[counter,'vwap']) + ',' + str(cur_rsi) + ',' + str(srsi) + ',' +
+							str(vwap.loc[c_counter,'vwap']) + ',' + str(prev_rsi)+'/'+str(cur_rsi) + ',' + str(srsi) + ',' +
 							str(purchase_time) )
 
 					signal_mode = 'sell'
 
+
+		# SELL mode
 		if ( signal_mode == 'sell' ):
+
+			# Monitor cost basis
+			if ( stoploss == True ):
+				last_price = float(data['candles'][c_counter]['close'])
+
+				percent_change = 0
+				if ( float(last_price) < float(base_price) ):
+					percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
+
+					# SELL the security if we are using a trailing stoploss
+					if ( percent_change >= decr_percent_threshold ):
+
+						# Sell
+						sell_price = float(data['candles'][c_counter]['close'])
+						sell_time = datetime.fromtimestamp(float(data['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+						# sell_price,bool(short),vwap,rsi,stochrsi,sell_time
+						results.append( str(sell_price) + ',' + str(short) + ',' +
+								str(vwap.loc[c_counter,'vwap']) + ',' + str(prev_rsi)+'/'+str(cur_rsi) + ',' + str(srsi) + ',' +
+								str(sell_time) )
+
+						prev_rsi = cur_rsi = 0
+						signal_mode = 'buy'
+						continue
+
+				elif ( float(last_price) > float(base_price) ):
+					percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
+
+					if ( percent_change >= incr_percent_threshold ):
+						base_price = last_price
+
+			# End stoploss monitor
+
+			# Monitor RSI
 			if ( prev_rsi > rsi_high_limit and cur_rsi < prev_rsi ):
 				if ( cur_rsi <= rsi_high_limit ):
 					# Sell
-					sell_price = float(data['candles'][counter]['close'])
-					sell_time = datetime.fromtimestamp(float(data['candles'][counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+					sell_price = float(data['candles'][c_counter]['close'])
+					sell_time = datetime.fromtimestamp(float(data['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 					# sell_price,bool(short),vwap,rsi,stochrsi,sell_time
 					results.append( str(sell_price) + ',' + str(short) + ',' +
-							str(vwap.loc[counter,'vwap']) + ',' + str(cur_rsi) + ',' + str(srsi) + ',' +
+							str(vwap.loc[c_counter,'vwap']) + ',' + str(prev_rsi)+'/'+str(cur_rsi) + ',' + str(srsi) + ',' +
 							str(sell_time) )
 
 					if ( noshort == False ):
 						signal_mode = 'short'
-						counter += 1
+						c_counter += 1
 						continue
 					else:
 						signal_mode = 'buy'
 
+
+		# SELL SHORT mode
 		if ( signal_mode == 'short' ):
 			short = True
 			if ( prev_rsi > rsi_high_limit and cur_rsi < prev_rsi ):
 				if ( cur_rsi <= rsi_high_limit ):
 					# Short
-					short_price = float(data['candles'][counter]['close'])
-					short_time = datetime.fromtimestamp(float(data['candles'][counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+					short_price = float(data['candles'][c_counter]['close'])
+					base_price = short_price
+
+					short_time = datetime.fromtimestamp(float(data['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 					results.append( str(short_price) + ',' + str(short) + ',' +
-							str(vwap.loc[counter,'vwap']) + ',' + str(cur_rsi) + ',' + str(srsi) + ',' +
+							str(vwap.loc[c_counter,'vwap']) + ',' + str(prev_rsi)+'/'+str(cur_rsi) + ',' + str(srsi) + ',' +
 							str(short_time) )
 
 					signal_mode = 'buy_to_cover'
 
+
+		# BUY-TO-COVER mode
 		if ( signal_mode == 'buy_to_cover' ):
+
+			# Monitor cost basis
+			if ( stoploss == True ):
+				last_price = float(data['candles'][c_counter]['close'])
+
+				percent_change = 0
+				if ( float(last_price) < float(base_price) ):
+					percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
+
+					if ( percent_change >= incr_percent_threshold ):
+						base_price = last_price
+
+				elif ( float(last_price) > float(base_price) ):
+					percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
+
+					# Buy-to-cover the security if we are using a trailing stoploss
+					if ( percent_change >= decr_percent_threshold ):
+
+						# Buy-to-cover
+						buy_to_cover_price = float(data['candles'][c_counter]['close'])
+						buy_to_cover_time = datetime.fromtimestamp(float(data['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+						results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
+								str(vwap.loc[c_counter,'vwap']) + ',' + str(prev_rsi)+'/'+str(cur_rsi) + ',' + str(srsi) + ',' +
+								str(buy_to_cover_time) )
+
+						if ( shortonly == True ):
+							signal_mode = 'short'
+						else:
+							signal_mode = 'buy'
+							c_counter += 1
+							continue
+
+			# End stoploss monitor
+
+			# Monitor RSI
 			if ( prev_rsi < rsi_low_limit and cur_rsi > prev_rsi ):
 				if ( cur_rsi >= rsi_low_limit ):
 					# Buy-to-cover
-					buy_to_cover_price = float(data['candles'][counter]['close'])
-					buy_to_cover_time = datetime.fromtimestamp(float(data['candles'][counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+					buy_to_cover_price = float(data['candles'][c_counter]['close'])
+					buy_to_cover_time = datetime.fromtimestamp(float(data['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 					results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
-							str(vwap.loc[counter,'vwap']) + ',' + str(cur_rsi) + ',' + str(srsi) + ',' +
+							str(vwap.loc[c_counter,'vwap']) + ',' + str(prev_rsi)+'/'+str(cur_rsi) + ',' + str(srsi) + ',' +
 							str(buy_to_cover_time) )
 
 					if ( shortonly == True ):
 						signal_mode = 'short'
 					else:
 						signal_mode = 'buy'
-						counter += 1
+						c_counter += 1
 						continue
 
 		prev_rsi = cur_rsi
-		counter += 1
+		c_counter += 1
 
 	return results
 

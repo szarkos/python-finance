@@ -41,7 +41,6 @@ if args.incr_threshold:
 
 stock = args.stock
 stock_usd = args.stock_usd
-failed_txs = args.max_failed_txs
 algo = args.analyze
 
 # Initialize and log into TD Ameritrade
@@ -161,7 +160,7 @@ print()
 
 
 # --analyze=rsi
-if ( args.analyze == 'rsi' ):
+if ( algo == 'rsi' ):
 
 	# Print results for the most recent 10 and 5 days of data
 	for days in ['10', '5']:
@@ -176,7 +175,7 @@ if ( args.analyze == 'rsi' ):
 			print('There were no possible trades for requested time period, exiting.')
 			exit(0)
 
-		print("Buy/Sell Price    Net Change        VWAP               RSI              StochRSI          Time")
+		print("Buy/Sell Price    Net Change        VWAP              PREV_RSI/CUR_RSI  StochRSI          Time")
 
 		rating = 0
 		success = fail = 0

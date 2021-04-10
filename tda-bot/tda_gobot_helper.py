@@ -1076,7 +1076,7 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 
 
 	# Get stochactic RSI
-	stochrsi_period = rsi_period * 12
+	stochrsi_period = rsi_period * 24
 	try:
 #		data_30min, epochs_30min = get_pricehistory(ticker, 'day', 'minute', '30', 10, needExtendedHoursData=False, debug=False)
 		stochrsi = get_stochrsi(data, stochrsi_period, rsi_type, debug=False)

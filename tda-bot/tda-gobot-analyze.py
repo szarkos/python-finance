@@ -10,16 +10,20 @@ import robin_stocks.tda as tda
 import tulipy as ti
 import tda_gobot_helper
 
-
 # Parse and check variables
 parser = argparse.ArgumentParser()
 parser.add_argument("stock", help='Stock ticker to purchase')
 parser.add_argument("stock_usd", help='Amount of money (USD) to invest', nargs='?', default=1000, type=float)
-parser.add_argument("-a", "--analyze", help='Analyze the most recent 5-day and 10-day history for a stock ticker using this bot\'s algorithim(s) - (rsi)', default='rsi', type=str)
+parser.add_argument("-a", "--algo", help='Analyze the most recent 5-day and 10-day history for a stock ticker using this bot\'s algorithim(s) - (rsi|stochrsi)', default='rsi', type=str)
+parser.add_argument("-b", "--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal( default=False)', action="store_true")
+parser.add_argument("-c", "--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (default=False)', action="store_true")
 parser.add_argument("-i", "--incr_threshold", help='Reset base_price if stock increases by this percent', type=float)
 parser.add_argument("-u", "--decr_threshold", help='Max allowed drop percentage of the stock price', type=float)
 parser.add_argument("-s", "--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
 parser.add_argument("-p", "--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
+parser.add_argument("-q", "--rsi_slow", help='Slowing period to use in StochRSI algorithm', default=3, type=int)
+parser.add_argument("-k", "--rsi_k_period", help='k period to use in StochRSI algorithm', default=14, type=int)
+parser.add_argument("-t", "--rsi_d_period", help='D period to use in StochRSI algorithm', default=3, type=int)
 parser.add_argument("-r", "--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='ohlc4', type=str)
 parser.add_argument("-g", "--rsi_high_limit", help='RSI high limit', default=70, type=int)
 parser.add_argument("-l", "--rsi_low_limit", help='RSI low limit', default=30, type=int)
@@ -30,7 +34,7 @@ args = parser.parse_args()
 
 debug = 1			# Should default to 0 eventually, testing for now
 incr_percent_threshold = 1	# Reset base_price if stock increases by this percent
-decr_percent_threshold = 4	# Max allowed drop percentage of the stock price
+decr_percent_threshold = 2	# Max allowed drop percentage of the stock price
 
 if args.debug:
 	debug = 1
@@ -41,7 +45,7 @@ if args.incr_threshold:
 
 stock = args.stock
 stock_usd = args.stock_usd
-algo = args.analyze
+algo = str(args.algo).lower()
 
 # Initialize and log into TD Ameritrade
 from dotenv import load_dotenv
@@ -97,6 +101,7 @@ freq = '1'
 # RSI variables
 rsi_type = args.rsi_type
 rsi_period = args.rsi_period
+rsi_slow = args.rsi_slow
 cur_rsi = 0
 prev_rsi = 0
 rsi_low_limit = args.rsi_low_limit
@@ -159,14 +164,20 @@ print( 'Volatility: ' + str(volatility) )
 print()
 
 
-# --analyze=rsi
-if ( algo == 'rsi' ):
+# --algo=rsi, --algo=stochrsi
+if ( algo == 'rsi' or algo == 'stochrsi'):
 
 	# Print results for the most recent 10 and 5 days of data
 	for days in ['10', '5']:
 		print('Analyzing ' + str(days) + '-day history for stock ' + str(stock) + ":\n")
-		results = tda_gobot_helper.rsi_analyze( stock, days, rsi_period, rsi_type, rsi_low_limit, rsi_high_limit,
-							stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly, debug=True)
+
+		if ( algo == 'rsi' ):
+			results = tda_gobot_helper.rsi_analyze( stock, days, rsi_period, rsi_type, rsi_low_limit, rsi_high_limit,
+								stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly, debug=True )
+		elif ( algo == 'stochrsi' ):
+			results = tda_gobot_helper.stochrsi_analyze( stock, days, rsi_period, rsi_type, rsi_low_limit=20, rsi_high_limit=80, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
+								     stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly,
+								     nocrossover=args.nocrossover, crossover_only=args.crossover_only, debug=True )
 
 		if ( results == False ):
 			print('Error: rsi_analyze() returned false', file=sys.stderr)
@@ -208,7 +219,7 @@ if ( algo == 'rsi' ):
 			price_tx = round( float(price_tx), 2 )
 			price_rx = round( float(price_rx), 2 )
 
-			net_change = round( net_change, 2 )
+			net_change = round(net_change, 2)
 
 			vwap_tx = round( float(vwap_tx), 2 )
 			vwap_rx = round( float(vwap_rx), 2 )
@@ -270,9 +281,14 @@ if ( algo == 'rsi' ):
 		#   Avg Gain <= Avg Loss = FAIL
 		success_pct = (int(success) / int(len(results) / 2) ) * 100	# % Successful trades using algorithm
 		fail_pct = ( int(fail) / int(len(results) / 2) ) * 100		# % Failed trades using algorithm
-		average_gain = net_gain / int(len(results) / 2)			# Average improvement in price using algorithm
-		average_loss = net_loss / int(len(results) / 2)			# Average regression in price using algorithm
 		txs = int(len(results) / 2) / int(days)				# Average buy or sell triggers per day
+
+		average_gain = 0
+		average_loss = 0
+		if ( success != 0 ):
+			average_gain = net_gain / success			# Average improvement in price using algorithm
+		if ( fail != 0 ):
+			average_loss = net_loss / fail				# Average regression in price using algorithm
 
 		print()
 

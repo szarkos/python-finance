@@ -1,10 +1,11 @@
 #!/usr/bin/python3 -u
 
-import os, sys, fcntl
+import os, sys, fcntl, re
 import time
-import re
+
 from datetime import datetime, timedelta
 from pytz import timezone
+
 import tulipy as ti
 import numpy as np
 import pandas as pd
@@ -835,7 +836,8 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 	return data
 
 
-# Return numpy array of RSI values for a given price history.
+# Return numpy array of RSI (Relative Strength Index) values for a given price history.
+# Reference: https://tulipindicators.org/rsi
 # 'pricehistory' should be a data list obtained from get_pricehistory()
 # Supports the following calculation types:
 #   close	[default]
@@ -910,11 +912,12 @@ def get_rsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 
 
 # Return numpy array of Stochastic RSI values for a given price history.
+# Reference: https://tulipindicators.org/stochrsi
 # 'pricehistory' should be a data list obtained from get_pricehistory()
-def get_stochrsi(pricehistory=None, rsi_period=14, type='close', debug=False):
+def get_stochrsi(pricehistory=None, rsi_period=14, type='close', rsi_d_period=3, rsi_k_period=14, slow_period=3, debug=False):
 
 	if ( pricehistory == None ):
-		return False
+		return False, [], []
 
 	ticker = ''
 	if ( pricehistory['symbol'] ):
@@ -955,22 +958,79 @@ def get_stochrsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 
 	else:
 		# Undefined type
-		return False
+		return False, [], []
 
 	if ( len(prices) < rsi_period ):
 		# Something is wrong with the data we got back from tda.get_price_history()
 		print('Error: get_stochrsi(): len(pricehistory) is less than rsi_period - is this a new stock ticker?', file=sys.stderr)
-		return False
+		return False, [], []
 
 	try:
-		pricehistory = np.array( prices )
-		stochrsi = ti.stochrsi( pricehistory, period=rsi_period )
+		np_prices = np.array( prices )
+		stochrsi = ti.stochrsi( np_prices, period=rsi_period )
+
+		# Use ti.stoch() to get k and d values
+		#   K measures the strength of the current move relative to the range of the previous n-periods
+		#   D is a simple moving average of the K
+		rsi = get_rsi( pricehistory, rsi_period=rsi_period, type=type )
+		fastk, fastd = ti.stoch( rsi, rsi, rsi, rsi_k_period, slow_period, rsi_d_period )
 
 	except Exception as e:
 		print('Caught Exception: get_stochrsi(' + str(ticker) + '): ' + str(e))
-		return False
+		return False, [], []
 
-	return stochrsi
+	return stochrsi, fastk, fastd
+
+
+# Return numpy array of Stochastic Oscillator values for a given price history.
+# Reference: https://tulipindicators.org/stoch
+# 'pricehistory' should be a data list obtained from get_pricehistory()
+#
+# K measures the strength of the current move relative to the range of the previous n-periods
+# D is a simple moving average of the K
+def get_stoch_oscillator(pricehistory=None, type=None, k_period=14, d_period=3, slow_period=1, debug=False):
+
+	if ( pricehistory == None ):
+		return False, []
+
+	ticker = ''
+	if ( pricehistory['symbol'] ):
+		ticker = pricehistory['symbol']
+
+	if ( type == None ):
+		high = low = close = []
+		for key in pricehistory['candles']:
+			high.append(float(key['high']))
+			low.append(float(key['low']))
+			close.append(float(key['close']))
+
+	elif ( type == 'hlc3' ):
+		high = low = close = []
+		for key in pricehistory['candles']:
+			close.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+		high = low = close
+
+	elif ( type == 'hlc4' ):
+		hlc = low = close = []
+		for key in pricehistory['candles']:
+			close.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+		high = low = close
+
+	else:
+		# Undefined type
+		return False, []
+
+	try:
+		high = np.array( high )
+		low = np.array( low )
+		close = np.array( close )
+		fastk, fastd = ti.stoch( high, low, close, k_period, slow_period, d_period )
+
+	except Exception as e:
+		print('Caught Exception: get_stoch_oscillator(' + str(ticker) + '): ' + str(e))
+		return False, []
+
+	return fastk, fastd
 
 
 # Takes the pricehistory and returns a pandas dataframe with the VWAP
@@ -1047,7 +1107,7 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 		data, epochs = get_pricehistory(ticker, 'day', 'minute', '1', days, needExtendedHoursData=False, debug=False)
 
 	except Exception as e:
-		print('Caught Exception: rsi_analyze(' + str(ticker) + '): ' + str(e))
+		print('Caught Exception: rsi_analyze(' + str(ticker) + '): get_pricehistory(): ' + str(e))
 		return False
 
 	if ( data == False ):
@@ -1076,10 +1136,8 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 
 
 	# Get stochactic RSI
-	stochrsi_period = rsi_period * 24
 	try:
-#		data_30min, epochs_30min = get_pricehistory(ticker, 'day', 'minute', '30', 10, needExtendedHoursData=False, debug=False)
-		stochrsi = get_stochrsi(data, stochrsi_period, rsi_type, debug=False)
+		stochrsi, rsi_k, rsi_d = get_stochrsi(data, rsi_period, rsi_type, debug=False)
 
 	except:
 		print('Caught Exception: rsi_analyze(' + str(ticker) + '): get_stochrsi(): ' + str(e))
@@ -1089,10 +1147,9 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 		print('Error: get_stochrsi() returned false - no data', file=sys.stderr)
 		return False
 
-	# If using the same 1-minute data, the len of stochrsi will be stochrsi_period * (stochrsi_period * 2) - 1
-	if ( len(stochrsi) != len(data['candles']) - (stochrsi_period * 2 - 1) ):
+	# If using the same 1-minute data, the len of stochrsi will be rsi_period * (rsi_period * 2) - 1
+	if ( len(stochrsi) != len(data['candles']) - (rsi_period * 2 - 1) ):
 		print('Warning, unexpected length of stochrsi (data[candles]=' + str(len(data['candles'])) + ', len(stochrsi)=' + str(len(stochrsi)) + ')')
-
 
 	# Get the VWAP data
 	try:
@@ -1103,7 +1160,7 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 		return False
 
 	if ( isinstance(vwap, bool) and vwap == False ):
-		print('Error: get_stochrsi() returned false - no data', file=sys.stderr)
+		print('Error: get_vwap() returned false - no data', file=sys.stderr)
 		return False
 	if ( debug == True ):
 		if ( len(vwap) != len(data['candles']) ):
@@ -1113,8 +1170,9 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 	results = []
 	prev_rsi = 0
 	stochrsi_idx = len(rsi) - len(stochrsi) + 1	# Used to index stochrsi[] below
-	c_counter = int(rsi_period) - 1			# Candle counter - because rsi[] is smaller than the full dataset,
+	c_counter = int(rsi_period) - 1 - 1		# Candle counter - because rsi[] is smaller than the full dataset,
 							# this represents the index of data['candles'] when iterating through rsi[]
+							# Note: the extra -1 is because of "c_counter += 1" right at the top of the loop
 	signal_mode = 'buy'
 	if ( shortonly == True ):
 		signal_mode = 'short'
@@ -1122,6 +1180,7 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 
 	# Main loop
 	for idx,cur_rsi in enumerate(rsi):
+		c_counter += 1
 
 		if ( prev_rsi == 0 ):
 			prev_rsi = cur_rsi
@@ -1202,7 +1261,6 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 
 					if ( noshort == False ):
 						signal_mode = 'short'
-						c_counter += 1
 						continue
 					else:
 						signal_mode = 'buy'
@@ -1258,7 +1316,6 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 							signal_mode = 'short'
 						else:
 							signal_mode = 'buy'
-							c_counter += 1
 							continue
 
 			# End stoploss monitor
@@ -1278,11 +1335,349 @@ def rsi_analyze(ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_low_l
 						signal_mode = 'short'
 					else:
 						signal_mode = 'buy'
-						c_counter += 1
 						continue
 
 		prev_rsi = cur_rsi
-		c_counter += 1
 
 	return results
+
+
+# Return an N-day analysis for a stock ticker using the Stochastic RSI algorithm
+#
+# For this analysis, instead of monitoring just the RSI value we monitor the stochastics for RSI:
+#   K measures the strength of the current move relative to the range of the previous n-periods
+#   D is a simple moving average of the K
+#
+# nocrossover = True
+#   Changes the algorithm so that k and d crossovers will not generate a signal
+# crossover_only = True
+#   Modifies the algorithm so that only k and d crossovers will generate a signal
+#
+# Returns a comma-delimited log of each sell/buy/short/buy-to-cover transaction
+#   price, sell_price, net_change, bool(short), bool(success), vwap, rsi, stochrsi, purchase_time, sell_time = result.split(',', 10)
+def stochrsi_analyze( ticker=None, days=10, rsi_period=14, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=14, rsi_d_period=3,
+			stoploss=False, incr_percent_threshold=1, decr_percent_threshold=2,
+			noshort=False, shortonly=False, nocrossover=False, crossover_only=False, debug=False ):
+
+	if ( ticker == None ):
+		return False
+	if ( int(days) > 10 ):
+		days = 10 # TDA API only allows 10-days of 1-minute daily data
+
+	try:
+		mytimezone
+	except:
+		mytimezone = timezone("US/Eastern")
+
+	# Pull the 1-minute stock history
+	# Note: Not asking for extended hours for now since our bot doesn't even trade after hours
+	try:
+		data, epochs = get_pricehistory(ticker, 'day', 'minute', '1', days, needExtendedHoursData=False, debug=False)
+
+	except Exception as e:
+		print('Caught Exception: rsi_analyze(' + str(ticker) + '): get_pricehistory(): ' + str(e))
+		return False
+
+	if ( data == False ):
+		return False
+
+	if ( int(len(data['candles'])) <= rsi_period ):
+		print('Not enough data - returned candles=' + str(len(data['candles'])) + ', rsi_period=' + str(rsi_period))
+		exit(0)
+
+	# Get RSI
+	# With 10-day/1-min history there should be ~3900 datapoints in data['candles'] (6.5hrs * 60mins * 10days)
+	# Therefore, with an rsi_period of 14, get_rsi() will return a list of 3886 items
+	try:
+		rsi = get_rsi(data, rsi_period, rsi_type, debug=False)
+
+	except Exception as e:
+		print('Caught Exception: rsi_analyze(' + str(ticker) + '): get_rsi(): ' + str(e))
+		return False
+
+	if ( isinstance(rsi, bool) and rsi == False ):
+		print('Error: get_rsi() returned false - no data', file=sys.stderr)
+		return False
+
+	if ( len(rsi) != len(data['candles']) - rsi_period ):
+		print('Warning, unexpected length of rsi (data[candles]=' + str(len(data['candles'])) + ', len(rsi)=' + str(len(rsi)) + ')')
+
+
+	# Get stochactic RSI
+	try:
+		stochrsi, rsi_k, rsi_d = get_stochrsi(data, rsi_period=rsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+
+	except:
+		print('Caught Exception: rsi_analyze(' + str(ticker) + '): get_stochrsi(): ' + str(e))
+		return False
+
+	if ( isinstance(stochrsi, bool) and stochrsi == False ):
+		print('Error: get_stochrsi() returned false - no data', file=sys.stderr)
+		return False
+
+	# If using the same 1-minute data, the len of stochrsi will be rsi_period * (rsi_period * 2) - 1
+	if ( len(stochrsi) != len(data['candles']) - (rsi_period * 2 - 1) ):
+		print('Warning, unexpected length of stochrsi (data[candles]=' + str(len(data['candles'])) + ', len(stochrsi)=' + str(len(stochrsi)) + ')')
+
+	# Get the VWAP data
+	try:
+		vwap = get_vwap(data)
+
+	except Exception as e:
+		print('Caught Exception: rsi_analyze(' + str(ticker) + '): get_vwap(): ' + str(e))
+		return False
+
+	if ( isinstance(vwap, bool) and vwap == False ):
+		print('Error: get_vwap() returned false - no data', file=sys.stderr)
+		return False
+	if ( debug == True ):
+		if ( len(vwap) != len(data['candles']) ):
+			print('Warning, unexpected length of vwap (data[candles]=' + str(len(data['candles'])) + ', len(vwap)=' + str(len(vwap)) + ')')
+
+	# Run through the RSI values and log the results
+	results = []
+	prev_rsi_k = 0
+	stochrsi_idx = len(rsi) - len(stochrsi) + 1	# Used to index stochrsi[] below
+	c_counter = int(rsi_period)*2 + 1 - 1		# Candle counter - because rsi[] is smaller than the full dataset,
+							# this represents the index of data['candles'] when iterating through rsi[]
+							# Note: the extra -1 is because of "c_counter += 1" right at the top of the loop
+	buy_signal = False
+	sell_signal = False
+	short_signal = False
+	buy_to_cover_signal = False
+
+	signal_mode = 'buy'
+	if ( shortonly == True ):
+		signal_mode = 'short'
+
+	# Main loop
+	for idx,cur_rsi_k in enumerate(rsi_k):
+
+		c_counter += 1
+		cur_rsi_d = rsi_d[idx]
+		prev_rsi_d = rsi_d[idx-1]
+
+		# Fix stochrsi since it's shorter than the rsi array
+		if ( idx <= stochrsi_idx - 1 ):
+			# We can't reference stochrsi[idx] yet since
+			#  there is no data for this time period
+			srsi = -1
+		else:
+			srsi = float(stochrsi[idx-stochrsi_idx])
+
+
+		# BUY mode
+		if ( signal_mode == 'buy' ):
+			short = False
+			if ( (cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit) and nocrossover == False ):
+
+				# Monitor if K and D intercect
+				if ( cur_rsi_k == cur_rsi_d ):
+					buy_signal = True
+
+				elif ( (prev_rsi_k < prev_rsi_d and cur_rsi_k > cur_rsi_d) or
+					(prev_rsi_k > prev_rsi_d and cur_rsi_k < cur_rsi_d) ):
+					buy_signal = True
+
+			elif ( (prev_rsi_k < rsi_low_limit and cur_rsi_k > prev_rsi_k) and crossover_only == False ):
+				if ( cur_rsi_k >= rsi_low_limit ):
+					buy_signal = True
+
+			if ( buy_signal == True ):
+
+				# BUY SIGNAL - Both RSI K and D have crossed over the rsi_low_limit
+				purchase_price = float(data['candles'][c_counter]['close'])
+				base_price = purchase_price
+
+				purchase_time = datetime.fromtimestamp(float(data['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+				results.append( str(purchase_price) + ',' + str(short) + ',' +
+						str(vwap.loc[c_counter,'vwap']) + ',' + str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' + str(srsi) + ',' +
+						str(purchase_time) )
+
+				sell_signal = buy_signal = False
+				signal_mode = 'sell'
+
+
+		# SELL mode
+		if ( signal_mode == 'sell' ):
+
+			# Monitor cost basis
+			if ( stoploss == True ):
+				last_price = float(data['candles'][c_counter]['close'])
+
+				percent_change = 0
+				if ( float(last_price) < float(base_price) ):
+					percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
+
+					# SELL the security if we are using a trailing stoploss
+					if ( percent_change >= decr_percent_threshold ):
+
+						# Sell
+						sell_price = float(data['candles'][c_counter]['close'])
+						sell_time = datetime.fromtimestamp(float(data['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+						# sell_price,bool(short),vwap,rsi,stochrsi,sell_time
+						results.append( str(sell_price) + ',' + str(short) + ',' +
+								str(vwap.loc[c_counter,'vwap']) + ',' + str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' + str(srsi) + ',' +
+								str(sell_time) )
+
+						buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+						prev_rsi_k = cur_rsi_k
+						signal_mode = 'buy'
+						continue
+
+				elif ( float(last_price) > float(base_price) ):
+					percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
+
+					if ( percent_change >= incr_percent_threshold ):
+						base_price = last_price
+
+			# End stoploss monitor
+
+			# Monitor RSI
+			if ( (cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit) and nocrossover == False ):
+
+				# Monitor if K and D intercect
+				if ( cur_rsi_k == cur_rsi_d ):
+					sell_signal = True
+
+				elif ( (prev_rsi_k < prev_rsi_d and cur_rsi_k > cur_rsi_d) or
+					(prev_rsi_k > prev_rsi_d and cur_rsi_k < cur_rsi_d) ):
+					sell_signal = True
+
+			elif ( (prev_rsi_k > rsi_high_limit and cur_rsi_k < prev_rsi_k) and crossover_only == False ):
+				if ( cur_rsi_k <= rsi_high_limit ):
+					sell_signal = True
+
+			if ( sell_signal == True ):
+
+				# Sell
+				sell_price = float(data['candles'][c_counter]['close'])
+				sell_time = datetime.fromtimestamp(float(data['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+				# sell_price,bool(short),vwap,rsi,stochrsi,sell_time
+				results.append( str(sell_price) + ',' + str(short) + ',' +
+						str(vwap.loc[c_counter,'vwap']) + ',' + str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' + str(srsi) + ',' +
+						str(sell_time) )
+
+				buy_signal = sell_signal = False
+				if ( noshort == False ):
+					short_signal = True
+					signal_mode = 'short'
+					continue
+				else:
+					signal_mode = 'buy'
+
+
+		# SELL SHORT mode
+		if ( signal_mode == 'short' ):
+			short = True
+
+			if ( (cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit) and nocrossover == False ):
+
+				# Monitor if K and D intercect
+				if ( cur_rsi_k == cur_rsi_d ):
+					short_signal = True
+
+				elif ( (prev_rsi_k < prev_rsi_d and cur_rsi_k > cur_rsi_d) or
+					(prev_rsi_k > prev_rsi_d and cur_rsi_k < cur_rsi_d) ):
+					short_signal = True
+
+			elif ( (prev_rsi_k > rsi_high_limit and cur_rsi_k < prev_rsi_k) and crossover_only == False ):
+				if ( cur_rsi_k <= rsi_high_limit ):
+					short_signal = True
+
+			if ( short_signal == True ):
+
+				# Short
+				short_price = float(data['candles'][c_counter]['close'])
+				base_price = short_price
+
+				short_time = datetime.fromtimestamp(float(data['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+				results.append( str(short_price) + ',' + str(short) + ',' +
+						str(vwap.loc[c_counter,'vwap']) + ',' + str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' + str(srsi) + ',' +
+						str(short_time) )
+
+				short_signal = buy_to_cover_signal = False
+				signal_mode = 'buy_to_cover'
+
+
+		# BUY-TO-COVER mode
+		if ( signal_mode == 'buy_to_cover' ):
+
+			# Monitor cost basis
+			if ( stoploss == True ):
+				last_price = float(data['candles'][c_counter]['close'])
+
+				percent_change = 0
+				if ( float(last_price) > float(base_price) ):
+					percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
+
+					# Buy-to-cover the security if we are using a trailing stoploss
+					if ( percent_change >= decr_percent_threshold ):
+
+						# Buy-to-cover
+						buy_to_cover_price = float(data['candles'][c_counter]['close'])
+						buy_to_cover_time = datetime.fromtimestamp(float(data['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+						results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
+								str(vwap.loc[c_counter,'vwap']) + ',' + str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' + str(srsi) + ',' +
+								str(buy_to_cover_time) )
+
+						buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+						if ( shortonly == True ):
+							signal_mode = 'short'
+						else:
+							prev_rsi_k = cur_rsi_k
+							signal_mode = 'buy'
+							continue
+
+				elif ( float(last_price) < float(base_price) ):
+					percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
+
+					if ( percent_change >= incr_percent_threshold ):
+						base_price = last_price
+
+			# End stoploss monitor
+
+			# Monitor RSI
+			if ( (cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit) and nocrossover == False ):
+
+				# Monitor if K and D intercect
+				if ( cur_rsi_k == cur_rsi_d ):
+					buy_to_cover_signal = True
+
+				elif ( (prev_rsi_k < prev_rsi_d and cur_rsi_k > cur_rsi_d) or
+					(prev_rsi_k > prev_rsi_d and cur_rsi_k < cur_rsi_d) ):
+					buy_to_cover_signal = True
+
+			elif ( (prev_rsi_k < rsi_low_limit and cur_rsi_k > prev_rsi_k) and crossover_only == False):
+				if ( cur_rsi_k >= rsi_low_limit ):
+					buy_to_cover_signal = True
+
+			if ( buy_to_cover_signal == True ):
+
+				# Buy-to-cover
+				buy_to_cover_price = float(data['candles'][c_counter]['close'])
+				buy_to_cover_time = datetime.fromtimestamp(float(data['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+				results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
+						str(vwap.loc[c_counter,'vwap']) + ',' + str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' + str(srsi) + ',' +
+						str(buy_to_cover_time) )
+
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+				if ( shortonly == True ):
+					signal_mode = 'short'
+				else:
+					buy_signal = True
+					signal_mode = 'buy'
+					continue
+
+		prev_rsi_k = cur_rsi_k
+
+	# End main loop
+
+	return results
+
 

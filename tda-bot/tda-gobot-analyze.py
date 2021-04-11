@@ -15,12 +15,15 @@ parser = argparse.ArgumentParser()
 parser.add_argument("stock", help='Stock ticker to purchase')
 parser.add_argument("stock_usd", help='Amount of money (USD) to invest', nargs='?', default=1000, type=float)
 parser.add_argument("-a", "--algo", help='Analyze the most recent 5-day and 10-day history for a stock ticker using this bot\'s algorithim(s) - (rsi|stochrsi)', default='rsi', type=str)
-parser.add_argument("-b", "--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal( default=False)', action="store_true")
+parser.add_argument("-b", "--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal (default=False)', action="store_true")
 parser.add_argument("-c", "--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (default=False)', action="store_true")
+parser.add_argument("-e", "--days", help='Number of days to test. Separate with a comma to test multiple days.', default='10', type=str)
+parser.add_argument("-v", "--verbose", help='Print additional information about each transaction (default=False)', action="store_true")
 parser.add_argument("-i", "--incr_threshold", help='Reset base_price if stock increases by this percent', type=float)
 parser.add_argument("-u", "--decr_threshold", help='Max allowed drop percentage of the stock price', type=float)
 parser.add_argument("-s", "--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
 parser.add_argument("-p", "--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
+parser.add_argument("-w", "--stochrsi_period", help='RSI period to use for StochRSI calculation (Default: 14)', default=14, type=int)
 parser.add_argument("-q", "--rsi_slow", help='Slowing period to use in StochRSI algorithm', default=3, type=int)
 parser.add_argument("-k", "--rsi_k_period", help='k period to use in StochRSI algorithm', default=14, type=int)
 parser.add_argument("-t", "--rsi_d_period", help='D period to use in StochRSI algorithm', default=3, type=int)
@@ -45,7 +48,6 @@ if args.incr_threshold:
 
 stock = args.stock
 stock_usd = args.stock_usd
-algo = str(args.algo).lower()
 
 # Initialize and log into TD Ameritrade
 from dotenv import load_dotenv
@@ -101,6 +103,7 @@ freq = '1'
 # RSI variables
 rsi_type = args.rsi_type
 rsi_period = args.rsi_period
+stochrsi_period = args.stochrsi_period
 rsi_slow = args.rsi_slow
 cur_rsi = 0
 prev_rsi = 0
@@ -141,7 +144,7 @@ except Exception as e:
 	pass
 
 print()
-print('Analysis of stock ticker "' + str(stock) + '"' + ' using the ' + str(algo) + " algorithm\n")
+print( 'Stock summary for "' + str(stock) + "\"\n" )
 print( 'Last Price: $' + str(lastprice) )
 print( '52WkHigh: $' + str(high) )
 print( '52WkLow: $' + str(low) )
@@ -165,17 +168,53 @@ print()
 
 
 # --algo=rsi, --algo=stochrsi
-if ( algo == 'rsi' or algo == 'stochrsi'):
+for algo in args.algo.split(','):
+
+	algo = algo.lower()
+	if ( algo != 'rsi' and algo != 'stochrsi'):
+		print('Unsupported algorithm "' + str(algo) + '"')
+		continue
 
 	# Print results for the most recent 10 and 5 days of data
-	for days in ['10', '5']:
-		print('Analyzing ' + str(days) + '-day history for stock ' + str(stock) + ":\n")
+	for days in args.days.split(','):
+
+		try:
+			int(days)
+		except:
+			print('Error, days (' + str(days) + ') is not an integer - exiting.')
+			exit(1)
+
+		if ( int(days) > 10 ):
+			days = 10 # TDA API only allows 10-days of 1-minute daily data
+
+
+		# Pull the 1-minute stock history
+		# Note: Not asking for extended hours for now since our bot doesn't even trade after hours
+		try:
+	        	data, epochs = tda_gobot_helper.get_pricehistory(stock, 'day', 'minute', '1', days, needExtendedHoursData=False, debug=False)
+
+		except Exception as e:
+			print('Caught Exception: get_pricehistory(' + str(ticker) + '): ' + str(e))
+			continue
+
+		if ( data == False ):
+			continue
+		if ( int(len(data['candles'])) <= rsi_period ):
+			print('Not enough data - returned candles=' + str(len(data['candles'])) + ', rsi_period=' + str(rsi_period))
+			exit(0)
+
+
+		# Run the analyze function
+		print('Analyzing ' + str(days) + '-day history for stock ' + str(stock) + ' using the ' + str(algo) + " algorithm:")
 
 		if ( algo == 'rsi' ):
-			results = tda_gobot_helper.rsi_analyze( stock, days, rsi_period, rsi_type, rsi_low_limit, rsi_high_limit,
+			results = tda_gobot_helper.rsi_analyze( pricehistory=data, ticker=stock, rsi_period=rsi_period, stochrsi_period=stochrsi_period, rsi_type=rsi_type,
+								rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
 								stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly, debug=True )
+
 		elif ( algo == 'stochrsi' ):
-			results = tda_gobot_helper.stochrsi_analyze( stock, days, rsi_period, rsi_type, rsi_low_limit=20, rsi_high_limit=80, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
+			results = tda_gobot_helper.stochrsi_analyze( pricehistory=data, ticker=stock, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type,
+								     rsi_low_limit=20, rsi_high_limit=80, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
 								     stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly,
 								     nocrossover=args.nocrossover, crossover_only=args.crossover_only, debug=True )
 
@@ -186,7 +225,12 @@ if ( algo == 'rsi' or algo == 'stochrsi'):
 			print('There were no possible trades for requested time period, exiting.')
 			exit(0)
 
-		print("Buy/Sell Price    Net Change        VWAP              PREV_RSI/CUR_RSI  StochRSI          Time")
+
+		# Print the returned results
+		if ( algo == 'rsi' and args.verbose ):
+			print("Buy/Sell Price    Net Change        VWAP              PREV_RSI/CUR_RSI  StochRSI          Time")
+		elif ( algo == 'stochrsi' and args.verbose ):
+			print("Buy/Sell Price    Net Change        VWAP              RSI_K/RSI_D       StochRSI          Time")
 
 		rating = 0
 		success = fail = 0
@@ -244,21 +288,23 @@ if ( algo == 'rsi' or algo == 'stochrsi'):
 				if ( net_change > 0 ):
 					is_success = True
 
-			text_color = red
-			if ( is_success == True ):
-				text_color = green
+			if ( args.verbose == True ):
+				text_color = red
+				if ( is_success == True ):
+					text_color = green
 
-			rsi_tx = str(rsi_prev_tx) + '/' + str(rsi_cur_tx)
-			rsi_rx = str(rsi_prev_rx) + '/' + str(rsi_cur_rx)
+				rsi_tx = str(rsi_prev_tx) + '/' + str(rsi_cur_tx)
+				rsi_rx = str(rsi_prev_rx) + '/' + str(rsi_cur_rx)
 
-			for i in [str(price_tx), ' ', str(vwap_tx), str(rsi_tx), str(stochrsi_tx), time_tx]:
-				print(text_color + '{0:<18}'.format(i) + reset_color, end='')
+				for i in [str(price_tx), ' ', str(vwap_tx), str(rsi_tx), str(stochrsi_tx), time_tx]:
+					print(text_color + '{0:<18}'.format(i) + reset_color, end='')
 
-			print()
-			for i in [str(price_rx), str(net_change), str(vwap_rx), str(rsi_rx), str(stochrsi_rx), time_rx]:
-				print(text_color + '{0:<18}'.format(i) + reset_color, end='')
+				print()
+				for i in [str(price_rx), str(net_change), str(vwap_rx), str(rsi_rx), str(stochrsi_rx), time_rx]:
+					print(text_color + '{0:<18}'.format(i) + reset_color, end='')
 
-			print()
+				print()
+
 			counter += 2
 
 
@@ -358,6 +404,5 @@ if ( algo == 'rsi' or algo == 'stochrsi'):
 
 		print( 'Stock rating: ' + str(rating) )
 		print()
-
 
 exit(0)

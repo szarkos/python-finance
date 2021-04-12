@@ -1011,7 +1011,7 @@ def get_stoch_oscillator(pricehistory=None, type=None, k_period=14, d_period=3, 
 		high = low = close
 
 	elif ( type == 'hlc4' ):
-		hlc = low = close = []
+		high = low = close = []
 		for key in pricehistory['candles']:
 			close.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
 		high = low = close
@@ -1110,7 +1110,7 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 		return False
 
 	if ( isinstance(rsi, bool) and rsi == False ):
-		print('Error: get_rsi() returned false - no data', file=sys.stderr)
+		print('Error: get_rsi(' + str(ticker) + ') returned false - no data', file=sys.stderr)
 		return False
 
 	if ( len(rsi) != len(pricehistory['candles']) - rsi_period ):
@@ -1126,7 +1126,7 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 		return False
 
 	if ( isinstance(stochrsi, bool) and stochrsi == False ):
-		print('Error: get_stochrsi() returned false - no data', file=sys.stderr)
+		print('Error: get_stochrsi(' + str(ticker) + ') returned false - no data', file=sys.stderr)
 		return False
 
 	# If using the same 1-minute data, the len of stochrsi will be rsi_period * (rsi_period * 2) - 1
@@ -1142,7 +1142,7 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 		return False
 
 	if ( isinstance(vwap, bool) and vwap == False ):
-		print('Error: get_vwap() returned false - no data', file=sys.stderr)
+		print('Error: get_vwap(' + str(ticker) + ') returned false - no data', file=sys.stderr)
 		return False
 	if ( debug == True ):
 		if ( len(vwap) != len(pricehistory['candles']) ):
@@ -1360,7 +1360,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 		return False
 
 	if ( isinstance(rsi, bool) and rsi == False ):
-		print('Error: get_rsi() returned false - no data', file=sys.stderr)
+		print('Error: get_rsi(' + str(ticker) + ') returned false - no data', file=sys.stderr)
 		return False
 
 	if ( len(rsi) != len(pricehistory['candles']) - rsi_period ):
@@ -1376,7 +1376,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 		return False
 
 	if ( isinstance(stochrsi, bool) and stochrsi == False ):
-		print('Error: get_stochrsi() returned false - no data', file=sys.stderr)
+		print('Error: get_stochrsi(' + str(ticker) + ') returned false - no data', file=sys.stderr)
 		return False
 
 	# If using the same 1-minute data, the len of stochrsi will be stochrsi_period * (stochrsi_period * 2) - 1
@@ -1392,7 +1392,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 		return False
 
 	if ( isinstance(vwap, bool) and vwap == False ):
-		print('Error: get_vwap() returned false - no data', file=sys.stderr)
+		print('Error: get_vwap(' + str(ticker) + ') returned false - no data', file=sys.stderr)
 		return False
 	if ( debug == True ):
 		if ( len(vwap) != len(pricehistory['candles']) ):
@@ -1432,11 +1432,9 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 			if ( (cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit) and nocrossover == False ):
 
 				# Monitor if K and D intercect
-				if ( cur_rsi_k == cur_rsi_d ):
-					buy_signal = True
-
-				elif ( (prev_rsi_k < prev_rsi_d and cur_rsi_k > cur_rsi_d) or
-					(prev_rsi_k > prev_rsi_d and cur_rsi_k < cur_rsi_d) ):
+				# A buy signal occurs when an increasing %K line crosses above the %D line in the oversold region.
+				#  or if the %K line crosses below the rsi limit
+				if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
 					buy_signal = True
 
 			elif ( (prev_rsi_k < rsi_low_limit and cur_rsi_k > prev_rsi_k) and crossover_only == False ):
@@ -1445,7 +1443,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 
 			if ( buy_signal == True ):
 
-				# BUY SIGNAL - Both RSI K and D have crossed over the rsi_low_limit
+				# BUY SIGNAL
 				purchase_price = float(pricehistory['candles'][c_counter]['close'])
 				base_price = purchase_price
 
@@ -1499,11 +1497,8 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 			if ( (cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit) and nocrossover == False ):
 
 				# Monitor if K and D intercect
-				if ( cur_rsi_k == cur_rsi_d ):
-					sell_signal = True
-
-				elif ( (prev_rsi_k < prev_rsi_d and cur_rsi_k > cur_rsi_d) or
-					(prev_rsi_k > prev_rsi_d and cur_rsi_k < cur_rsi_d) ):
+				# A sell signal occurs when a decreasing %K line crosses below the %D line in the overbought region
+				if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
 					sell_signal = True
 
 			elif ( (prev_rsi_k > rsi_high_limit and cur_rsi_k < prev_rsi_k) and crossover_only == False ):
@@ -1537,11 +1532,8 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 			if ( (cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit) and nocrossover == False ):
 
 				# Monitor if K and D intercect
-				if ( cur_rsi_k == cur_rsi_d ):
-					short_signal = True
-
-				elif ( (prev_rsi_k < prev_rsi_d and cur_rsi_k > cur_rsi_d) or
-					(prev_rsi_k > prev_rsi_d and cur_rsi_k < cur_rsi_d) ):
+				# A sell-short signal occurs when a decreasing %K line crosses below the %D line in the overbought region
+				if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
 					short_signal = True
 
 			elif ( (prev_rsi_k > rsi_high_limit and cur_rsi_k < prev_rsi_k) and crossover_only == False ):
@@ -1605,11 +1597,8 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 			if ( (cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit) and nocrossover == False ):
 
 				# Monitor if K and D intercect
-				if ( cur_rsi_k == cur_rsi_d ):
-					buy_to_cover_signal = True
-
-				elif ( (prev_rsi_k < prev_rsi_d and cur_rsi_k > cur_rsi_d) or
-					(prev_rsi_k > prev_rsi_d and cur_rsi_k < cur_rsi_d) ):
+				# A buy-to-cover signal occurs when an increasing %K line crosses above the %D line in the oversold region.
+				if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
 					buy_to_cover_signal = True
 
 			elif ( (prev_rsi_k < rsi_low_limit and cur_rsi_k > prev_rsi_k) and crossover_only == False):

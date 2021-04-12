@@ -27,7 +27,10 @@ analyze () {
 	echo "Processing ${#stocks[@]} stocks from `basename ${stocks_file}`. This may take a while ..."
 	for i in ${stocks[@]}; do
 		echo "$i"
-		./tda-rsi-gobot.py --analyze "$i" > "./${logdir}/${i}.log.txt"
+		./tda-gobot-analyze.py --algo=rsi,stochrsi --stoploss --decr_threshold=1.5 --days=5,10 \
+					--rsi_type=ohlc4 --rsi_period=14 --stochrsi_period=128 --rsi_k_period=128 --rsi_d_period=3 --rsi_slow=3 \
+					"$i" > "./${logdir}/${i}.log.txt"
+
 		sleep 1 # Avoid throttling
 	done
 	echo -e "\nDone!"
@@ -38,8 +41,8 @@ analyze () {
 generate_csv () {
 
 	cd "$logdir"
-	echo 'Generating stonks-analyze-all.csv ...'
-	echo 'Stock,Wins,Losses,Average Txs,Success Rate,Fail Rate,Average Gain,Average Loss,Avg Gain/Share,Stock Rating' > stonks-analyze-all.csv
+	echo -n 'Generating stonks-analyze-all.csv ... '
+	echo 'Stock,Algorithm,Days,Average Txs,Success Rate,Fail Rate,Average Gain,Average Loss,Avg Gain/Share,Stock Rating' > stonks-analyze-all.csv
 	for i in *.log.txt; do
 		if [ `grep -c 'no possible trades' $i` -eq 0 -a `grep -c 'Not enough data' $i` -eq 0 ]; then
 			cat $i | ./generate-csv.pl >> stonks-analyze-all.csv
@@ -47,8 +50,8 @@ generate_csv () {
 	done
 	echo "Done"
 
-	echo 'Generating stonks-analyze-topstocks.csv ...'
-	echo 'Stock,Wins,Losses,Average Txs,Success Rate,Fail Rate,Average Gain,Average Loss,Avg Gain/Share,Stock Rating' > stonks-analyze-topstocks.csv
+	echo -n 'Generating stonks-analyze-topstocks.csv ... '
+	echo 'Stock,Algorithm,Days,Average Txs,Success Rate,Fail Rate,Average Gain,Average Loss,Avg Gain/Share,Stock Rating' > stonks-analyze-topstocks.csv
 	for i in *.log.txt; do
 		if [ `grep -ci 'very good' $i`  -eq 2 ]; then
 			cat $i | ./generate-csv.pl >> stonks-analyze-topstocks.csv
@@ -64,8 +67,12 @@ if [ "$command" == 'all' ]; then
 	analyze
 	echo
 	generate_csv
+
 elif [ "$command" == 'generate-csv' ]; then
 	generate_csv
+
 else
 	echo "Unknown option: $command"
 fi
+
+

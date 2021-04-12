@@ -126,7 +126,7 @@ rsi_low_limit = args.rsi_low_limit
 rsi_high_limit = args.rsi_high_limit
 rsi_period = args.rsi_period
 stochrsi_period = rsi_period
-slow_period = args.rsi_slow
+rsi_slow = args.rsi_slow
 rsi_k_period = args.rsi_k_period
 rsi_d_period = args.rsi_d_period
 rsi_type = args.rsi_type
@@ -638,7 +638,7 @@ while ( algo == 'stochrsi' ):
 	#   to the typical volitility during the opening minutes of the trading day.
 	newday = tda_gobot_helper.isnewday()
 	time_now = datetime.datetime.now( mytimezone )
-	time_prev = time_now - datetime.timedelta( minutes=int(freq)*(rsi_period * 20) ) # Subtract enough time to ensure we get an RSI for the current period
+	time_prev = time_now - datetime.timedelta( minutes=int(freq)*(rsi_period * 2) ) # Subtract enough time to ensure we get an RSI for the current period
 	time_now_epoch = int( time_now.timestamp() * 1000 )
 	time_prev_epoch = int( time_prev.timestamp() * 1000 )
 
@@ -651,7 +651,7 @@ while ( algo == 'stochrsi' ):
 		continue
 
 	# Get stochactic RSI
-	stochrsi, rsi_k, rsi_d = get_stochrsi(pricehistory, rsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+	stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(data, rsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
 	if ( isinstance(stochrsi, bool) and stochrsi == False ):
 		print('Error: get_stochrsi(' + str(ticker) + ') returned false - no data', file=sys.stderr)
 		time.sleep(loopt)
@@ -718,7 +718,7 @@ while ( algo == 'stochrsi' ):
 
 				buy_signal = True
 
-		elif ( (prev_rsi_k < rsi_low_limit and cur_rsi_k > prev_rsi_k) and crossover_only == False ):
+		elif ( prev_rsi_k < rsi_low_limit and cur_rsi_k > prev_rsi_k ):
 			if ( cur_rsi_k >= rsi_low_limit ):
 				print(  '(' + str(stock) + ') BUY SIGNAL: StochRSI K value passed above the low_limit threshold (' +
 					str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
@@ -859,14 +859,14 @@ while ( algo == 'stochrsi' ):
 		# Monitor K and D
 		# A sell signal occurs when a decreasing %K line crosses below the %D line in the overbought region,
 		#  or if the %K line crosses below the RSI limit
-		if ( (cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit) and nocrossover == False ):
+		if ( (cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit) and args.nocrossover == False ):
 			if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
 				print(  '(' + str(stock) + ') SELL SIGNAL: StochRSI K value passed below the D value in the high_limit region (' +
 					str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 
 				sell_signal = True
 
-		elif ( (prev_rsi_k > rsi_high_limit and cur_rsi_k < prev_rsi_k) and crossover_only == False ):
+		elif ( prev_rsi_k > rsi_high_limit and cur_rsi_k < prev_rsi_k ):
 			if ( cur_rsi_k <= rsi_high_limit ):
 				print(  '(' + str(stock) + ') SELL SIGNAL: StochRSI K value passed below the high_limit threshold (' +
 					str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
@@ -914,14 +914,14 @@ while ( algo == 'stochrsi' ):
 			continue
 
 		# Monitor K and D
-		if ( (cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit) and nocrossover == False ):
+		if ( (cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit) and args.nocrossover == False ):
 			if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
 				print(  '(' + str(stock) + ') SHORT SIGNAL: StochRSI K value passed below the D value in the high_limit region (' +
 					str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 
 				short_signal = True
 
-		elif ( (prev_rsi_k > rsi_high_limit and cur_rsi_k < prev_rsi_k) and crossover_only == False ):
+		elif ( prev_rsi_k > rsi_high_limit and cur_rsi_k < prev_rsi_k ):
 			if ( cur_rsi_k <= rsi_high_limit ):
 				print(  '(' + str(stock) + ') SHORT SIGNAL: StochRSI K value passed below the high_limit threshold (' +
 					str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
@@ -1066,16 +1066,16 @@ while ( algo == 'stochrsi' ):
 
 		# RSI MONITOR
 		# Monitor K and D
-		if ( (cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit) and nocrossover == False ):
+		if ( (cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit) and args.nocrossover == False ):
 			if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
 				print(  '(' + str(stock) + ') BUY_TO_COVER SIGNAL: StochRSI K value passed above the D value in the low_limit region (' +
 					str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 
 				buy_to_cover_signal = True
 
-		elif ( (prev_rsi_k < rsi_low_limit and cur_rsi_k > prev_rsi_k) and crossover_only == False):
+		elif ( prev_rsi_k < rsi_low_limit and cur_rsi_k > prev_rsi_k ):
 			if ( cur_rsi_k >= rsi_low_limit ):
-				print(  '(' + str(stock) + ') BUY_TO_COVER SIGNAL: StochRSI K value passed above the low_limit threshold (' + 
+				print(  '(' + str(stock) + ') BUY_TO_COVER SIGNAL: StochRSI K value passed above the low_limit threshold (' +
 					str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 
 				buy_to_cover_signal = True

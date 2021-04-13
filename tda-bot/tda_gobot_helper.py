@@ -361,6 +361,7 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 
 		return False, []
 
+
 	epochs = []
 	for key in data['candles']:
 		epochs.append(float(key['datetime']))
@@ -920,8 +921,10 @@ def get_stochrsi(pricehistory=None, rsi_period=14, type='close', rsi_d_period=3,
 		return False, [], []
 
 	ticker = ''
-	if ( pricehistory['symbol'] ):
+	try:
 		ticker = pricehistory['symbol']
+	except:
+		pass
 
 	prices = []
 	if ( type == 'close' ):
@@ -962,8 +965,7 @@ def get_stochrsi(pricehistory=None, rsi_period=14, type='close', rsi_d_period=3,
 
 	if ( len(prices) < rsi_period ):
 		# Something is wrong with the data we got back from tda.get_price_history()
-		print('Error: get_stochrsi(): len(pricehistory) is less than rsi_period - is this a new stock ticker?', file=sys.stderr)
-		return False, [], []
+		print('Warning: get_stochrsi(' + str(ticker) + '): len(pricehistory) is less than rsi_period - is this a new stock ticker?', file=sys.stderr)
 
 	try:
 		np_prices = np.array( prices )

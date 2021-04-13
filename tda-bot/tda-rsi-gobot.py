@@ -648,12 +648,13 @@ while ( algo == 'stochrsi' ):
 		time.sleep(5)
 		if ( tda_gobot_helper.tdalogin(passcode) != True ):
 			print('Error: Login failure')
+
 		continue
 
 	# Get stochactic RSI
 	stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(data, rsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
 	if ( isinstance(stochrsi, bool) and stochrsi == False ):
-		print('Error: get_stochrsi(' + str(ticker) + ') returned false - no data', file=sys.stderr)
+		print('Error: get_stochrsi(' + str(stock) + ') returned false - no data', file=sys.stderr)
 		time.sleep(loopt)
 		continue
 

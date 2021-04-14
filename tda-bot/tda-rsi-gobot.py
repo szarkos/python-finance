@@ -638,7 +638,7 @@ while ( algo == 'stochrsi' ):
 	#   to the typical volitility during the opening minutes of the trading day.
 	newday = tda_gobot_helper.isnewday()
 	time_now = datetime.datetime.now( mytimezone )
-	time_prev = time_now - datetime.timedelta( minutes=int(freq)*(rsi_period * 2) ) # Subtract enough time to ensure we get an RSI for the current period
+	time_prev = time_now - datetime.timedelta( minutes=int(freq)*(rsi_period * 10) ) # Subtract enough time to ensure we get an RSI for the current period
 	time_now_epoch = int( time_now.timestamp() * 1000 )
 	time_prev_epoch = int( time_prev.timestamp() * 1000 )
 

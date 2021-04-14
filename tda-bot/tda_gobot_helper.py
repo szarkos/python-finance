@@ -963,25 +963,32 @@ def get_stochrsi(pricehistory=None, rsi_period=14, type='close', rsi_d_period=3,
 		# Undefined type
 		return False, [], []
 
-	if ( len(prices) < rsi_period ):
+	if ( len(prices) < rsi_period * 2 ):
 		# Something is wrong with the data we got back from tda.get_price_history()
 		print('Warning: get_stochrsi(' + str(ticker) + '): len(pricehistory) is less than rsi_period - is this a new stock ticker?', file=sys.stderr)
 
+	# ti.stochrsi
 	try:
 		np_prices = np.array( prices )
 		stochrsi = ti.stochrsi( np_prices, period=rsi_period )
 
-		# Use ti.stoch() to get k and d values
-		#   K measures the strength of the current move relative to the range of the previous n-periods
-		#   D is a simple moving average of the K
-		rsi = get_rsi( pricehistory, rsi_period=rsi_period, type=type )
-		fastk, fastd = ti.stoch( rsi, rsi, rsi, rsi_k_period, slow_period, rsi_d_period )
-
 	except Exception as e:
-		print('Caught Exception: get_stochrsi(' + str(ticker) + '): ' + str(e))
+		print('Caught Exception: get_stochrsi(' + str(ticker) + '): ti.stochrsi(): ' + str(e))
 		return False, [], []
 
-	return stochrsi, fastk, fastd
+	# ti.rsi + ti.stoch
+	# Use ti.stoch() to get k and d values
+	#   K measures the strength of the current move relative to the range of the previous n-periods
+	#   D is a simple moving average of the K
+	try:
+		rsi = get_rsi( pricehistory, rsi_period=rsi_period, type=type )
+		k, d = ti.stoch( rsi, rsi, rsi, rsi_k_period, slow_period, rsi_d_period )
+
+	except Exception as e:
+		print('Caught Exception: get_stochrsi(' + str(ticker) + '): ti.stoch(): ' + str(e))
+		return False, [], []
+
+	return stochrsi, k, d
 
 
 # Return numpy array of Stochastic Oscillator values for a given price history.

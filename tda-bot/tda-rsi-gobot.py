@@ -64,6 +64,7 @@ stock_usd = args.stock_usd
 num_purchases = args.num_purchases
 failed_txs = args.max_failed_txs
 algo = str(args.algo).lower()
+nocrossover = args.nocrossover
 
 
 # Early exit criteria goes here
@@ -712,7 +713,7 @@ while ( algo == 'stochrsi' ):
 		# Monitor K and D
 		# A buy signal occurs when an increasing %K line crosses above the %D line in the oversold region,
 		#  or if the %K line crosses above the rsi limit
-		if ( (cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit) and args.nocrossover == False ):
+		if ( (cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit) and nocrossover == False ):
 			if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
 				print(  '(' + str(stock) + ') BUY SIGNAL: StochRSI K value passed above the D value in the low_limit region (' +
 					str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
@@ -765,6 +766,8 @@ while ( algo == 'stochrsi' ):
 			net_change = 0
 
 			tda_gobot_helper.log_monitor(stock, 0, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id)
+
+			nocrossover = args.nocrossover # Reset in case we stoplossed earlier
 
 			buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 			signal_mode = 'sell' # Switch to 'sell' mode for the next loop
@@ -835,6 +838,9 @@ while ( algo == 'stochrsi' ):
 
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				signal_mode = 'buy'
+
+				nocrossover = True # Stock is dipping, disable crossover for this next cycle
+
 				continue
 
 		# If price increases
@@ -860,7 +866,7 @@ while ( algo == 'stochrsi' ):
 		# Monitor K and D
 		# A sell signal occurs when a decreasing %K line crosses below the %D line in the overbought region,
 		#  or if the %K line crosses below the RSI limit
-		if ( (cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit) and args.nocrossover == False ):
+		if ( (cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit) and nocrossover == False ):
 			if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
 				print(  '(' + str(stock) + ') SELL SIGNAL: StochRSI K value passed below the D value in the high_limit region (' +
 					str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
@@ -915,7 +921,7 @@ while ( algo == 'stochrsi' ):
 			continue
 
 		# Monitor K and D
-		if ( (cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit) and args.nocrossover == False ):
+		if ( (cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit) and nocrossover == False ):
 			if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
 				print(  '(' + str(stock) + ') SHORT SIGNAL: StochRSI K value passed below the D value in the high_limit region (' +
 					str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
@@ -974,6 +980,8 @@ while ( algo == 'stochrsi' ):
 			base_price = orig_base_price
 
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True, sold=False)
+
+			nocrossover = args.nocrossover # Reset in case we stoplossed earlier
 
 			buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 			signal_mode = 'buy_to_cover'
@@ -1053,6 +1061,9 @@ while ( algo == 'stochrsi' ):
 				prev_rsi_d = cur_rsi_d = -1
 
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+
+				nocrossover = True # Stock is rising, disable crossover for this next cycle
+
 				if ( args.shortonly == True ):
 					signal_mode = 'short'
 				else:
@@ -1067,7 +1078,7 @@ while ( algo == 'stochrsi' ):
 
 		# RSI MONITOR
 		# Monitor K and D
-		if ( (cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit) and args.nocrossover == False ):
+		if ( (cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit) and nocrossover == False ):
 			if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
 				print(  '(' + str(stock) + ') BUY_TO_COVER SIGNAL: StochRSI K value passed above the D value in the low_limit region (' +
 					str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )

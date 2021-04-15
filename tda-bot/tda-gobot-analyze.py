@@ -48,6 +48,7 @@ if args.incr_threshold:
 
 stock = args.stock
 stock_usd = args.stock_usd
+args.nocrossover
 
 # Initialize and log into TD Ameritrade
 from dotenv import load_dotenv

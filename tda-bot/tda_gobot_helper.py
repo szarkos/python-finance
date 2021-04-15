@@ -1426,6 +1426,8 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 	short_signal = False
 	buy_to_cover_signal = False
 
+	orig_nocrossover = nocrossover
+
 	signal_mode = 'buy'
 	if ( shortonly == True ):
 		signal_mode = 'short'
@@ -1469,6 +1471,8 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 						str(vwap.loc[c_counter,'vwap']) + ',' + str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' + str(srsi) + ',' +
 						str(purchase_time) )
 
+				nocrossover = orig_nocrossover # Reset in case we stoplossed earlier
+
 				sell_signal = buy_signal = False
 				signal_mode = 'sell'
 
@@ -1499,6 +1503,9 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 						buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 						prev_rsi_k = cur_rsi_k
 						signal_mode = 'buy'
+
+						nocrossover = True # Stock is dipping, disable crossover for this next cycle
+
 						continue
 
 				elif ( float(last_price) > float(base_price) ):
@@ -1567,6 +1574,8 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 						str(vwap.loc[c_counter,'vwap']) + ',' + str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' + str(srsi) + ',' +
 						str(short_time) )
 
+				nocrossover = orig_nocrossover # Reset in case we stoplossed earlier
+
 				short_signal = buy_to_cover_signal = False
 				signal_mode = 'buy_to_cover'
 
@@ -1594,6 +1603,9 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 								str(buy_to_cover_time) )
 
 						buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+
+						nocrossover = True # Stock is rising, disable crossover for this next cycle
+
 						if ( shortonly == True ):
 							signal_mode = 'short'
 						else:

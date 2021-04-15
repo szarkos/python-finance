@@ -37,6 +37,7 @@ parser.add_argument("-x", "--max_failed_usd", help='Maximum allowed USD for a fa
 parser.add_argument("-q", "--rsi_slow", help='Slowing period to use in StochRSI algorithm', default=3, type=int)
 parser.add_argument("-k", "--rsi_k_period", help='k period to use in StochRSI algorithm', default=14, type=int)
 parser.add_argument("-j", "--rsi_d_period", help='D period to use in StochRSI algorithm', default=3, type=int)
+parser.add_argument("-c", "--stochrsi_period", help='RSI period to use for stochastic RSI calculation (Default: 128)', default=128, type=int)
 parser.add_argument("-p", "--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
 parser.add_argument("-r", "--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='ohlc4', type=str)
 parser.add_argument("-g", "--rsi_high_limit", help='RSI high limit', default=70, type=int)
@@ -126,7 +127,7 @@ freq = '1'
 rsi_low_limit = args.rsi_low_limit
 rsi_high_limit = args.rsi_high_limit
 rsi_period = args.rsi_period
-stochrsi_period = rsi_period
+stochrsi_period = args.stochrsi_period
 rsi_slow = args.rsi_slow
 rsi_k_period = args.rsi_k_period
 rsi_d_period = args.rsi_d_period
@@ -196,6 +197,12 @@ while ( algo == 'rsi' ):
 	time_prev = time_now - datetime.timedelta( minutes=int(freq)*(rsi_period * 20) ) # Subtract enough time to ensure we get an RSI for the current period
 	time_now_epoch = int( time_now.timestamp() * 1000 )
 	time_prev_epoch = int( time_prev.timestamp() * 1000 )
+
+	# Log in - avoids failing later and we can call this as often as we want
+	if ( tda_gobot_helper.tdalogin(passcode) != True ):
+		print('Error: Login failure')
+		time.sleep(5)
+		continue
 
 	# Pull the stock history that we'll use to calculate the RSI
 	data, epochs = tda_gobot_helper.get_pricehistory(stock, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, needExtendedHoursData=True, debug=False)
@@ -643,6 +650,12 @@ while ( algo == 'stochrsi' ):
 	time_now_epoch = int( time_now.timestamp() * 1000 )
 	time_prev_epoch = int( time_prev.timestamp() * 1000 )
 
+	# Log in - avoids failing later and we can call this as often as we want
+	if ( tda_gobot_helper.tdalogin(passcode) != True ):
+		print('Error: Login failure')
+		time.sleep(5)
+		continue
+
 	# Pull the stock history that we'll use to calculate the Stochastic RSI
 	data, epochs = tda_gobot_helper.get_pricehistory(stock, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, needExtendedHoursData=True, debug=False)
 	if ( data == False ):
@@ -653,7 +666,7 @@ while ( algo == 'stochrsi' ):
 		continue
 
 	# Get stochactic RSI
-	stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(data, rsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+	stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(data, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
 	if ( isinstance(stochrsi, bool) and stochrsi == False ):
 		print('Error: get_stochrsi(' + str(stock) + ') returned false - no data', file=sys.stderr)
 		time.sleep(loopt)

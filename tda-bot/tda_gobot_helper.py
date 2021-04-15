@@ -917,7 +917,7 @@ def get_rsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 # Return numpy array of Stochastic RSI values for a given price history.
 # Reference: https://tulipindicators.org/stochrsi
 # 'pricehistory' should be a data list obtained from get_pricehistory()
-def get_stochrsi(pricehistory=None, rsi_period=14, type='close', rsi_d_period=3, rsi_k_period=14, slow_period=3, debug=False):
+def get_stochrsi(pricehistory=None, rsi_period=14, stochrsi_period=128, type='close', rsi_d_period=3, rsi_k_period=14, slow_period=3, debug=False):
 
 	if ( pricehistory == None ):
 		print('Error: get_stochrsi(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
@@ -977,7 +977,7 @@ def get_stochrsi(pricehistory=None, rsi_period=14, type='close', rsi_d_period=3,
 		stochrsi = ti.stochrsi( np_prices, period=rsi_period )
 
 	except Exception as e:
-		print('Caught Exception: get_stochrsi(' + str(ticker) + '): ti.stochrsi(): ' + str(e))
+		print( 'Caught Exception: get_stochrsi(' + str(ticker) + '): ti.stochrsi(): ' + str(e) + ', len(pricehistory)=' + str(len(pricehistory['candles'])) )
 		return False, [], []
 
 	# ti.rsi + ti.stoch
@@ -985,11 +985,11 @@ def get_stochrsi(pricehistory=None, rsi_period=14, type='close', rsi_d_period=3,
 	#   K measures the strength of the current move relative to the range of the previous n-periods
 	#   D is a simple moving average of the K
 	try:
-		rsi = get_rsi( pricehistory, rsi_period=rsi_period, type=type )
+		rsi = get_rsi( pricehistory, rsi_period=stochrsi_period, type=type )
 		k, d = ti.stoch( rsi, rsi, rsi, rsi_k_period, slow_period, rsi_d_period )
 
 	except Exception as e:
-		print('Caught Exception: get_stochrsi(' + str(ticker) + '): ti.stoch(): ' + str(e))
+		print( 'Caught Exception: get_stochrsi(' + str(ticker) + '): ti.stoch(): ' + str(e) + ', len(pricehistory)=' + str(len(pricehistory['candles'])) )
 		return False, [], []
 
 	return stochrsi, k, d
@@ -1135,7 +1135,7 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 
 	# Get stochactic RSI
 	try:
-		stochrsi, rsi_k, rsi_d = get_stochrsi(pricehistory, rsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+		stochrsi, rsi_k, rsi_d = get_stochrsi(pricehistory, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
 
 	except:
 		print('Caught Exception: rsi_analyze(' + str(ticker) + '): get_stochrsi(): ' + str(e))
@@ -1385,7 +1385,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 
 	# Get stochastic RSI
 	try:
-		stochrsi, rsi_k, rsi_d = get_stochrsi(pricehistory, rsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+		stochrsi, rsi_k, rsi_d = get_stochrsi(pricehistory, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
 
 	except:
 		print('Caught Exception: rsi_analyze(' + str(ticker) + '): get_stochrsi(): ' + str(e))
@@ -1395,9 +1395,16 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 		print('Error: get_stochrsi(' + str(ticker) + ') returned false - no data', file=sys.stderr)
 		return False
 
-	# If using the same 1-minute data, the len of stochrsi will be stochrsi_period * (stochrsi_period * 2) - 1
-	if ( len(stochrsi) != len(pricehistory['candles']) - (stochrsi_period * 2 - 1) ):
-		print('Warning, unexpected length of stochrsi (pricehistory[candles]=' + str(len(pricehistory['candles'])) + ', len(stochrsi)=' + str(len(stochrsi)) + ')')
+	# If using the same 1-minute data, the len of stochrsi will be (stochrsi_period * 2 - 1)
+	# len(rsi_k) should be (stochrsi_period * 2 - rsi_d_period)
+	if ( len(stochrsi) != len(pricehistory['candles']) - (rsi_period * 2 - 1) ):
+		print( 'Warning, unexpected length of stochrsi (pricehistory[candles]=' + str(len(pricehistory['candles'])) + ', len(stochrsi)=' + str(len(stochrsi)) + ')' )
+
+	if ( len(rsi_k) != len(pricehistory['candles']) - stochrsi_period * 2 - rsi_d_period ):
+		print( 'Warning, unexpected length of rsi_k (pricehistory[candles]=' + str(len(pricehistory['candles'])) + ', len(rsi_k)=' + str(len(rsi_k)) + ')' )
+	if ( len(rsi_k) != len(rsi_d) ):
+		print( 'Warning, unexpected length of rsi_k (pricehistory[candles]=' + str(len(pricehistory['candles'])) +
+			', len(rsi_k)=' + str(len(stochrsi)) + '), len(rsi_d)=' + str(len(rsi_d)) + ')' )
 
 	# Get the VWAP data
 	try:

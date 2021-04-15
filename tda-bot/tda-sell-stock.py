@@ -13,6 +13,7 @@ parser = argparse.ArgumentParser()
 group = parser.add_mutually_exclusive_group()
 group.add_argument("stock", help='Stock ticker to purchase', nargs='?', default=None)
 group.add_argument("-p", "--panic", help="Sell all stocks in portfolio immediately", action="store_true")
+group.add_argument("-f", "--force", help="Used with --panic to force sell all stocks in portfolio immediately without prompt", action="store_true")
 parser.add_argument("-d", "--debug", help="Enable debug output", action="store_true")
 args = parser.parse_args()
 
@@ -76,10 +77,11 @@ if ( stock != None ):
 
 elif ( args.panic == True ): ## Panic button
 
-	confirm = input('Confirm liquidation of entire portfolio (yes/no): ')
-	if ( str(confirm).lower() != 'yes' ):
-		print('Not confirmed, exiting.')
-		exit(0)
+	if ( args.force == False ):
+		confirm = input('Confirm liquidation of entire portfolio (yes/no): ')
+		if ( str(confirm).lower() != 'yes' ):
+			print('Not confirmed, exiting.')
+			exit(0)
 
 	found = False
 	data = tda.get_account(tda_account_number, options='positions', jsonify=True)

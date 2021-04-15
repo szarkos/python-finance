@@ -852,6 +852,7 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 def get_rsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 
 	if ( pricehistory == None ):
+		print('Error: get_rsi(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
 		return False
 
 	ticker = ''
@@ -893,6 +894,7 @@ def get_rsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 
 	else:
 		# Undefined type
+		print('Error: get_rsi(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
 		return False
 
 	if ( len(prices) < rsi_period ):
@@ -918,6 +920,7 @@ def get_rsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 def get_stochrsi(pricehistory=None, rsi_period=14, type='close', rsi_d_period=3, rsi_k_period=14, slow_period=3, debug=False):
 
 	if ( pricehistory == None ):
+		print('Error: get_stochrsi(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
 		return False, [], []
 
 	ticker = ''
@@ -961,6 +964,7 @@ def get_stochrsi(pricehistory=None, rsi_period=14, type='close', rsi_d_period=3,
 
 	else:
 		# Undefined type
+		print('Error: get_stochrsi(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
 		return False, [], []
 
 	if ( len(prices) < rsi_period * 2 ):
@@ -1000,6 +1004,7 @@ def get_stochrsi(pricehistory=None, rsi_period=14, type='close', rsi_d_period=3,
 def get_stoch_oscillator(pricehistory=None, type=None, k_period=14, d_period=3, slow_period=1, debug=False):
 
 	if ( pricehistory == None ):
+		print('Error: get_stoch_oscillator(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
 		return False, []
 
 	ticker = ''
@@ -1027,6 +1032,7 @@ def get_stoch_oscillator(pricehistory=None, type=None, k_period=14, d_period=3, 
 
 	else:
 		# Undefined type
+		print('Error: get_stoch_oscillator(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
 		return False, []
 
 	try:
@@ -1101,6 +1107,7 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 		 noshort=False, shortonly=False, debug=False ):
 
 	if ( ticker == None or pricehistory == None ):
+		print('Error: rsi_analyze(' + str(ticker) + '): Either pricehistory or ticker is empty', file=sys.stderr)
 		return False
 
 	try:
@@ -1351,6 +1358,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 			noshort=False, shortonly=False, nocrossover=False, crossover_only=False, debug=False ):
 
 	if ( ticker == None or pricehistory == None ):
+		print('Error: stochrsi_analyze(' + str(ticker) + '): Either pricehistory or ticker is empty', file=sys.stderr)
 		return False
 
 	try:
@@ -1375,8 +1383,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 	if ( len(rsi) != len(pricehistory['candles']) - rsi_period ):
 		print('Warning, unexpected length of rsi (pricehistory[candles]=' + str(len(pricehistory['candles'])) + ', len(rsi)=' + str(len(rsi)) + ')')
 
-
-	# Get stochactic RSI
+	# Get stochastic RSI
 	try:
 		stochrsi, rsi_k, rsi_d = get_stochrsi(pricehistory, rsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
 

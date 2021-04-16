@@ -27,6 +27,8 @@ parser.add_argument("-w", "--fake", help='Paper trade only - disables buy/sell f
 
 parser.add_argument("-m", "--multiday", help='Watch stock until decr_threshold is reached. Do not sell and exit when market closes', action="store_true")
 parser.add_argument("-o", "--notmarketclosed", help='Cancel order and exit if US stock market is closed', action="store_true")
+parser.add_argument("-e", "--hold_overnight", help='Hold stocks overnight when --multiday is in use (default: False)', action="store_true")
+
 parser.add_argument("-i", "--incr_threshold", help='Reset base_price if stock increases by this percent', type=float)
 parser.add_argument("-u", "--decr_threshold", help='Max allowed drop percentage of the stock price', type=float)
 parser.add_argument("-n", "--num_purchases", help='Number of purchases allowed per day', nargs='?', default=4, type=int)
@@ -194,7 +196,8 @@ while ( algo == 'rsi' ):
 	#   datetime.datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 	#   time_now = datetime.datetime.strptime('2021-03-29 15:59:00', '%Y-%m-%d %H:%M:%S').replace(tzinfo=mytimezone)
 	time_now = datetime.datetime.now( mytimezone )
-	time_prev = time_now - datetime.timedelta( minutes=int(freq)*(rsi_period * 20) ) # Subtract enough time to ensure we get an RSI for the current period
+	#time_prev = time_now - datetime.timedelta( minutes=int(freq)*(rsi_period * 10) ) # Subtract enough time to ensure we get an RSI for the current period
+	time_prev = time_now - datetime.timedelta( days=2 )
 	time_now_epoch = int( time_now.timestamp() * 1000 )
 	time_prev_epoch = int( time_prev.timestamp() * 1000 )
 
@@ -250,6 +253,14 @@ while ( algo == 'rsi' ):
 			print('(' + str(stock) + ') Market closed, exiting.')
 			exit(0)
 
+		# If args.hold_overnight=False and args.multiday==True, we don't enter any new trades 1-hour before market close
+		if ( args.multiday == True and args.hold_overnight == False and tda_gobot_helper.isendofday(60) ):
+			buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+			prev_rsi = cur_rsi = -1
+
+			time.sleep(loopt)
+			continue
+
 		# Switch to short mode if RSI is already above rsi_high_limit
 		# The intent here is if the bot starts up while the RSI is high we don't want to wait until the stock
 		#  does a full loop again before acting on it.
@@ -281,44 +292,50 @@ while ( algo == 'rsi' ):
 			if ( cur_rsi >= rsi_low_limit ):
 				print('(' + str(stock) + ') BUY SIGNAL: RSI passed the low_limit threshold (' + str(round(prev_rsi, 2)) + ' / ' + str(round(cur_rsi, 2)) + ')')
 
-				# Calculate stock quantity from investment amount
-				last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=False)
-				if ( last_price == False ):
-					print('Error: get_lastprice() returned False')
-					time.sleep(5)
+				buy_signal = True
 
-					# Try logging in and looping around again
-					if ( tda_gobot_helper.tdalogin(passcode) != True ):
-						print('Error: Login failure')
+		# BUY
+		if ( buy_signal == True ):
 
+			# Calculate stock quantity from investment amount
+			last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=False)
+			if ( last_price == False ):
+				print('Error: get_lastprice() returned False')
+				time.sleep(5)
+
+				# Try logging in and looping around again
+				if ( tda_gobot_helper.tdalogin(passcode) != True ):
+					print('Error: Login failure')
 					continue
 
-				stock_qty = int( float(stock_usd) / float(last_price) )
+			stock_qty = int( float(stock_usd) / float(last_price) )
 
-				# Purchase stock
-				if ( tda_gobot_helper.ismarketopen_US() == True ):
-					print('Purchasing ' + str(stock_qty) + ' shares of ' + str(stock))
-					if ( args.fake == False ):
-						data = tda_gobot_helper.buy_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
-						if ( data == False ):
-							print('Error: Unable to buy stock "' + str(stock) + '"', file=sys.stderr)
-							exit(1)
-					try:
-						orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
-					except:
-						orig_base_price = last_price
+			# Purchase stock
+			if ( tda_gobot_helper.ismarketopen_US() == True ):
+				print('Purchasing ' + str(stock_qty) + ' shares of ' + str(stock))
+				if ( args.fake == False ):
+					data = tda_gobot_helper.buy_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+					if ( data == False ):
+						print('Error: Unable to buy stock "' + str(stock) + '"', file=sys.stderr)
+						exit(1)
+				try:
+					orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
+				except:
+					orig_base_price = last_price
 
-				else:
-					print('Stock ' + str(stock) + ' not purchased because market is closed, exiting.')
-					exit(1)
+			else:
+				print('Stock ' + str(stock) + ' not purchased because market is closed, exiting.')
+				exit(1)
 
-				base_price = orig_base_price
-				net_change = 0
+			num_purchases -= 1
 
-				tda_gobot_helper.log_monitor(stock, 0, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id)
+			base_price = orig_base_price
+			net_change = 0
 
-				num_purchases -= 1
-				signal_mode = 'sell' # Switch to 'sell' mode for the next loop
+			tda_gobot_helper.log_monitor(stock, 0, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id)
+
+			buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+			signal_mode = 'sell' # Switch to 'sell' mode for the next loop
 
 
 	# SELL MODE - looking for a signal to sell the stock
@@ -339,19 +356,33 @@ while ( algo == 'rsi' ):
 		net_change = round( (last_price - orig_base_price) * stock_qty, 3 )
 
 		# End of trading day - dump the stock and exit unless --multiday was set
-		if ( tda_gobot_helper.isendofday() == True and args.multiday == False ):
-			print('Market closing, selling stock ' + str(stock))
-			if ( args.fake == False ):
-				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+		#  or if args.hold_overnight=False and args.multiday=True
+		if ( tda_gobot_helper.isendofday() == True ):
+			if ( (args.multiday == True and args.hold_overnight == False) or args.multiday == False ):
 
-			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, sold=True)
-			print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+				print('Market closing, selling stock ' + str(stock))
+				if ( args.fake == False ):
+					data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
-			# Add to blacklist if sold at a loss greater than max_failed_usd
-			if ( net_change < 0 and abs(net_change) > args.max_failed_usd ):
-				tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
+				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, sold=True)
+				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 
-			exit(0)
+				# Add to blacklist if sold at a loss greater than max_failed_usd
+				if ( net_change < 0 and abs(net_change) > args.max_failed_usd ):
+					tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
+
+				if ( args.multiday == False ):
+					exit(0)
+
+				else:
+					time.sleep(1) # API throttling
+					tx_id = random.randint(1000, 9999)
+
+					prev_rsi = cur_rsi = -1
+
+					buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+					signal_mode = 'buy'
+					continue
 
 
 		# STOPLOSS MONITOR
@@ -382,6 +413,8 @@ while ( algo == 'rsi' ):
 				# Change signal to 'buy' and generate new tx_id for next iteration
 				tx_id = random.randint(1000, 9999)
 				prev_rsi = cur_rsi = -1
+
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				signal_mode = 'buy'
 				continue
 
@@ -429,26 +462,33 @@ while ( algo == 'rsi' ):
 					str(round(prev_rsi, 2)) + ' / ' + str(round(cur_rsi, 2)) + ' / newday=' + str(newday) +
 					') - selling the security')
 
-				if ( args.fake == False ):
-					data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+				sell_signal = True
 
-				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, sold=True)
-				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+		# SELL
+		if ( sell_signal == True ):
 
-				# Add to blacklist if sold at a loss greater than max_failed_usd, or if we've exceeded failed_txs
-				if ( net_change < 0 ):
-					failed_txs -= 1
-					if ( abs(net_change) > args.max_failed_usd or failed_txs == 0 ):
-						tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
+			if ( args.fake == False ):
+				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
-				# Change signal to 'buy' or 'short' and generate new tx_id for next iteration
-				tx_id = random.randint(1000, 9999)
-				if ( args.short == True ):
-					signal_mode = 'short'
-					time.sleep(1)
-					continue
-				else:
-					signal_mode = 'buy'
+			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, sold=True)
+			print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+
+			# Add to blacklist if sold at a loss greater than max_failed_usd, or if we've exceeded failed_txs
+			if ( net_change < 0 ):
+				failed_txs -= 1
+				if ( abs(net_change) > args.max_failed_usd or failed_txs == 0 ):
+					tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
+
+			# Change signal to 'buy' or 'short' and generate new tx_id for next iteration
+			buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+			tx_id = random.randint(1000, 9999)
+			if ( args.short == True ):
+				short_signal = True
+				signal_mode = 'short'
+				time.sleep(1)
+				continue
+			else:
+				signal_mode = 'buy'
 
 
 	# SHORT SELL the stock
@@ -463,50 +503,69 @@ while ( algo == 'rsi' ):
 			signal_mode = 'buy'
 			continue
 
+
+		# If args.hold_overnight=False and args.multiday==True, we don't enter any new trades 1-hour before market close
+		if ( args.multiday == True and args.hold_overnight == False and tda_gobot_helper.isendofday(60) ):
+			buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+			prev_rsi = cur_rsi = -1
+
+			signal_mode = 'buy'
+
+			time.sleep(loopt)
+			continue
+
+		# Monitor RSI
 		if ( prev_rsi > rsi_high_limit and cur_rsi < prev_rsi ):
 			if ( cur_rsi <= rsi_high_limit ):
 				print('(' + str(stock) + ') SHORT SIGNAL: RSI passed below the high_limit threshold (' +
 					str(round(prev_rsi, 2)) + ' / ' + str(round(cur_rsi, 2)) + ' / newday=' + str(newday) +
 					') - shorting the security')
 
-				# Calculate stock quantity from investment amount
-				last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=False)
-				if ( last_price == False ):
-					print('Error: get_lastprice() returned False')
-					time.sleep(5)
+				short_signal = True
 
-					# Try logging in and looping around again
-					if ( tda_gobot_helper.tdalogin(passcode) != True ):
-						print('Error: Login failure')
+		# SHORT
+		if ( short_signal == True ):
 
-					continue
+			# Calculate stock quantity from investment amount
+			last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=False)
+			if ( last_price == False ):
+				print('Error: get_lastprice() returned False')
+				time.sleep(5)
 
-				stock_qty = int( float(stock_usd) / float(last_price) )
-				if ( args.fake == False ):
-					data = tda_gobot_helper.short_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
-					if ( data == False ):
-						if ( args.shortonly == True ):
-							print('Error: Unable to short "' + str(stock) + '" - exiting.', file=sys.stderr)
-							exit(1)
-						elif ( args.short == True ):
-							print('Error: Unable to short "' + str(stock) + '" - disabling shorting', file=sys.stderr)
-							args.short = False
-							signal_mode = 'buy'
-							time.sleep(1)
-							continue
-					try:
-						orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
-					except:
-						orig_base_price = last_price
+				# Try logging in and looping around again
+				if ( tda_gobot_helper.tdalogin(passcode) != True ):
+					print('Error: Login failure')
 
-				else:
+				continue
+
+			stock_qty = int( float(stock_usd) / float(last_price) )
+			if ( args.fake == False ):
+				data = tda_gobot_helper.short_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+				if ( data == False ):
+					if ( args.shortonly == True ):
+						print('Error: Unable to short "' + str(stock) + '" - exiting.', file=sys.stderr)
+						exit(1)
+
+					elif ( args.short == True ):
+						print('Error: Unable to short "' + str(stock) + '" - disabling shorting', file=sys.stderr)
+						args.short = False
+						signal_mode = 'buy'
+						time.sleep(1)
+						continue
+				try:
+					orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
+				except:
 					orig_base_price = last_price
 
-				net_change = 0
-				base_price = orig_base_price
-				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True, sold=False)
+			else:
+				orig_base_price = last_price
 
-				signal_mode = 'buy_to_cover'
+			net_change = 0
+			base_price = orig_base_price
+			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True, sold=False)
+
+			buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+			signal_mode = 'buy_to_cover'
 
 
 	# BUY_TO_COVER a previous short sale
@@ -529,13 +588,36 @@ while ( algo == 'rsi' ):
 		net_change = round( (last_price - orig_base_price) * stock_qty, 3 )
 
 		# End of trading day - cover the shorted stock unless --multiday was set
-		if ( tda_gobot_helper.isendofday() == True and args.multiday == False ):
-			print('Market closing, covering shorted stock ' + str(stock))
-			if ( args.fake == False ):
-				data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+		#  or if args.hold_overnight=False and args.multiday=True
+		if ( tda_gobot_helper.isendofday() == True ):
+			if ( (args.multiday == True and args.hold_overnight == False) or args.multiday == False ):
 
-			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True, sold=True)
-			signal_mode = 'buy'
+				print('Market closing, covering shorted stock ' + str(stock))
+				if ( args.fake == False ):
+					data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+
+				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True, sold=True)
+				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+
+				# Add to blacklist if sold at a loss greater than max_failed_usd
+				if ( net_change > 0 and abs(net_change) > args.max_failed_usd ):
+					tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
+
+				time.sleep(1) # API throttling
+				tx_id = random.randint(1000, 9999)
+
+				prev_rsi = cur_rsi = -1
+
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+
+				if ( args.multiday == False ):
+					signal_mode = 'buy'
+				elif ( args.shortonly == True ):
+					signal_mode = 'short'
+				else:
+					signal_mode = 'buy'
+
+				continue
 
 
 		# STOPLOSS MONITOR
@@ -565,6 +647,7 @@ while ( algo == 'rsi' ):
 					data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True, sold=True)
+				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 
 				# Add to blacklist when sold at a loss greater than max_failed_usd, or if we've exceeded failed_tx
 				if ( net_change > 0 ):
@@ -572,8 +655,12 @@ while ( algo == 'rsi' ):
 					if ( abs(net_change) > args.max_failed_usd or failed_txs == 0 ):
 						tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
 
-				# Change signal to 'buy' and generate new tx_id for next iteration
+				# Change signal to 'buy' or 'short' and generate new tx_id for next iteration
 				tx_id = random.randint(1000, 9999)
+				prev_rsi = cur_rsi = -1
+
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+
 				if ( args.shortonly == True ):
 					signal_mode = 'short'
 				else:
@@ -594,19 +681,26 @@ while ( algo == 'rsi' ):
 			if ( cur_rsi >= rsi_low_limit ):
 				print('(' + str(stock) + ') BUY_TO_COVER SIGNAL: RSI passed the low_limit threshold (' + str(round(prev_rsi, 2)) + ' / ' + str(round(cur_rsi, 2)) + ')')
 
-				if ( args.fake == False ):
-					data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+				buy_to_cover_signal = True
 
-				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True, sold=True)
+		# BUY-TO-COVER
+		if ( buy_to_cover_signal == True ):
+			if ( args.fake == False ):
+				data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
-				# Change signal to 'buy' and generate new tx_id for next iteration
-				tx_id = random.randint(1000, 9999)
-				if ( args.shortonly == True ):
-					signal_mode = 'short'
-				else:
-					signal_mode = 'buy'
-					time.sleep(1)
-					continue
+			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True, sold=True)
+			print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+
+			# Change signal to 'buy' or 'short' and generate new tx_id for next iteration
+			tx_id = random.randint(1000, 9999)
+			buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+			if ( args.shortonly == True ):
+				signal_mode = 'short'
+			else:
+				buy_signal = True
+				signal_mode = 'buy'
+				time.sleep(1)
+				continue
 
 
 	# Undefined mode - this shouldn't happen
@@ -646,7 +740,7 @@ while ( algo == 'stochrsi' ):
 	#   to the typical volitility during the opening minutes of the trading day.
 	newday = tda_gobot_helper.isnewday()
 	time_now = datetime.datetime.now( mytimezone )
-	time_prev = time_now - datetime.timedelta( minutes=int(freq)*(rsi_period * 10) ) # Subtract enough time to ensure we get an RSI for the current period
+	time_prev = time_now - datetime.timedelta( days=3 )
 	time_now_epoch = int( time_now.timestamp() * 1000 )
 	time_prev_epoch = int( time_prev.timestamp() * 1000 )
 
@@ -712,6 +806,16 @@ while ( algo == 'stochrsi' ):
 		if ( (tda_gobot_helper.isendofday(60) == True or tda_gobot_helper.ismarketopen_US() == False) and args.multiday == False ):
 			print('(' + str(stock) + ') Market closed, exiting.')
 			exit(0)
+
+		# If args.hold_overnight=False and args.multiday==True, we don't enter any new trades 1-hour before market close
+		if ( args.multiday == True and args.hold_overnight == False and tda_gobot_helper.isendofday(60) ):
+			buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+			prev_rsi_k = cur_rsi_k = -1
+			prev_rsi_d = cur_rsi_d = -1
+
+			time.sleep(loopt)
+			continue
+
 
 		# Jump to short mode if StochRSI K and D are already above rsi_high_limit
 		# The intent here is if the bot starts up while the RSI is high we don't want to wait until the stock
@@ -804,19 +908,34 @@ while ( algo == 'stochrsi' ):
 		net_change = round( (last_price - orig_base_price) * stock_qty, 3 )
 
 		# End of trading day - dump the stock and exit unless --multiday was set
-		if ( tda_gobot_helper.isendofday() == True and args.multiday == False ):
-			print('Market closing, selling stock ' + str(stock))
-			if ( args.fake == False ):
-				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+		#  or if args.hold_overnight=False and args.multiday=True
+		if ( tda_gobot_helper.isendofday() == True ):
+			if ( (args.multiday == True and args.hold_overnight == False) or args.multiday == False ):
 
-			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, sold=True)
-			print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+				print('Market closing, selling stock ' + str(stock))
+				if ( args.fake == False ):
+					data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
-			# Add to blacklist if sold at a loss greater than max_failed_usd
-			if ( net_change < 0 and abs(net_change) > args.max_failed_usd ):
-				tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
+				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, sold=True)
+				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 
-			exit(0)
+				# Add to blacklist if sold at a loss greater than max_failed_usd
+				if ( net_change < 0 and abs(net_change) > args.max_failed_usd ):
+					tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
+
+				if ( args.multiday == False ):
+					exit(0)
+
+				else:
+					time.sleep(1) # API throttling
+					tx_id = random.randint(1000, 9999)
+
+					prev_rsi_k = cur_rsi_k = -1
+					prev_rsi_d = cur_rsi_d = -1
+
+					buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+					signal_mode = 'buy'
+					continue
 
 
 		# STOPLOSS MONITOR
@@ -933,6 +1052,28 @@ while ( algo == 'stochrsi' ):
 			signal_mode = 'buy'
 			continue
 
+		# If args.hold_overnight=False and args.multiday==True, we don't enter any new trades 1-hour before market close
+		if ( args.multiday == True and args.hold_overnight == False and tda_gobot_helper.isendofday(60) ):
+			buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+			prev_rsi_k = cur_rsi_k = -1
+			prev_rsi_d = cur_rsi_d = -1
+
+			signal_mode = 'buy'
+
+			time.sleep(loopt)
+			continue
+
+		# Jump to buy mode if StochRSI K and D are already below rsi_low_limit
+		# The intent here is if the bot starts up while the RSI is low we don't want to wait until the stock
+		#  does a full loop again before acting on it.
+		if ( cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit and args.shortonly == False ):
+			print('(' + str(stock) + ') StochRSI K and D values already below ' + str(rsi_low_limit) + ', switching to buy mode.')
+
+			buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+			signal_mode = 'buy'
+			continue
+
+
 		# Monitor K and D
 		if ( (cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit) and nocrossover == False ):
 			if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
@@ -1019,19 +1160,38 @@ while ( algo == 'stochrsi' ):
 
 		net_change = round( (last_price - orig_base_price) * stock_qty, 3 )
 
-		# End of trading day - cover the shorted stock unless --multiday was set
-		if ( tda_gobot_helper.isendofday() == True and args.multiday == False ):
-			print('Market closing, covering shorted stock ' + str(stock))
-			if ( args.fake == False ):
-				data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+		# End of trading day - dump the stock and exit unless --multiday was set
+		#  or if args.hold_overnight=False and args.multiday=True
+		if ( tda_gobot_helper.isendofday() == True ):
+			if ( (args.multiday == True and args.hold_overnight == False) or args.multiday == False ):
 
-			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True, sold=True)
+				print('Market closing, covering shorted stock ' + str(stock))
+				if ( args.fake == False ):
+					data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
-			# Add to blacklist if sold at a loss greater than max_failed_usd
-			if ( net_change > 0 and abs(net_change) > args.max_failed_usd ):
-				tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
+				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True, sold=True)
+				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 
-			exit(0)
+				# Add to blacklist if sold at a loss greater than max_failed_usd
+				if ( net_change > 0 and abs(net_change) > args.max_failed_usd ):
+					tda_gobot_helper.write_blacklist(stock, stock_qty, orig_base_price, last_price, net_change, percent_change)
+
+				time.sleep(1) # API throttling
+				tx_id = random.randint(1000, 9999)
+
+				prev_rsi_k = cur_rsi_k = -1
+				prev_rsi_d = cur_rsi_d = -1
+
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+
+				if ( args.multiday == False ):
+					exit(0)
+				elif ( args.shortonly == True ):
+					signal_mode = 'short'
+				else:
+					signal_mode = 'buy'
+
+				continue
 
 
 		# STOPLOSS MONITOR
@@ -1061,6 +1221,7 @@ while ( algo == 'stochrsi' ):
 					data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True, sold=True)
+				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 
 				# Add to blacklist when sold at a loss greater than max_failed_usd, or if we've exceeded failed_tx
 				if ( net_change > 0 ):
@@ -1111,6 +1272,7 @@ while ( algo == 'stochrsi' ):
 				data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id, short=True, sold=True)
+			print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 
 			# Change signal to 'buy' and generate new tx_id for next iteration
 			buy_signal = sell_signal = short_signal = buy_to_cover_signal = False

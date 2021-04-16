@@ -1155,7 +1155,7 @@ def get_vwap(pricehistory=None, debug=False):
 # Returns a comma-delimited log of each sell/buy/short/buy-to-cover transaction
 #   price, sell_price, net_change, bool(short), bool(success), vwap, rsi, stochrsi, purchase_time, sell_time = result.split(',', 10)
 def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=14, rsi_type='close', rsi_slow=3, rsi_k_period=14, rsi_d_period=3, rsi_low_limit=30, rsi_high_limit=70,
-		 stoploss=False, incr_percent_threshold=1, decr_percent_threshold=2,
+		 stoploss=False, incr_percent_threshold=1, decr_percent_threshold=2, hold_overnight=False,
 		 noshort=False, shortonly=False, debug=False ):
 
 	if ( ticker == None or pricehistory == None ):
@@ -1218,21 +1218,26 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 
 	# Run through the RSI values and log the results
 	results = []
-	prev_rsi = 0
+	prev_rsi = -1
 	stochrsi_idx = len(rsi) - len(stochrsi) + 1	# Used to index stochrsi[] below
 	c_counter = int(rsi_period) - 1 - 1		# Candle counter - because rsi[] is smaller than the full dataset,
 							# this represents the index of pricehistory['candles'] when iterating through rsi[]
 							# Note: the extra -1 is because of "c_counter += 1" right at the top of the loop
+
+	buy_signal = False
+	sell_signal = False
+	short_signal = False
+	buy_to_cover_signal = False
+
 	signal_mode = 'buy'
 	if ( shortonly == True ):
 		signal_mode = 'short'
-
 
 	# Main loop
 	for idx,cur_rsi in enumerate(rsi):
 		c_counter += 1
 
-		if ( prev_rsi == 0 ):
+		if ( prev_rsi == -1 ):
 			prev_rsi = cur_rsi
 
 		# Fix stochrsi since it's shorter than the rsi array
@@ -1252,23 +1257,48 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 		# BUY mode
 		if ( signal_mode == 'buy' ):
 			short = False
+
+			# if hold_overnight=False don't enter any new trades 1-hour before Market close
+			if ( hold_overnight == False and isendofday(60, date) ):
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+				prev_rsi = cur_rsi
+				continue
+
+			# Jump to short mode if StochRSI K and D are already above rsi_high_limit
+			# The intent here is if the bot starts up while the RSI is high we don't want to wait until the stock
+			#  does a full loop again before acting on it.
+			if ( cur_rsi > rsi_high_limit and noshort == False ):
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+				signal_mode = 'short'
+				continue
+
+			# Monitor RSI
 			if ( prev_rsi < rsi_low_limit and cur_rsi > prev_rsi ):
 				if ( cur_rsi >= rsi_low_limit ):
-					# Buy
-					purchase_price = float(pricehistory['candles'][c_counter]['close'])
-					base_price = purchase_price
+					buy_signal = True
 
-					purchase_time = datetime.fromtimestamp(float(pricehistory['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+			if ( buy_signal == True ):
 
-					results.append( str(purchase_price) + ',' + str(short) + ',' +
-							str(vwap.loc[c_counter,'vwap']) + ',' + str(prev_rsi)+'/'+str(cur_rsi) + ',' + str(srsi) + ',' +
-							str(purchase_time) )
+				# BUY SIGNAL
+				purchase_price = float(pricehistory['candles'][c_counter]['close'])
+				base_price = purchase_price
 
-					signal_mode = 'sell'
+				purchase_time = datetime.fromtimestamp(float(pricehistory['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+				results.append( str(purchase_price) + ',' + str(short) + ',' +
+						str(vwap.loc[c_counter,'vwap']) + ',' + str(prev_rsi)+'/'+str(cur_rsi) + ',' + str(srsi) + ',' +
+						str(purchase_time) )
+
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+				signal_mode = 'sell'
 
 
 		# SELL mode
 		if ( signal_mode == 'sell' ):
+
+			# hold_overnight=False - drop the stock before market close
+			if ( hold_overnight == False and isendofday(5, date) ):
+				sell_signal = True
 
 			# Monitor cost basis
 			if ( stoploss == True ):
@@ -1290,7 +1320,7 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 								str(vwap.loc[c_counter,'vwap']) + ',' + str(prev_rsi)+'/'+str(cur_rsi) + ',' + str(srsi) + ',' +
 								str(sell_time) )
 
-						prev_rsi = cur_rsi = 0
+						prev_rsi = cur_rsi = -1
 						signal_mode = 'buy'
 						continue
 
@@ -1305,42 +1335,72 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 			# Monitor RSI
 			if ( prev_rsi > rsi_high_limit and cur_rsi < prev_rsi ):
 				if ( cur_rsi <= rsi_high_limit ):
-					# Sell
-					sell_price = float(pricehistory['candles'][c_counter]['close'])
-					sell_time = datetime.fromtimestamp(float(pricehistory['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+					sell_signal = True
 
-					# sell_price,bool(short),vwap,rsi,stochrsi,sell_time
-					results.append( str(sell_price) + ',' + str(short) + ',' +
-							str(vwap.loc[c_counter,'vwap']) + ',' + str(prev_rsi)+'/'+str(cur_rsi) + ',' + str(srsi) + ',' +
-							str(sell_time) )
+			if ( sell_signal == True ):
 
-					if ( noshort == False ):
-						signal_mode = 'short'
-						continue
-					else:
-						signal_mode = 'buy'
+				# SELL SIGNAL
+				sell_price = float(pricehistory['candles'][c_counter]['close'])
+				sell_time = datetime.fromtimestamp(float(pricehistory['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+				# sell_price,bool(short),vwap,rsi,stochrsi,sell_time
+				results.append( str(sell_price) + ',' + str(short) + ',' +
+						str(vwap.loc[c_counter,'vwap']) + ',' + str(prev_rsi)+'/'+str(cur_rsi) + ',' + str(srsi) + ',' +
+						str(sell_time) )
+
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+
+				if ( noshort == False ):
+					short_signal = True
+					signal_mode = 'short'
+					continue
+				else:
+					signal_mode = 'buy'
 
 
 		# SELL SHORT mode
 		if ( signal_mode == 'short' ):
 			short = True
+
+			# If hold_overnight=False don't enter any new trades 1-hour before Market close
+			if ( hold_overnight == False and isendofday(60, date) ):
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+				prev_rsi = cur_rsi
+				continue
+
+			# Jump to buy mode if RSI is already below rsi_low_limit
+			if ( cur_rsi < rsi_low_limit  ):
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+				signal_mode = 'buy'
+				continue
+
+			# Monitor RSI
 			if ( prev_rsi > rsi_high_limit and cur_rsi < prev_rsi ):
 				if ( cur_rsi <= rsi_high_limit ):
-					# Short
-					short_price = float(pricehistory['candles'][c_counter]['close'])
-					base_price = short_price
+					short_signal = True
 
-					short_time = datetime.fromtimestamp(float(pricehistory['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+			if ( short_signal == True ):
 
-					results.append( str(short_price) + ',' + str(short) + ',' +
-							str(vwap.loc[c_counter,'vwap']) + ',' + str(prev_rsi)+'/'+str(cur_rsi) + ',' + str(srsi) + ',' +
-							str(short_time) )
+				# SHORT SIGNAL
+				short_price = float(pricehistory['candles'][c_counter]['close'])
+				base_price = short_price
 
-					signal_mode = 'buy_to_cover'
+				short_time = datetime.fromtimestamp(float(pricehistory['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+				results.append( str(short_price) + ',' + str(short) + ',' +
+						str(vwap.loc[c_counter,'vwap']) + ',' + str(prev_rsi)+'/'+str(cur_rsi) + ',' + str(srsi) + ',' +
+						str(short_time) )
+
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+				signal_mode = 'buy_to_cover'
 
 
 		# BUY-TO-COVER mode
 		if ( signal_mode == 'buy_to_cover' ):
+
+			# hold_overnight=False - drop the stock before market close
+			if ( hold_overnight == False and isendofday(5, date) ):
+				buy_to_cover_signal = True
 
 			# Monitor cost basis
 			if ( stoploss == True ):
@@ -1367,30 +1427,37 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 								str(vwap.loc[c_counter,'vwap']) + ',' + str(prev_rsi)+'/'+str(cur_rsi) + ',' + str(srsi) + ',' +
 								str(buy_to_cover_time) )
 
+						prev_rsi = cur_rsi = -1
+
 						if ( shortonly == True ):
 							signal_mode = 'short'
 						else:
 							signal_mode = 'buy'
-							continue
 
 			# End stoploss monitor
 
 			# Monitor RSI
 			if ( prev_rsi < rsi_low_limit and cur_rsi > prev_rsi ):
 				if ( cur_rsi >= rsi_low_limit ):
-					# Buy-to-cover
-					buy_to_cover_price = float(pricehistory['candles'][c_counter]['close'])
-					buy_to_cover_time = datetime.fromtimestamp(float(pricehistory['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+					buy_to_cover_signal = True
 
-					results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
-							str(vwap.loc[c_counter,'vwap']) + ',' + str(prev_rsi)+'/'+str(cur_rsi) + ',' + str(srsi) + ',' +
-							str(buy_to_cover_time) )
+			if ( buy_to_cover_signal == True ):
 
-					if ( shortonly == True ):
-						signal_mode = 'short'
-					else:
-						signal_mode = 'buy'
-						continue
+				# BUY-TO-COVER SIGNAL
+				buy_to_cover_price = float(pricehistory['candles'][c_counter]['close'])
+				buy_to_cover_time = datetime.fromtimestamp(float(pricehistory['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+				results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
+						str(vwap.loc[c_counter,'vwap']) + ',' + str(prev_rsi)+'/'+str(cur_rsi) + ',' + str(srsi) + ',' +
+						str(buy_to_cover_time) )
+
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+				if ( shortonly == True ):
+					signal_mode = 'short'
+				else:
+					buy_signal = True
+					signal_mode = 'buy'
+					continue
 
 		prev_rsi = cur_rsi
 
@@ -1411,8 +1478,8 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 # Returns a comma-delimited log of each sell/buy/short/buy-to-cover transaction
 #   price, sell_price, net_change, bool(short), bool(success), vwap, rsi, stochrsi, purchase_time, sell_time = result.split(',', 10)
 def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=14, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=14, rsi_d_period=3,
-			stoploss=False, incr_percent_threshold=1, decr_percent_threshold=2,
-			noshort=False, shortonly=False, nocrossover=False, crossover_only=False, hold_overnight=False, debug=False ):
+			stoploss=False, incr_percent_threshold=1, decr_percent_threshold=2, nocrossover=False, crossover_only=False, hold_overnight=False,
+			noshort=False, shortonly=False, debug=False ):
 
 	if ( ticker == None or pricehistory == None ):
 		print('Error: stochrsi_analyze(' + str(ticker) + '): Either pricehistory or ticker is empty', file=sys.stderr)
@@ -1563,7 +1630,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 		# SELL mode
 		if ( signal_mode == 'sell' ):
 
-			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
+			# hold_overnight=False - drop the stock before market close
 			if ( hold_overnight == False and isendofday(5, date) ):
 				sell_signal = True
 
@@ -1683,7 +1750,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 		# BUY-TO-COVER mode
 		if ( signal_mode == 'buy_to_cover' ):
 
-			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
+			# hold_overnight=False - drop the stock before market close
 			if ( hold_overnight == False and isendofday(5, date) ):
 				buy_to_cover_signal = True
 

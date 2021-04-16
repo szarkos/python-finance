@@ -176,7 +176,7 @@ while ( algo == 'rsi' ):
 	if ( tda_gobot_helper.ismarketopen_US() == False ):
 		if ( args.multiday == True ):
 			prev_rsi = cur_rsi = 0
-			time.sleep(loopt*5)
+			time.sleep(loopt)
 			continue
 
 		else:
@@ -366,7 +366,7 @@ while ( algo == 'rsi' ):
 			# SELL the security if we are using a trailing stoploss
 			if ( percent_change >= decr_percent_threshold and args.stoploss == True ):
 
-				print('Stock ' + str(stock) + '" dropped below the decr_percent_threshold (' + str(decr_percent_threshold) + '%), selling the security...')
+				print('Stock "' + str(stock) + '" dropped below the decr_percent_threshold (' + str(decr_percent_threshold) + '%), selling the security...')
 				if ( args.fake == False ):
 					data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
@@ -831,7 +831,7 @@ while ( algo == 'stochrsi' ):
 			# SELL the security if we are using a trailing stoploss
 			if ( percent_change >= decr_percent_threshold and args.stoploss == True ):
 
-				print('Stock ' + str(stock) + '" dropped below the decr_percent_threshold (' + str(decr_percent_threshold) + '%), selling the security...')
+				print('Stock "' + str(stock) + '" dropped below the decr_percent_threshold (' + str(decr_percent_threshold) + '%), selling the security...')
 				if ( args.fake == False ):
 					data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 

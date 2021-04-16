@@ -10,20 +10,29 @@ import tulipy as ti
 import numpy as np
 import pandas as pd
 
+from func_timeout import func_timeout, FunctionTimedOut
+
+
 # Login to tda using a passcode
 def tdalogin(passcode=None):
 
 	if ( passcode == None ):
+		print('Error: tdalogin(): passcode is empty', file=sys.stderr)
 		return False
 
 	try:
-		enc = tda.login(passcode)
+		enc = func_timeout(10, tda.login, args=(passcode,))
+
+	except FunctionTimedOut:
+		print('Caught Exception: tdalogin(): timed out after 10 seconds' + str(e))
+		return False
 
 	except Exception as e:
 		print('Caught Exception: tdalogin(): ' + str(e))
 		return False
 
 	if ( enc == '' ):
+		print('Error: tdalogin(): tda.login return is empty', file=sys.stderr)
 		return False
 
 	return True
@@ -115,6 +124,7 @@ def ismarketopen_US():
 # Write logs for each ticker for live monitoring of the stock performance
 def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, base_price=-1, orig_base_price=-1, stock_qty=-1, sold=False, short=False, proc_id=None, debug=0):
 	if ( ticker == None ):
+		print('Error: log_monitor(' + str(ticker) + '): ticker is empty', file=sys.stderr)
 		return False
 
 	if ( proc_id == None ):
@@ -181,6 +191,7 @@ def fix_stock_symbol(stock=None):
 # Check that we can query using a stock symbol
 def check_stock_symbol(stock=None):
 	if ( stock == None ):
+		print('Error: check_stock_symbol(' + str(stock) + '): ticker is empty', file=sys.stderr)
 		return False
 
 	try:
@@ -200,6 +211,7 @@ def check_stock_symbol(stock=None):
 # Write a stock blacklist that can be used to avoid wash sales
 def write_blacklist(ticker=None, stock_qty=-1, orig_base_price=-1, last_price=-1, net_change=-1, percent_change=-1, debug=1):
 	if ( ticker == None ):
+		print('Error: write_blacklist(' + str(ticker) + '): ticker is empty', file=sys.stderr)
 		return False
 
 	blacklist = '.stock-blacklist'
@@ -244,6 +256,7 @@ def write_blacklist(ticker=None, stock_qty=-1, orig_base_price=-1, last_price=-1
 # Returns True if ticker is in the file and time_stamp is < 30 days ago
 def check_blacklist(ticker=None, debug=1):
 	if ( ticker == None ):
+		print('Error: check_blacklist(' + str(ticker) + '): ticker is empty', file=sys.stderr)
 		return False
 
 	found = False
@@ -297,10 +310,16 @@ def check_blacklist(ticker=None, debug=1):
 def get_lastprice(ticker=None, WarnDelayed=True, debug=False):
 
 	if ( ticker == None ):
+		print('Error: get_lastprice(' + str(ticker) + '): ticker is empty', file=sys.stderr)
 		return False
 
 	try:
-		data,err = tda.stocks.get_quote(ticker, True)
+#		data,err = tda.stocks.get_quote(ticker, True)
+		data,err = func_timeout(10, tda.stocks.get_quote, args=(ticker, True))
+
+	except FunctionTimedOut:
+		print('Caught Exception: get_lastprice(' + str(ticker) + '): tda.stocks.get_quote(): timed out after 10 seconds')
+		return False
 
 	except Exception as e:
 		print('Caught Exception: get_lastprice(' + str(ticker) + '): tda.stocks.get_quote(): ' + str(e))
@@ -328,6 +347,7 @@ def get_lastprice(ticker=None, WarnDelayed=True, debug=False):
 def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=None, start_date=None, end_date=None, needExtendedHoursData=False, debug=False):
 
 	if ( ticker == None ):
+		print('Error: get_pricehistory(' + str(ticker) + '): ticker is empty', file=sys.stderr)
 		return False, []
 
 	# TDA API is picky, validate start/end dates
@@ -342,13 +362,18 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 
 		# 0=Sunday, 6=Saturday
 		if ( start == 0 or start == 6 or end == 0 or end == 6 ):
-			print('Error: get_pricehistory(): start_date or end_date is out of market open and extended hours (weekend)')
+			print('Error: get_pricehistory(' + str(ticker) + '): start_date or end_date is out of market open and extended hours (weekend)')
 			return False, []
 
 	# Example: {'open': 236.25, 'high': 236.25, 'low': 236.25, 'close': 236.25, 'volume': 500, 'datetime': 1616796960000}
 	try:
 		data = err = ''
-		data,err = tda.get_price_history(ticker, p_type, f_type, freq, period, start_date=start_date, end_date=end_date, needExtendedHoursData=needExtendedHoursData, jsonify=True)
+#		data,err = tda.get_price_history(ticker, p_type, f_type, freq, period, start_date=start_date, end_date=end_date, needExtendedHoursData=needExtendedHoursData, jsonify=True)
+		data,err = func_timeout(10, tda.get_price_history, args=(ticker, p_type, f_type, freq, period, start_date, end_date, needExtendedHoursData, True))
+
+	except FunctionTimedOut:
+		print('Caught Exception: get_pricehistory(' + str(ticker) + '): tda.get_price_history() timed out after 10 seconds')
+		return False, []
 
 	except Exception as e:
 		print('Caught Exception: get_pricehistory(' + str(ticker) + '): ' + str(e))
@@ -373,7 +398,9 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 def get_price_stats(ticker=None, days=10, debug=False):
 
 	if ( ticker == None ):
+		print('Error: get_price_stats(' + str(ticker) + '): ticker is empty', file=sys.stderr)
 		return False, 0, 0
+
 	if ( int(days) > 10 ):
 		days = 10 # TDA API only allows 10-days of 1-minute data
 
@@ -384,6 +411,7 @@ def get_price_stats(ticker=None, days=10, debug=False):
 		print('Caught Exception: get_price_stats(' + str(ticker) + '): ' + str(e))
 
 	if ( data == False ):
+		print('Error: get_price_stats(' + str(ticker) + '): get_pricehistory() returned False', file=sys.stderr)
 		return False, 0, 0
 
 	high = avg = 0

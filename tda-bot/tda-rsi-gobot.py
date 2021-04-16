@@ -226,7 +226,7 @@ while ( algo == 'rsi' ):
 		print('(' + str(stock) + ') Current RSI: ' + str(round(cur_rsi, 2)) + ' / Previous RSI: ' + str(round(prev_rsi, 2)))
 		print('(' + str(stock) + ') Time now: ' + time_now.strftime('%Y-%m-%d %H:%M:%S') +
 			', timestamp received from API ' +
-			datetime.datetime.fromtimestamp(float(epochs[-1])/1000).strftime('%Y-%m-%d %H:%M:%S.%f') +
+			datetime.datetime.fromtimestamp(float(epochs[-1])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f') +
 			' (' + str(int(epochs[-1])) + ')' )
 
 	# BUY MODE - looking for a signal to purchase the stock
@@ -634,7 +634,7 @@ while ( algo == 'stochrsi' ):
 		if ( args.multiday == True ):
 			prev_rsi_k = cur_rsi_k = -1
 			prev_rsi_d = cur_rsi_d = -1
-			time.sleep(loopt*5)
+			time.sleep(loopt)
 			continue
 
 		else:
@@ -689,7 +689,7 @@ while ( algo == 'stochrsi' ):
 		print('(' + str(stock) + ') Current StochRSI D: ' + str(round(cur_rsi_d, 2)) + ' / Previous StochRSI D: ' + str(round(prev_rsi_d, 2)))
 		print('(' + str(stock) + ') Time now: ' + time_now.strftime('%Y-%m-%d %H:%M:%S') +
 			', timestamp received from API ' +
-			datetime.datetime.fromtimestamp(float(epochs[-1])/1000).strftime('%Y-%m-%d %H:%M:%S.%f') +
+			datetime.datetime.fromtimestamp(float(epochs[-1])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f') +
 			' (' + str(int(epochs[-1])) + ')' )
 
 	# BUY MODE - looking for a signal to purchase the stock

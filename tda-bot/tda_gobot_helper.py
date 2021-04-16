@@ -46,12 +46,19 @@ def tdalogin(passcode=None):
 # Examples:
 #   isendofday(5) returns True if it's 5-minutes or less from market close (3:55)
 #   isendofday(60) returns True if it's 60-minutes or less from market close (3:00)
-def isendofday(mins=5):
+def isendofday(mins=5, date=None):
 	if ( mins < 0 or mins > 60 ):
 		return False
 
 	eastern = timezone('US/Eastern') # Observes EST and EDT
-	est_time = datetime.now(eastern)
+
+	if ( date == None ):
+		est_time = datetime.now(eastern)
+	elif ( type(date) is datetime ):
+		est_time = date.replace(tzinfo=eastern)
+	else:
+		print('Error: isendofday(): date must be a datetime object')
+		return False
 
 	mins = 60 - int(mins)
 	if ( int(est_time.strftime('%-H')) == 15 and int(est_time.strftime('%-M')) >= mins ):
@@ -74,9 +81,16 @@ def isnewday():
 
 # Returns True the US markets are open
 # Nasdaq and NYSE open at 9:30AM and close at 4:00PM, Monday-Friday
-def ismarketopen_US():
+def ismarketopen_US(date=None):
 	eastern = timezone('US/Eastern') # Observes EST and EDT
-	est_time = datetime.now(eastern)
+
+	if ( date == None ):
+		est_time = datetime.now(eastern)
+	elif ( type(date) is datetime ):
+		est_time = date.replace(tzinfo=eastern)
+	else:
+		print('Error: ismarketopen_US(): date must be a datetime object')
+		return False
 
 	# US market holidays - source: http://www.nasdaqtrader.com/trader.aspx?id=calendar
 	# I'm hardcoding these dates for now since the other python modules (i.e. python3-holidays)
@@ -314,7 +328,7 @@ def get_lastprice(ticker=None, WarnDelayed=True, debug=False):
 		return False
 
 	try:
-#		data,err = tda.stocks.get_quote(ticker, True)
+		#data,err = tda.stocks.get_quote(ticker, True)
 		data,err = func_timeout(10, tda.stocks.get_quote, args=(ticker, True))
 
 	except FunctionTimedOut:
@@ -368,7 +382,7 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 	# Example: {'open': 236.25, 'high': 236.25, 'low': 236.25, 'close': 236.25, 'volume': 500, 'datetime': 1616796960000}
 	try:
 		data = err = ''
-#		data,err = tda.get_price_history(ticker, p_type, f_type, freq, period, start_date=start_date, end_date=end_date, needExtendedHoursData=needExtendedHoursData, jsonify=True)
+		#data,err = tda.get_price_history(ticker, p_type, f_type, freq, period, start_date=start_date, end_date=end_date, needExtendedHoursData=needExtendedHoursData, jsonify=True)
 		data,err = func_timeout(10, tda.get_price_history, args=(ticker, p_type, f_type, freq, period, start_date, end_date, needExtendedHoursData, True))
 
 	except FunctionTimedOut:
@@ -386,10 +400,20 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 
 		return False, []
 
-
+	# Populate epochs[] and check for duplicate timestamps
 	epochs = []
-	for key in data['candles']:
+	seen = {}
+	dup = {}
+	for idx,key in enumerate(data['candles']):
 		epochs.append(float(key['datetime']))
+
+		if key['datetime'] not in seen:
+			seen[key['datetime']] = 1
+		else:
+			dup[key['datetime']] += 1
+
+	if ( len( dup.items() ) > 0 ):
+		print("\nWARNING: get_pricehistory(" + str(ticker) + "(: DUPLICATE TIMESTAMPS DETECTED\n", file=sys.stderr)
 
 	return data, epochs
 
@@ -1219,6 +1243,11 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 		else:
 			srsi = float(stochrsi[idx-stochrsi_idx])
 
+		# Ignore pre-post market since we cannot trade during those hours
+		date = datetime.fromtimestamp(float(pricehistory['candles'][c_counter]['datetime'])/1000, tz=mytimezone)
+		if ( ismarketopen_US(date) != True ):
+			continue
+
 
 		# BUY mode
 		if ( signal_mode == 'buy' ):
@@ -1383,7 +1412,7 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 #   price, sell_price, net_change, bool(short), bool(success), vwap, rsi, stochrsi, purchase_time, sell_time = result.split(',', 10)
 def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=14, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=14, rsi_d_period=3,
 			stoploss=False, incr_percent_threshold=1, decr_percent_threshold=2,
-			noshort=False, shortonly=False, nocrossover=False, crossover_only=False, debug=False ):
+			noshort=False, shortonly=False, nocrossover=False, crossover_only=False, hold_overnight=False, debug=False ):
 
 	if ( ticker == None or pricehistory == None ):
 		print('Error: stochrsi_analyze(' + str(ticker) + '): Either pricehistory or ticker is empty', file=sys.stderr)
@@ -1467,7 +1496,6 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 	if ( shortonly == True ):
 		signal_mode = 'short'
 
-
 	# Main loop
 	for idx,cur_rsi_k in enumerate(rsi_k):
 
@@ -1478,10 +1506,30 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 		# stochrsi[] is a bit larger than rsi_k that we are looping through
 		srsi = float(stochrsi[idx+stochrsi_idx])
 
+		# Ignore pre-post market since we cannot trade during those hours
+		date = datetime.fromtimestamp(float(pricehistory['candles'][c_counter]['datetime'])/1000, tz=mytimezone)
+		if ( ismarketopen_US(date) != True ):
+			continue
+
 
 		# BUY mode
 		if ( signal_mode == 'buy' ):
 			short = False
+
+			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
+			if ( hold_overnight == False and isendofday(60, date) ):
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+				prev_rsi_k = cur_rsi_k
+				continue
+
+			# Jump to short mode if StochRSI K and D are already above rsi_high_limit
+			# The intent here is if the bot starts up while the RSI is high we don't want to wait until the stock
+			#  does a full loop again before acting on it.
+			if ( cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit and noshort == False ):
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+				signal_mode = 'short'
+				continue
+
 			if ( (cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit) and nocrossover == False ):
 
 				# Monitor if K and D intercect
@@ -1503,7 +1551,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 				purchase_time = datetime.fromtimestamp(float(pricehistory['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 				results.append( str(purchase_price) + ',' + str(short) + ',' +
-						str(vwap.loc[c_counter,'vwap']) + ',' + str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' + str(srsi) + ',' +
+						str(vwap.loc[c_counter,'vwap']) + ',' + str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' + str(srsi) + ',' +
 						str(purchase_time) )
 
 				nocrossover = orig_nocrossover # Reset in case we stoplossed earlier
@@ -1514,6 +1562,10 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 
 		# SELL mode
 		if ( signal_mode == 'sell' ):
+
+			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
+			if ( hold_overnight == False and isendofday(5, date) ):
+				sell_signal = True
 
 			# Monitor cost basis
 			if ( stoploss == True ):
@@ -1575,6 +1627,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 						str(sell_time) )
 
 				buy_signal = sell_signal = False
+
 				if ( noshort == False ):
 					short_signal = True
 					signal_mode = 'short'
@@ -1586,6 +1639,18 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 		# SELL SHORT mode
 		if ( signal_mode == 'short' ):
 			short = True
+
+			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
+			if ( hold_overnight == False and isendofday(60, date) ):
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+				prev_rsi_k = cur_rsi_k
+				continue
+
+			# Jump to buy mode if StochRSI K and D are already below rsi_low_limit
+			if ( cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit ):
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+				signal_mode = 'buy'
+				continue
 
 			if ( (cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit) and nocrossover == False ):
 
@@ -1617,6 +1682,10 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 
 		# BUY-TO-COVER mode
 		if ( signal_mode == 'buy_to_cover' ):
+
+			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
+			if ( hold_overnight == False and isendofday(5, date) ):
+				buy_to_cover_signal = True
 
 			# Monitor cost basis
 			if ( stoploss == True ):

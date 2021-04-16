@@ -5,7 +5,7 @@
 # Default:
 #  ./tda-automation.sh all ./stocks.txt 1000
 
-command=${1-"all"}
+command=${1-"monitor"}
 stonks_file=${2-"./stocks.txt"}
 stonk_usd=${3-"1000"}
 

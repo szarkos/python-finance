@@ -19,6 +19,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("stock", help='Stock ticker to purchase')
 parser.add_argument("stock_usd", help='Amount of money (USD) to invest', nargs='?', default=-1, type=float)
 parser.add_argument("-c", "--checkticker", help="Check if ticker is valid", action="store_true")
+parser.add_argument("-f", "--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
+parser.add_argument("-w", "--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
 parser.add_argument("-i", "--incr_threshold", help="Reset base_price if stock increases by this percent", type=float)
 parser.add_argument("-u", "--decr_threshold", help="Max allowed drop percentage of the stock price", type=float)
 parser.add_argument("-m", "--multiday", help="Watch stock until decr_threshold is reached. Do not sell and exit when market closes", action="store_true")
@@ -74,6 +76,13 @@ if ( tda_gobot_helper.check_stock_symbol(stock) != True ):
 if ( args.checkticker == True ): # --checkticker means we only wanted to validate the stock ticker
 	exit(0)
 
+if ( tda_gobot_helper.check_blacklist(stock) == True ):
+	if ( args.force == False ):
+		print('(' + str(stock) + ') Error: stock ' + str(stock) + ' found in blacklist file, exiting.')
+		exit(1)
+	else:
+		print('(' + str(stock) + ') Warning: stock ' + str(stock) + ' found in blacklist file.')
+
 
 # Calculate stock quantity from investment amount
 time.sleep(0.2) # avoid hammering the API
@@ -85,16 +94,21 @@ stock_qty = int( float(stock_usd) / float(last_price) )
 if ( tda_gobot_helper.ismarketopen_US() == True ):
 	if ( args.short == True ):
 		print('SHORTING ' + str(stock_qty) + ' shares of ' + str(stock))
-		data = tda_gobot_helper.short_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
-		if ( data == False ):
-			print('Error: Unable to short "' + str(stock) + '"', file=sys.stderr)
-			exit(1)
+
+		if ( args.fake == False ):
+			data = tda_gobot_helper.short_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+			if ( data == False ):
+				print('Error: Unable to short "' + str(stock) + '"', file=sys.stderr)
+				exit(1)
+
 	else:
 		print('PURCHASING ' + str(stock_qty) + ' shares of ' + str(stock))
-		data = tda_gobot_helper.buy_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
-		if ( data == False ):
-			print('Error: Unable to buy stock "' + str(ticker) + '"', file=sys.stderr)
-			exit(1)
+		if ( args.fake == False ):
+			data = tda_gobot_helper.buy_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+			if ( data == False ):
+				print('Error: Unable to buy stock "' + str(ticker) + '"', file=sys.stderr)
+				exit(1)
+
 else:
 	print('Error: stock ' + str(stock) + ' not purchased because market is closed, exiting.')
 	exit(1)
@@ -106,6 +120,7 @@ except:
 
 base_price = orig_base_price
 percent_change = 0
+
 
 # Main loop
 while True:
@@ -134,7 +149,9 @@ while True:
 	# Sell the security if we're getting close to market close
 	if ( tda_gobot_helper.isendofday() == True and args.multiday == False ):
 		print('Market closing, selling stock ' + str(stock))
-		data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+
+		if ( args.fake == False ):
+			data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
 		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, sold=True)
 		print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
@@ -157,7 +174,9 @@ while True:
 
 			# Sell the security
 			print('SELLING stock ' + str(stock) + '" - the security moved below the decr_percent_threshold (' + str(decr_percent_threshold) + '%)')
-			data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+
+			if ( args.fake == False ):
+				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, sold=True)
 			print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
@@ -175,7 +194,10 @@ while True:
 			if (percent_change >= decr_percent_threshold):
 				# Buy-to-cover the security
 				print('BUY_TO_COVOR stock ' + str(stock) + '" - the security moved above the decr_percent_threshold (' + str(decr_percent_threshold) + '%)')
-				data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+
+				if ( args.fake == False ):
+					data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, short=args.short, sold=True)
 
 		elif ( percent_change >= incr_percent_threshold ):

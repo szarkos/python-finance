@@ -179,27 +179,47 @@ for algo in args.algo.split(','):
 	# Print results for the most recent 10 and 5 days of data
 	for days in args.days.split(','):
 
-		try:
-			int(days)
-		except:
-			print('Error, days (' + str(days) + ') is not an integer - exiting.')
-			exit(1)
-
-		if ( int(days) > 10 ):
-			days = 10 # TDA API only allows 10-days of 1-minute daily data
-
-
 		# Pull the 1-minute stock history
 		# Note: Not asking for extended hours for now since our bot doesn't even trade after hours
-		try:
-	        	data, epochs = tda_gobot_helper.get_pricehistory(stock, 'day', 'minute', '1', days, needExtendedHoursData=False, debug=False)
+		if ( days != '-1' ):
+			try:
+				int(days)
+			except:
+				print('Error, days (' + str(days) + ') is not an integer - exiting.')
+				exit(1)
 
-		except Exception as e:
-			print('Caught Exception: get_pricehistory(' + str(ticker) + '): ' + str(e))
-			continue
+			if ( int(days) > 10 ):
+				days = 10 # TDA API only allows 10-days of 1-minute daily data
+
+			try:
+				data, epochs = tda_gobot_helper.get_pricehistory(stock, p_type, f_type, freq, days, needExtendedHoursData=True, debug=False)
+
+			except Exception as e:
+				print('Caught Exception: get_pricehistory(' + str(ticker) + '): ' + str(e))
+				continue
+
+		# Specifying days=-1 will get you the most recent info we can from the API
+		# But we still need to ask for a few days in order to force it to give us at least two days of data
+		else:
+			days = 3
+			time_now = datetime.datetime.now( mytimezone )
+
+			today = time_now.strftime('%Y-%m-%d')
+			time_prev = time_now - datetime.timedelta( days=2 )
+
+			time_now_epoch = int( time_now.timestamp() * 1000 )
+			time_prev_epoch = int( time_prev.timestamp() * 1000 )
+
+			try:
+				data, epochs = tda_gobot_helper.get_pricehistory(stock, p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=False)
+
+			except Exception as e:
+				print('Caught Exception: get_pricehistory(' + str(ticker) + ', ' + str(time_prev_epoch) + ', ' + str(time_now_epoch) + '): ' + str(e))
+				continue
 
 		if ( data == False ):
 			continue
+
 		if ( int(len(data['candles'])) <= rsi_period ):
 			print('Not enough data - returned candles=' + str(len(data['candles'])) + ', rsi_period=' + str(rsi_period))
 			exit(0)

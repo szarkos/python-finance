@@ -274,7 +274,6 @@ for index, row in df.iterrows():
 #cols_to_drop = candle_names + list(exclude_items)
 df.drop(candle_names, axis = 1, inplace = True)
 
-
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)

@@ -54,17 +54,20 @@ candle_rankings_bearish_reversals = {
 # Analyze candles based on pricehistory
 # Pattern is the type of reversal pattern to check ('bull' or 'bear')
 # tda_cndl_helper.candle_analyze_reversal(data, candle_pattern='bull', debug=True)
-def candle_analyze_reversal(pricehistory=None, candle_pattern=None, debug=False):
+def candle_analyze(pricehistory=None, candle_pattern=None, candle_rankings=None, debug=False):
 
 	ticker = ''
 	if ( pricehistory['symbol'] ):
 		ticker = pricehistory['symbol']
 
 	if ( pricehistory == None ):
-		print('Error: candle_analyze_reversal(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		print('Error: candle_analyze(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
 		return False
 	if ( candle_pattern == None ):
-		print('Error: candle_analyze_reversal(' + str(ticker) + '): you must specify what type of reversal pattern to check ("bull" or "bear")', file=sys.stderr)
+		print('Error: candle_analyze(' + str(ticker) + '): you must specify what type of reversal pattern to check ("bull" or "bear")', file=sys.stderr)
+		return False
+	if ( candle_rankings == None or candle_rankings == {} ):
+		print('Error: candle_analyze(' + str(ticker) + '): candle_rankings dict is empty', file=sys.stderr)
 		return False
 
 	# Set timezone
@@ -73,33 +76,11 @@ def candle_analyze_reversal(pricehistory=None, candle_pattern=None, debug=False)
 	except:
 		mytimezone = timezone("US/Eastern")
 
-	# Caller will ask what type of reversal pattern they want to check for
-	candle_pattern = str(candle_pattern).lower()
-	if ( candle_pattern == 'bull' ):
-		candle_rankings = candle_rankings_bullish_reversals
-	elif ( candle_pattern == 'bear' ):
-		candle_rankings = candle_rankings_bearish_reversals
-	else:
-		print('Error: candle_analyze_reversal(' + str(ticker) + '): unsupported pattern ' + str(candle_pattern), file=sys.stderr)
-
-
 	# Put the pricehistory dict into a pandas dataframe
-	# We only really want the last ten (or so) candles
-	skip = int(len(pricehistory['candles'])) - 11
 	prices = np.array([[1,1,1,1,1,1]])
-
 	for idx,key in enumerate(pricehistory['candles']):
-		if ( idx < skip ):
-			continue
-
-		# Skip the last element
-		# We will revisit the last candle in pricehistory['candles'] to confirm any indicators tulip finds
-		if ( idx == len(pricehistory['candles']) - 1):
-			continue
-
 		prices = np.append( prices, [[float(key['close']), float(key['high']), float(key['low']), float(key['open']),
 					float(key['datetime'])/1000, float(key['volume'])]], axis=0 )
-
 
 	prices = np.delete(prices, 0, axis=0)
 	df = pd.DataFrame(data=prices, columns=['close', 'high', 'low', 'open', 'datetime', 'volume'], dtype='float64')
@@ -115,18 +96,24 @@ def candle_analyze_reversal(pricehistory=None, candle_pattern=None, debug=False)
 	high = df['high']
 	low = df['low']
 	close = df['close']
-
 	candle_names = []
-	for pattern in candle_rankings:
 
-		if ( pattern == 'NO_PATTERN' ):
-			continue
+	try:
+		for pattern in candle_rankings:
 
-		pattern = re.sub( '_Bull', '', pattern )
-		pattern = re.sub( '_Bear', '', pattern )
+			if ( pattern == 'NO_PATTERN' ):
+				continue
 
-		candle_names.append(pattern)
-		df[pattern] = getattr(talib, pattern)(open, high, low, close)
+			pattern = re.sub( '_Bull', '', pattern )
+			pattern = re.sub( '_Bear', '', pattern )
+
+			candle_names.append(pattern)
+			df[pattern] = getattr(talib, pattern)(open, high, low, close)
+
+	except Exception as e:
+		print('Exception caught: candle_analyze(' + str(ticker) + '): ' + str(e))
+		return False
+
 
 	# Populate the dataframe
 	df['candlestick_pattern'] = np.nan
@@ -187,12 +174,85 @@ def candle_analyze_reversal(pricehistory=None, candle_pattern=None, debug=False)
 
 	df.drop(candle_names, axis = 1, inplace = True)
 
-#	if ( debug == True ):
-#		pd.set_option('display.max_rows', None)
-#		pd.set_option('display.max_columns', None)
-#		pd.set_option('display.width', None)
-#		pd.set_option('display.max_colwidth', None)
-#		print(df)
+	if ( debug == True ):
+		pd.set_option('display.max_rows', None)
+		pd.set_option('display.max_columns', None)
+		pd.set_option('display.width', None)
+		pd.set_option('display.max_colwidth', None)
+		print(df)
+
+	return df
+
+
+# Analyze candle reversal patterns
+# pricehistory = pricehistory dict returned from get_pricehistory()
+# num_candles = number of candles to extract from pricehistory and analyze
+# candle_pattern = bear | bull
+def candle_analyze_reversal(pricehistory=None, candle_pattern=None, num_candles=10, debug=False):
+
+	ticker = ''
+	if ( pricehistory['symbol'] ):
+		ticker = pricehistory['symbol']
+
+	if ( pricehistory == None ):
+		print('Error: candle_analyze_reversal(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False
+	if ( candle_pattern == None ):
+		print('Error: candle_analyze_reversal(' + str(ticker) + '): you must specify what type of reversal pattern to check ("bull" or "bear")', file=sys.stderr)
+		return False
+
+	try:
+		num_candles = int(num_candles)
+	except:
+		print('Error: candle_analyze_reversal(' + str(ticker) + '): days (' + str(days) + ') is not an integer')
+		return False
+
+	# Set timezone
+	try:
+		mytimezone
+	except:
+		mytimezone = timezone("US/Eastern")
+
+	# Caller will ask what type of reversal pattern they want to check for
+	candle_pattern = str(candle_pattern).lower()
+	if ( candle_pattern == 'bull' ):
+		candle_rankings = candle_rankings_bullish_reversals
+	elif ( candle_pattern == 'bear' ):
+		candle_rankings = candle_rankings_bearish_reversals
+	else:
+		print('Error: candle_analyze_reversal(' + str(ticker) + '): unsupported pattern "' + str(candle_pattern) + '"', file=sys.stderr)
+
+
+	if ( len(pricehistory['candles']) < num_candles ):
+		print( 'Warning: candle_analyze_reversal(' + str(ticker) + '): length of pricehistory[candles] (' + str(len(pricehistory[candles])) +
+			') is less than num_candles (' + str(num_candles) + '), resetting size of num_candles' )
+
+		num_candles = len(pricehistory['candles'])
+
+	# We are trimming pricehistory here because we only want info from pricehistory['candles'] up to num_candles
+	# We use range of num_candles+1 to '1' instead of '0' because we want to hold back the last candle, which we
+	#   can use to help confirm any candle patterns found.
+	ph = {}
+	ph['candles'] = []
+	for i in range( num_candles+1, 1, -1 ):
+		ph['candles'].append( { 'open': pricehistory['candles'][-i]['open'], 'high': pricehistory['candles'][-i]['high'],
+					'low': pricehistory['candles'][-i]['low'], 'close': pricehistory['candles'][-i]['close'],
+					'volume': pricehistory['candles'][-i]['volume'], 'datetime': pricehistory['candles'][-i]['datetime']} )
+
+	ph['symbol'] = pricehistory['symbol']
+	ph['empty'] = pricehistory['empty']
+
+	# Call candle_analyze to return a dataframe with the candle pattern results
+	try:
+		df = candle_analyze(ph, candle_pattern, candle_rankings, debug=False)
+
+	except Exception as e:
+		print('Caught exception candle_analyze_reversal(' + str(ticker) + '): candle_analyze(): ' + str(e))
+		return False
+
+	if ( isinstance(ph, bool) and ph == False ):
+		print('Error: candle_analyze_reversal(' + str(ticker) + '): candle_analyze() returned False')
+		return False
 
 	# Check the last element of dataframe
 	# Return True if the last candle confirms the bull or bearish reversal, otherwise return False
@@ -206,7 +266,7 @@ def candle_analyze_reversal(pricehistory=None, candle_pattern=None, debug=False)
 	if ( debug == True ):
 		print('DEBUG: candle_analyze_reversal(' + str(ticker) + '): pattern found: ' + str(last_pattern) + ' at ' + str(prev_date))
 
-	if ( candle_pattern == 'bull' ):
+	if ( candle_pattern == 'bull' and (last_pattern in candle_rankings) ):
 		if ( float(pricehistory['candles'][-1]['close']) > float(pricehistory['candles'][-2]['close']) ):
 
 			if ( debug == True ):
@@ -218,7 +278,7 @@ def candle_analyze_reversal(pricehistory=None, candle_pattern=None, debug=False)
 
 				return True
 
-	elif ( candle_pattern == 'bear' ):
+	elif ( candle_pattern == 'bear' and (last_pattern in candle_rankings) ):
 		if ( float(pricehistory['candles'][-1]['close']) < float(pricehistory['candles'][-2]['close']) ):
 
 			if ( debug == True ):
@@ -234,3 +294,27 @@ def candle_analyze_reversal(pricehistory=None, candle_pattern=None, debug=False)
 	# Pattern found but not confirmed
 	return False
 
+
+
+
+# Example
+###########
+#                # For the purposes of analyzing, we need to chop down pricehistory so that candle_analyze_reversal() only gets
+#                #  the history up until the minute that we are currently analyzing. For live use we can just pass pricehistory as-is.
+#                ph = {}
+#                ph['candles'] = []
+#                for i in range( 0, c_counter, 1 ):
+#                        ph['candles'].append( { 'open': pricehistory['candles'][i]['open'], 'high': pricehistory['candles'][i]['high'],
+#                                                'low': pricehistory['candles'][i]['low'], 'close': pricehistory['candles'][i]['close'],
+#                                                'volume': pricehistory['candles'][i]['volume'], 'datetime': pricehistory['candles'][i]['datetime']} )
+#
+#                ph['symbol'] = pricehistory['symbol']
+#                ph['empty'] = pricehistory['empty']
+#
+#                ret = tda_cndl_helper.candle_analyze_reversal(ph, candle_pattern='bull', num_candles=10, debug=True)
+#                if ( ret == True ):
+#                        print(ret)
+#                ret = tda_cndl_helper.candle_analyze_reversal(ph, candle_pattern='bear', num_candles=10, debug=True)
+#                if ( ret == True ):
+#                        print(ret)
+###########

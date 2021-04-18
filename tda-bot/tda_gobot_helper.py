@@ -12,6 +12,8 @@ import pandas as pd
 
 from func_timeout import func_timeout, FunctionTimedOut
 
+import tda_cndl_helper
+
 
 # Login to tda using a passcode
 def tdalogin(passcode=None):
@@ -1569,6 +1571,28 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 		c_counter += 1
 		cur_rsi_d = rsi_d[idx]
 		prev_rsi_d = rsi_d[idx-1]
+
+###########
+#		# For the purposes of analyzing, we need to chop down pricehistory so that candle_analyze_reversal() only gets
+#		#  the history up until the minute that we are currently analyzing. For live use we can just pass pricehistory as-is.
+#		ph = {}
+#		ph['candles'] = []
+#		for i in range( 0, c_counter, 1 ):
+#			ph['candles'].append( { 'open': pricehistory['candles'][i]['open'], 'high': pricehistory['candles'][i]['high'],
+#						'low': pricehistory['candles'][i]['low'], 'close': pricehistory['candles'][i]['close'],
+#						'volume': pricehistory['candles'][i]['volume'], 'datetime': pricehistory['candles'][i]['datetime']} )
+#
+#		ph['symbol'] = pricehistory['symbol']
+#		ph['empty'] = pricehistory['empty']
+#
+#		ret = tda_cndl_helper.candle_analyze_reversal(ph, candle_pattern='bull', num_candles=10, debug=True)
+#		if ( ret == True ):
+#			print(ret)
+#		ret = tda_cndl_helper.candle_analyze_reversal(ph, candle_pattern='bear', num_candles=10, debug=True)
+#		if ( ret == True ):
+#			print(ret)
+###########
+
 
 		# stochrsi[] is a bit larger than rsi_k that we are looping through
 		srsi = float(stochrsi[idx+stochrsi_idx])

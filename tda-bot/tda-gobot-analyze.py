@@ -10,6 +10,7 @@ import robin_stocks.tda as tda
 import tulipy as ti
 import tda_gobot_helper
 
+
 # Parse and check variables
 parser = argparse.ArgumentParser()
 parser.add_argument("stock", help='Stock ticker to purchase')
@@ -211,7 +212,7 @@ for algo in args.algo.split(','):
 			time_prev_epoch = int( time_prev.timestamp() * 1000 )
 
 			try:
-				data, epochs = tda_gobot_helper.get_pricehistory(stock, p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=False)
+				data, epochs = tda_gobot_helper.get_pricehistory(stock, p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=False, debug=False)
 
 			except Exception as e:
 				print('Caught Exception: get_pricehistory(' + str(ticker) + ', ' + str(time_prev_epoch) + ', ' + str(time_now_epoch) + '): ' + str(e))

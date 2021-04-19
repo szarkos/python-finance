@@ -374,7 +374,7 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 			mytimezone = timezone("US/Eastern")
 
 		start = int( datetime.fromtimestamp(start_date/1000, tz=mytimezone).strftime('%w') )
-		end = int( datetime.fromtimestamp(start_date/1000, tz=mytimezone).strftime('%w') )
+		end = int( datetime.fromtimestamp(end_date/1000, tz=mytimezone).strftime('%w') )
 
 		# 0=Sunday, 6=Saturday
 		if ( start == 0 or start == 6 or end == 0 or end == 6 ):
@@ -420,8 +420,8 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 	return data, epochs
 
 
-# Calculate the high, low and average stock price
-def get_price_stats(ticker=None, days=10, debug=False):
+# Calculate the high, low and average stock price based on hourly data
+def get_price_stats_hourly(ticker=None, days=10, debug=False):
 
 	if ( ticker == None ):
 		print('Error: get_price_stats(' + str(ticker) + '): ticker is empty', file=sys.stderr)
@@ -432,6 +432,62 @@ def get_price_stats(ticker=None, days=10, debug=False):
 
 	try:
 		data, epochs = get_pricehistory(ticker, 'day', 'minute', '1', days, needExtendedHoursData=True, debug=False)
+
+	except Exception as e:
+		print('Caught Exception: get_price_stats(' + str(ticker) + '): ' + str(e))
+
+	if ( data == False ):
+		print('Error: get_price_stats(' + str(ticker) + '): get_pricehistory() returned False', file=sys.stderr)
+		return False, 0, 0
+
+	high = avg = 0
+	low = 999999
+	for key in data['candles']:
+		avg += float(key['close'])
+		if ( float(key['close']) > high ):
+			high = float(key['close'])
+		if ( float(key['close']) < low ):
+			low = float(key['close'])
+
+	avg = round(avg / int(len(data['candles'])), 4)
+
+	# Return the high, low and average stock price
+	return high, low, avg
+
+
+# Calculate the high, low and average stock price
+def get_price_stats(ticker=None, days=100, debug=False):
+
+	if ( ticker == None ):
+		print('Error: get_price_stats(' + str(ticker) + '): ticker is empty', file=sys.stderr)
+		return False, 0, 0
+
+	try:
+		mytimezone
+	except:
+		mytimezone = timezone("US/Eastern")
+
+	end_date = datetime.now( mytimezone )
+	start_date = end_date - timedelta( days=days )
+
+	# Make sure start and end dates don't land on a weekend
+	# 0=Sunday, 6=Saturday
+	start = int( start_date.strftime('%w') )
+	end = int( end_date.strftime('%w') )
+	if ( start == 0 ):
+		start_date = start_date + timedelta( days=1 )
+	elif ( start == 6 ):
+		start_date = start_date + timedelta( days=2 )
+	if ( end == 0 ):
+		end_date = end_date + timedelta( days=1 )
+	elif ( end == 6 ):
+		end_date = end_date + timedelta( days=2 )
+
+	start_date = int( start_date.timestamp() * 1000 )
+	end_date = int( end_date.timestamp() * 1000 )
+
+	try:
+		data, epochs = get_pricehistory(ticker, 'year', 'daily', '1', start_date=start_date, end_date=end_date)
 
 	except Exception as e:
 		print('Caught Exception: get_price_stats(' + str(ticker) + '): ' + str(e))

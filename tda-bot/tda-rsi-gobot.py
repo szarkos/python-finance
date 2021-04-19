@@ -116,7 +116,6 @@ if ( args.short == True or args.shortonly == True ):
 			args.short = False
 			print('Warning: stock(' + str(stock) + '): does not appear to be shortable, disabling --short')
 
-
 # tda.get_pricehistory() variables
 mytimezone = pytz.timezone("US/Eastern")
 tda_gobot_helper.mytimezone = mytimezone
@@ -125,22 +124,25 @@ period = None
 f_type = 'minute'
 freq = '1'
 
-# RSI variables
-rsi_low_limit = args.rsi_low_limit
-rsi_high_limit = args.rsi_high_limit
-rsi_period = args.rsi_period
-stochrsi_period = args.stochrsi_period
-rsi_slow = args.rsi_slow
-rsi_k_period = args.rsi_k_period
-rsi_d_period = args.rsi_d_period
-rsi_type = args.rsi_type
 
-cur_rsi = prev_rsi = -1
-cur_rsi_k = prev_rsi_k = -1
-cur_rsi_d = prev_rsi_d = -1
+# Get general information about the stock
+three_week_high = three_week_low = three_week_avg = -1
+twenty_week_high = twenty_week_low = twenty_week_avg = -1
 
-rsi = stochrsi = []
-rsi_k = rsi_d = []
+try:
+	# 3-week high / low / average
+	three_week_high, three_week_low, three_week_avg = tda_gobot_helper.get_price_stats(stock, days=15)
+
+except Exception as e:
+	print('Warning: get_price_stats(' + str(stock) + '): ' + str(e))
+
+try:
+	# 20-week high / low / average
+	twenty_week_high, twenty_week_low, twenty_week_avg = tda_gobot_helper.get_price_stats(stock, days=100)
+
+except Exception as e:
+	print('Warning: get_price_stats(' + str(stock) + '): ' + str(e))
+
 
 
 # Main Loop
@@ -161,6 +163,24 @@ tx_id = random.randint(1000, 9999) # Used to identify each buy/sell transaction
 percent_change = 0
 loopt = 60
 
+# RSI variables
+rsi_low_limit = args.rsi_low_limit
+rsi_high_limit = args.rsi_high_limit
+rsi_period = args.rsi_period
+stochrsi_period = args.stochrsi_period
+rsi_slow = args.rsi_slow
+rsi_k_period = args.rsi_k_period
+rsi_d_period = args.rsi_d_period
+rsi_type = args.rsi_type
+
+cur_rsi = prev_rsi = -1
+cur_rsi_k = prev_rsi_k = -1
+cur_rsi_d = prev_rsi_d = -1
+
+rsi = stochrsi = []
+rsi_k = rsi_d = []
+
+# Action signals
 buy_signal = False
 sell_signal = False
 short_signal = False

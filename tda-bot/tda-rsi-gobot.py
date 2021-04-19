@@ -125,10 +125,10 @@ f_type = 'minute'
 freq = '1'
 
 
-# Get general information about the stock
+# Get general information about the stock that we can use later
+# I.e. volatility, resistance, etc.
 three_week_high = three_week_low = three_week_avg = -1
 twenty_week_high = twenty_week_low = twenty_week_avg = -1
-
 try:
 	# 3-week high / low / average
 	three_week_high, three_week_low, three_week_avg = tda_gobot_helper.get_price_stats(stock, days=15)
@@ -136,6 +136,7 @@ try:
 except Exception as e:
 	print('Warning: get_price_stats(' + str(stock) + '): ' + str(e))
 
+time.sleep(0.5)
 try:
 	# 20-week high / low / average
 	twenty_week_high, twenty_week_low, twenty_week_avg = tda_gobot_helper.get_price_stats(stock, days=100)
@@ -330,6 +331,20 @@ while ( algo == 'rsi' ):
 
 			stock_qty = int( float(stock_usd) / float(last_price) )
 
+			# Final sanity checks should go here
+			if ( float(last_price) >= float(twenty_week_high) ):
+				# This is not a good bet
+				twenty_week_high = float(last_price)
+				print('Stock ' + str(stock) + ' buy signal indicated, but last price (' + str(last_price) + ') is already above the 20-week high (' + str(twenty_week_high) + ')')
+				buy_signal = False
+				continue
+
+			elif ( ( abs(float(last_price) / float(twenty_week_high) - 1) * 100 ) < 1.5 ):
+				# Current high is within 1.5% of 20-week high, not a good bet
+				print('Stock ' + str(stock) + ' buy signal indicated, but last price (' + str(last_price) + ') is already within 1.5% of the 20-week high (' + str(twenty_week_high) + ')')
+				buy_signal = False
+				continue
+
 			# Purchase stock
 			if ( tda_gobot_helper.ismarketopen_US() == True ):
 				print('Purchasing ' + str(stock_qty) + ' shares of ' + str(stock))
@@ -344,8 +359,12 @@ while ( algo == 'rsi' ):
 					orig_base_price = last_price
 
 			else:
-				print('Stock ' + str(stock) + ' not purchased because market is closed, exiting.')
-				exit(1)
+				print('Stock ' + str(stock) + ' not purchased because market is closed')
+				if ( args.multiday == False ):
+					exit(1)
+
+				buy_signal = False
+				continue
 
 			num_purchases -= 1
 
@@ -523,7 +542,6 @@ while ( algo == 'rsi' ):
 			signal_mode = 'buy'
 			continue
 
-
 		# If args.hold_overnight=False and args.multiday==True, we don't enter any new trades 1-hour before market close
 		if ( args.multiday == True and args.hold_overnight == False and tda_gobot_helper.isendofday(60) ):
 			buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
@@ -559,6 +577,21 @@ while ( algo == 'rsi' ):
 				continue
 
 			stock_qty = int( float(stock_usd) / float(last_price) )
+
+			# Final sanity checks should go here
+			if ( float(last_price) <= float(twenty_week_low) ):
+				# This is not a good bet
+				twenty_week_low = float(last_price)
+				print('Stock ' + str(stock) + ' short signal indicated, but last price (' + str(last_price) + ') is already below the 20-week low (' + str(twenty_week_low) + ')')
+				short_signal = False
+				continue
+			elif ( ( abs(float(twenty_week_low) / float(last_price) - 1) * 100 ) < 1 ):
+				# Current low is within 1% of 20-week low, not a good bet
+				print('Stock ' + str(stock) + ' short signal indicated, but last price (' + str(last_price) + ') is already within 1% of the 20-week low (' + str(twenty_week_low) + ')')
+				short_signal = False
+				continue
+
+			# Short sell stock
 			if ( args.fake == False ):
 				data = tda_gobot_helper.short_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 				if ( data == False ):
@@ -880,6 +913,20 @@ while ( algo == 'stochrsi' ):
 
 			stock_qty = int( float(stock_usd) / float(last_price) )
 
+			# Final sanity checks should go here
+			if ( float(last_price) >= float(twenty_week_high) ):
+				# This is not a good bet
+				twenty_week_high = float(last_price)
+				print('Stock ' + str(stock) + ' buy signal indicated, but last price (' + str(last_price) + ') is already above the 20-week high (' + str(twenty_week_high) + ')')
+				buy_signal = False
+				continue
+
+			elif ( ( abs(float(last_price) / float(twenty_week_high) - 1) * 100 ) < 1 ):
+				# Current high is within 1% of 20-week high, not a good bet
+				print('Stock ' + str(stock) + ' buy signal indicated, but last price (' + str(last_price) + ') is already within 1% of the 20-week high (' + str(twenty_week_high) + ')')
+				buy_signal = False
+				continue
+
 			# Purchase stock
 			if ( tda_gobot_helper.ismarketopen_US() == True ):
 				print('Purchasing ' + str(stock_qty) + ' shares of ' + str(stock))
@@ -894,8 +941,12 @@ while ( algo == 'stochrsi' ):
 					orig_base_price = last_price
 
 			else:
-				print('Stock ' + str(stock) + ' not purchased because market is closed, exiting.')
-				exit(1)
+				print('Stock ' + str(stock) + ' not purchased because market is closed.')
+				if ( args.multiday == False ):
+					exit(1)
+
+				buy_signal = False
+				continue
 
 			num_purchases -= 1
 
@@ -1125,20 +1176,39 @@ while ( algo == 'stochrsi' ):
 				continue
 
 			stock_qty = int( float(stock_usd) / float(last_price) )
-			if ( args.fake == False ):
-				data = tda_gobot_helper.short_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
-				if ( data == False ):
-					if ( args.shortonly == True ):
-						print('Error: Unable to short "' + str(stock) + '" - exiting.', file=sys.stderr)
-						exit(1)
+			# Final sanity checks should go here
+			if ( float(last_price) <= float(twenty_week_low) ):
+				# This is not a good bet
+				twenty_week_low = float(last_price)
+				print('Stock ' + str(stock) + ' short signal indicated, but last price (' + str(last_price) + ') is already below the 20-week low (' + str(twenty_week_low) + ')')
+				short_signal = False
+				continue
 
-					elif ( args.short == True ):
-						print('Error: Unable to short "' + str(stock) + '" - disabling shorting', file=sys.stderr)
-						args.short = False
-						signal_mode = 'buy'
-						time.sleep(1)
-						continue
+			elif ( ( abs(float(twenty_week_low) / float(last_price) - 1) * 100 ) < 1 ):
+				# Current low is within 1% of 20-week low, not a good bet
+				print('Stock ' + str(stock) + ' short signal indicated, but last price (' + str(last_price) + ') is already within 1% of the 20-week low (' + str(twenty_week_low) + ')')
+				short_signal = False
+				continue
+
+			# Short stock
+			if ( tda_gobot_helper.ismarketopen_US() == True ):
+				print('Shorting ' + str(stock_qty) + ' shares of ' + str(stock))
+
+				if ( args.fake == False ):
+					data = tda_gobot_helper.short_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+					if ( data == False ):
+						if ( args.shortonly == True ):
+							print('Error: Unable to short "' + str(stock) + '" - exiting.', file=sys.stderr)
+							exit(1)
+
+						elif ( args.short == True ):
+							print('Error: Unable to short "' + str(stock) + '" - disabling shorting', file=sys.stderr)
+							short_signal == False
+							args.short = False
+							signal_mode = 'buy'
+							time.sleep(1)
+							continue
 
 				try:
 					orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
@@ -1146,7 +1216,13 @@ while ( algo == 'stochrsi' ):
 					orig_base_price = last_price
 
 			else:
-				orig_base_price = last_price
+				print('Stock ' + str(stock) + ' not shorted because market is closed.')
+				if ( args.shortonly == True ):
+					exit(1)
+				else:
+					short_signal == False
+					signal_mode = 'buy'
+					continue
 
 			num_purchases -= 1
 

@@ -505,7 +505,7 @@ def get_price_stats(ticker=None, days=100, debug=False):
 		if ( float(key['close']) < low ):
 			low = float(key['close'])
 
-	avg = round(avg / int(len(data['candles'])), 4)
+	avg = float( round(avg / int(len(data['candles'])), 4) )
 
 	# Return the high, low and average stock price
 	return high, low, avg
@@ -1214,7 +1214,7 @@ def get_vwap(pricehistory=None, debug=False):
 #   price, sell_price, net_change, bool(short), bool(success), vwap, rsi, stochrsi, purchase_time, sell_time = result.split(',', 10)
 def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=14, rsi_type='close', rsi_slow=3, rsi_k_period=14, rsi_d_period=3, rsi_low_limit=30, rsi_high_limit=70,
 		 stoploss=False, incr_percent_threshold=1, decr_percent_threshold=2, hold_overnight=False,
-		 noshort=False, shortonly=False, debug=False ):
+		 noshort=False, shortonly=False, no_use_resistance=False, debug=False ):
 
 	if ( ticker == None or pricehistory == None ):
 		print('Error: rsi_analyze(' + str(ticker) + '): Either pricehistory or ticker is empty', file=sys.stderr)
@@ -1256,7 +1256,7 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 		return False
 
 	# If using the same 1-minute data, the len of stochrsi will be rsi_period * (rsi_period * 2) - 1
-	if ( len(stochrsi) != len(pricehistory['candles']) - (stochrsi_period * 2 - 1) ):
+	if ( len(stochrsi) != len(pricehistory['candles']) - (rsi_period * 2 - 1) ):
 		print('Warning, unexpected length of stochrsi (pricehistory[candles]=' + str(len(pricehistory['candles'])) + ', len(stochrsi)=' + str(len(stochrsi)) + ')')
 
 	# Get the VWAP data
@@ -1273,6 +1273,25 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 	if ( debug == True ):
 		if ( len(vwap) != len(pricehistory['candles']) ):
 			print('Warning, unexpected length of vwap (pricehistory[candles]=' + str(len(pricehistory['candles'])) + ', len(vwap)=' + str(len(vwap)) + ')')
+
+	# Get general information about the stock that we can use later
+	# I.e. volatility, resistance, etc.
+	three_week_high = three_week_low = three_week_avg = -1
+	twenty_week_high = twenty_week_low = twenty_week_avg = -1
+	try:
+		# 3-week high / low / average
+		three_week_high, three_week_low, three_week_avg = get_price_stats(ticker, days=15)
+
+	except Exception as e:
+		print('Warning: get_price_stats(' + str(ticker) + '): ' + str(e))
+
+	time.sleep(0.5)
+	try:
+		# 20-week high / low / average
+		twenty_week_high, twenty_week_low, twenty_week_avg = get_price_stats(ticker, days=100)
+
+	except Exception as e:
+		print('Warning: get_price_stats(' + str(ticker) + '): ' + str(e))
 
 	# Run through the RSI values and log the results
 	results = []
@@ -1316,7 +1335,7 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 		if ( signal_mode == 'buy' ):
 			short = False
 
-			# if hold_overnight=False don't enter any new trades 1-hour before Market close
+			# If hold_overnight=False don't enter any new trades 1-hour before Market close
 			if ( hold_overnight == False and isendofday(60, date) ):
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				prev_rsi = cur_rsi
@@ -1335,10 +1354,27 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 				if ( cur_rsi >= rsi_low_limit ):
 					buy_signal = True
 
+			# BUY SIGNAL
 			if ( buy_signal == True ):
-
-				# BUY SIGNAL
 				purchase_price = float(pricehistory['candles'][c_counter]['close'])
+
+				if ( no_use_resistance == False ):
+					# Final sanity checks should go here
+					if ( purchase_price >= twenty_week_high ):
+						# This is not a good bet
+						twenty_week_high = float(purchase_price)
+						print('Stock ' + str(ticker) + ' buy signal indicated, but last price (' + str(purchase_price) + ') is already above the 20-week high (' + str(twenty_week_high) + ')')
+						prev_rsi = cur_rsi
+						buy_signal = False
+						continue
+
+					elif ( ( abs(float(purchase_price) / float(twenty_week_high) - 1) * 100 ) < 1.5 ):
+						# Current high is within 1% of 20-week high, not a good bet
+						print('Stock ' + str(ticker) + ' buy signal indicated, but last price (' + str(purchase_price) + ') is already within 1.5% of the 20-week high (' + str(twenty_week_high) + ')')
+						prev_rsi = cur_rsi
+						buy_signal = False
+						continue
+
 				base_price = purchase_price
 
 				purchase_time = datetime.fromtimestamp(float(pricehistory['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
@@ -1437,12 +1473,28 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 				if ( cur_rsi <= rsi_high_limit ):
 					short_signal = True
 
+			# SHORT SIGNAL
 			if ( short_signal == True ):
-
-				# SHORT SIGNAL
 				short_price = float(pricehistory['candles'][c_counter]['close'])
-				base_price = short_price
+				if ( no_use_resistance == False ):
 
+					# Final sanity checks should go here
+					if ( float(short_price) <= float(twenty_week_low) ):
+						# This is not a good bet
+						twenty_week_low = float(short_price)
+						print('Stock ' + str(ticker) + ' short signal indicated, but last price (' + str(short_price) + ') is already below the 20-week low (' + str(twenty_week_low) + ')')
+						short_signal = False
+						prev_rsi = cur_rsi
+						continue
+
+					elif ( ( abs(float(twenty_week_low) / float(short_price) - 1) * 100 ) < 1.5 ):
+						# Current low is within 1.5% of 20-week low, not a good bet
+						print('Stock ' + str(ticker) + ' short signal indicated, but last price (' + str(short_price) + ') is already within 1.5% of the 20-week low (' + str(twenty_week_low) + ')')
+						short_signal = False
+						prev_rsi = cur_rsi
+						continue
+
+				base_price = short_price
 				short_time = datetime.fromtimestamp(float(pricehistory['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 				results.append( str(short_price) + ',' + str(short) + ',' +
@@ -1537,7 +1589,7 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 #   price, sell_price, net_change, bool(short), bool(success), vwap, rsi, stochrsi, purchase_time, sell_time = result.split(',', 10)
 def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=14, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=14, rsi_d_period=3,
 			stoploss=False, incr_percent_threshold=1, decr_percent_threshold=2, nocrossover=False, crossover_only=False, hold_overnight=False,
-			noshort=False, shortonly=False, debug=False ):
+			noshort=False, shortonly=False, no_use_resistance=False, debug=False ):
 
 	if ( ticker == None or pricehistory == None ):
 		print('Error: stochrsi_analyze(' + str(ticker) + '): Either pricehistory or ticker is empty', file=sys.stderr)
@@ -1602,6 +1654,27 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 	if ( debug == True ):
 		if ( len(vwap) != len(pricehistory['candles']) ):
 			print('Warning, unexpected length of vwap (pricehistory[candles]=' + str(len(pricehistory['candles'])) + ', len(vwap)=' + str(len(vwap)) + ')')
+
+
+	# Get general information about the stock that we can use later
+	# I.e. volatility, resistance, etc.
+	three_week_high = three_week_low = three_week_avg = -1
+	twenty_week_high = twenty_week_low = twenty_week_avg = -1
+	try:
+		# 3-week high / low / average
+		three_week_high, three_week_low, three_week_avg = get_price_stats(ticker, days=15)
+
+	except Exception as e:
+		print('Warning: get_price_stats(' + str(ticker) + '): ' + str(e))
+
+	time.sleep(0.5)
+	try:
+		# 20-week high / low / average
+		twenty_week_high, twenty_week_low, twenty_week_avg = get_price_stats(ticker, days=100)
+
+	except Exception as e:
+		print('Warning: get_price_stats(' + str(ticker) + '): ' + str(e))
+
 
 	# Run through the RSI values and log the results
 	results = []
@@ -1690,11 +1763,27 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 					buy_signal = True
 
 			if ( buy_signal == True ):
+				purchase_price = float(pricehistory['candles'][c_counter]['close'])
+				if ( no_use_resistance == False ):
+
+					# Final sanity checks should go here
+					if ( purchase_price >= twenty_week_high ):
+						# This is not a good bet
+						twenty_week_high = float(purchase_price)
+						print('Stock ' + str(ticker) + ' buy signal indicated, but last price (' + str(purchase_price) + ') is already above the 20-week high (' + str(twenty_week_high) + ')')
+						prev_rsi_k = cur_rsi_k
+						buy_signal = False
+						continue
+
+					elif ( ( abs(float(purchase_price) / float(twenty_week_high) - 1) * 100 ) < 1.5 ):
+						# Current high is within 1.5% of 20-week high, not a good bet
+						print('Stock ' + str(ticker) + ' buy signal indicated, but last price (' + str(purchase_price) + ') is already within 1.5% of the 20-week high (' + str(twenty_week_high) + ')')
+						prev_rsi_k = cur_rsi_k
+						buy_signal = False
+						continue
 
 				# BUY SIGNAL
-				purchase_price = float(pricehistory['candles'][c_counter]['close'])
 				base_price = purchase_price
-
 				purchase_time = datetime.fromtimestamp(float(pricehistory['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 				results.append( str(purchase_price) + ',' + str(short) + ',' +
@@ -1811,9 +1900,26 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 					short_signal = True
 
 			if ( short_signal == True ):
+				short_price = float(pricehistory['candles'][c_counter]['close'])
+				if ( no_use_resistance == False ):
+
+					# Final sanity checks should go here
+					if ( float(short_price) <= float(twenty_week_low) ):
+						# This is not a good bet
+						twenty_week_low = float(short_price)
+						print('Stock ' + str(ticker) + ' short signal indicated, but last price (' + str(short_price) + ') is already below the 20-week low (' + str(twenty_week_low) + ')')
+						short_signal = False
+						prev_rsi_k = cur_rsi_k
+						continue
+
+					elif ( ( abs(float(twenty_week_low) / float(short_price) - 1) * 100 ) < 1.5 ):
+						# Current low is within 1.5% of 20-week low, not a good bet
+						print('Stock ' + str(ticker) + ' short signal indicated, but last price (' + str(short_price) + ') is already within 1.5% of the 20-week low (' + str(twenty_week_low) + ')')
+						short_signal = False
+						prev_rsi_k = cur_rsi_k
+						continue
 
 				# Short
-				short_price = float(pricehistory['candles'][c_counter]['close'])
 				base_price = short_price
 
 				short_time = datetime.fromtimestamp(float(pricehistory['candles'][c_counter]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')

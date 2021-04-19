@@ -15,24 +15,25 @@ import tda_gobot_helper
 parser = argparse.ArgumentParser()
 parser.add_argument("stock", help='Stock ticker to purchase')
 parser.add_argument("stock_usd", help='Amount of money (USD) to invest', nargs='?', default=1000, type=float)
-parser.add_argument("-a", "--algo", help='Analyze the most recent 5-day and 10-day history for a stock ticker using this bot\'s algorithim(s) - (rsi|stochrsi)', default='rsi', type=str)
-parser.add_argument("-b", "--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal (default=False)', action="store_true")
-parser.add_argument("-c", "--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (default=False)', action="store_true")
-parser.add_argument("-e", "--days", help='Number of days to test. Separate with a comma to test multiple days.', default='10', type=str)
-parser.add_argument("-v", "--verbose", help='Print additional information about each transaction (default=False)', action="store_true")
-parser.add_argument("-i", "--incr_threshold", help='Reset base_price if stock increases by this percent', type=float)
-parser.add_argument("-u", "--decr_threshold", help='Max allowed drop percentage of the stock price', type=float)
-parser.add_argument("-s", "--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
-parser.add_argument("-p", "--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
-parser.add_argument("-w", "--stochrsi_period", help='RSI period to use for StochRSI calculation (Default: 14)', default=14, type=int)
-parser.add_argument("-q", "--rsi_slow", help='Slowing period to use in StochRSI algorithm', default=3, type=int)
-parser.add_argument("-k", "--rsi_k_period", help='k period to use in StochRSI algorithm', default=14, type=int)
-parser.add_argument("-t", "--rsi_d_period", help='D period to use in StochRSI algorithm', default=3, type=int)
-parser.add_argument("-r", "--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='ohlc4', type=str)
-parser.add_argument("-g", "--rsi_high_limit", help='RSI high limit', default=70, type=int)
-parser.add_argument("-l", "--rsi_low_limit", help='RSI low limit', default=30, type=int)
-parser.add_argument("-y", "--noshort", help='Disable short selling of stock', action="store_true")
-parser.add_argument("-z", "--shortonly", help='Only short sell the stock', action="store_true")
+parser.add_argument("--algo", help='Analyze the most recent 5-day and 10-day history for a stock ticker using this bot\'s algorithim(s) - (rsi|stochrsi)', default='rsi', type=str)
+parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal (default=False)', action="store_true")
+parser.add_argument("--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (default=False)', action="store_true")
+parser.add_argument("--no_use_resistance", help='Use the high/low resistance to avoid bad trades (default=True)', action="store_true")
+parser.add_argument("--days", help='Number of days to test. Separate with a comma to test multiple days.', default='10', type=str)
+parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', type=float)
+parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', type=float)
+parser.add_argument("--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
+parser.add_argument("--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
+parser.add_argument("--stochrsi_period", help='RSI period to use for StochRSI calculation (Default: 14)', default=14, type=int)
+parser.add_argument("--rsi_slow", help='Slowing period to use in StochRSI algorithm', default=3, type=int)
+parser.add_argument("--rsi_k_period", help='k period to use in StochRSI algorithm', default=14, type=int)
+parser.add_argument("--rsi_d_period", help='D period to use in StochRSI algorithm', default=3, type=int)
+parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='ohlc4', type=str)
+parser.add_argument("--rsi_high_limit", help='RSI high limit', default=70, type=int)
+parser.add_argument("--rsi_low_limit", help='RSI low limit', default=30, type=int)
+parser.add_argument("--noshort", help='Disable short selling of stock', action="store_true")
+parser.add_argument("--shortonly", help='Only short sell the stock', action="store_true")
+parser.add_argument("--verbose", help='Print additional information about each transaction (default=False)', action="store_true")
 parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
 args = parser.parse_args()
 
@@ -223,7 +224,7 @@ for algo in args.algo.split(','):
 
 		if ( int(len(data['candles'])) <= rsi_period ):
 			print('Not enough data - returned candles=' + str(len(data['candles'])) + ', rsi_period=' + str(rsi_period))
-			exit(0)
+			continue
 
 
 		# Run the analyze function
@@ -232,20 +233,20 @@ for algo in args.algo.split(','):
 		if ( algo == 'rsi' ):
 			results = tda_gobot_helper.rsi_analyze( pricehistory=data, ticker=stock, rsi_period=rsi_period, stochrsi_period=stochrsi_period, rsi_type=rsi_type,
 								rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
-								stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly, debug=True )
+								stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly, no_use_resistance=args.no_use_resistance, debug=True )
 
 		elif ( algo == 'stochrsi' ):
 			results = tda_gobot_helper.stochrsi_analyze( pricehistory=data, ticker=stock, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type,
 								     rsi_low_limit=20, rsi_high_limit=80, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
 								     stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly,
-								     nocrossover=args.nocrossover, crossover_only=args.crossover_only, debug=True )
+								     nocrossover=args.nocrossover, crossover_only=args.crossover_only, no_use_resistance=args.no_use_resistance, debug=True )
 
 		if ( results == False ):
 			print('Error: rsi_analyze() returned false', file=sys.stderr)
-			exit(1)
+			continue
 		if ( int(len(results)) == 0 ):
 			print('There were no possible trades for requested time period, exiting.')
-			exit(0)
+			continue
 
 
 		# Print the returned results

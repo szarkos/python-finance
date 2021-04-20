@@ -147,15 +147,15 @@ except Exception as e:
 
 # SMA200 and EMA50
 # Determine if the stock is bearish or bullish based on SMA/EMA
-sma, p_history = get_sma(ticker, 200, False)
-ema, p_history = get_ema(ticker, 50, False)
-del(p_history)
+#sma, p_history = get_sma(ticker, 200, False)
+#ema, p_history = get_ema(ticker, 50, False)
+#del(p_history)
 
-isbull = False
-isbear = True
-if ( float(ema[-1]) > float(sma[-1]) ):
-	isbull = True
-	isbear = False
+#isbull = False
+#isbear = True
+#if ( float(ema[-1]) > float(sma[-1]) ):
+#	isbull = True
+#	isbear = False
 
 
 # Main Loop
@@ -229,8 +229,13 @@ while ( algo == 'rsi' ):
 	#   datetime.datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 	#   time_now = datetime.datetime.strptime('2021-03-29 15:59:00', '%Y-%m-%d %H:%M:%S').replace(tzinfo=mytimezone)
 	time_now = datetime.datetime.now( mytimezone )
-	#time_prev = time_now - datetime.timedelta( minutes=int(freq)*(rsi_period * 10) ) # Subtract enough time to ensure we get an RSI for the current period
-	time_prev = time_now - datetime.timedelta( days=2 )
+	time_prev = time_now - datetime.timedelta( days=3 )
+
+	# Make sure start and end dates don't land on a weekend
+	#  or outside market hours
+	time_now = tda_gobot_helper.fix_timestamp(time_now)
+	time_prev = tda_gobot_helper.fix_timestamp(time_prev)
+
 	time_now_epoch = int( time_now.timestamp() * 1000 )
 	time_prev_epoch = int( time_prev.timestamp() * 1000 )
 
@@ -782,9 +787,16 @@ while ( algo == 'rsi' ):
 
 
 ##############################################################################################################
-
-
 # StochRSI Algorithm
+
+# Reset rsi_low_limit and rsi_high_limit if they are still the algo=rsi defaults
+if ( algo == 'stochrsi' ):
+	if ( args.rsi_low_limit == 30 ):
+		rsi_low_limit = 20
+	if ( args.rsi_high_limit == 70 ):
+		rsi_high_limit = 80
+
+
 while ( algo == 'stochrsi' ):
 
 	# Loop continuously while after hours if --multiday was set
@@ -806,6 +818,12 @@ while ( algo == 'stochrsi' ):
 	newday = tda_gobot_helper.isnewday()
 	time_now = datetime.datetime.now( mytimezone )
 	time_prev = time_now - datetime.timedelta( days=3 )
+
+	# Make sure start and end dates don't land on a weekend
+	#  or outside market hours
+	time_now = tda_gobot_helper.fix_timestamp(time_now)
+	time_prev = tda_gobot_helper.fix_timestamp(time_prev)
+
 	time_now_epoch = int( time_now.timestamp() * 1000 )
 	time_prev_epoch = int( time_prev.timestamp() * 1000 )
 

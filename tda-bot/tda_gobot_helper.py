@@ -358,6 +358,43 @@ def get_lastprice(ticker=None, WarnDelayed=True, debug=False):
 	return float(data[ticker]['lastPrice'])
 
 
+# Fix the timestamp for get_pricehistory()
+# TDA API is very picky and may reject requests with timestamps that are
+#  outside normal or extended hours
+def fix_timestamp(date=None, debug=False):
+
+	if ( date == None or isinstance(date, datetime) == False ):
+		return None
+
+	try:
+		mytimezone
+
+	except:
+		mytimezone = timezone("US/Eastern")
+
+	finally:
+		date = date.replace(tzinfo=mytimezone)
+
+	# Make sure start and end dates don't land on a weekend
+	# 0=Sunday, 6=Saturday
+	day = int( date.strftime('%w') )
+	if ( day == 0 ):
+		date = date - timedelta( days=2 )
+	elif ( day == 6 ):
+		date = date - timedelta( days=1 )
+
+	# Make sure start_end dates aren't outside regular hours
+	# We could use extended hours here, but we assume regular hours
+	#  since "needExtendedHoursData=True" is the default
+	hour = int( date.strftime('%-H') )
+	if ( hour >= 16 ):
+		date = date - timedelta( hours=hour-15 )
+	elif ( hour >= 0 and hour <= 10 ):
+		date = date + timedelta( hours=10-hour )
+
+	return date
+
+
 # Return a list with the price history of a given stock
 # Useful for calculating various indicators such as RSI
 def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=None, start_date=None, end_date=None, needExtendedHoursData=False, debug=False):
@@ -471,17 +508,9 @@ def get_price_stats(ticker=None, days=100, debug=False):
 	start_date = end_date - timedelta( days=days )
 
 	# Make sure start and end dates don't land on a weekend
-	# 0=Sunday, 6=Saturday
-	start = int( start_date.strftime('%w') )
-	end = int( end_date.strftime('%w') )
-	if ( start == 0 ):
-		start_date = start_date + timedelta( days=1 )
-	elif ( start == 6 ):
-		start_date = start_date + timedelta( days=2 )
-	if ( end == 0 ):
-		end_date = end_date + timedelta( days=1 )
-	elif ( end == 6 ):
-		end_date = end_date + timedelta( days=2 )
+	#  or outside market hours
+	end_date = tda_gobot_helper.fix_timestamp(end_date)
+	start_date = tda_gobot_helper.fix_timestamp(start_date)
 
 	start_date = int( start_date.timestamp() * 1000 )
 	end_date = int( end_date.timestamp() * 1000 )
@@ -520,7 +549,7 @@ def get_sma(ticker=None, period=200, debug=False):
 
 	if ( ticker == None ):
 		print('Error: get_sma(' + str(ticker) + '): ticker is empty', file=sys.stderr)
-		return False
+		return False, []
 
 	try:
 		mytimezone
@@ -531,17 +560,9 @@ def get_sma(ticker=None, period=200, debug=False):
 	start_date = end_date - timedelta( days=days )
 
 	# Make sure start and end dates don't land on a weekend
-	# 0=Sunday, 6=Saturday
-	start = int( start_date.strftime('%w') )
-	end = int( end_date.strftime('%w') )
-	if ( start == 0 ):
-		start_date = start_date + timedelta( days=1 )
-	elif ( start == 6 ):
-		start_date = start_date + timedelta( days=2 )
-	if ( end == 0 ):
-		end_date = end_date + timedelta( days=1 )
-	elif ( end == 6 ):
-		end_date = end_date + timedelta( days=2 )
+	#  or outside market hours
+	end_date = tda_gobot_helper.fix_timestamp(end_date)
+	start_date = tda_gobot_helper.fix_timestamp(start_date)
 
 	start_date = int( start_date.timestamp() * 1000 )
 	end_date = int( end_date.timestamp() * 1000 )
@@ -554,7 +575,7 @@ def get_sma(ticker=None, period=200, debug=False):
 
 	if ( pricehistory == False ):
 		print('Error: get_sma(' + str(ticker) + '): get_pricehistory() returned False', file=sys.stderr)
-		return False
+		return False, []
 
 	if ( len(pricehistory['candles']) < period ):
 		# Possibly this ticker is too new, not enough history
@@ -573,7 +594,7 @@ def get_sma(ticker=None, period=200, debug=False):
 
 	except Exception as e:
 		print('Caught Exception: get_sma(' + str(ticker) + '): ti.sma(): ' + str(e))
-		return False
+		return False, []
 
 	if ( debug == True ):
 		pd.set_option('display.max_rows', None)
@@ -594,7 +615,7 @@ def get_ema(ticker=None, period=50, debug=False):
 
 	if ( ticker == None ):
 		print('Error: get_ema(' + str(ticker) + '): ticker is empty', file=sys.stderr)
-		return False
+		return False, []
 
 	try:
 		mytimezone
@@ -605,17 +626,9 @@ def get_ema(ticker=None, period=50, debug=False):
 	start_date = end_date - timedelta( days=days )
 
 	# Make sure start and end dates don't land on a weekend
-	# 0=Sunday, 6=Saturday
-	start = int( start_date.strftime('%w') )
-	end = int( end_date.strftime('%w') )
-	if ( start == 0 ):
-		start_date = start_date + timedelta( days=1 )
-	elif ( start == 6 ):
-		start_date = start_date + timedelta( days=2 )
-	if ( end == 0 ):
-		end_date = end_date + timedelta( days=1 )
-	elif ( end == 6 ):
-		end_date = end_date + timedelta( days=2 )
+	#  or outside market hours
+	end_date = tda_gobot_helper.fix_timestamp(end_date)
+	start_date = tda_gobot_helper.fix_timestamp(start_date)
 
 	start_date = int( start_date.timestamp() * 1000 )
 	end_date = int( end_date.timestamp() * 1000 )
@@ -628,7 +641,7 @@ def get_ema(ticker=None, period=50, debug=False):
 
 	if ( pricehistory == False ):
 		print('Error: get_ema(' + str(ticker) + '): get_pricehistory() returned False', file=sys.stderr)
-		return False
+		return False, []
 
 	if ( len(pricehistory['candles']) < period ):
 		# Possibly this ticker is too new, not enough history
@@ -647,7 +660,7 @@ def get_ema(ticker=None, period=50, debug=False):
 
 	except Exception as e:
 		print('Caught Exception: get_ema(' + str(ticker) + '): ti.ema(): ' + str(e))
-		return False
+		return False, []
 
 	if ( debug == True ):
 		pd.set_option('display.max_rows', None)
@@ -657,6 +670,215 @@ def get_ema(ticker=None, period=50, debug=False):
 		print(ema)
 
 	return tuple(ema), pricehistory
+
+
+# Use Tulipy to calculate the N-day historic volatility (default: 30-days)
+def get_historic_volatility_ti(ticker=None, period=21, type='close', debug=False):
+
+	days = period * 2 # Number of days to request from API.
+
+	if ( ticker == None ):
+		print('Error: get_historic_volatility(' + str(ticker) + '): ticker is empty', file=sys.stderr)
+		return False, []
+
+	try:
+		mytimezone
+	except:
+		mytimezone = timezone("US/Eastern")
+
+	end_date = datetime.now( mytimezone )
+	start_date = end_date - timedelta( days=days )
+
+	# Make sure start and end dates don't land on a weekend
+	#  or outside market hours
+	end_date = tda_gobot_helper.fix_timestamp(end_date)
+	start_date = tda_gobot_helper.fix_timestamp(start_date)
+
+	start_date = int( start_date.timestamp() * 1000 )
+	end_date = int( end_date.timestamp() * 1000 )
+
+	try:
+		pricehistory, epochs = get_pricehistory(ticker, 'year', 'daily', '1', start_date=start_date, end_date=end_date)
+
+	except Exception as e:
+		print('Caught Exception: get_historic_volatility(' + str(ticker) + '): ' + str(e))
+
+	if ( pricehistory == False ):
+		print('Error: get_historic_volatility(' + str(ticker) + '): get_pricehistory() returned False', file=sys.stderr)
+		return False, []
+
+	if ( len(pricehistory['candles']) < period ):
+		# Possibly this ticker is too new, not enough history
+		print('Error: get_historic_volatility(' + str(ticker) + '): len(pricehistory) is less than period (' + str(len(pricehistory['candles'])) + ')')
+
+	# Put pricehistory data into a numpy array
+	prices = []
+	if ( type == 'close' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['close']))
+
+	elif ( type == 'high' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['high']))
+
+	elif ( type == 'low' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['low']))
+
+	elif ( type == 'open' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['open']))
+
+	elif ( type == 'volume' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['volume']))
+
+	elif ( type == 'hl2' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+
+	elif ( type == 'hlc3' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+
+	elif ( type == 'ohlc4' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+
+	prices = np.array( prices )
+
+	# Get the N-day historical volatility
+	try:
+		v = ti.volatility(prices, period=period)
+
+	except Exception as e:
+		print('Caught Exception: get_historic_volatility(' + str(ticker) + '): ti.volatility(): ' + str(e))
+		return False, []
+
+	if ( debug == True ):
+		pd.set_option('display.max_rows', None)
+		pd.set_option('display.max_columns', None)
+		pd.set_option('display.width', None)
+		pd.set_option('display.max_colwidth', None)
+		print(ema)
+
+	return tuple(v), pricehistory
+
+
+def get_historic_volatility(ticker=None, period=21, type='close', debug=False):
+
+	days = period	# Number of days to request from API.
+	trade_days = 252
+
+	if ( ticker == None ):
+		print('Error: get_historic_volatility(' + str(ticker) + '): ticker is empty', file=sys.stderr)
+		return False
+
+	try:
+		mytimezone
+	except:
+		mytimezone = timezone("US/Eastern")
+
+	end_date = datetime.now( mytimezone )
+	start_date = end_date - timedelta( days=days )
+
+	# Make sure start and end dates don't land on a weekend
+	#  or outside market hours
+	end_date = tda_gobot_helper.fix_timestamp(end_date)
+	start_date = tda_gobot_helper.fix_timestamp(start_date)
+
+	start_date = int( start_date.timestamp() * 1000 )
+	end_date = int( end_date.timestamp() * 1000 )
+
+	try:
+		pricehistory, epochs = get_pricehistory(ticker, 'day', 'minute', '1', start_date=start_date, end_date=end_date, needExtendedHoursData=True)
+
+	except Exception as e:
+		print('Caught Exception: get_historic_volatility(' + str(ticker) + '): ' + str(e))
+
+	if ( pricehistory == False ):
+		print('Error: get_historic_volatility(' + str(ticker) + '): get_pricehistory() returned False', file=sys.stderr)
+		return False
+
+	if ( len(pricehistory['candles']) < period ):
+		# Possibly this ticker is too new, not enough history
+		print('Warning: get_historic_volatility(' + str(ticker) + '): len(pricehistory) is less than period (' + str(len(pricehistory['candles'])) + ')')
+
+	# Put pricehistory data into a numpy array
+	prices = np.array([[1,1]])
+	if ( type == 'close' ):
+		for key in pricehistory['candles']:
+			price = float(key['close'])
+			prices = np.append( prices, [[float(key['datetime'])/1000, price ]], axis=0 )
+
+	elif ( type == 'high' ):
+		for key in pricehistory['candles']:
+			price = float(key['high'])
+			prices = np.append( prices, [[float(key['datetime'])/1000, price ]], axis=0 )
+
+	elif ( type == 'low' ):
+		for key in pricehistory['candles']:
+			price = float(key['low'])
+			prices = np.append( prices, [[float(key['datetime'])/1000, price ]], axis=0 )
+
+	elif ( type == 'open' ):
+		for key in pricehistory['candles']:
+			price = float(key['open'])
+			prices = np.append( prices, [[float(key['datetime'])/1000, price ]], axis=0 )
+
+	elif ( type == 'hl2' ):
+		for key in pricehistory['candles']:
+			price = (float(key['high']) + float(key['low'])) / 2
+			prices = np.append( prices, [[float(key['datetime'])/1000, price ]], axis=0 )
+
+	elif ( type == 'hlc3' ):
+		for key in pricehistory['candles']:
+			price = (float(key['high']) + float(key['low']) + float(key['close'])) / 3
+			prices = np.append( prices, [[float(key['datetime'])/1000, price ]], axis=0 )
+
+	elif ( type == 'ohlc4' ):
+		for key in pricehistory['candles']:
+			price =  (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4
+			prices = np.append( prices, [[float(key['datetime'])/1000, price ]], axis=0 )
+
+	# Remove the first value used to initialize np array
+	prices = np.delete(prices, 0, axis=0)
+	df = pd.DataFrame(data=prices, columns=['DateTime', 'Price'])
+
+	posix_time = pd.to_datetime(df['DateTime'], unit='s')
+	df.insert(0, "Date", posix_time)
+	df.drop("DateTime", axis = 1, inplace = True)
+
+	df = df.set_index(pd.DatetimeIndex(df['Date'].values))
+	df.Date = df.Date.dt.tz_localize(tz='UTC').dt.tz_convert(tz=mytimezone)
+	df.drop(columns=['Date'], axis=1, inplace=True)
+
+	# Calculate daily logarithmic return
+	df['returns'] = (np.log(df.Price / df.Price.shift(-1)))
+
+	# Calculate daily standard deviation of returns
+	daily_std = np.std(df.returns)
+
+	# Annualized daily standard deviation
+	volatility = daily_std * trade_days ** 0.5
+
+	# This works too
+	#
+	# Show the daily simple return
+	# ( new_price / old_price ) - 1
+	#returns = df.pct_change()
+
+	# Create and show the annualized covariance matrix
+	#cov_matrix_annual = returns.cov() * trade_days
+
+	# Variance
+	#weights = np.array([1.0])
+	#variance = np.dot( weights.T, np.dot(cov_matrix_annual, weights))
+
+	# Volatility (standard deviation)
+	#volatility = np.sqrt(variance)
+
+	return volatility
 
 
 # Purchase a stock at Market price
@@ -1443,14 +1665,20 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 
 	# SMA200 and EMA50
 	# Determine if the stock is bearish or bullish based on SMA/EMA
+	isbull = isbear = None
 	sma, p_history = get_sma(ticker, 200, False)
-	ema, p_history = get_ema(ticker, 50, False)
-
-	isbull = False
-	isbear = True
-	if ( float(ema[-1]) > float(sma[-1]) ):
-		isbull = True
-		isbear = False
+	if ( isinstance(sma, bool) and sma == False ):
+		print('Warning: get_sma(' + str(ticker) + ') returned false - no data')
+	else:
+		ema, p_history = get_ema(ticker, 50, False)
+		if ( isinstance(ema, bool) and ema == False ):
+			print('Warning: get_ema(' + str(ticker) + ') returned false - no data')
+		else:
+			isbull = False
+			isbear = True
+			if ( float(ema[-1]) > float(sma[-1]) ):
+				isbull = True
+				isbear = False
 	del(p_history)
 
 
@@ -1838,15 +2066,29 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 
 	# SMA200 and EMA50
 	# Determine if the stock is bearish or bullish based on SMA/EMA
+	isbull = isbear = None
 	sma, p_history = get_sma(ticker, 200, False)
-	ema, p_history = get_ema(ticker, 50, False)
-
-	isbull = False
-	isbear = True
-	if ( float(ema[-1]) > float(sma[-1]) ):
-		isbull = True
-		isbear = False
+	if ( isinstance(sma, bool) and sma == False ):
+		print('Warning: get_sma(' + str(ticker) + ') returned false - no data')
+	else:
+		ema, p_history = get_ema(ticker, 50, False)
+		if ( isinstance(ema, bool) and ema == False ):
+			print('Warning: get_ema(' + str(ticker) + ') returned false - no data')
+		else:
+			isbull = False
+			isbear = True
+			if ( float(ema[-1]) > float(sma[-1]) ):
+				isbull = True
+				isbear = False
 	del(p_history)
+
+	# Historical volatility
+#	v = get_historic_volatility(ticker, period=21, type='close')
+#	if ( isinstance(v, bool) and v == False ):
+#		print('Error: get_historical_volatility(' + str(ticker) + ') returned false - no data', file=sys.stderr)
+#		return False
+#
+#	print(v[-1])
 
 	# Experimental trivial candle monitor
 	cndl_monitor = 3

@@ -28,6 +28,7 @@ parser.add_argument("--history", help="Get price history", action="store_true")
 parser.add_argument("--vwap", help="Get VWAP values", action="store_true")
 parser.add_argument("--rsi", help="Get RSI values", action="store_true")
 parser.add_argument("--stochrsi", help="Get stochastic RSI values", action="store_true")
+parser.add_argument("--volatility", help="Get the historical volatility for a stock", action="store_true")
 
 parser.add_argument("--rsi_period", help="RSI period (default: 14)", default=14, type=int)
 parser.add_argument("--stochrsi_period", help="Stoch RSI period (default: 128)", default=128, type=int)
@@ -209,6 +210,28 @@ elif (args.stochrsi == True ):
 		print( str(stock) + "\t" + str(date) + "\t" + str(stochrsi[-i]) + "\t" + str(rsi_k[-i]) + "\t" + str(rsi_d[-i]) )
 
 	exit(0)
+
+
+elif (args.volatility == True ):
+
+	v = tda_gobot_helper.get_historic_volatility(stock, period=21)
+	print( 'NumPy: ' + str(round(v, 2) * 100 ) + "%\n" )
+
+	v, data = tda_gobot_helper.get_historic_volatility_ti(stock, period=21, type='close')
+	if ( isinstance(v, bool) and v == False ):
+		print('Error: get_historical_volatility(' + str(ticker) + ') returned false - no data', file=sys.stderr)
+		exit(1)
+
+	time.sleep(0.5)
+
+	lines = args.lines + 1
+	if ( lines > len(v) ):
+		lines = len(v)
+
+	print('Tulipy ')
+	for i in range(lines, 1, -1):
+		date = datetime.datetime.fromtimestamp(float(data['candles'][-i]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+		print( str(stock) + "\t" + str(date) + "\t" + str(v[-i]) )
 
 
 else:

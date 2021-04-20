@@ -206,9 +206,13 @@ for algo in args.algo.split(','):
 		else:
 			days = 3
 			time_now = datetime.datetime.now( mytimezone )
-
-			today = time_now.strftime('%Y-%m-%d')
 			time_prev = time_now - datetime.timedelta( days=days )
+			today = time_now.strftime('%Y-%m-%d')
+
+			# Make sure start and end dates don't land on a weekend
+			#  or outside market hours
+			time_now = tda_gobot_helper.fix_timestamp(time_now)
+			time_prev = tda_gobot_helper.fix_timestamp(time_prev)
 
 			time_now_epoch = int( time_now.timestamp() * 1000 )
 			time_prev_epoch = int( time_prev.timestamp() * 1000 )

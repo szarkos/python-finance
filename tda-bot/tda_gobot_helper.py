@@ -511,6 +511,154 @@ def get_price_stats(ticker=None, days=100, debug=False):
 	return high, low, avg
 
 
+# Return the N-day simple moving average (SMA) (default: 200-day)
+def get_sma(ticker=None, period=200, debug=False):
+
+	days = 730	# Number of days to request from API. This needs to be larger
+			#  than period because we're subtracting days from start_date,
+			#  which will include weekends/holidays.
+
+	if ( ticker == None ):
+		print('Error: get_sma(' + str(ticker) + '): ticker is empty', file=sys.stderr)
+		return False
+
+	try:
+		mytimezone
+	except:
+		mytimezone = timezone("US/Eastern")
+
+	end_date = datetime.now( mytimezone )
+	start_date = end_date - timedelta( days=days )
+
+	# Make sure start and end dates don't land on a weekend
+	# 0=Sunday, 6=Saturday
+	start = int( start_date.strftime('%w') )
+	end = int( end_date.strftime('%w') )
+	if ( start == 0 ):
+		start_date = start_date + timedelta( days=1 )
+	elif ( start == 6 ):
+		start_date = start_date + timedelta( days=2 )
+	if ( end == 0 ):
+		end_date = end_date + timedelta( days=1 )
+	elif ( end == 6 ):
+		end_date = end_date + timedelta( days=2 )
+
+	start_date = int( start_date.timestamp() * 1000 )
+	end_date = int( end_date.timestamp() * 1000 )
+
+	try:
+		pricehistory, epochs = get_pricehistory(ticker, 'year', 'daily', '1', start_date=start_date, end_date=end_date)
+
+	except Exception as e:
+		print('Caught Exception: get_sma(' + str(ticker) + '): ' + str(e))
+
+	if ( pricehistory == False ):
+		print('Error: get_sma(' + str(ticker) + '): get_pricehistory() returned False', file=sys.stderr)
+		return False
+
+	if ( len(pricehistory['candles']) < period ):
+		# Possibly this ticker is too new, not enough history
+		print('Error: get_sma(' + str(ticker) + '): len(pricehistory) is less than period (' + str(len(pricehistory['candles'])) + ')')
+
+	# Put pricehistory data into a numpy array
+	prices = []
+	for key in pricehistory['candles']:
+		prices.append( float(key['close']) )
+
+	prices = np.array( prices )
+
+	# Get the N-day SMA
+	try:
+		sma = ti.sma(prices, period=period)
+
+	except Exception as e:
+		print('Caught Exception: get_sma(' + str(ticker) + '): ti.sma(): ' + str(e))
+		return False
+
+	if ( debug == True ):
+		pd.set_option('display.max_rows', None)
+		pd.set_option('display.max_columns', None)
+		pd.set_option('display.width', None)
+		pd.set_option('display.max_colwidth', None)
+		print(sma)
+
+	return tuple(sma), pricehistory
+
+
+# Return the N-day simple moving average (eMA) (default: 50-day)
+def get_ema(ticker=None, period=50, debug=False):
+
+	days = 365	# Number of days to request from API. This needs to be larger
+			#  than period because we're subtracting days from start_date,
+			#  which will include weekends/holidays.
+
+	if ( ticker == None ):
+		print('Error: get_ema(' + str(ticker) + '): ticker is empty', file=sys.stderr)
+		return False
+
+	try:
+		mytimezone
+	except:
+		mytimezone = timezone("US/Eastern")
+
+	end_date = datetime.now( mytimezone )
+	start_date = end_date - timedelta( days=days )
+
+	# Make sure start and end dates don't land on a weekend
+	# 0=Sunday, 6=Saturday
+	start = int( start_date.strftime('%w') )
+	end = int( end_date.strftime('%w') )
+	if ( start == 0 ):
+		start_date = start_date + timedelta( days=1 )
+	elif ( start == 6 ):
+		start_date = start_date + timedelta( days=2 )
+	if ( end == 0 ):
+		end_date = end_date + timedelta( days=1 )
+	elif ( end == 6 ):
+		end_date = end_date + timedelta( days=2 )
+
+	start_date = int( start_date.timestamp() * 1000 )
+	end_date = int( end_date.timestamp() * 1000 )
+
+	try:
+		pricehistory, epochs = get_pricehistory(ticker, 'year', 'daily', '1', start_date=start_date, end_date=end_date)
+
+	except Exception as e:
+		print('Caught Exception: get_ema(' + str(ticker) + '): ' + str(e))
+
+	if ( pricehistory == False ):
+		print('Error: get_ema(' + str(ticker) + '): get_pricehistory() returned False', file=sys.stderr)
+		return False
+
+	if ( len(pricehistory['candles']) < period ):
+		# Possibly this ticker is too new, not enough history
+		print('Error: get_ema(' + str(ticker) + '): len(pricehistory) is less than period (' + str(len(pricehistory['candles'])) + ')')
+
+	# Put pricehistory data into a numpy array
+	prices = []
+	for key in pricehistory['candles']:
+		prices.append( float(key['close']) )
+
+	prices = np.array( prices )
+
+	# Get the N-day EMA
+	try:
+		ema = ti.ema(prices, period=period)
+
+	except Exception as e:
+		print('Caught Exception: get_ema(' + str(ticker) + '): ti.ema(): ' + str(e))
+		return False
+
+	if ( debug == True ):
+		pd.set_option('display.max_rows', None)
+		pd.set_option('display.max_columns', None)
+		pd.set_option('display.width', None)
+		pd.set_option('display.max_colwidth', None)
+		print(ema)
+
+	return tuple(ema), pricehistory
+
+
 # Purchase a stock at Market price
 #  Ticker = stock ticker
 #  Quantity = amount of stock to purchase
@@ -1293,6 +1441,19 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 	except Exception as e:
 		print('Warning: get_price_stats(' + str(ticker) + '): ' + str(e))
 
+	# SMA200 and EMA50
+	# Determine if the stock is bearish or bullish based on SMA/EMA
+	sma, p_history = get_sma(ticker, 200, False)
+	ema, p_history = get_ema(ticker, 50, False)
+
+	isbull = False
+	isbear = True
+	if ( float(ema[-1]) > float(sma[-1]) ):
+		isbull = True
+		isbear = False
+	del(p_history)
+
+
 	# Run through the RSI values and log the results
 	results = []
 	prev_rsi = -1
@@ -1674,6 +1835,18 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 
 	except Exception as e:
 		print('Warning: get_price_stats(' + str(ticker) + '): ' + str(e))
+
+	# SMA200 and EMA50
+	# Determine if the stock is bearish or bullish based on SMA/EMA
+	sma, p_history = get_sma(ticker, 200, False)
+	ema, p_history = get_ema(ticker, 50, False)
+
+	isbull = False
+	isbear = True
+	if ( float(ema[-1]) > float(sma[-1]) ):
+		isbull = True
+		isbear = False
+	del(p_history)
 
 
 	# Run through the RSI values and log the results

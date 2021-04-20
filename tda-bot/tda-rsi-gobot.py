@@ -145,6 +145,17 @@ try:
 except Exception as e:
 	print('Warning: get_price_stats(' + str(stock) + '): ' + str(e))
 
+# SMA200 and EMA50
+# Determine if the stock is bearish or bullish based on SMA/EMA
+sma, p_history = get_sma(ticker, 200, False)
+ema, p_history = get_ema(ticker, 50, False)
+del(p_history)
+
+isbull = False
+isbear = True
+if ( float(ema[-1]) > float(sma[-1]) ):
+	isbull = True
+	isbear = False
 
 
 # Main Loop

@@ -18,7 +18,7 @@ parser.add_argument("stock_usd", help='Amount of money (USD) to invest', nargs='
 parser.add_argument("--algo", help='Analyze the most recent 5-day and 10-day history for a stock ticker using this bot\'s algorithim(s) - (rsi|stochrsi)', default='rsi', type=str)
 parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal (default=False)', action="store_true")
 parser.add_argument("--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (default=False)', action="store_true")
-parser.add_argument("--no_use_resistance", help='Use the high/low resistance to avoid bad trades (default=True)', action="store_true")
+parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (default=False)', action="store_true")
 parser.add_argument("--use_candle_monitor", help='Enable the trivial candle monitor (default=False)', action="store_true")
 parser.add_argument("--days", help='Number of days to test. Separate with a comma to test multiple days.', default='10', type=str)
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', type=float)

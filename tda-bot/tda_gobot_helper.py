@@ -579,7 +579,9 @@ def get_sma(ticker=None, period=200, debug=False):
 
 	if ( len(pricehistory['candles']) < period ):
 		# Possibly this ticker is too new, not enough history
-		print('Error: get_sma(' + str(ticker) + '): len(pricehistory) is less than period (' + str(len(pricehistory['candles'])) + ')')
+		print( 'Warning: get_sma(' + str(ticker) + ', ' + str(period) + '): len(pricehistory) is less than period (' +
+			str(len(pricehistory['candles'])) + ') - unable to calculate SMA')
+		return False, []
 
 	# Put pricehistory data into a numpy array
 	prices = []
@@ -645,7 +647,9 @@ def get_ema(ticker=None, period=50, debug=False):
 
 	if ( len(pricehistory['candles']) < period ):
 		# Possibly this ticker is too new, not enough history
-		print('Error: get_ema(' + str(ticker) + '): len(pricehistory) is less than period (' + str(len(pricehistory['candles'])) + ')')
+		print( 'Error: get_ema(' + str(ticker) + ', ' + str(period) + '): len(pricehistory) is less than period (' +
+			str(len(pricehistory['candles'])) + ') - unable to calculate EMA')
+		return False, []
 
 	# Put pricehistory data into a numpy array
 	prices = []
@@ -862,7 +866,7 @@ def get_historic_volatility(ticker=None, period=21, type='close', debug=False):
 	# Annualized daily standard deviation
 	volatility = daily_std * trade_days ** 0.5
 
-	# This works too
+	# This works too...
 	#
 	# Show the daily simple return
 	# ( new_price / old_price ) - 1
@@ -2083,12 +2087,11 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 	del(p_history)
 
 	# Historical volatility
-#	v = get_historic_volatility(ticker, period=21, type='close')
-#	if ( isinstance(v, bool) and v == False ):
-#		print('Error: get_historical_volatility(' + str(ticker) + ') returned false - no data', file=sys.stderr)
-#		return False
-#
-#	print(v[-1])
+	volatility = get_historic_volatility(ticker, period=21, type='close')
+	if ( isinstance(volatility, bool) and volatility == False ):
+		print('Error: get_historical_volatility(' + str(ticker) + ') returned false - no data', file=sys.stderr)
+		return False
+
 
 	# Experimental trivial candle monitor
 	cndl_monitor = 3

@@ -19,6 +19,7 @@ parser.add_argument("--algo", help='Analyze the most recent 5-day and 10-day his
 parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal (default=False)', action="store_true")
 parser.add_argument("--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (default=False)', action="store_true")
 parser.add_argument("--no_use_resistance", help='Use the high/low resistance to avoid bad trades (default=True)', action="store_true")
+parser.add_argument("--use_candle_monitor", help='Enable the trivial candle monitor (default=False)', action="store_true")
 parser.add_argument("--days", help='Number of days to test. Separate with a comma to test multiple days.', default='10', type=str)
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', type=float)
 parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', type=float)
@@ -207,7 +208,7 @@ for algo in args.algo.split(','):
 			time_now = datetime.datetime.now( mytimezone )
 
 			today = time_now.strftime('%Y-%m-%d')
-			time_prev = time_now - datetime.timedelta( days=2 )
+			time_prev = time_now - datetime.timedelta( days=days )
 
 			time_now_epoch = int( time_now.timestamp() * 1000 )
 			time_prev_epoch = int( time_prev.timestamp() * 1000 )
@@ -239,7 +240,8 @@ for algo in args.algo.split(','):
 			results = tda_gobot_helper.stochrsi_analyze( pricehistory=data, ticker=stock, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type,
 								     rsi_low_limit=20, rsi_high_limit=80, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
 								     stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly,
-								     nocrossover=args.nocrossover, crossover_only=args.crossover_only, no_use_resistance=args.no_use_resistance, debug=True )
+								     nocrossover=args.nocrossover, crossover_only=args.crossover_only, no_use_resistance=args.no_use_resistance,
+								     use_candle_monitor=args.use_candle_monitor, debug=True )
 
 		if ( results == False ):
 			print('Error: rsi_analyze() returned false', file=sys.stderr)

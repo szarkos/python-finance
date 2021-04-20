@@ -1750,7 +1750,7 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 #   price, sell_price, net_change, bool(short), bool(success), vwap, rsi, stochrsi, purchase_time, sell_time = result.split(',', 10)
 def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=14, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=14, rsi_d_period=3,
 			stoploss=False, incr_percent_threshold=1, decr_percent_threshold=2, nocrossover=False, crossover_only=False, hold_overnight=False,
-			noshort=False, shortonly=False, no_use_resistance=False, debug=False ):
+			noshort=False, shortonly=False, no_use_resistance=False, use_candle_monitor=False, debug=False ):
 
 	if ( ticker == None or pricehistory == None ):
 		print('Error: stochrsi_analyze(' + str(ticker) + '): Either pricehistory or ticker is empty', file=sys.stderr)
@@ -1848,6 +1848,9 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 		isbear = False
 	del(p_history)
 
+	# Experimental trivial candle monitor
+	cndl_monitor = 3
+
 
 	# Run through the RSI values and log the results
 	results = []
@@ -1866,6 +1869,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 	signal_mode = 'buy'
 	if ( shortonly == True ):
 		signal_mode = 'short'
+
 
 	# Main loop
 	for idx,cur_rsi_k in enumerate(rsi_k):
@@ -2010,7 +2014,21 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 					if ( percent_change >= incr_percent_threshold ):
 						base_price = last_price
 
+				# Experimental trivial candle monitor
+				if ( use_candle_monitor == True ):
+					cur_price = float(pricehistory['candles'][c_counter]['close'])
+					prev_price = float(pricehistory['candles'][c_counter-1]['close'])
+					if ( cur_price < prev_price ):
+						# Red candle
+						cndl_monitor -= 1
+
+					if ( cndl_monitor <= 0 ):
+						if ( float(cur_price) > float(base_price) ):
+							sell_signal = True
+						cndl_monitor = 3
+
 			# End stoploss monitor
+
 
 			# Monitor RSI
 			if ( (cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit) and nocrossover == False ):
@@ -2149,7 +2167,21 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 					if ( percent_change >= incr_percent_threshold ):
 						base_price = last_price
 
+				# Experimental trivial candle monitor
+				if ( use_candle_monitor == True ):
+					cur_price = float(pricehistory['candles'][c_counter]['close'])
+					prev_price = float(pricehistory['candles'][c_counter-1]['close'])
+					if ( cur_price > prev_price ):
+						# Green candle
+						cndl_monitor -= 1
+
+					if ( cndl_monitor <= 0 ):
+						if ( float(cur_price) < float(base_price) ):
+							buy_to_cover_signal = True
+						cndl_monitor = 3
+
 			# End stoploss monitor
+
 
 			# Monitor RSI
 			if ( (cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit) and nocrossover == False ):

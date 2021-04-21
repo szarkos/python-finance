@@ -171,6 +171,15 @@ print( 'Volatility: ' + str(volatility) )
 print()
 
 
+
+adx, plus_di, minus_di = tda_gobot_helper.get_adx(stock, period=14)
+print(adx[-1])
+print(plus_di[-1])
+print(minus_di[-1])
+exit()
+
+
+
 # --algo=rsi, --algo=stochrsi
 for algo in args.algo.split(','):
 

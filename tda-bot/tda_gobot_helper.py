@@ -509,8 +509,8 @@ def get_price_stats(ticker=None, days=100, debug=False):
 
 	# Make sure start and end dates don't land on a weekend
 	#  or outside market hours
-	end_date = tda_gobot_helper.fix_timestamp(end_date)
-	start_date = tda_gobot_helper.fix_timestamp(start_date)
+	end_date = fix_timestamp(end_date)
+	start_date = fix_timestamp(start_date)
 
 	start_date = int( start_date.timestamp() * 1000 )
 	end_date = int( end_date.timestamp() * 1000 )
@@ -561,8 +561,8 @@ def get_sma(ticker=None, period=200, debug=False):
 
 	# Make sure start and end dates don't land on a weekend
 	#  or outside market hours
-	end_date = tda_gobot_helper.fix_timestamp(end_date)
-	start_date = tda_gobot_helper.fix_timestamp(start_date)
+	end_date = fix_timestamp(end_date)
+	start_date = fix_timestamp(start_date)
 
 	start_date = int( start_date.timestamp() * 1000 )
 	end_date = int( end_date.timestamp() * 1000 )
@@ -629,8 +629,8 @@ def get_ema(ticker=None, period=50, debug=False):
 
 	# Make sure start and end dates don't land on a weekend
 	#  or outside market hours
-	end_date = tda_gobot_helper.fix_timestamp(end_date)
-	start_date = tda_gobot_helper.fix_timestamp(start_date)
+	end_date = fix_timestamp(end_date)
+	start_date = fix_timestamp(start_date)
 
 	start_date = int( start_date.timestamp() * 1000 )
 	end_date = int( end_date.timestamp() * 1000 )
@@ -695,8 +695,8 @@ def get_historic_volatility_ti(ticker=None, period=21, type='close', debug=False
 
 	# Make sure start and end dates don't land on a weekend
 	#  or outside market hours
-	end_date = tda_gobot_helper.fix_timestamp(end_date)
-	start_date = tda_gobot_helper.fix_timestamp(start_date)
+	end_date = fix_timestamp(end_date)
+	start_date = fix_timestamp(start_date)
 
 	start_date = int( start_date.timestamp() * 1000 )
 	end_date = int( end_date.timestamp() * 1000 )
@@ -788,8 +788,8 @@ def get_historic_volatility(ticker=None, period=21, type='close', debug=False):
 
 	# Make sure start and end dates don't land on a weekend
 	#  or outside market hours
-	end_date = tda_gobot_helper.fix_timestamp(end_date)
-	start_date = tda_gobot_helper.fix_timestamp(start_date)
+	end_date = fix_timestamp(end_date)
+	start_date = fix_timestamp(start_date)
 
 	start_date = int( start_date.timestamp() * 1000 )
 	end_date = int( end_date.timestamp() * 1000 )
@@ -883,6 +883,521 @@ def get_historic_volatility(ticker=None, period=21, type='close', debug=False):
 	#volatility = np.sqrt(variance)
 
 	return volatility
+
+
+# Return the Average True Range (ATR) and Normalized Average True Range (NATR)
+# https://www.investopedia.com/terms/a/atr.asp
+def get_atr(ticker=None, period=14, debug=False):
+
+	days = period*2	# Number of days to request from API. This needs to be larger
+			#  than period because we're subtracting days from start_date,
+			#  which will include weekends/holidays.
+
+	if ( ticker == None ):
+		print('Error: get_atr(' + str(ticker) + '): ticker is empty', file=sys.stderr)
+		return False, []
+
+	try:
+		mytimezone
+	except:
+		mytimezone = timezone("US/Eastern")
+
+	end_date = datetime.now( mytimezone )
+	start_date = end_date - timedelta( days=days )
+
+	# Make sure start and end dates don't land on a weekend
+	#  or outside market hours
+	end_date = fix_timestamp(end_date)
+	start_date = fix_timestamp(start_date)
+
+	start_date = int( start_date.timestamp() * 1000 )
+	end_date = int( end_date.timestamp() * 1000 )
+
+	try:
+		pricehistory, epochs = get_pricehistory(ticker, 'year', 'daily', '1', start_date=start_date, end_date=end_date)
+
+	except Exception as e:
+		print('Caught Exception: get_atr(' + str(ticker) + '): ' + str(e))
+
+	if ( pricehistory == False ):
+		print('Error: get_atr(' + str(ticker) + '): get_pricehistory() returned False', file=sys.stderr)
+		return False, []
+
+	if ( len(pricehistory['candles']) < period ):
+		# Possibly this ticker is too new, not enough history
+		print( 'Warning: get_atr(' + str(ticker) + ', ' + str(period) + '): len(pricehistory) is less than period (' +
+			str(len(pricehistory['candles'])) + ') - unable to calculate ATR / NATR')
+		return False, []
+
+	# Put pricehistory data into a numpy array
+	high = low = close = []
+	for key in pricehistory['candles']:
+		high.append( float(key['high']) )
+		low.append( float(key['low']) )
+		close.append( float(key['close']) )
+
+	high = np.array( high )
+	low = np.array( low )
+	close = np.array( close )
+
+	# Get the N-day ATR / NATR
+	atr = natr = []
+	try:
+		atr = ti.atr(high, low, close, period=period)
+
+	except Exception as e:
+		print('Caught Exception: get_atr(' + str(ticker) + '): ti.atr(): ' + str(e))
+		return False, []
+
+	try:
+		natr = ti.natr(high, low, close, period=period)
+
+	except Exception as e:
+		print('Caught Exception: get_atr(' + str(ticker) + '): ti.natr(): ' + str(e))
+		return False, []
+
+	if ( debug == True ):
+		pd.set_option('display.max_rows', None)
+		pd.set_option('display.max_columns', None)
+		pd.set_option('display.width', None)
+		pd.set_option('display.max_colwidth', None)
+		print(atr)
+
+	return tuple(atr), tuple(natr)
+
+
+# Return the Average Directional Index (ADX), as well as the negative directional indicator (-DI)
+#  and the positive directional indicator (+DI).
+#
+# If the +DI line crosses above the -DI line and the ADX is above 20, or ideally above 25,
+#  then that is a potential signal to buy.
+#
+# https://www.investopedia.com/terms/a/adx.asp
+# https://tulipindicators.org/di
+# https://tulipindicators.org/adx
+# https://tulipindicators.org/aroon
+def get_adx(pricehistory=None, period=14, debug=False):
+
+	if ( pricehistory == None ):
+		return False, [], []
+
+	ticker = ''
+	try:
+		if ( pricehistory['symbol'] ):
+			ticker = pricehistory['symbol']
+	except:
+		pass
+
+	if ( len(pricehistory['candles']) < period ):
+		# Possibly this ticker is too new, not enough history
+		print( 'Warning: get_adx(' + str(ticker) + ', ' + str(period) + '): len(pricehistory) is less than period (' +
+			str(len(pricehistory['candles'])) + ') - unable to calculate ADX/-DI/+DI')
+		return False, [], []
+
+	# Put pricehistory data into a numpy array
+	high = low = close = []
+	try:
+		for key in pricehistory['candles']:
+			high.append( float(key['high']) )
+			low.append( float(key['low']) )
+			close.append( float(key['close']) )
+
+	except Exception as e:
+		print('Caught Exception: get_adx(' + str(ticker) + '): while populating numpy arrays: ' + str(e))
+		return False, [], []
+
+	high = np.array( high )
+	low = np.array( low )
+	close = np.array( close )
+
+	# Get the N-day ADX / -DI / +DI
+	adx = plus_di = minus_di = []
+	try:
+		adx = ti.adx(high, low, close, period=period)
+
+	except Exception as e:
+		print('Caught Exception: get_adx(' + str(ticker) + '): ti.adx(): ' + str(e))
+		return False, [], []
+
+	try:
+		plus_di, minus_di = ti.di(high, low, close, period=period)
+
+	except Exception as e:
+		print('Caught Exception: get_adx(' + str(ticker) + '): ti.di(): ' + str(e))
+		return False, [], []
+
+	if ( debug == True ):
+		pd.set_option('display.max_rows', None)
+		pd.set_option('display.max_columns', None)
+		pd.set_option('display.width', None)
+		pd.set_option('display.max_colwidth', None)
+		print(adx)
+		print(plus_di)
+		print(minus_di)
+
+	return tuple(adx), tuple(plus_di), tuple(minus_di)
+
+
+# Return the Aroon Oscillator value
+# https://tulipindicators.org/aroon
+def get_aroon_osc(pricehistory=None, period=25, debug=False):
+
+	if ( pricehistory == None ):
+		return False
+
+	ticker = ''
+	try:
+		if ( pricehistory['symbol'] ):
+			ticker = pricehistory['symbol']
+	except:
+		pass
+
+	if ( len(pricehistory['candles']) < period ):
+		# Possibly this ticker is too new, not enough history
+		print( 'Warning: get_aroon_osc(' + str(ticker) + ', ' + str(period) + '): len(pricehistory) is less than period (' +
+			str(len(pricehistory['candles'])) + ') - unable to calculate the aroon oscillator')
+		return False
+
+	# Put pricehistory data into a numpy array
+	high = low = []
+	try:
+		for key in pricehistory['candles']:
+			high.append( float(key['high']) )
+			low.append( float(key['low']) )
+
+	except Exception as e:
+		print('Caught Exception: get_aroon_osc(' + str(ticker) + '): while populating numpy arrays: ' + str(e))
+		return False
+
+	high = np.array( high )
+	low = np.array( low )
+
+	# Get the N-day ADX / -DI / +DI
+	aroonosc = []
+	try:
+		aroonosc = ti.aroonosc(high, low, period=period)
+
+	except Exception as e:
+		print('Caught Exception: get_aroon_osc(' + str(ticker) + '): ti.aroonosc(): ' + str(e))
+		return False
+
+	if ( debug == True ):
+		pd.set_option('display.max_rows', None)
+		pd.set_option('display.max_columns', None)
+		pd.set_option('display.width', None)
+		pd.set_option('display.max_colwidth', None)
+		print(aroonosc)
+
+	return tuple(aroonosc)
+
+
+# Return numpy array of RSI (Relative Strength Index) values for a given price history.
+# Reference: https://tulipindicators.org/rsi
+# 'pricehistory' should be a data list obtained from get_pricehistory()
+# Supports the following calculation types:
+#   close	[default]
+#   high
+#   low
+#   open
+#   volume
+#   hl2		[(H+L) / 2]
+#   hlc3	[(H+L+C) / 3]
+#   ohlc4	[(O+H+L+C) / 4]
+def get_rsi(pricehistory=None, rsi_period=14, type='close', debug=False):
+
+	if ( pricehistory == None ):
+		print('Error: get_rsi(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False
+
+	ticker = ''
+	try:
+		if ( pricehistory['symbol'] ):
+			ticker = pricehistory['symbol']
+	except:
+		pass
+
+	prices = []
+	if ( type == 'close' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['close']))
+
+	elif ( type == 'high' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['high']))
+
+	elif ( type == 'low' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['low']))
+
+	elif ( type == 'open' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['open']))
+
+	elif ( type == 'volume' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['volume']))
+
+	elif ( type == 'hl2' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+
+	elif ( type == 'hlc3' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+
+	elif ( type == 'ohlc4' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+
+	else:
+		# Undefined type
+		print('Error: get_rsi(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
+		return False
+
+	if ( len(prices) < rsi_period ):
+		# Something is wrong with the data we got back from tda.get_price_history()
+		print('Error: get_rsi(' + str(ticker) + '): len(prices) is less than rsi_period - is this a new stock ticker?', file=sys.stderr)
+		return False
+
+	# Calculate the RSI for the entire numpy array
+	try:
+		pricehistory = np.array( prices )
+		rsi = ti.rsi( pricehistory, period=rsi_period )
+
+	except Exception as e:
+		print('Caught Exception: get_rsi(' + str(ticker) + '): ' + str(e))
+		return False
+
+	return rsi
+
+
+# Return numpy array of Stochastic RSI values for a given price history.
+# Reference: https://tulipindicators.org/stochrsi
+# 'pricehistory' should be a data list obtained from get_pricehistory()
+def get_stochrsi(pricehistory=None, rsi_period=14, stochrsi_period=128, type='close', rsi_d_period=3, rsi_k_period=14, slow_period=3, debug=False):
+
+	if ( pricehistory == None ):
+		print('Error: get_stochrsi(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False, [], []
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	prices = []
+	if ( type == 'close' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['close']))
+
+	elif ( type == 'high' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['high']))
+
+	elif ( type == 'low' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['low']))
+
+	elif ( type == 'open' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['open']))
+
+	elif ( type == 'volume' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['volume']))
+
+	elif ( type == 'hl2' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+
+	elif ( type == 'hlc3' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+
+	elif ( type == 'ohlc4' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+
+	else:
+		# Undefined type
+		print('Error: get_stochrsi(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
+		return False, [], []
+
+	if ( len(prices) < rsi_period * 2 ):
+		# Something is wrong with the data we got back from tda.get_price_history()
+		print('Warning: get_stochrsi(' + str(ticker) + '): len(pricehistory) is less than rsi_period - is this a new stock ticker?', file=sys.stderr)
+
+	# ti.stochrsi
+	try:
+		np_prices = np.array( prices )
+		stochrsi = ti.stochrsi( np_prices, period=rsi_period )
+
+	except Exception as e:
+		print( 'Caught Exception: get_stochrsi(' + str(ticker) + '): ti.stochrsi(): ' + str(e) + ', len(pricehistory)=' + str(len(pricehistory['candles'])) )
+		return False, [], []
+
+	# ti.rsi + ti.stoch
+	# Use ti.stoch() to get k and d values
+	#   K measures the strength of the current move relative to the range of the previous n-periods
+	#   D is a simple moving average of the K
+	try:
+		rsi = get_rsi( pricehistory, rsi_period=stochrsi_period, type=type )
+		k, d = ti.stoch( rsi, rsi, rsi, rsi_k_period, slow_period, rsi_d_period )
+
+	except Exception as e:
+		print( 'Caught Exception: get_stochrsi(' + str(ticker) + '): ti.stoch(): ' + str(e) + ', len(pricehistory)=' + str(len(pricehistory['candles'])) )
+		return False, [], []
+
+	return stochrsi, k, d
+
+
+# Return numpy array of Stochastic Oscillator values for a given price history.
+# Reference: https://tulipindicators.org/stoch
+# 'pricehistory' should be a data list obtained from get_pricehistory()
+#
+# K measures the strength of the current move relative to the range of the previous n-periods
+# D is a simple moving average of the K
+def get_stoch_oscillator(pricehistory=None, type=None, k_period=14, d_period=3, slow_period=1, debug=False):
+
+	if ( pricehistory == None ):
+		print('Error: get_stoch_oscillator(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False, []
+
+	ticker = ''
+	try:
+		if ( pricehistory['symbol'] ):
+			ticker = pricehistory['symbol']
+	except:
+		pass
+
+	if ( type == None ):
+		high = low = close = []
+		for key in pricehistory['candles']:
+			high.append(float(key['high']))
+			low.append(float(key['low']))
+			close.append(float(key['close']))
+
+	elif ( type == 'hlc3' ):
+		high = low = close = []
+		for key in pricehistory['candles']:
+			close.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+		high = low = close
+
+	elif ( type == 'hlc4' ):
+		high = low = close = []
+		for key in pricehistory['candles']:
+			close.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+		high = low = close
+
+	else:
+		# Undefined type
+		print('Error: get_stoch_oscillator(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
+		return False, []
+
+	try:
+		high = np.array( high )
+		low = np.array( low )
+		close = np.array( close )
+		fastk, fastd = ti.stoch( high, low, close, k_period, slow_period, d_period )
+
+	except Exception as e:
+		print('Caught Exception: get_stoch_oscillator(' + str(ticker) + '): ' + str(e))
+		return False, []
+
+	return fastk, fastd
+
+
+# Takes the pricehistory and returns a pandas dataframe with the VWAP
+# Example:
+#   data, epochs = tda_gobot_helper.get_pricehistory(stock, 'day', 'minute', '1', 1, needExtendedHoursData=True, debug=False)
+#   tda_gobot_helper.get_vwap(data)
+#
+# I'm honestly not sure I'm doing this right :)
+#
+#  1) Calculate the Typical Price for the period. [(High + Low + Close)/3)]
+#  2) Multiply the Typical Price by the period Volume (Typical Price x Volume)
+#  3) Create a Cumulative Total of Typical Price. Cumulative(Typical Price x Volume)
+#  4) Create a Cumulative Total of Volume. Cumulative(Volume)
+#  5) Divide the Cumulative Totals
+#
+#  VWAP = Cumulative(Typical Price x Volume) / Cumulative(Volume)
+def get_vwap(pricehistory=None, debug=False):
+
+	if ( pricehistory == None ):
+		return False
+
+	prices = np.array([[1,1,1]])
+	try:
+		ticker = pricehistory['symbol']
+		for key in pricehistory['candles']:
+			price = ( float(key['high']) + float(key['low']) + float(key['close']) ) / 3
+			prices = np.append( prices, [[float(key['datetime']), price, float(key['volume'])]], axis=0 )
+
+	except Exception as e:
+		print('Caught Exception: get_vwap(' + str(ticker) + '): ' + str(e))
+		return False
+
+	# Remove the first value used to initialize np array
+	prices = np.delete(prices, 0, axis=0)
+
+	columns = ['DateTime', 'AvgPrice', 'Volume']
+	df = pd.DataFrame(data=prices, columns=columns)
+	q = df.Volume.values
+	p = df.AvgPrice.values
+
+	# vwap = Cumulative(Typical Price x Volume) / Cumulative(Volume)
+	vwap = df.assign(vwap=(p * q).cumsum() / q.cumsum())
+
+	if ( debug == True ):
+		pd.set_option('display.max_rows', None)
+		pd.set_option('display.max_columns', None)
+		pd.set_option('display.width', None)
+		pd.set_option('display.max_colwidth', None)
+		print(vwap)
+
+	return vwap
+
+
+# Get MACD
+def get_macd(pricehistory=None, short_period=12, long_period=26, signal_period=9, debug=False):
+
+	if ( pricehistory == None ):
+		return False, [], []
+
+	if ( len(pricehistory['candles']) < short_period ):
+		# Possibly this ticker is too new, not enough history
+		print( 'Warning: get_macd(' + str(ticker) + ', ' + str(period) + '): len(pricehistory) is less than short_period (' +
+			str(len(pricehistory['candles'])) + ') - unable to calculate MACD')
+		return False, [], []
+
+	# Put pricehistory close prices into a numpy array
+	prices = []
+	try:
+		for key in pricehistory['candles']:
+			prices.append( float(key['close']) )
+
+		prices = np.array( prices )
+
+	except Exception as e:
+		print('Caught Exception: get_macd(' + str(ticker) + '): ' + str(e))
+		return False, [], []
+
+	# Calculate the macd, macd_signal and histogram
+	try:
+		macd, macd_signal, macd_histogram = ti.macd(prices, short_period, long_period, signal_period)
+
+	except Exception as e:
+		print('Caught Exception: get_macd(' + str(ticker) + '): ti.macd(): ' + str(e))
+		return False, [], []
+
+	if ( debug == True ):
+		print(macd)
+		print(macd_signal)
+		print(macd_histogram)
+		print(vwap)
+
+	return tuple(macd), tuple(macd_signal), tuple(macd_histogram)
 
 
 # Purchase a stock at Market price
@@ -1319,268 +1834,6 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 		print('buytocover_stock_marketprice(' + str(ticker) + '): Order completed (Order ID:' + str(order_id) + ')')
 
 	return data
-
-
-# Return numpy array of RSI (Relative Strength Index) values for a given price history.
-# Reference: https://tulipindicators.org/rsi
-# 'pricehistory' should be a data list obtained from get_pricehistory()
-# Supports the following calculation types:
-#   close	[default]
-#   high
-#   low
-#   open
-#   volume
-#   hl2		[(H+L) / 2]
-#   hlc3	[(H+L+C) / 3]
-#   ohlc4	[(O+H+L+C) / 4]
-def get_rsi(pricehistory=None, rsi_period=14, type='close', debug=False):
-
-	if ( pricehistory == None ):
-		print('Error: get_rsi(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
-		return False
-
-	ticker = ''
-	if ( pricehistory['symbol'] ):
-		ticker = pricehistory['symbol']
-
-	prices = []
-	if ( type == 'close' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['close']))
-
-	elif ( type == 'high' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['high']))
-
-	elif ( type == 'low' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['low']))
-
-	elif ( type == 'open' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['open']))
-
-	elif ( type == 'volume' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['volume']))
-
-	elif ( type == 'hl2' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['high']) + float(key['low'])) / 2 )
-
-	elif ( type == 'hlc3' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
-
-	elif ( type == 'ohlc4' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
-
-	else:
-		# Undefined type
-		print('Error: get_rsi(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
-		return False
-
-	if ( len(prices) < rsi_period ):
-		# Something is wrong with the data we got back from tda.get_price_history()
-		print('Error: get_rsi(' + str(ticker) + '): len(prices) is less than rsi_period - is this a new stock ticker?', file=sys.stderr)
-		return False
-
-	# Calculate the RSI for the entire numpy array
-	try:
-		pricehistory = np.array( prices )
-		rsi = ti.rsi( pricehistory, period=rsi_period )
-
-	except Exception as e:
-		print('Caught Exception: get_rsi(' + str(ticker) + '): ' + str(e))
-		return False
-
-	return rsi
-
-
-# Return numpy array of Stochastic RSI values for a given price history.
-# Reference: https://tulipindicators.org/stochrsi
-# 'pricehistory' should be a data list obtained from get_pricehistory()
-def get_stochrsi(pricehistory=None, rsi_period=14, stochrsi_period=128, type='close', rsi_d_period=3, rsi_k_period=14, slow_period=3, debug=False):
-
-	if ( pricehistory == None ):
-		print('Error: get_stochrsi(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
-		return False, [], []
-
-	ticker = ''
-	try:
-		ticker = pricehistory['symbol']
-	except:
-		pass
-
-	prices = []
-	if ( type == 'close' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['close']))
-
-	elif ( type == 'high' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['high']))
-
-	elif ( type == 'low' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['low']))
-
-	elif ( type == 'open' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['open']))
-
-	elif ( type == 'volume' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['volume']))
-
-	elif ( type == 'hl2' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['high']) + float(key['low'])) / 2 )
-
-	elif ( type == 'hlc3' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
-
-	elif ( type == 'ohlc4' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
-
-	else:
-		# Undefined type
-		print('Error: get_stochrsi(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
-		return False, [], []
-
-	if ( len(prices) < rsi_period * 2 ):
-		# Something is wrong with the data we got back from tda.get_price_history()
-		print('Warning: get_stochrsi(' + str(ticker) + '): len(pricehistory) is less than rsi_period - is this a new stock ticker?', file=sys.stderr)
-
-	# ti.stochrsi
-	try:
-		np_prices = np.array( prices )
-		stochrsi = ti.stochrsi( np_prices, period=rsi_period )
-
-	except Exception as e:
-		print( 'Caught Exception: get_stochrsi(' + str(ticker) + '): ti.stochrsi(): ' + str(e) + ', len(pricehistory)=' + str(len(pricehistory['candles'])) )
-		return False, [], []
-
-	# ti.rsi + ti.stoch
-	# Use ti.stoch() to get k and d values
-	#   K measures the strength of the current move relative to the range of the previous n-periods
-	#   D is a simple moving average of the K
-	try:
-		rsi = get_rsi( pricehistory, rsi_period=stochrsi_period, type=type )
-		k, d = ti.stoch( rsi, rsi, rsi, rsi_k_period, slow_period, rsi_d_period )
-
-	except Exception as e:
-		print( 'Caught Exception: get_stochrsi(' + str(ticker) + '): ti.stoch(): ' + str(e) + ', len(pricehistory)=' + str(len(pricehistory['candles'])) )
-		return False, [], []
-
-	return stochrsi, k, d
-
-
-# Return numpy array of Stochastic Oscillator values for a given price history.
-# Reference: https://tulipindicators.org/stoch
-# 'pricehistory' should be a data list obtained from get_pricehistory()
-#
-# K measures the strength of the current move relative to the range of the previous n-periods
-# D is a simple moving average of the K
-def get_stoch_oscillator(pricehistory=None, type=None, k_period=14, d_period=3, slow_period=1, debug=False):
-
-	if ( pricehistory == None ):
-		print('Error: get_stoch_oscillator(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
-		return False, []
-
-	ticker = ''
-	if ( pricehistory['symbol'] ):
-		ticker = pricehistory['symbol']
-
-	if ( type == None ):
-		high = low = close = []
-		for key in pricehistory['candles']:
-			high.append(float(key['high']))
-			low.append(float(key['low']))
-			close.append(float(key['close']))
-
-	elif ( type == 'hlc3' ):
-		high = low = close = []
-		for key in pricehistory['candles']:
-			close.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
-		high = low = close
-
-	elif ( type == 'hlc4' ):
-		high = low = close = []
-		for key in pricehistory['candles']:
-			close.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
-		high = low = close
-
-	else:
-		# Undefined type
-		print('Error: get_stoch_oscillator(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
-		return False, []
-
-	try:
-		high = np.array( high )
-		low = np.array( low )
-		close = np.array( close )
-		fastk, fastd = ti.stoch( high, low, close, k_period, slow_period, d_period )
-
-	except Exception as e:
-		print('Caught Exception: get_stoch_oscillator(' + str(ticker) + '): ' + str(e))
-		return False, []
-
-	return fastk, fastd
-
-
-# Takes the pricehistory and returns a pandas dataframe with the VWAP
-# Example:
-#   data, epochs = tda_gobot_helper.get_pricehistory(stock, 'day', 'minute', '1', 1, needExtendedHoursData=True, debug=False)
-#   tda_gobot_helper.get_vwap(data)
-#
-# I'm honestly not sure I'm doing this right :)
-#
-#  1) Calculate the Typical Price for the period. [(High + Low + Close)/3)]
-#  2) Multiply the Typical Price by the period Volume (Typical Price x Volume)
-#  3) Create a Cumulative Total of Typical Price. Cumulative(Typical Price x Volume)
-#  4) Create a Cumulative Total of Volume. Cumulative(Volume)
-#  5) Divide the Cumulative Totals
-#
-#  VWAP = Cumulative(Typical Price x Volume) / Cumulative(Volume)
-def get_vwap(pricehistory=None, debug=False):
-
-	if ( pricehistory == None ):
-		return False
-
-	prices = np.array([[1,1,1]])
-	try:
-		ticker = pricehistory['symbol']
-		for key in pricehistory['candles']:
-			price = ( float(key['high']) + float(key['low']) + float(key['close']) ) / 3
-			prices = np.append( prices, [[float(key['datetime']), price, float(key['volume'])]], axis=0 )
-
-	except Exception as e:
-		print('Caught Exception: get_vwap(' + str(ticker) + '): ' + str(e))
-		return False
-
-	# Remove the first value used to initialize np array
-	prices = np.delete(prices, 0, axis=0)
-
-	columns = ['DateTime', 'AvgPrice', 'Volume']
-	df = pd.DataFrame(data=prices, columns=columns)
-	q = df.Volume.values
-	p = df.AvgPrice.values
-
-	# vwap = Cumulative(Typical Price x Volume) / Cumulative(Volume)
-	vwap = df.assign(vwap=(p * q).cumsum() / q.cumsum())
-
-	if ( debug == True ):
-		pd.set_option('display.max_rows', None)
-		pd.set_option('display.max_columns', None)
-		pd.set_option('display.width', None)
-		pd.set_option('display.max_colwidth', None)
-		print(vwap)
-
-	return vwap
 
 
 # Return an N-day analysis for a stock ticker using the RSI algorithm

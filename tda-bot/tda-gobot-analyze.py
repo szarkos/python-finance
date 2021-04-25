@@ -5,6 +5,7 @@
 import os, sys
 import time, datetime, pytz, random
 import argparse
+import pickle
 
 import robin_stocks.tda as tda
 import tulipy as ti
@@ -16,14 +17,23 @@ parser = argparse.ArgumentParser()
 parser.add_argument("stock", help='Stock ticker to purchase')
 parser.add_argument("stock_usd", help='Amount of money (USD) to invest', nargs='?', default=1000, type=float)
 parser.add_argument("--algo", help='Analyze the most recent 5-day and 10-day history for a stock ticker using this bot\'s algorithim(s) - (rsi|stochrsi)', default='rsi', type=str)
+parser.add_argument("--ofile", help='Dump the pricehistory data to pickle file', default=None, type=str)
+parser.add_argument("--ifile", help='Use pickle file for pricehistory data rather than accessing the API', default=None, type=str)
+
 parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal (default=False)', action="store_true")
 parser.add_argument("--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (default=False)', action="store_true")
 parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (default=False)', action="store_true")
 parser.add_argument("--use_candle_monitor", help='Enable the trivial candle monitor (default=False)', action="store_true")
+parser.add_argument("--with_adx", help='Use ADX as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
+parser.add_argument("--with_dmi", help='Use DMI as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
+parser.add_argument("--with_aroonosc", help='Use Aroon Oscillator as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
+parser.add_argument("--with_macd", help='Use MACD as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
+
 parser.add_argument("--days", help='Number of days to test. Separate with a comma to test multiple days.', default='10', type=str)
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', type=float)
 parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', type=float)
 parser.add_argument("--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
+
 parser.add_argument("--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
 parser.add_argument("--stochrsi_period", help='RSI period to use for StochRSI calculation (Default: 14)', default=14, type=int)
 parser.add_argument("--rsi_slow", help='Slowing period to use in StochRSI algorithm', default=3, type=int)
@@ -32,6 +42,7 @@ parser.add_argument("--rsi_d_period", help='D period to use in StochRSI algorith
 parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='ohlc4', type=str)
 parser.add_argument("--rsi_high_limit", help='RSI high limit', default=70, type=int)
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=30, type=int)
+
 parser.add_argument("--noshort", help='Disable short selling of stock', action="store_true")
 parser.add_argument("--shortonly", help='Only short sell the stock', action="store_true")
 parser.add_argument("--verbose", help='Print additional information about each transaction (default=False)', action="store_true")
@@ -175,16 +186,32 @@ print()
 for algo in args.algo.split(','):
 
 	algo = algo.lower()
-	if ( algo != 'rsi' and algo != 'stochrsi'):
+	if ( algo != 'rsi' and algo != 'stochrsi' and algo != 'stochrsi-new'):
 		print('Unsupported algorithm "' + str(algo) + '"')
 		continue
 
+	if ( args.ifile != None ):
+		try:
+			with open(args.ifile, 'rb') as handle:
+				data = handle.read()
+				data = pickle.loads(data)
+
+		except Exception as e:
+			print('Error opening file ' + str(args.ifile) + ': ' + str(e))
+			exit(1)
+
+		args.days = -1
+
 	# Print results for the most recent 10 and 5 days of data
-	for days in args.days.split(','):
+	for days in str(args.days).split(','):
 
 		# Pull the 1-minute stock history
 		# Note: Not asking for extended hours for now since our bot doesn't even trade after hours
-		if ( days != '-1' ):
+		if ( args.ifile != None ):
+			# Use ifile for data
+			pass
+
+		elif ( days != '-1' ):
 			try:
 				int(days)
 			except:
@@ -193,6 +220,8 @@ for algo in args.algo.split(','):
 
 			if ( int(days) > 10 ):
 				days = 10 # TDA API only allows 10-days of 1-minute daily data
+			elif ( int(days) < 3 ):
+				days += 2
 
 			try:
 				data, epochs = tda_gobot_helper.get_pricehistory(stock, p_type, f_type, freq, days, needExtendedHoursData=True, debug=False)
@@ -204,10 +233,9 @@ for algo in args.algo.split(','):
 		# Specifying days=-1 will get you the most recent info we can from the API
 		# But we still need to ask for a few days in order to force it to give us at least two days of data
 		else:
-			days = 3
+			days = 5
 			time_now = datetime.datetime.now( mytimezone )
 			time_prev = time_now - datetime.timedelta( days=days )
-			today = time_now.strftime('%Y-%m-%d')
 
 			# Make sure start and end dates don't land on a weekend
 			#  or outside market hours
@@ -231,6 +259,27 @@ for algo in args.algo.split(','):
 			print('Not enough data - returned candles=' + str(len(data['candles'])) + ', rsi_period=' + str(rsi_period))
 			continue
 
+		# Dump pickle data if requested
+		if ( args.ofile != None ):
+			try:
+				file = open(args.ofile, "wb")
+				pickle.dump(data, file)
+				file.close()
+			except Exception as e:
+				print('Unable to write to file ' + str(args.ofile) + ': ' + str(e))
+
+
+		# Due to timestamps corrections the actual number of days retrieved from the API
+		#  might be a bit different than requested via args.days
+		start_day = data['candles'][0]['datetime']
+		end_day = data['candles'][-1]['datetime']
+
+		start_day = datetime.datetime.fromtimestamp(float(start_day)/1000, tz=mytimezone)
+		end_day = datetime.datetime.fromtimestamp(float(end_day)/1000, tz=mytimezone)
+
+		delta = start_day - end_day
+		days = str(abs(int(delta.days)) - 1) # Subtract 1 because stochrsi_analyze_new() skips the first day of data
+
 
 		# Run the analyze function
 		print('Analyzing ' + str(days) + '-day history for stock ' + str(stock) + ' using the ' + str(algo) + " algorithm:")
@@ -247,6 +296,13 @@ for algo in args.algo.split(','):
 								     nocrossover=args.nocrossover, crossover_only=args.crossover_only, no_use_resistance=args.no_use_resistance,
 								     use_candle_monitor=args.use_candle_monitor, debug=True )
 
+		elif ( algo == 'stochrsi-new' ):
+			results = tda_gobot_helper.stochrsi_analyze_new( pricehistory=data, ticker=stock, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type,
+									 rsi_low_limit=20, rsi_high_limit=80, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
+									 stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly,
+									 no_use_resistance=args.no_use_resistance, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_macd=args.with_macd,
+									 debug=True )
+
 		if ( results == False ):
 			print('Error: rsi_analyze() returned false', file=sys.stderr)
 			continue
@@ -258,16 +314,28 @@ for algo in args.algo.split(','):
 		# Print the returned results
 		if ( algo == 'rsi' and args.verbose ):
 			print("Buy/Sell Price    Net Change        VWAP              PREV_RSI/CUR_RSI  StochRSI          Time")
+
 		elif ( algo == 'stochrsi' and args.verbose ):
 			print("Buy/Sell Price    Net Change        VWAP              RSI_K/RSI_D       StochRSI          Time")
+
+		elif ( algo == 'stochrsi-new' and args.verbose ):
+			print("Buy/Sell Price    Net Change        RSI_K/RSI_D       Time")
 
 		rating = 0
 		success = fail = 0
 		net_gain = net_loss = 0
 		counter = 0
 		while ( counter < len(results) - 1 ):
-			price_tx, short, vwap_tx, rsi_tx, stochrsi_tx, time_tx = results[counter].split( ',', 6 )
-			price_rx, short, vwap_rx, rsi_rx, stochrsi_rx, time_rx = results[counter+1].split( ',', 6 )
+
+			if ( algo == 'rsi' or algo == 'stochrsi' ):
+				price_tx, short, vwap_tx, rsi_tx, stochrsi_tx, time_tx = results[counter].split( ',', 6 )
+				price_rx, short, vwap_rx, rsi_rx, stochrsi_rx, time_rx = results[counter+1].split( ',', 6 )
+			else:
+				price_tx, short, rsi_tx, time_tx = results[counter].split( ',', 6 )
+				price_rx, short, rsi_rx, time_rx = results[counter+1].split( ',', 6 )
+
+				vwap_tx = vwap_rx = 0
+				stochrsi_tx = stochrsi_rx = 0
 
 			# Returned RSI format is "prev_rsi/cur_rsi"
 			rsi_prev_tx,rsi_cur_tx = rsi_tx.split( '/', 2 )
@@ -325,12 +393,21 @@ for algo in args.algo.split(','):
 				rsi_tx = str(rsi_prev_tx) + '/' + str(rsi_cur_tx)
 				rsi_rx = str(rsi_prev_rx) + '/' + str(rsi_cur_rx)
 
-				for i in [str(price_tx), ' ', str(vwap_tx), str(rsi_tx), str(stochrsi_tx), time_tx]:
-					print(text_color + '{0:<18}'.format(i) + reset_color, end='')
+				if ( algo == 'rsi' or algo == 'stochrsi' ):
+					for i in [str(price_tx), ' ', str(vwap_tx), str(rsi_tx), str(stochrsi_tx), time_tx]:
+						print(text_color + '{0:<18}'.format(i) + reset_color, end='')
 
-				print()
-				for i in [str(price_rx), str(net_change), str(vwap_rx), str(rsi_rx), str(stochrsi_rx), time_rx]:
-					print(text_color + '{0:<18}'.format(i) + reset_color, end='')
+					print()
+					for i in [str(price_rx), str(net_change), str(vwap_rx), str(rsi_rx), str(stochrsi_rx), time_rx]:
+						print(text_color + '{0:<18}'.format(i) + reset_color, end='')
+
+				else:
+					for i in [str(price_tx), ' ', str(rsi_tx), time_tx]:
+						print(text_color + '{0:<18}'.format(i) + reset_color, end='')
+
+					print()
+					for i in [str(price_rx), str(net_change), str(rsi_rx), time_rx]:
+						print(text_color + '{0:<18}'.format(i) + reset_color, end='')
 
 				print()
 

@@ -30,7 +30,7 @@ parser.add_argument("-d", "--debug", help="Enable debug output", action="store_t
 args = parser.parse_args()
 
 debug = 1			# Should default to 0 eventually, testing for now
-incr_percent_threshold = 1.5	# Reset base_price if stock increases by this percent
+incr_percent_threshold = 1	# Reset base_price if stock increases by this percent
 decr_percent_threshold = 1.5	# Max allowed drop percentage of the stock price
 if args.debug:
 	debug = 1

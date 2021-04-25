@@ -4,14 +4,19 @@
 #  and generate a CSV file with all the relevant data. We can then import this data into
 #  Excel and sort to find the best stocks to use for the week.
 
-command=${1-"analyze"}
-usd=${2-"1000"}
+command=${1-'analyze'}
+stocks_file=${2-'./stock-analyze/all-stocks.txt'}
+usd=${3-"1000"}
 
-stocks_file='./stock-analyze/all-stocks.txt'
 logdir=$( dirname "$stocks_file" )
 
 # Use tda-rsi-gobot.py to generate analysis for each stock
 analyze () {
+
+	type="macd \
+	      aroonosc \
+	      adx \
+	      dmi"
 
 	if [ ! -r "$stocks_file" ]; then
 		echo "Unable to read ${stocks_file}, exiting."
@@ -28,20 +33,28 @@ analyze () {
 
 	echo "Processing ${#stocks[@]} stocks from `basename ${stocks_file}`. This may take a while ..."
 	for i in ${stocks[@]}; do
+		for j in $type; do
+
+		let count=0
 		while
 			echo "$i"
-			sleep 2 # Avoid throttling
-			./tda-gobot-analyze.py  --algo=rsi,stochrsi --stoploss --decr_threshold=1.5 --days=5,10 \
-						--rsi_type=ohlc4 --rsi_period=14 --stochrsi_period=128 --rsi_k_period=128 --rsi_d_period=3 --rsi_slow=3 \
-						"$i" > "./${logdir}/${i}.log.txt"
+			sleep 3 # Avoid throttling
 
+			./tda-gobot-analyze.py  --algo=stochrsi-new --stoploss --decr_threshold=1.5 --days=10 \
+						--rsi_type=ohlc4 --rsi_period=14 --stochrsi_period=128 --rsi_k_period=128 --rsi_d_period=3 --rsi_slow=3 --no_use_resistance \
+						--with_$j --ifile="./${logdir}/${i}.data.txt" \
+						"$i" > "./${logdir}/${i}.${j}.log.txt"
+
+			let count=$count+1
 			if [ "$?" -ne "0" ]; then
 				sleep 5
 				continue
 			fi
 
-		[[ "$?" -ne "0" ]]
+		[[ "$?" -ne "0" || "$count" -ge 3 ]]
 		do true; done
+
+		done # j in type
 
 	done
 	echo -e "\nDone!"
@@ -77,6 +90,7 @@ generate_csv () {
 			#echo $i | sed 's/\.log\.txt//'
 		fi
 	done
+
 	echo "Done"
 }
 

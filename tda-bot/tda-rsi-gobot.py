@@ -200,8 +200,10 @@ cur_rsi = prev_rsi = -1
 cur_rsi_k = prev_rsi_k = -1
 cur_rsi_d = prev_rsi_d = -1
 
-rsi = stochrsi = []
-rsi_k = rsi_d = []
+rsi = []
+stochrsi = []
+rsi_k = []
+rsi_d = []
 
 # Action signals
 buy_signal = False

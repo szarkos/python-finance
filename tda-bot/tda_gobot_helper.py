@@ -568,24 +568,24 @@ def get_sma(ticker=None, period=200, debug=False):
 	end_date = int( end_date.timestamp() * 1000 )
 
 	try:
-		pricehistory, epochs = get_pricehistory(ticker, 'year', 'daily', '1', start_date=start_date, end_date=end_date)
+		ph, epochs = get_pricehistory(ticker, 'year', 'daily', '1', start_date=start_date, end_date=end_date)
 
 	except Exception as e:
 		print('Caught Exception: get_sma(' + str(ticker) + '): ' + str(e))
 
-	if ( pricehistory == False ):
+	if ( ph == False ):
 		print('Error: get_sma(' + str(ticker) + '): get_pricehistory() returned False', file=sys.stderr)
 		return False, []
 
-	if ( len(pricehistory['candles']) < period ):
+	if ( len(ph['candles']) < period ):
 		# Possibly this ticker is too new, not enough history
-		print( 'Warning: get_sma(' + str(ticker) + ', ' + str(period) + '): len(pricehistory) is less than period (' +
-			str(len(pricehistory['candles'])) + ') - unable to calculate SMA')
+		print( 'Warning: get_sma(' + str(ticker) + ', ' + str(period) + '): len(ph) is less than period (' +
+			str(len(ph['candles'])) + ') - unable to calculate SMA')
 		return False, []
 
 	# Put pricehistory data into a numpy array
 	prices = []
-	for key in pricehistory['candles']:
+	for key in ph['candles']:
 		prices.append( float(key['close']) )
 
 	prices = np.array( prices )
@@ -605,7 +605,7 @@ def get_sma(ticker=None, period=200, debug=False):
 		pd.set_option('display.max_colwidth', None)
 		print(sma)
 
-	return tuple(sma), pricehistory
+	return tuple(sma), ph
 
 
 # Return the N-day simple moving average (eMA) (default: 50-day)
@@ -620,7 +620,7 @@ def get_ema(ticker=None, period=50, debug=False):
 		return False, []
 
 	try:
-		mytimezone
+		assert mytimezone
 	except:
 		mytimezone = timezone("US/Eastern")
 
@@ -636,24 +636,24 @@ def get_ema(ticker=None, period=50, debug=False):
 	end_date = int( end_date.timestamp() * 1000 )
 
 	try:
-		pricehistory, epochs = get_pricehistory(ticker, 'year', 'daily', '1', start_date=start_date, end_date=end_date)
+		ph, epochs = get_pricehistory(ticker, 'year', 'daily', '1', start_date=start_date, end_date=end_date)
 
 	except Exception as e:
 		print('Caught Exception: get_ema(' + str(ticker) + '): ' + str(e))
 
-	if ( pricehistory == False ):
+	if ( ph == False ):
 		print('Error: get_ema(' + str(ticker) + '): get_pricehistory() returned False', file=sys.stderr)
 		return False, []
 
-	if ( len(pricehistory['candles']) < period ):
+	if ( len(ph['candles']) < period ):
 		# Possibly this ticker is too new, not enough history
-		print( 'Error: get_ema(' + str(ticker) + ', ' + str(period) + '): len(pricehistory) is less than period (' +
-			str(len(pricehistory['candles'])) + ') - unable to calculate EMA')
+		print( 'Error: get_ema(' + str(ticker) + ', ' + str(period) + '): len(ph) is less than period (' +
+			str(len(ph['candles'])) + ') - unable to calculate EMA')
 		return False, []
 
 	# Put pricehistory data into a numpy array
 	prices = []
-	for key in pricehistory['candles']:
+	for key in ph['candles']:
 		prices.append( float(key['close']) )
 
 	prices = np.array( prices )
@@ -673,7 +673,7 @@ def get_ema(ticker=None, period=50, debug=False):
 		pd.set_option('display.max_colwidth', None)
 		print(ema)
 
-	return tuple(ema), pricehistory
+	return tuple(ema), ph
 
 
 # Use Tulipy to calculate the N-day historic volatility (default: 30-days)
@@ -686,7 +686,7 @@ def get_historic_volatility_ti(ticker=None, period=21, type='close', debug=False
 		return False, []
 
 	try:
-		mytimezone
+		assert mytimezone
 	except:
 		mytimezone = timezone("US/Eastern")
 
@@ -779,7 +779,7 @@ def get_historic_volatility(ticker=None, period=21, type='close', debug=False):
 		return False
 
 	try:
-		mytimezone
+		assert mytimezone
 	except:
 		mytimezone = timezone("US/Eastern")
 
@@ -898,7 +898,7 @@ def get_atr(ticker=None, period=14, debug=False):
 		return False, []
 
 	try:
-		mytimezone
+		assert mytimezone
 	except:
 		mytimezone = timezone("US/Eastern")
 
@@ -930,7 +930,9 @@ def get_atr(ticker=None, period=14, debug=False):
 		return False, []
 
 	# Put pricehistory data into a numpy array
-	high = low = close = []
+	high = []
+	low = []
+	close = []
 	for key in pricehistory['candles']:
 		high.append( float(key['high']) )
 		low.append( float(key['low']) )
@@ -941,7 +943,8 @@ def get_atr(ticker=None, period=14, debug=False):
 	close = np.array( close )
 
 	# Get the N-day ATR / NATR
-	atr = natr = []
+	atr = []
+	natr = []
 	try:
 		atr = ti.atr(high, low, close, period=period)
 
@@ -983,8 +986,7 @@ def get_adx(pricehistory=None, period=14, debug=False):
 
 	ticker = ''
 	try:
-		if ( pricehistory['symbol'] ):
-			ticker = pricehistory['symbol']
+		ticker = pricehistory['symbol']
 	except:
 		pass
 
@@ -995,7 +997,9 @@ def get_adx(pricehistory=None, period=14, debug=False):
 		return False, [], []
 
 	# Put pricehistory data into a numpy array
-	high = low = close = []
+	high = []
+	low = []
+	close = []
 	try:
 		for key in pricehistory['candles']:
 			high.append( float(key['high']) )
@@ -1011,7 +1015,9 @@ def get_adx(pricehistory=None, period=14, debug=False):
 	close = np.array( close )
 
 	# Get the N-day ADX / -DI / +DI
-	adx = plus_di = minus_di = []
+	adx = []
+	plus_di = []
+	minus_di = []
 	try:
 		adx = ti.adx(high, low, close, period=period)
 
@@ -1047,8 +1053,7 @@ def get_aroon_osc(pricehistory=None, period=25, debug=False):
 
 	ticker = ''
 	try:
-		if ( pricehistory['symbol'] ):
-			ticker = pricehistory['symbol']
+		ticker = pricehistory['symbol']
 	except:
 		pass
 
@@ -1059,7 +1064,8 @@ def get_aroon_osc(pricehistory=None, period=25, debug=False):
 		return False
 
 	# Put pricehistory data into a numpy array
-	high = low = []
+	high = []
+	low = []
 	try:
 		for key in pricehistory['candles']:
 			high.append( float(key['high']) )
@@ -1111,8 +1117,7 @@ def get_rsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 
 	ticker = ''
 	try:
-		if ( pricehistory['symbol'] ):
-			ticker = pricehistory['symbol']
+		ticker = pricehistory['symbol']
 	except:
 		pass
 
@@ -1266,26 +1271,31 @@ def get_stoch_oscillator(pricehistory=None, type=None, k_period=14, d_period=3, 
 
 	ticker = ''
 	try:
-		if ( pricehistory['symbol'] ):
-			ticker = pricehistory['symbol']
+		ticker = pricehistory['symbol']
 	except:
 		pass
 
 	if ( type == None ):
-		high = low = close = []
+		high = []
+		low = []
+		close = []
 		for key in pricehistory['candles']:
 			high.append(float(key['high']))
 			low.append(float(key['low']))
 			close.append(float(key['close']))
 
 	elif ( type == 'hlc3' ):
-		high = low = close = []
+		high = []
+		low = []
+		close = []
 		for key in pricehistory['candles']:
 			close.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
 		high = low = close
 
 	elif ( type == 'hlc4' ):
-		high = low = close = []
+		high = []
+		low = []
+		close = []
 		for key in pricehistory['candles']:
 			close.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
 		high = low = close
@@ -1395,7 +1405,6 @@ def get_macd(pricehistory=None, short_period=12, long_period=26, signal_period=9
 		print(macd)
 		print(macd_signal)
 		print(macd_histogram)
-		print(vwap)
 
 	return tuple(macd), tuple(macd_signal), tuple(macd_histogram)
 
@@ -1848,7 +1857,7 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 		return False
 
 	try:
-		mytimezone
+		assert mytimezone
 	except:
 		mytimezone = timezone("US/Eastern")
 
@@ -2242,7 +2251,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 		return False
 
 	try:
-		mytimezone
+		assert mytimezone
 	except:
 		mytimezone = timezone("US/Eastern")
 
@@ -2345,10 +2354,8 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 		print('Error: get_historical_volatility(' + str(ticker) + ') returned false - no data', file=sys.stderr)
 		return False
 
-
 	# Experimental trivial candle monitor
 	cndl_monitor = 3
-
 
 	# Run through the RSI values and log the results
 	results = []
@@ -2718,3 +2725,635 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 	return results
 
 
+# Like stochrsi_analyze(), but sexier
+def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=14, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=14, rsi_d_period=3,
+			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=2, hold_overnight=False,
+			  noshort=False, shortonly=False, no_use_resistance=False, with_adx=True, with_dmi=True, with_aroonosc=True, with_macd=True, debug=False ):
+
+	if ( ticker == None or pricehistory == None ):
+		print('Error: stochrsi_analyze(' + str(ticker) + '): Either pricehistory or ticker is empty', file=sys.stderr)
+		return False
+
+	try:
+		assert mytimezone
+	except:
+		mytimezone = timezone("US/Eastern")
+
+	# Get stochastic RSI
+	try:
+		stochrsi, rsi_k, rsi_d = get_stochrsi(pricehistory, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+
+	except:
+		print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_stochrsi(): ' + str(e))
+		return False
+
+	if ( isinstance(stochrsi, bool) and stochrsi == False ):
+		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_stochrsi() returned false - no data', file=sys.stderr)
+		return False
+
+	# If using the same 1-minute data, the len of stochrsi will be (stochrsi_period * 2 - 1)
+	# len(rsi_k) should be (stochrsi_period * 2 - rsi_d_period)
+	if ( len(stochrsi) != len(pricehistory['candles']) - (rsi_period * 2 - 1) ):
+		print( 'Warning, unexpected length of stochrsi (pricehistory[candles]=' + str(len(pricehistory['candles'])) + ', len(stochrsi)=' + str(len(stochrsi)) + ')' )
+
+	if ( len(rsi_k) != len(pricehistory['candles']) - stochrsi_period * 2 - rsi_d_period ):
+		print( 'Warning, unexpected length of rsi_k (pricehistory[candles]=' + str(len(pricehistory['candles'])) + ', len(rsi_k)=' + str(len(rsi_k)) + ')' )
+	if ( len(rsi_k) != len(rsi_d) ):
+		print( 'Warning, unexpected length of rsi_k (pricehistory[candles]=' + str(len(pricehistory['candles'])) +
+			', len(rsi_k)=' + str(len(stochrsi)) + '), len(rsi_d)=' + str(len(rsi_d)) + ')' )
+
+	# ADX, +DI, -DI
+	adx = []
+	plus_di = []
+	minus_di = []
+	adx_period = 64
+	try:
+		adx, plus_di, minus_di = get_adx(pricehistory, period=adx_period)
+
+	except Exception as e:
+		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_adx(): ' + str(e))
+		return False
+
+	# MACD - 48, 104, 36
+	macd = []
+	macd_signal = []
+	macd_histogram = []
+	try:
+		macd, macd_avg, macd_histogram = get_macd(pricehistory, short_period=48, long_period=104, signal_period=36)
+
+	except Exception as e:
+		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_macd(): ' + str(e))
+		return False
+
+	# Aroon Oscillator
+	aroonosc = []
+	try:
+		aroonosc = get_aroon_osc(pricehistory, period=128)
+
+	except Exception as e:
+		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_aroon_osc(): ' + str(e))
+		return False
+
+	# SMA200 and EMA50
+	# Determine if the stock is bearish or bullish based on SMA/EMA
+	isbull = isbear = None
+	sma, p_history = get_sma(ticker, 200, False)
+	if ( isinstance(sma, bool) and sma == False ):
+		print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_sma() returned false - no data')
+	else:
+		ema, p_history = get_ema(ticker, 50, False)
+		if ( isinstance(ema, bool) and ema == False ):
+			print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_ema() returned false - no data')
+		else:
+			isbull = False
+			isbear = True
+			if ( float(ema[-1]) > float(sma[-1]) ):
+				isbull = True
+				isbear = False
+	del(p_history)
+
+	# Get general information about the stock that we can use later
+	# I.e. volatility, resistance, etc.
+	three_week_high = three_week_low = three_week_avg = -1
+	twenty_week_high = twenty_week_low = twenty_week_avg = -1
+	try:
+		# 3-week high / low / average
+		three_week_high, three_week_low, three_week_avg = get_price_stats(ticker, days=15)
+
+	except Exception as e:
+		print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
+
+	time.sleep(0.5)
+	try:
+		# 20-week high / low / average
+		twenty_week_high, twenty_week_low, twenty_week_avg = get_price_stats(ticker, days=100)
+
+	except Exception as e:
+		print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
+
+	# Set the price resistance and support based on whether the stock is bull or bearish
+	if ( isbull == True ):
+		price_resistance_pct = 1
+		price_support_pct = 1.5
+	else:
+		price_resistance_pct = 1.5
+		price_support_pct = 1
+
+
+	# Run through the RSI values and log the results
+	results = []
+
+	rsi_idx = len(pricehistory['candles']) - len(rsi_k)
+	adx_idx = len(pricehistory['candles']) - len(adx)
+	di_idx = len(pricehistory['candles']) - len(plus_di)
+	aroonosc_idx = len(pricehistory['candles']) - len(aroonosc)
+	macd_idx = len(pricehistory['candles']) - len(macd)
+
+	buy_signal = False
+	sell_signal = False
+	short_signal = False
+	buy_to_cover_signal = False
+
+	final_buy_signal = False
+	final_sell_signal = False
+	final_short_signal = False
+	final_buy_to_cover_signal = False
+
+	adx_signal = False
+	dmi_signal = False
+	aroonosc_signal = False
+	macd_signal = False
+	resistance_signal = False
+
+	plus_di_crossover = False
+	minus_di_crossover = False
+	macd_crossover = False
+	macd_avg_crossover = False
+
+	signal_mode = 'buy'
+	if ( shortonly == True ):
+		signal_mode = 'short'
+
+	first_day = datetime.fromtimestamp(float(pricehistory['candles'][0]['datetime'])/1000, tz=mytimezone)
+	start_day = first_day + timedelta( days=1 )
+	start_day_epoch = int( start_day.timestamp() * 1000 )
+
+	# Main loop
+	for idx,key in enumerate(pricehistory['candles']):
+
+		# Skip the first day of data
+		if ( float(pricehistory['candles'][idx]['datetime']) < start_day_epoch ):
+			continue
+
+		try:
+			assert idx - rsi_idx >= 1
+			assert idx - adx_idx >= 0
+			assert idx - di_idx >= 1
+			assert idx - macd_idx >= 1
+			assert idx - aroonosc_idx >= 0
+
+		except:
+			continue
+
+		cur_rsi_k = rsi_k[idx - rsi_idx]
+		prev_rsi_k = rsi_k[(idx - rsi_idx) - 1]
+
+		cur_rsi_d = rsi_d[idx - rsi_idx]
+		prev_rsi_d = rsi_d[(idx - rsi_idx) - 1]
+
+		# Additional indicators
+		cur_adx = adx[idx - adx_idx]
+
+		cur_plus_di = plus_di[idx - di_idx]
+		prev_plus_di = plus_di[(idx - di_idx) - 1]
+
+		cur_minus_di = minus_di[idx - di_idx]
+		prev_minus_di = minus_di[(idx - di_idx) - 1]
+
+		cur_macd = macd[idx - macd_idx]
+		prev_macd = macd[(idx - macd_idx) - 1]
+
+		cur_macd_avg = macd_avg[idx - macd_idx]
+		prev_macd_avg = macd_avg[(idx - macd_idx) - 1]
+
+		cur_aroonosc = aroonosc[idx - aroonosc_idx]
+
+
+		# Ignore pre-post market since we cannot trade during those hours
+		date = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone)
+		if ( ismarketopen_US(date) != True ):
+			continue
+
+
+		# BUY mode
+		if ( signal_mode == 'buy' ):
+			short = False
+
+			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
+			if ( hold_overnight == False and isendofday(60, date) ):
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+				final_sell_signal = final_buy_signal = False
+
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
+
+				continue
+
+			# Jump to short mode if StochRSI K and D are already above rsi_high_limit
+			# The intent here is if the bot starts up while the RSI is high we don't want to wait until the stock
+			#  does a full loop again before acting on it.
+			if ( cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit and noshort == False ):
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+				final_sell_signal = final_buy_signal = False
+
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
+
+				signal_mode = 'short'
+				continue
+
+			# Check RSI
+			if ( cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit ):
+
+				# Monitor if K and D intercect
+				# A buy signal occurs when an increasing %K line crosses above the %D line in the oversold region.
+				#  or if the %K line crosses below the rsi limit
+				if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
+					buy_signal = True
+
+			elif ( prev_rsi_k < rsi_low_limit and cur_rsi_k > prev_rsi_k ):
+				if ( cur_rsi_k >= rsi_low_limit ):
+					buy_signal = True
+
+			elif ( cur_rsi_k > rsi_low_limit and cur_rsi_d > rsi_low_limit ):
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
+				buy_signal = False
+
+
+			# Secondary Indicators
+			# ADX signal
+			adx_signal = False
+			if ( cur_adx > 25 ):
+				adx_signal = True
+
+			# DMI signals
+			# DI+ cross above DI- indicates uptrend
+			if ( prev_plus_di < prev_minus_di and cur_plus_di > cur_minus_di ):
+				plus_di_crossover = True
+				minus_di_crossover = False
+			elif ( prev_plus_di > prev_minus_di and cur_plus_di < cur_minus_di ):
+				plus_di_crossover = False
+				minus_di_crossover = True
+
+			dmi_signal = False
+			if ( plus_di_crossover == True and cur_plus_di > cur_minus_di ):
+				dmi_signal = True
+
+			# Aroon oscillator signals
+			# Values closer to 100 indicate an uptrend
+			aroonosc_signal = False
+			if ( cur_aroonosc > 60 ):
+				aroonosc_signal = True
+
+			# MACD crossover signals
+			if ( prev_macd < prev_macd_avg and cur_macd >= cur_macd_avg ):
+				macd_crossover = True
+				macd_avg_crossover = False
+			elif ( prev_macd > prev_macd_avg and cur_macd < cur_macd_avg ):
+				macd_crossover = True
+				macd_avg_crossover = True
+
+			macd_signal = False
+			if ( macd_crossover == True and cur_macd > cur_macd_avg ):
+				macd_signal = True
+
+			# High / low resistance
+			resistance_signal = True
+			purchase_price = float(pricehistory['candles'][idx]['close'])
+			if ( purchase_price >= twenty_week_high ):
+				# This is not a good bet
+				#print('Stock ' + str(ticker) + ' buy signal indicated, but last price (' + str(purchase_price) + ') is already above the 20-week high (' + str(twenty_week_high) + ')')
+				twenty_week_high = float(purchase_price)
+				resistance_signal = False
+
+			elif ( ( abs(float(purchase_price) / float(twenty_week_high) - 1) * 100 ) < price_resistance_pct ):
+				# Current high is within price_resistance_pct of 20-week high, not a good bet
+				#print('Stock ' + str(ticker) + ' buy signal indicated, but last price (' + str(purchase_price) + ') is already within ' + str(price_resistance_pct) + '% of the 20-week high (' + str(twenty_week_high) + ')')
+				resistance_signal = False
+
+			# Resolve the primary stochrsi buy_signal with the secondary indicators
+			final_buy_signal = True
+			if ( buy_signal == True ):
+				if ( with_adx == True and adx_signal != True ):
+					final_buy_signal = False
+
+				if ( with_dmi == True and dmi_signal != True ):
+					final_buy_signal = False
+
+				if ( with_aroonosc == True and aroonosc_signal != True ):
+					final_buy_signal = False
+
+				if ( with_macd == True and macd_signal != True ):
+					final_buy_signal = False
+
+				if ( no_use_resistance == False and resistance_signal != True ):
+					final_buy_signal = False
+
+			# BUY SIGNAL
+			if ( buy_signal == True and final_buy_signal == True ):
+				purchase_price = float(pricehistory['candles'][idx]['close'])
+				base_price = purchase_price
+				purchase_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+				results.append( str(purchase_price) + ',' + str(short) + ',' +
+						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
+						str(purchase_time) )
+
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+				final_sell_signal = final_buy_signal = False
+
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
+
+				signal_mode = 'sell'
+
+
+		# SELL mode
+		if ( signal_mode == 'sell' ):
+
+			# hold_overnight=False - drop the stock before market close
+			if ( hold_overnight == False and isendofday(5, date) ):
+				sell_signal = True
+
+			# Monitor cost basis
+			if ( stoploss == True ):
+				last_price = float(pricehistory['candles'][idx]['close'])
+
+				percent_change = 0
+				if ( float(last_price) < float(base_price) ):
+					percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
+
+					# SELL the security if we are using a trailing stoploss
+					if ( percent_change >= decr_percent_threshold ):
+
+						# Sell
+						sell_price = float(pricehistory['candles'][idx]['close'])
+						sell_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+						# sell_price,bool(short),rsi,stochrsi,sell_time
+						results.append( str(sell_price) + ',' + str(short) + ',' +
+								str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' +
+								str(sell_time) )
+
+						buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+						final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
+
+						adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+						plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
+
+						signal_mode = 'buy'
+						continue
+
+				elif ( float(last_price) > float(base_price) ):
+					percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
+
+					if ( percent_change >= incr_percent_threshold ):
+						base_price = last_price
+
+			# End stoploss monitor
+
+
+			# Monitor RSI
+			if ( cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit ):
+
+				# Monitor if K and D intercect
+				# A sell signal occurs when a decreasing %K line crosses below the %D line in the overbought region
+				if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
+					sell_signal = True
+
+			elif ( prev_rsi_k > rsi_high_limit and cur_rsi_k < prev_rsi_k ):
+				if ( cur_rsi_k <= rsi_high_limit ):
+					sell_signal = True
+
+			if ( sell_signal == True ):
+
+				# Sell
+				sell_price = float(pricehistory['candles'][idx]['close'])
+				sell_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+				# sell_price,bool(short),rsi,stochrsi,sell_time
+				results.append( str(sell_price) + ',' + str(short) + ',' +
+						str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' +
+						str(sell_time) )
+
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
+
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
+
+				if ( noshort == False ):
+					short_signal = True
+					signal_mode = 'short'
+					continue
+				else:
+					signal_mode = 'buy'
+
+
+		# SELL SHORT mode
+		if ( signal_mode == 'short' ):
+			short = True
+
+			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
+			if ( hold_overnight == False and isendofday(60, date) ):
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
+
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
+
+				continue
+
+			# Jump to buy mode if StochRSI K and D are already below rsi_low_limit
+			if ( cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit ):
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
+
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
+
+				signal_mode = 'buy'
+				continue
+
+			# Monitor RSI
+			if ( cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit ):
+
+				# Monitor if K and D intercect
+				# A sell-short signal occurs when a decreasing %K line crosses below the %D line in the overbought region
+				if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
+					short_signal = True
+
+			elif ( prev_rsi_k > rsi_high_limit and cur_rsi_k < prev_rsi_k ):
+				if ( cur_rsi_k <= rsi_high_limit ):
+					short_signal = True
+
+			elif ( cur_rsi_k < rsi_high_limit and cur_rsi_d < rsi_high_limit ):
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
+				short_signal = False
+
+
+			# Secondary Indicators
+			# ADX signal
+			adx_signal = False
+			if ( cur_adx > 25 ):
+				adx_signal = True
+
+			# DMI signals
+			# DI+ cross above DI- indicates uptrend
+			if ( prev_plus_di < prev_minus_di and cur_plus_di > cur_minus_di ):
+				plus_di_crossover = True
+				minus_di_crossover = False
+			elif ( prev_plus_di > prev_minus_di and cur_plus_di < cur_minus_di ):
+				plus_di_crossover = False
+				minus_di_crossover = True
+
+			dmi_signal = False
+			if ( minus_di_crossover == True and cur_plus_di < cur_minus_di ):
+				dmi_signal = True
+
+			# Aroon oscillator signals
+			# Values closer to -100 indicate a downtrend
+			aroonosc_signal = False
+			if ( cur_aroonosc < -60 ):
+				aroonosc_signal = True
+
+			# MACD crossover signals
+			if ( prev_macd < prev_macd_avg and cur_macd >= cur_macd_avg ):
+				macd_crossover = True
+				macd_avg_crossover = False
+			elif ( prev_macd > prev_macd_avg and cur_macd < cur_macd_avg ):
+				macd_crossover = True
+				macd_avg_crossover = True
+
+			macd_signal = False
+			if ( macd_avg_crossover == True and cur_macd < cur_macd_avg ):
+				macd_signal = True
+
+			# High / low resistance
+			short_price = float(pricehistory['candles'][idx]['close'])
+			if ( float(short_price) <= float(twenty_week_low) ):
+				# This is not a good bet
+				#print('Stock ' + str(ticker) + ' short signal indicated, but last price (' + str(short_price) + ') is already below the 20-week low (' + str(twenty_week_low) + ')')
+				twenty_week_low = float(short_price)
+				resistance_signal = False
+
+			elif ( ( abs(float(twenty_week_low) / float(short_price) - 1) * 100 ) < price_support_pct ):
+				# Current low is within price_support_pct of 20-week low, not a good bet
+				#print('Stock ' + str(ticker) + ' short signal indicated, but last price (' + str(short_price) + ') is already within ' + str(price_support_pct) + '% of the 20-week low (' + str(twenty_week_low) + ')')
+				resistance_signal = False
+
+			# Resolve the primary stochrsi buy_signal with the secondary indicators
+			final_short_signal = True
+			if ( short_signal == True ):
+				if ( with_adx == True and adx_signal != True ):
+					final_short_signal = False
+
+				if ( with_dmi == True and dmi_signal != True ):
+					final_short_signal = False
+
+				if ( with_aroonosc == True and aroonosc_signal != True ):
+					final_short_signal = False
+
+				if ( with_macd == True and macd_signal != True ):
+					final_short_signal = False
+
+				if ( no_use_resistance == False and resistance_signal != True ):
+					final_short_signal = False
+
+
+			# SHORT SIGNAL
+			if ( short_signal == True and final_short_signal == True ):
+				short_price = float(pricehistory['candles'][idx]['close'])
+				base_price = short_price
+				short_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+				results.append( str(short_price) + ',' + str(short) + ',' +
+						str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' +
+						str(short_time) )
+
+				sell_signal = buy_signal = short_signal = buy_to_cover_signal = False
+				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
+
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
+
+				signal_mode = 'buy_to_cover'
+
+
+		# BUY-TO-COVER mode
+		if ( signal_mode == 'buy_to_cover' ):
+
+			# hold_overnight=False - drop the stock before market close
+			if ( hold_overnight == False and isendofday(5, date) ):
+				buy_to_cover_signal = True
+
+			# Monitor cost basis
+			if ( stoploss == True ):
+				last_price = float(pricehistory['candles'][idx]['close'])
+
+				percent_change = 0
+				if ( float(last_price) > float(base_price) ):
+					percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
+
+					# Buy-to-cover the security if we are using a trailing stoploss
+					if ( percent_change >= decr_percent_threshold ):
+
+						# Buy-to-cover
+						buy_to_cover_price = float(pricehistory['candles'][idx]['close'])
+						buy_to_cover_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+						results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
+								str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' +
+								str(buy_to_cover_time) )
+
+						buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+						final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
+
+						adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+						plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
+
+						if ( shortonly == True ):
+							signal_mode = 'short'
+						else:
+							signal_mode = 'buy'
+							continue
+
+				elif ( float(last_price) < float(base_price) ):
+					percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
+
+					if ( percent_change >= incr_percent_threshold ):
+						base_price = last_price
+
+			# End stoploss monitor
+
+
+			# Monitor RSI
+			if ( cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit ):
+
+				# Monitor if K and D intercect
+				# A buy-to-cover signal occurs when an increasing %K line crosses above the %D line in the oversold region.
+				if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
+					buy_to_cover_signal = True
+
+			elif ( prev_rsi_k < rsi_low_limit and cur_rsi_k > prev_rsi_k ):
+				if ( cur_rsi_k >= rsi_low_limit ):
+					buy_to_cover_signal = True
+
+			# BUY-TO-COVER
+			if ( buy_to_cover_signal == True ):
+
+				buy_to_cover_price = float(pricehistory['candles'][idx]['close'])
+				buy_to_cover_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+
+				results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
+						str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' +
+						str(buy_to_cover_time) )
+
+				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
+
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
+
+				if ( shortonly == True ):
+					signal_mode = 'short'
+				else:
+					buy_signal = True
+					signal_mode = 'buy'
+					continue
+
+	# End main loop
+
+	return results

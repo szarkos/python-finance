@@ -415,7 +415,7 @@ for algo in args.algo.split(','):
 
 
 		# Rate the stock
-		#   txs/day < 1				 = -1 point
+		#   txs/day < 1				 = -1 point	# SAZ - temporarily suspended this one 2021-04-26
 		#   avg_gain_per_share < 1		 = -1 points
 		#   success_pct < 10% higher than fail % = -2 points
 		#   success_pct <= fail_pct		 = -4 points
@@ -445,11 +445,10 @@ for algo in args.algo.split(','):
 		print()
 
 		# Check number of transactions/day
-		if ( txs < 1 ):
-			rating -= 1
-			text_color = red
-		else:
-			text_color = green
+		text_color = green
+#		if ( txs < 1 ):
+#			rating -= 1
+#			text_color = red
 
 		print( 'Average txs/day: ' + text_color + str(round(txs,2)) + reset_color )
 

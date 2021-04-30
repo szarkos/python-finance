@@ -30,8 +30,8 @@ parser.add_argument("--notmarketclosed", help='Cancel order and exit if US stock
 parser.add_argument("--hold_overnight", help='Hold stocks overnight when --multiday is in use (default: False)', action="store_true")
 parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (default=False)', action="store_true")
 
-parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', type=float)
-parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', type=float)
+parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
+parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1.5, type=float)
 parser.add_argument("--num_purchases", help='Number of purchases allowed per day', nargs='?', default=4, type=int)
 parser.add_argument("--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
 parser.add_argument("--max_failed_txs", help='Maximum number of failed transactions allowed for a given stock before stock is blacklisted', default=2, type=int)
@@ -54,15 +54,12 @@ parser.add_argument("-d", "--debug", help='Enable debug output', action="store_t
 args = parser.parse_args()
 
 debug = 1			# Should default to 0 eventually, testing for now
-incr_percent_threshold = 1	# Reset base_price if stock increases by this percent
-decr_percent_threshold = 2	# Max allowed drop percentage of the stock price
-
 if args.debug:
 	debug = 1
 if args.decr_threshold:
-        decr_percent_threshold = args.decr_threshold
+        decr_percent_threshold = args.decr_threshold	# Max allowed drop percentage of the stock price
 if args.incr_threshold:
-        incr_percent_threshold = args.incr_threshold
+        incr_percent_threshold = args.incr_threshold	# Reset base_price if stock increases by this percent
 
 stock = args.stock
 stock_usd = args.stock_usd
@@ -498,6 +495,10 @@ while ( algo == 'rsi' ):
 			if ( percent_change >= incr_percent_threshold ):
 				base_price = last_price
 				print('Stock "' + str(stock) + '" increased above the incr_percent_threshold (' + str(incr_percent_threshold) + '%), resetting base price to '  + str(base_price))
+				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+
+				if ( decr_percent_threshold == args.decr_threshold ):
+					decr_percent_threshold = incr_percent_threshold / 2
 
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id)
 
@@ -719,6 +720,9 @@ while ( algo == 'rsi' ):
 
 				print('SHORTED Stock "' + str(stock) + '" decreased below the incr_percent_threshold (' + str(incr_percent_threshold) + '%), resetting base price to '  + str(base_price))
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+
+				if ( decr_percent_threshold == args.decr_threshold ):
+					decr_percent_threshold = incr_percent_threshold / 2
 
 		# If price increases
 		elif ( float(last_price) > float(base_price) ):
@@ -1102,6 +1106,10 @@ while ( algo == 'stochrsi' ):
 			if ( percent_change >= incr_percent_threshold ):
 				base_price = last_price
 				print('Stock "' + str(stock) + '" increased above the incr_percent_threshold (' + str(incr_percent_threshold) + '%), resetting base price to '  + str(base_price))
+				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+
+				if ( decr_percent_threshold == args.decr_threshold ):
+					decr_percent_threshold = incr_percent_threshold / 2
 
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=tx_id)
 
@@ -1350,6 +1358,9 @@ while ( algo == 'stochrsi' ):
 
 				print('SHORTED Stock "' + str(stock) + '" decreased below the incr_percent_threshold (' + str(incr_percent_threshold) + '%), resetting base price to '  + str(base_price))
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+
+				if ( decr_percent_threshold == args.decr_threshold ):
+					decr_percent_threshold = incr_percent_threshold / 2
 
 		# If price increases
 		elif ( float(last_price) > float(base_price) ):

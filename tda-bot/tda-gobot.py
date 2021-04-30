@@ -21,8 +21,8 @@ parser.add_argument("stock_usd", help='Amount of money (USD) to invest', nargs='
 parser.add_argument("--checkticker", help="Check if ticker is valid", action="store_true")
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
-parser.add_argument("--incr_threshold", help="Reset base_price if stock increases by this percent", type=float)
-parser.add_argument("--decr_threshold", help="Max allowed drop percentage of the stock price", type=float)
+parser.add_argument("--incr_threshold", help="Reset base_price if stock increases by this percent", default=1, type=float)
+parser.add_argument("--decr_threshold", help="Max allowed drop percentage of the stock price", default=1.5, type=float)
 parser.add_argument("--multiday", help="Watch stock until decr_threshold is reached. Do not sell and exit when market closes", action="store_true")
 parser.add_argument("--notmarketclosed", help="Cancel order and exit if US stock market is closed", action="store_true")
 parser.add_argument("--short", help='Enable short selling of stock', action="store_true")
@@ -30,14 +30,12 @@ parser.add_argument("-d", "--debug", help="Enable debug output", action="store_t
 args = parser.parse_args()
 
 debug = 1			# Should default to 0 eventually, testing for now
-incr_percent_threshold = 1	# Reset base_price if stock increases by this percent
-decr_percent_threshold = 1.5	# Max allowed drop percentage of the stock price
 if args.debug:
 	debug = 1
 if args.decr_threshold:
-	decr_percent_threshold = args.decr_threshold
+	decr_percent_threshold = args.decr_threshold	# Max allowed drop percentage of the stock price
 if args.incr_threshold:
-	incr_percent_threshold = args.incr_threshold
+	incr_percent_threshold = args.incr_threshold	# Reset base_price if stock increases by this percent
 if ( args.stock_usd == -1 and args.checkticker == False ):
 	print('Error: please enter stock amount (USD) to invest')
 	exit(1)
@@ -170,6 +168,9 @@ while True:
 				base_price = last_price
 				print('SHORTED Stock "' + str(stock) + '" decreased below the incr_percent_threshold (' + str(incr_percent_threshold) + '%), resetting base price to ' + str(base_price))
 
+				if ( decr_percent_threshold == args.decr_threshold ):
+					decr_percent_threshold = incr_percent_threshold / 2
+
 		elif ( percent_change >= decr_percent_threshold ):
 
 			# Sell the security
@@ -206,6 +207,9 @@ while True:
 			# This way we can continue to ride a price increase until it starts dropping
 			base_price = last_price
 			print('Stock "' + str(stock) + '" increased above the incr_percent_threshold (' + str(incr_percent_threshold) + '%), resetting base price to ' + str(base_price))
+
+			if ( decr_percent_threshold == args.decr_threshold ):
+				decr_percent_threshold = incr_percent_threshold / 2
 
 	# No price change
 	else:

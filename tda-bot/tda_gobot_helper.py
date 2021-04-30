@@ -2078,6 +2078,7 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 
 					if ( percent_change >= incr_percent_threshold ):
 						base_price = last_price
+						decr_percent_threshold = incr_percent_threshold / 2
 
 			# End stoploss monitor
 
@@ -2177,6 +2178,7 @@ def rsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=
 
 					if ( percent_change >= incr_percent_threshold ):
 						base_price = last_price
+						decr_percent_threshold = incr_percent_threshold / 2
 
 				elif ( float(last_price) > float(base_price) ):
 					percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
@@ -2518,6 +2520,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 
 					if ( percent_change >= incr_percent_threshold ):
 						base_price = last_price
+						decr_percent_threshold = incr_percent_threshold / 2
 
 				# Experimental trivial candle monitor
 				if ( use_candle_monitor == True ):
@@ -2671,6 +2674,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 
 					if ( percent_change >= incr_percent_threshold ):
 						base_price = last_price
+						decr_percent_threshold = incr_percent_threshold / 2
 
 				# Experimental trivial candle monitor
 				if ( use_candle_monitor == True ):
@@ -3100,6 +3104,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 					if ( percent_change >= incr_percent_threshold ):
 						base_price = last_price
+						decr_percent_threshold = incr_percent_threshold / 2
 
 			# End stoploss monitor
 
@@ -3315,6 +3320,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 					if ( percent_change >= incr_percent_threshold ):
 						base_price = last_price
+						decr_percent_threshold = incr_percent_threshold / 2
 
 			# End stoploss monitor
 

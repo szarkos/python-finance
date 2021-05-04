@@ -7,6 +7,8 @@ import tda_gobot_helper
 ## TODO:
 #	Add all the other indicators
 
+# Main helper function for tda-stochrsi-gobot-v2 that implements the primary stochrsi
+#  algorithm along with any secondary algorithms specified.
 def stochrsi_gobot( stream=None, debug=False ):
 
 	if not isinstance(stream, dict):
@@ -746,4 +748,33 @@ def stochrsi_gobot( stream=None, debug=False ):
 	print('DEBUG: END LOOP')
 
 	return True
+
+
+# Sell any open positions. This is usually called via a signal handler.
+def sell_stocks():
+
+	# Make sure we are logged into TDA
+	if ( tda_gobot_helper.tdalogin(passcode) != True ):
+		print('Error: sell_stocks(): tdalogin(): login failure')
+		return False
+
+	# Run through the stocks we are watching and sell/buy-to-cover any open positions
+	data = tda.get_account(tda_account_number, options='positions', jsonify=True)
+	for ticker in stocks.keys():
+
+		# Look up the stock in the account and sell
+		for asset in data[0]['securitiesAccount']['positions']:
+			if ( str(asset['instrument']['symbol']).upper() == str(ticker).upper() ):
+
+				if ( float(asset['shortQuantity']) > 0 ):
+					print('Covering ' + str(asset['shortQuantity']) + ' shares of ' + str(ticker))
+					data = tda_gobot_helper.buytocover_stock_marketprice(ticker, asset['shortQuantity'], fillwait=False, debug=False)
+				else:
+					print('Selling ' + str(asset['longQuantity']) + ' shares of ' + str(ticker))
+					data = tda_gobot_helper.sell_stock_marketprice(ticker, asset['longQuantity'], fillwait=False, debug=False)
+
+				break
+
+	return True
+
 

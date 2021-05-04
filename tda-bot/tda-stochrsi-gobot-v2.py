@@ -7,7 +7,7 @@
 #			--rsi_high_limit=80 --rsi_low_limit=20 --rsi_period=128 --rsi_k_period=128 --rsi_d_period=3 --rsi_slow=6 \
 #			MSFT  1000
 
-import os, sys
+import os, sys, signal
 import time, datetime, pytz, random
 from collections import OrderedDict
 import argparse
@@ -68,12 +68,10 @@ args = parser.parse_args()
 args.debug = True
 ## FOR TESTING
 
-
 # Set timezone
 mytimezone = pytz.timezone("US/Eastern")
 tda_gobot_helper.mytimezone = mytimezone
 tda_stochrsi_gobot_helper.mytimezone = mytimezone
-
 
 # Early exit criteria goes here
 if ( args.notmarketclosed == True and tda_gobot_helper.ismarketopen_US() == False ):
@@ -101,6 +99,17 @@ tda_stochrsi_gobot_helper.passcode = passcode
 if ( tda_gobot_helper.tdalogin(passcode) != True ):
 	print('Error: Login failure', file=sys.stderr)
 	exit(1)
+
+# Initialize SIGUSR1 signal handler to dump stocks on signal
+# Calls sell_stocks() to immediately sell or buy_to_cover any open positions
+def siguser1_handler(signum, frame):
+	print("\nNOTICE: siguser1_handler(): received signal")
+	print("NOTICE: Calling sell_stocks() to exit open positions...\n")
+
+	tda_stochrsi_gobot_helper.sell_stocks()
+	sys.exit(0)
+
+signal.signal(signal.SIGUSR1, siguser1_handler)
 
 
 # Initialize stocks{}
@@ -207,7 +216,6 @@ for ticker in stocks.keys():
 		print('Warning: get_price_stats(' + str(ticker) + '): ' + str(e))
 
 
-
 # Main Loop
 #
 # This bot has four modes of operation -
@@ -241,7 +249,7 @@ tda_stochrsi_gobot_helper.stock_usd = args.stock_usd
 
 
 # Initialize pricehistory for each stock ticker
-print( 'Populating pricehistory for stock tickers: ' + str(stocks.keys()) )
+print( 'Populating pricehistory for stock tickers: ' + str(list(stocks.keys())) )
 
 # tda.get_pricehistory() variables
 p_type = 'day'
@@ -285,17 +293,7 @@ for ticker in stocks.keys():
 tda_api_key = os.environ['tda_consumer_key']
 tda_pickle = os.environ['HOME'] + '/.tokens/tda2.pickle'
 
-
-
-import signal
-def handler(signum, frame):
-	print('FOOOOOOO')
-	return
-
-
-signal.signal(signal.SIGUSR1, handler)
-
-
+# Initializes and reads from TDA stream API
 async def read_stream():
 	await stream_client.login()
 	await stream_client.quality_of_service(StreamClient.QOSLevel.REAL_TIME)
@@ -307,6 +305,7 @@ async def read_stream():
 
 	while True:
 		await stream_client.handle_message()
+
 
 # MAIN
 while True:
@@ -321,7 +320,7 @@ while True:
 		continue
 
 	# Initialize streams client
-	print( 'Initializing streams client for stock tickers: ' + str(stocks.keys()) )
+	print( 'Initializing streams client for stock tickers: ' + str(list(stocks.keys())) )
 	try:
 		stream_client = StreamClient(tda_client, account_id=tda_account_number)
 

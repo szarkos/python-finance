@@ -1231,9 +1231,9 @@ def get_stochrsi(pricehistory=None, rsi_period=14, stochrsi_period=128, type='cl
 		print('Error: get_stochrsi(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
 		return False, [], []
 
-	if ( len(prices) < rsi_period * 2 ):
+	if ( len(prices) < stochrsi_period * 2 ):
 		# Something is wrong with the data we got back from tda.get_price_history()
-		print('Warning: get_stochrsi(' + str(ticker) + '): len(pricehistory) is less than rsi_period - is this a new stock ticker?', file=sys.stderr)
+		print('Warning: get_stochrsi(' + str(ticker) + '): len(pricehistory) is less than stochrsi_period - is this a new stock ticker?', file=sys.stderr)
 
 	# ti.stochrsi
 	try:

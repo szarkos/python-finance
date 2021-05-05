@@ -375,8 +375,8 @@ for ticker in stocks.keys():
 		else:
 			stocks[ticker]['pricehistory'] = data
 
-	if ( len(data['candles']) < args.stochrsi_period ):
-		print('Warning: stock(' + str(ticker) + '): len(pricehistory[candles]) is less than stochrsi_period (new stock ticker?), removing from the list')
+	if ( len(data['candles']) < int(args.stochrsi_period) * 2 ):
+		print('Warning: stock(' + str(ticker) + '): len(pricehistory[candles]) is less than stochrsi_period*2 (new stock ticker?), removing from the list')
 		stocks[ticker]['isvalid'] = False
 
 	time.sleep(1)

@@ -44,7 +44,7 @@ parser.add_argument("--no_use_resistance", help='Do no use the high/low resistan
 
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
 parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1.5, type=float)
-parser.add_argument("--num_purchases", help='Number of purchases allowed per day', nargs='?', default=4, type=int)
+parser.add_argument("--num_purchases", help='Number of purchases allowed per day', nargs='?', default=2, type=int)
 parser.add_argument("--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
 parser.add_argument("--max_failed_txs", help='Maximum number of failed transactions allowed for a given stock before stock is blacklisted', default=2, type=int)
 parser.add_argument("--max_failed_usd", help='Maximum allowed USD for a failed transaction before the stock is blacklisted', default=100, type=int)

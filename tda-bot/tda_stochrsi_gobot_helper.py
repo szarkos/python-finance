@@ -96,7 +96,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 	# Iterate through the stock tickers, calculate the stochRSI, and make buy/sell decisions
 	for ticker in stocks.keys():
 
-		if ( isinstance(stocks[ticker]['isvalid'], bool) and stocks[ticker]['isvalid'] == False ):
+		if ( stocks[ticker]['isvalid'] == False ):
 			continue
 
 		# Get stochastic RSI
@@ -185,22 +185,26 @@ def stochrsi_gobot( stream=None, debug=False ):
 						' / Previous StochRSI D: ' + str(round(stocks[ticker]['prev_rsi_d'], 2)))
 
 			# ADX
-			print('(' + str(ticker) + ') Current ADX: ' + str(round(stocks[ticker]['cur_adx'], 2)))
+			if ( args.with_adx == True ):
+				print('(' + str(ticker) + ') Current ADX: ' + str(round(stocks[ticker]['cur_adx'], 2)))
 
 			# PLUS/MINUS DI
-			print('(' + str(ticker) + ') Current PLUS_DI: ' + str(round(stocks[ticker]['cur_plus_di'], 2)) +
-						' / Previous PLUS_DI: ' + str(round(stocks[ticker]['prev_plus_di'], 2)))
-			print('(' + str(ticker) + ') Current MINUS_DI: ' + str(round(stocks[ticker]['cur_minus_di'], 2)) +
-						' / Previous MINUS_DI: ' + str(round(stocks[ticker]['prev_minus_di'], 2)))
+			if ( args.with_dmi == True ):
+				print('(' + str(ticker) + ') Current PLUS_DI: ' + str(round(stocks[ticker]['cur_plus_di'], 2)) +
+							' / Previous PLUS_DI: ' + str(round(stocks[ticker]['prev_plus_di'], 2)))
+				print('(' + str(ticker) + ') Current MINUS_DI: ' + str(round(stocks[ticker]['cur_minus_di'], 2)) +
+							' / Previous MINUS_DI: ' + str(round(stocks[ticker]['prev_minus_di'], 2)))
 
 			# MACD
-			print('(' + str(ticker) + ') Current MACD: ' + str(round(stocks[ticker]['cur_macd'], 2)) +
-						' / Previous MACD: ' + str(round(stocks[ticker]['prev_macd'], 2)))
-			print('(' + str(ticker) + ') Current MACD_AVG: ' + str(round(stocks[ticker]['cur_macd_avg'], 2)) +
-						' / Previous MACD_AVG: ' + str(round(stocks[ticker]['prev_macd_avg'], 2)))
+			if ( args.with_macd == True ):
+				print('(' + str(ticker) + ') Current MACD: ' + str(round(stocks[ticker]['cur_macd'], 2)) +
+							' / Previous MACD: ' + str(round(stocks[ticker]['prev_macd'], 2)))
+				print('(' + str(ticker) + ') Current MACD_AVG: ' + str(round(stocks[ticker]['cur_macd_avg'], 2)) +
+							' / Previous MACD_AVG: ' + str(round(stocks[ticker]['prev_macd_avg'], 2)))
 
 			# AroonOsc
-			print('(' + str(ticker) + ') Current AroonOsc: ' + str(round(stocks[ticker]['cur_aroonosc'], 2)))
+			if (args.with_aroonosc == True ):
+				print('(' + str(ticker) + ') Current AroonOsc: ' + str(round(stocks[ticker]['cur_aroonosc'], 2)))
 
 			# Timestamp check
 			print('(' + str(ticker) + ') Time now: ' + time_now.strftime('%Y-%m-%d %H:%M:%S') +
@@ -498,8 +502,9 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 					# Add to blacklist if sold at a loss greater than max_failed_usd
 					if ( net_change < 0 and abs(net_change) > float(args.max_failed_usd) ):
-						tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, 0)
 						stocks[ticker]['isvalid'] = False
+						if ( args.fake == False ):
+							tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, 0)
 
 					stocks[ticker]['tx_id'] = random.randint(1000, 9999)
 					stocks[ticker]['stock_qty'] = 0
@@ -543,8 +548,9 @@ def stochrsi_gobot( stream=None, debug=False ):
 					if ( net_change < 0 ):
 						stocks[ticker]['failed_txs'] -= 1
 						if ( abs(net_change) > args.max_failed_usd or stocks[ticker]['failed_txs'] == 0 ):
-							tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 							stocks[ticker]['isvalid'] = False
+							if ( args.fake == False ):
+								tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 
 					# Change signal to 'buy' and generate new tx_id for next iteration
 					stocks[ticker]['tx_id'] = random.randint(1000, 9999)
@@ -626,7 +632,9 @@ def stochrsi_gobot( stream=None, debug=False ):
 				if ( net_change < 0 ):
 					stocks[ticker]['failed_txs'] -= 1
 					if ( abs(net_change) > args.max_failed_usd or stocks[ticker]['failed_txs'] == 0 ):
-						tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
+						stocks[ticker]['isvalid'] = False
+						if ( args.fake == False ):
+							tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 
 
 				# Change signal to 'buy' or 'short' and generate new tx_id for next iteration
@@ -878,8 +886,9 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 					# Add to blacklist if sold at a loss greater than max_failed_usd
 					if ( net_change > 0 and abs(net_change) > args.max_failed_usd ):
-						tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 						stocks[ticker]['isvalid'] = False
+						if ( args.fake == False ):
+							tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 
 					stocks[ticker]['tx_id'] = random.randint(1000, 9999)
 					stocks[ticker]['stock_qty'] = 0
@@ -937,7 +946,9 @@ def stochrsi_gobot( stream=None, debug=False ):
 					if ( net_change > 0 ):
 						stocks[ticker]['failed_txs'] -= 1
 						if ( abs(net_change) > args.max_failed_usd or stocks[ticker]['failed_txs'] == 0 ):
-							tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
+							stocks[ticker]['isvalid'] = False
+							if ( args.fake == False ):
+								tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 
 					# Change signal to 'buy' and generate new tx_id for next iteration
 					stocks[ticker]['tx_id'] = random.randint(1000, 9999)
@@ -1001,7 +1012,9 @@ def stochrsi_gobot( stream=None, debug=False ):
 				if ( net_change > 0 ):
 					stocks[ticker]['failed_txs'] -= 1
 					if ( abs(net_change) > args.max_failed_usd or stocks[ticker]['failed_txs'] == 0 ):
-						tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
+						stocks[ticker]['isvalid'] = False
+						if ( args.fake == False ):
+							tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 
 				# Change signal to 'buy' and generate new tx_id for next iteration
 				stocks[ticker]['tx_id'] = random.randint(1000, 9999)

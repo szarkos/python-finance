@@ -205,6 +205,9 @@ if ( len(stocks) == 0 ):
 	print('Error: no valid stock tickers provided, exiting.')
 	exit(1)
 
+# TDA API is limited to 150 non-transactional calls per minute. It's best to sleep
+#  a bit here to avoid spurious errors later.
+time.sleep(len(stocks) * 2)
 
 # Initialize additional stocks{} values
 for ticker in stocks.keys():

@@ -114,7 +114,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 			minus_di = []
 			adx_period = 64
 			try:
-				adx, plus_di, minus_di = get_adx(stocks[ticker]['pricehistory'], period=adx_period)
+				adx, plus_di, minus_di = tda_gobot_helper.get_adx(stocks[ticker]['pricehistory'], period=adx_period)
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(' + str(ticker) + '): get_adx(): ' + str(e))
@@ -134,7 +134,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 			macd_signal = []
 			macd_histogram = []
 			try:
-				macd, macd_avg, macd_histogram = get_macd(stocks[ticker]['pricehistory'], short_period=macd_short_period, long_period=macd_long_period, signal_period=macd_signal_period)
+				macd, macd_avg, macd_histogram = tda_gobot_helper.get_macd(stocks[ticker]['pricehistory'], short_period=macd_short_period, long_period=macd_long_period, signal_period=macd_signal_period)
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(): get_macd(' + str(ticker) + '): ' + str(e))
@@ -150,14 +150,14 @@ def stochrsi_gobot( stream=None, debug=False ):
 		# Aroon Oscillator
 		if ( args.with_aroonosc == True ):
 			aroonosc = []
-		try:
-			aroonosc = get_aroon_osc(stocks[ticker]['pricehistory'], period=aroonosc_period)
+			try:
+				aroonosc = tda_gobot_helper.get_aroon_osc(stocks[ticker]['pricehistory'], period=aroonosc_period)
 
-		except Exception as e:
-			print('Error: stochrsi_gobot(): get_aroon_osc(' + str(ticker) + '): ' + str(e))
-			continue
+			except Exception as e:
+				print('Error: stochrsi_gobot(): get_aroon_osc(' + str(ticker) + '): ' + str(e))
+				continue
 
-		stocks[ticker]['cur_aroonosc'] = aroonosc[-1]
+			stocks[ticker]['cur_aroonosc'] = aroonosc[-1]
 
 		# Debug
 		if ( debug == True ):

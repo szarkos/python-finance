@@ -2959,7 +2959,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			# Check RSI
 			if ( cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit ):
 
-				# Monitor if K and D intercect
+				# Monitor if K and D intersect
 				# A buy signal occurs when an increasing %K line crosses above the %D line in the oversold region.
 				#  or if the %K line crosses below the rsi limit
 				if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):

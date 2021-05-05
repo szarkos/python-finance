@@ -58,6 +58,11 @@ parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/l
 parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=int)
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
 
+parser.add_argument("--with_adx", help='Use the Average Directional Index (ADX) as a secondary indicator', action="store_true")
+parser.add_argument("--with_dmi", help='Use the Directional Movement Index(DMI) as a secondary indicator', action="store_true")
+parser.add_argument("--with_macd", help='Use the Moving Average Convergence Divergence (MACD) as a secondary indicator', action="store_true")
+parser.add_argument("--with_aroonosc", help='Use the Aroon Oscillator as a secondary indicator', action="store_true")
+
 parser.add_argument("--short", help='Enable short selling of stock', action="store_true")
 parser.add_argument("--shortonly", help='Only short sell the stock', action="store_true")
 
@@ -143,20 +148,50 @@ for ticker in args.stocks.split(','):
 				   'short_signal':		False,
 				   'buy_to_cover_signal':	False,
 
+				   'final_buy_signal':		False,
+				   'final_sell_signal':		False,
+				   'final_short_signal':	False,
+				   'final_buy_to_cover_signal':	False,
+
 				   'signal_mode':		'buy',
 
 				   # Indicator variables
-				   'cur_rsi_k':			float(-1),
-				   'prev_rsi_k':		float(-1),
-				   'cur_rsi_d':			float(-1),
-				   'prev_rsi_d':		float(-1),
+				    # StochRSI
+				    'cur_rsi_k':		float(-1),
+				    'prev_rsi_k':		float(-1),
+				    'cur_rsi_d':		float(-1),
+				    'prev_rsi_d':		float(-1),
 
-				   'three_week_high':		float(0),
-				   'three_week_low':		float(0),
-				   'three_week_avg':		float(0),
-				   'twenty_week_high':		float(0),
-				   'twenty_week_low':		float(0),
-				   'twenty_week_avg':		float(0),
+				    # ADX
+				    'cur_adx':			float(-1),
+
+				    # DMI
+				    'cur_plus_di':		float(-1),
+				    'prev_plus_di':		float(-1),
+				    'cur_minus_di':		float(-1),
+				    'prev_minus_di':		float(-1),
+
+				    # AroonOsc
+				    'cur_aroonosc':		float(-1),
+
+				    # Support / Resistance
+				    'three_week_high':		float(0),
+				    'three_week_low':		float(0),
+				    'three_week_avg':		float(0),
+				    'twenty_week_high':		float(0),
+				    'twenty_week_low':		float(0),
+				    'twenty_week_avg':		float(0),
+
+				   # Indicator Signals
+				   'adx_signal':		False,
+				   'dmi_signal':		False,
+				   'aroonosc_signal':		False,
+				   'macd_signal':		False,
+
+				   'plus_di_crossover':		False,
+				   'minus_di_crossover':	False,
+				   'macd_crossover':		False,
+				   'macd_avg_crossover':	False,
 
 				   # Candle data
 				   'pricehistory':		{}
@@ -231,10 +266,13 @@ for ticker in stocks.keys():
 #  RSI passes from below rsi_low_limit to above = BUY_TO_COVER and BUY
 
 # Global variables
+tda_stochrsi_gobot_helper.args = args
 tda_stochrsi_gobot_helper.stocks = stocks
+tda_stochrsi_gobot_helper.incr_threshold = args.incr_threshold
+tda_stochrsi_gobot_helper.stock_usd = args.stock_usd
 tda_stochrsi_gobot_helper.loopt = 10
 
-tda_stochrsi_gobot_helper.args = args
+# StochRSI
 tda_stochrsi_gobot_helper.rsi_low_limit = args.rsi_low_limit
 tda_stochrsi_gobot_helper.rsi_high_limit = args.rsi_high_limit
 tda_stochrsi_gobot_helper.rsi_period = args.rsi_period
@@ -244,8 +282,16 @@ tda_stochrsi_gobot_helper.rsi_k_period = args.rsi_k_period
 tda_stochrsi_gobot_helper.rsi_d_period = args.rsi_d_period
 tda_stochrsi_gobot_helper.rsi_type = args.rsi_type
 
-tda_stochrsi_gobot_helper.incr_threshold = args.incr_threshold
-tda_stochrsi_gobot_helper.stock_usd = args.stock_usd
+# ADX / DMI
+tda_stochrsi_gobot_helper.adx_period = 64
+
+# MACD
+tda_stochrsi_gobot_helper.macd_short_period = 48
+tda_stochrsi_gobot_helper.macd_long_period = 104
+tda_stochrsi_gobot_helper.macd_signal_period = 36
+
+# Aroonosc
+tda_stochrsi_gobot_helper.aroonosc_period = 128
 
 
 # Initialize pricehistory for each stock ticker

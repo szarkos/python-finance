@@ -4,8 +4,35 @@ import os, sys
 import time, datetime, pytz, random
 import tda_gobot_helper
 
-## TODO:
-#	Add all the other indicators
+
+# Reset all the buy/sell/short/buy-to-cover and indicator signals
+def reset_signals(ticker=None):
+
+	if ( ticker == None ):
+		return False
+
+	stocks[ticker]['buy_signal']			= False
+	stocks[ticker]['sell_signal']			= False
+	stocks[ticker]['short_signal']			= False
+	stocks[ticker]['buy_to_cover_signal']		= False
+
+	stocks[ticker]['final_buy_signal']		= False
+	stocks[ticker]['final_sell_signal']		= False
+	stocks[ticker]['final_short_signal']		= False
+	stocks[ticker]['final_buy_to_cover_signal']	= False
+
+	stocks[ticker]['adx_signal']			= False
+	stocks[ticker]['dmi_signal']			= False
+	stocks[ticker]['macd_signal']			= False
+	stocks[ticker]['aroonosc_signal']		= False
+
+	stocks[ticker]['plus_di_crossover']		= False
+	stocks[ticker]['minus_di_crossover']		= False
+	stocks[ticker]['macd_crossover']		= False
+	stocks[ticker]['macd_avg_crossover']		= False
+
+	return True
+
 
 # Main helper function for tda-stochrsi-gobot-v2 that implements the primary stochrsi
 #  algorithm along with any secondary algorithms specified.
@@ -60,11 +87,15 @@ def stochrsi_gobot( stream=None, debug=False ):
 			continue
 
 		# Get stochastic RSI
-		stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(stocks[ticker]['pricehistory'], rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
-		if ( isinstance(stochrsi, bool) and stochrsi == False ):
-			print('Error: get_stochrsi(' + str(ticker) + ') returned false - no data', file=sys.stderr)
-			return False
+		try:
+			stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(stocks[ticker]['pricehistory'], rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
 
+		except Exception as e:
+			print('Error: stochrsi_gobot(): get_stochrsi(' + str(ticker) + '): ' + str(e))
+
+		if ( isinstance(stochrsi, bool) and stochrsi == False ):
+			print('Error: stochrsi_gobot(): get_stochrsi(' + str(ticker) + ') returned false - no data', file=sys.stderr)
+			continue
 
 		# If using the same 1-minute data, the len of stochrsi will be stochrsi_period * (stochrsi_period * 2) - 1
 		if ( len(stochrsi) != len(stocks[ticker]['pricehistory']['candles']) - (stochrsi_period * 2 - 1) ):
@@ -72,18 +103,93 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 		stocks[ticker]['cur_rsi_k'] = rsi_k[-1]
 		stocks[ticker]['cur_rsi_d'] = rsi_d[-1]
-		if ( stocks[ticker]['prev_rsi_k'] == -1 or stocks[ticker]['prev_rsi_d'] == -1):
+		if ( stocks[ticker]['prev_rsi_k'] == -1 or stocks[ticker]['prev_rsi_d'] == -1 ):
 			stocks[ticker]['prev_rsi_k'] = stocks[ticker]['cur_rsi_k']
 			stocks[ticker]['prev_rsi_d'] = stocks[ticker]['cur_rsi_d']
 
+		# ADX, +DI, -DI
+		if ( args.with_adx == True or args.with_dmi == True ):
+			adx = []
+			plus_di = []
+			minus_di = []
+			adx_period = 64
+			try:
+				adx, plus_di, minus_di = get_adx(stocks[ticker]['pricehistory'], period=adx_period)
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(' + str(ticker) + '): get_adx(): ' + str(e))
+				continue
+
+			stocks[ticker]['cur_adx'] = adx[-1]
+			stocks[ticker]['cur_plus_di'] = plus_di[-1]
+			stocks[ticker]['cur_minus_di'] = minus_di[-1]
+
+			if ( stocks[ticker]['prev_plus_di'] == -1 or stocks[ticker]['prev_minus_di'] == -1 ):
+				stocks[ticker]['prev_plus_di'] = stocks[ticker]['cur_plus_di']
+				stocks[ticker]['prev_minus_di'] = stocks[ticker]['cur_minus_di']
+
+		# MACD - 48, 104, 36
+		if ( args.with_macd == True ):
+			macd = []
+			macd_signal = []
+			macd_histogram = []
+			try:
+				macd, macd_avg, macd_histogram = get_macd(stocks[ticker]['pricehistory'], short_period=macd_short_period, long_period=macd_long_period, signal_period=macd_signal_period)
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(): get_macd(' + str(ticker) + '): ' + str(e))
+				continue
+
+			stocks[ticker]['cur_macd'] = macd[-1]
+			stocks[ticker]['cur_macd_avg'] = macd_avg[-1]
+
+			if ( stocks[ticker]['prev_macd'] == -1 or stocks[ticker]['prev_macd_avg'] == -1 ):
+				stocks[ticker]['prev_macd'] = stocks[ticker]['cur_macd']
+				stocks[ticker]['prev_macd_avg'] = stocks[ticker]['cur_macd_avg']
+
+		# Aroon Oscillator
+		if ( args.with_aroonosc == True ):
+			aroonosc = []
+		try:
+			aroonosc = get_aroon_osc(stocks[ticker]['pricehistory'], period=aroonosc_period)
+
+		except Exception as e:
+			print('Error: stochrsi_gobot(): get_aroon_osc(' + str(ticker) + '): ' + str(e))
+			continue
+
+		stocks[ticker]['cur_aroonosc'] = aroonosc[-1]
+
+		# Debug
 		if ( debug == True ):
 			time_now = datetime.datetime.now( mytimezone )
 			print(  '(' + str(ticker) + ') StochRSI period: ' + str(rsi_period) + ' / StochRSI type: ' + str(rsi_type) +
 				' / StochRSI K period: ' + str(rsi_k_period) + ' / StochRSI D period: ' + str(rsi_d_period) + ' / StochRSI slow period: ' + str(rsi_slow) )
+
+			# StochRSI
 			print('(' + str(ticker) + ') Current StochRSI K: ' + str(round(stocks[ticker]['cur_rsi_k'], 2)) +
 						' / Previous StochRSI K: ' + str(round(stocks[ticker]['prev_rsi_k'], 2)))
 			print('(' + str(ticker) + ') Current StochRSI D: ' + str(round(stocks[ticker]['cur_rsi_d'], 2)) +
 						' / Previous StochRSI D: ' + str(round(stocks[ticker]['prev_rsi_d'], 2)))
+
+			# ADX
+			print('(' + str(ticker) + ') Current ADX: ' + str(round(stocks[ticker]['cur_adx'], 2)))
+
+			# PLUS/MINUS DI
+			print('(' + str(ticker) + ') Current PLUS_DI: ' + str(round(stocks[ticker]['cur_plus_di'], 2)) +
+						' / Previous PLUS_DI: ' + str(round(stocks[ticker]['prev_plus_di'], 2)))
+			print('(' + str(ticker) + ') Current MINUS_DI: ' + str(round(stocks[ticker]['cur_minus_di'], 2)) +
+						' / Previous MINUS_DI: ' + str(round(stocks[ticker]['prev_minus_di'], 2)))
+
+			# MACD
+			print('(' + str(ticker) + ') Current MACD: ' + str(round(stocks[ticker]['cur_macd'], 2)) +
+						' / Previous MACD: ' + str(round(stocks[ticker]['prev_macd'], 2)))
+			print('(' + str(ticker) + ') Current MACD_AVG: ' + str(round(stocks[ticker]['cur_macd_avg'], 2)) +
+						' / Previous MACD_AVG: ' + str(round(stocks[ticker]['prev_macd_avg'], 2)))
+
+			# AroonOsc
+			print('(' + str(ticker) + ') Current AroonOsc: ' + str(round(stocks[ticker]['cur_aroonosc'], 2)))
+
+			# Timestamp check
 			print('(' + str(ticker) + ') Time now: ' + time_now.strftime('%Y-%m-%d %H:%M:%S') +
 				', timestamp received from API ' +
 				datetime.datetime.fromtimestamp(float(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f') +
@@ -94,11 +200,26 @@ def stochrsi_gobot( stream=None, debug=False ):
 			continue
 
 		# Set some short variables to improve readability :)
-		signal_mode = stocks[ticker]['signal_mode']
-		cur_rsi_k = stocks[ticker]['cur_rsi_k']
-		prev_rsi_k = stocks[ticker]['prev_rsi_k']
-		cur_rsi_d = stocks[ticker]['cur_rsi_d']
-		prev_rsi_d = stocks[ticker]['prev_rsi_d']
+		signal_mode	= stocks[ticker]['signal_mode']
+		cur_rsi_k	= stocks[ticker]['cur_rsi_k']
+		prev_rsi_k	= stocks[ticker]['prev_rsi_k']
+		cur_rsi_d	= stocks[ticker]['cur_rsi_d']
+		prev_rsi_d	= stocks[ticker]['prev_rsi_d']
+
+		cur_adx		= stocks[ticker]['cur_adx']
+
+		cur_plus_di	= stocks[ticker]['cur_plus_di']
+		prev_plus_di	= stocks[ticker]['prev_plus_di']
+		cur_minus_di	= stocks[ticker]['cur_minus_di']
+		prev_minus_di	= stocks[ticker]['prev_minus_di']
+
+		cur_macd	= stocks[ticker]['cur_macd']
+		prev_macd	= stocks[ticker]['prev_macd']
+		cur_macd_avg	= stocks[ticker]['cur_macd_avg']
+		prev_macd_avg	= stocks[ticker]['prev_macd_avg']
+
+		cur_aroonosc	= stocks[ticker]['cur_aroonosc']
+
 
 		# Criteria for when we will not enter new trades
 		if ( signal_mode == 'buy' or signal_mode == 'short'):
@@ -122,26 +243,28 @@ def stochrsi_gobot( stream=None, debug=False ):
 			if ( (tda_gobot_helper.isendofday(60) == True or tda_gobot_helper.ismarketopen_US() == False) and args.multiday == False ):
 				print('(' + str(ticker) + ') Market is closed or near closing.')
 
-				stocks[ticker]['buy_signal'] = False
-				stocks[ticker]['sell_signal'] = False
-				stocks[ticker]['short_signal'] = False
-				stocks[ticker]['buy_to_cover_signal'] = False
-
+				reset_signals(ticker)
 				stocks[ticker]['prev_rsi_k'] = cur_rsi_k
 				stocks[ticker]['prev_rsi_d'] = cur_rsi_d
 
+				stocks[ticker]['prev_plus_di'] = cur_plus_di
+				stocks[ticker]['prev_minus_di'] = cur_minus_di
+
+				stocks[ticker]['prev_macd'] = cur_macd
+				stocks[ticker]['prev_macd_avg'] = cur_macd_avg
 				continue
 
 			# If args.hold_overnight=False and args.multiday==True, we won't enter any new trades 1-hour before market close
 			if ( args.multiday == True and args.hold_overnight == False and tda_gobot_helper.isendofday(60) ):
-				stocks[ticker]['buy_signal'] = False
-				stocks[ticker]['sell_signal'] = False
-				stocks[ticker]['short_signal'] = False
-				stocks[ticker]['buy_to_cover_signal'] = False
-
+				reset_signals(ticker)
 				stocks[ticker]['prev_rsi_k'] = cur_rsi_k
 				stocks[ticker]['prev_rsi_d'] = cur_rsi_d
 
+				stocks[ticker]['prev_plus_di'] = cur_plus_di
+				stocks[ticker]['prev_minus_di'] = cur_minus_di
+
+				stocks[ticker]['prev_macd'] = cur_macd
+				stocks[ticker]['prev_macd_avg'] = cur_macd_avg
 				continue
 
 
@@ -154,14 +277,9 @@ def stochrsi_gobot( stream=None, debug=False ):
 			if ( cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit and stocks[ticker]['shortable'] == True ):
 				print('(' + str(ticker) + ') StochRSI K and D values already above ' + str(rsi_high_limit) + ', switching to short mode.')
 
-				stocks[ticker]['buy_signal'] = False
-				stocks[ticker]['sell_signal'] = False
-				stocks[ticker]['short_signal'] = False
-				stocks[ticker]['buy_to_cover_signal'] = False
-
+				reset_signals(ticker)
 				stocks[ticker]['signal_mode'] = 'short'
 				continue
-
 
 			# StochRSI MONITOR
 			# Monitor K and D
@@ -181,9 +299,73 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 					stocks[ticker]['buy_signal'] = True
 
+			elif ( cur_rsi_k > rsi_low_limit and cur_rsi_d > rsi_low_limit ):
+				# Reset the buy signal if rsi has wandered back above rsi_low_limit
+				reset_signals(ticker)
+
+
+			# Process any secondary indicators
+			# ADX signal
+			if ( args.with_adx == True ):
+				stocks[ticker]['adx_signal'] = False
+				if ( cur_adx > 25 ):
+					stocks[ticker]['adx_signal'] = True
+
+			# DMI signals
+			# DI+ cross above DI- indicates uptrend
+			if ( args.with_dmi == True ):
+				if ( prev_plus_di < prev_minus_di and cur_plus_di > cur_minus_di ):
+					stocks[ticker]['plus_di_crossover'] = True
+					stocks[ticker]['minus_di_crossover'] = False
+
+				elif ( prev_plus_di > prev_minus_di and cur_plus_di < cur_minus_di ):
+					stocks[ticker]['plus_di_crossover'] = False
+					stocks[ticker]['minus_di_crossover'] = True
+
+				stocks[ticker]['dmi_signal'] = False
+				if ( stocks[ticker]['plus_di_crossover'] == True and cur_plus_di > cur_minus_di ):
+					stocks[ticker]['dmi_signal'] = True
+
+			# Aroon oscillator signals
+			# Values closer to 100 indicate an uptrend
+			if ( args.with_aroonosc == True ):
+				stocks[ticker]['aroonosc_signal'] = False
+				if ( cur_aroonosc > 60 ):
+					stocks[ticker]['aroonosc_signal'] = True
+
+			# MACD crossover signals
+			if ( args.with_macd == True ):
+				if ( prev_macd < prev_macd_avg and cur_macd >= cur_macd_avg ):
+					stocks[ticker]['macd_crossover'] = True
+					stocks[ticker]['macd_avg_crossover'] = False
+
+				elif ( prev_macd > prev_macd_avg and cur_macd < cur_macd_avg ):
+					stocks[ticker]['macd_crossover'] = True
+					stocks[ticker]['macd_avg_crossover'] = True
+
+				stocks[ticker]['macd_signal'] = False
+				if ( stocks[ticker]['macd_crossover'] == True and cur_macd > cur_macd_avg ):
+					stocks[ticker]['macd_signal'] = True
+
+			# Resolve the primary stochrsi buy_signal with the secondary indicators
+			if ( stocks[ticker]['buy_signal'] == True ):
+
+				stocks[ticker]['final_buy_signal'] = True
+				if ( args.with_adx == True and stocks[ticker]['adx_signal'] != True ):
+					stocks[ticker]['final_buy_signal'] = False
+
+				if ( args.with_dmi == True and stocks[ticker]['dmi_signal'] != True ):
+					stocks[ticker]['final_buy_signal'] = False
+
+				if ( args.with_aroonosc == True and stocks[ticker]['aroonosc_signal'] != True ):
+					stocks[ticker]['final_buy_signal'] = False
+
+				if ( args.with_macd == True and stocks[ticker]['macd_signal'] != True ):
+					stocks[ticker]['final_buy_signal'] = False
+
 
 			# BUY THE STOCK
-			if ( stocks[ticker]['buy_signal'] == True ):
+			if ( stocks[ticker]['buy_signal'] == True and stocks[ticker]['final_buy_signal'] == True ):
 
 				# Calculate stock quantity from investment amount
 				last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
@@ -200,7 +382,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 				stocks[ticker]['stock_qty'] = int( float(stock_usd) / float(last_price) )
 
 				# Final sanity checks should go here
-				if ( stocks[ticker]['buy_signal'] == True and args.no_use_resistance == False ):
+				if ( args.no_use_resistance == False ):
 					if ( float(last_price) >= float(stocks[ticker]['twenty_week_high']) ):
 						# This is not a good bet
 						stocks[ticker]['twenty_week_high'] = float(last_price)
@@ -213,9 +395,17 @@ def stochrsi_gobot( stream=None, debug=False ):
 						stocks[ticker]['buy_signal'] = False
 
 					if ( stocks[ticker]['buy_signal'] == False ):
+						reset_signals(ticker)
 						stocks[ticker]['stock_qty'] = 0
+
 						stocks[ticker]['prev_rsi_k'] = cur_rsi_k
 						stocks[ticker]['prev_rsi_d'] = cur_rsi_d
+
+						stocks[ticker]['prev_plus_di'] = cur_plus_di
+						stocks[ticker]['prev_minus_di'] = cur_minus_di
+
+						stocks[ticker]['prev_macd'] = cur_macd
+						stocks[ticker]['prev_macd_avg'] = cur_macd_avg
 						continue
 
 				# Purchase the stock
@@ -227,8 +417,8 @@ def stochrsi_gobot( stream=None, debug=False ):
 						data = tda_gobot_helper.buy_stock_marketprice(ticker, stocks[ticker]['stock_qty'], fillwait=True, debug=True)
 						if ( data == False ):
 							print('Error: Unable to buy stock "' + str(ticker) + '"', file=sys.stderr)
+							reset_signals(ticker)
 							stocks[ticker]['stock_qty'] = 0
-							stocks[ticker]['buy_signal'] = False
 							continue
 
 					try:
@@ -238,11 +428,18 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 				else:
 					print('Stock ' + str(ticker) + ' not purchased because market is closed.')
+
+					reset_signals(ticker)
 					stocks[ticker]['stock_qty'] = 0
-					stocks[ticker]['buy_signal'] = False
 
 					stocks[ticker]['prev_rsi_k'] = cur_rsi_k
 					stocks[ticker]['prev_rsi_d'] = cur_rsi_d
+
+					stocks[ticker]['prev_plus_di'] = cur_plus_di
+					stocks[ticker]['prev_minus_di'] = cur_minus_di
+
+					stocks[ticker]['prev_macd'] = cur_macd
+					stocks[ticker]['prev_macd_avg'] = cur_macd_avg
 					continue
 
 
@@ -251,15 +448,11 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 				tda_gobot_helper.log_monitor(ticker, 0, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'])
 
-				stocks[ticker]['buy_signal'] = False
-				stocks[ticker]['sell_signal'] = False
-				stocks[ticker]['short_signal'] = False
-				stocks[ticker]['buy_to_cover_signal'] = False
-
+				reset_signals(ticker)
 				stocks[ticker]['signal_mode'] = 'sell' # Switch to 'sell' mode for the next loop
 
 
-		# SELL MODE - looking for a signal to sell the stock
+		# SELL MODE - look for a signal to sell the stock
 		elif ( signal_mode == 'sell' ):
 
 			# In 'sell' mode we want to monitor the stock price along with RSI
@@ -301,11 +494,13 @@ def stochrsi_gobot( stream=None, debug=False ):
 					stocks[ticker]['prev_rsi_k'] = cur_rsi_k
 					stocks[ticker]['prev_rsi_d'] = cur_rsi_d
 
-					stocks[ticker]['buy_signal'] = False
-					stocks[ticker]['sell_signal'] = False
-					stocks[ticker]['short_signal'] = False
-					stocks[ticker]['buy_to_cover_signal'] = False
+					stocks[ticker]['prev_plus_di'] = cur_plus_di
+					stocks[ticker]['prev_minus_di'] = cur_minus_di
 
+					stocks[ticker]['prev_macd'] = cur_macd
+					stocks[ticker]['prev_macd_avg'] = cur_macd_avg
+
+					reset_signals(ticker)
 					stocks[ticker]['signal_mode'] = 'buy'
 					continue
 
@@ -347,11 +542,17 @@ def stochrsi_gobot( stream=None, debug=False ):
 					stocks[ticker]['prev_rsi_k'] = -1
 					stocks[ticker]['prev_rsi_d']= -1
 
-					stocks[ticker]['buy_signal'] = False
-					stocks[ticker]['sell_signal'] = False
-					stocks[ticker]['short_signal'] = False
-					stocks[ticker]['buy_to_cover_signal'] = False
+					stocks[ticker]['cur_plus_di'] = -1
+					stocks[ticker]['prev_plus_di'] = -1
+					stocks[ticker]['cur_minus_di'] = -1
+					stocks[ticker]['prev_minus_di'] = -1
 
+					stocks[ticker]['cur_macd'] = -1
+					stocks[ticker]['prev_macd'] = -1
+					stocks[ticker]['cur_macd_avg'] = -1
+					stocks[ticker]['prev_macd_avg'] = -1
+
+					reset_signals(ticker)
 					stocks[ticker]['signal_mode'] = 'buy'
 					continue
 
@@ -419,11 +620,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 				stocks[ticker]['base_price'] = 0
 				stocks[ticker]['orig_base_price'] = 0
 
-				stocks[ticker]['buy_signal'] = False
-				stocks[ticker]['sell_signal'] = False
-				stocks[ticker]['short_signal'] = False
-				stocks[ticker]['buy_to_cover_signal'] = False
-
+				reset_signals(ticker)
 				if ( args.short == True and stocks[ticker]['shortable'] == True ):
 					stocks[ticker]['short_signal'] = True
 					stocks[ticker]['signal_mode'] = 'short'
@@ -442,11 +639,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 			if ( cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit and args.shortonly == False ):
 				print('(' + str(ticker) + ') StochRSI K and D values already below ' + str(rsi_low_limit) + ', switching to buy mode.')
 
-				stocks[ticker]['buy_signal'] = False
-				stocks[ticker]['sell_signal'] = False
-				stocks[ticker]['short_signal'] = False
-				stocks[ticker]['buy_to_cover_signal'] = False
-
+				reset_signals(ticker)
 				stocks[ticker]['signal_mode'] = 'buy'
 				continue
 
@@ -467,9 +660,73 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 					stocks[ticker]['short_signal'] = True
 
+			elif ( cur_rsi_k < rsi_high_limit and cur_rsi_d < rsi_high_limit ):
+				# Reset the short signal if rsi has wandered back below rsi_high_limit
+				reset_signals(ticker)
+
+
+			# Secondary Indicators
+			# ADX signal
+			if ( args.with_adx == True ):
+				stocks[ticker]['adx_signal'] = False
+				if ( cur_adx > 25 ):
+					stocks[ticker]['adx_signal'] = True
+
+			# DMI signals
+			# DI+ cross above DI- indicates uptrend
+			if ( args.with_dmi == True ):
+				if ( prev_plus_di < prev_minus_di and cur_plus_di > cur_minus_di ):
+					stocks[ticker]['plus_di_crossover'] = True
+					stocks[ticker]['minus_di_crossover'] = False
+
+				elif ( prev_plus_di > prev_minus_di and cur_plus_di < cur_minus_di ):
+					stocks[ticker]['plus_di_crossover'] = False
+					stocks[ticker]['minus_di_crossover'] = True
+
+				stocks[ticker]['dmi_signal'] = False
+				if ( stocks[ticker]['minus_di_crossover'] == True and cur_plus_di < cur_minus_di ):
+					stocks[ticker]['dmi_signal'] = True
+
+			# Aroon oscillator signals
+			# Values closer to -100 indicate a downtrend
+			if ( args.with_aroonosc == True ):
+				stocks[ticker]['aroonosc_signal'] = False
+				if ( cur_aroonosc < -60 ):
+					stocks[ticker]['aroonosc_signal'] = True
+
+			# MACD crossover signals
+			if ( args.with_macd == True ):
+				if ( prev_macd < prev_macd_avg and cur_macd >= cur_macd_avg ):
+					stocks[ticker]['macd_crossover'] = True
+					stocks[ticker]['macd_avg_crossover'] = False
+
+				elif ( prev_macd > prev_macd_avg and cur_macd < cur_macd_avg ):
+					stocks[ticker]['macd_crossover'] = True
+					stocks[ticker]['macd_avg_crossover'] = True
+
+				stocks[ticker]['macd_signal'] = False
+				if ( stocks[ticker]['macd_avg_crossover'] == True and cur_macd < cur_macd_avg ):
+					stocks[ticker]['macd_signal'] = True
+
+			# Resolve the primary stochrsi buy_signal with the secondary indicators
+			if ( stocks[ticker]['short_signal'] == True ):
+
+				stocks[ticker]['final_short_signal'] = True
+				if ( args.with_adx == True and stocks[ticker]['adx_signal'] != True ):
+					stocks[ticker]['final_short_signal'] = False
+
+				if ( args.with_dmi == True and stocks[ticker]['dmi_signal'] != True ):
+					stocks[ticker]['final_short_signal'] = False
+
+				if ( args.with_aroonosc == True and stocks[ticker]['aroonosc_signal'] != True ):
+					stocks[ticker]['final_short_signal'] = False
+
+				if ( args.with_macd == True and stocks[ticker]['macd_signal'] != True ):
+					stocks[ticker]['final_short_signal'] = False
+
 
 			# SHORT THE STOCK
-			if ( stocks[ticker]['short_signal'] == True ):
+			if ( stocks[ticker]['short_signal'] == True and stocks[ticker]['final_short_signal'] == True ):
 
 				# Calculate stock quantity from investment amount
 				last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
@@ -486,7 +743,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 				stocks[ticker]['stock_qty'] = int( float(stock_usd) / float(last_price) )
 
 				# Final sanity checks should go here
-				if ( stocks[ticker]['short_signal'] == True and args.no_use_resistance == False ):
+				if ( args.no_use_resistance == False ):
 					if ( float(last_price) <= float(stocks[ticker]['twenty_week_low']) ):
 						# This is not a good bet
 						stocks[ticker]['twenty_week_low'] = float(last_price)
@@ -499,9 +756,17 @@ def stochrsi_gobot( stream=None, debug=False ):
 						stocks[ticker]['short_signal'] = False
 
 					if ( stocks[ticker]['short_signal'] == False ):
+						reset_signals(ticker)
 						stocks[ticker]['stock_qty'] = 0
+
 						stocks[ticker]['prev_rsi_k'] = cur_rsi_k
 						stocks[ticker]['prev_rsi_d'] = cur_rsi_d
+
+						stocks[ticker]['prev_plus_di'] = cur_plus_di
+						stocks[ticker]['prev_minus_di'] = cur_minus_di
+
+						stocks[ticker]['prev_macd'] = cur_macd
+						stocks[ticker]['prev_macd_avg'] = cur_macd_avg
 						continue
 
 				# Short the stock
@@ -515,8 +780,8 @@ def stochrsi_gobot( stream=None, debug=False ):
 							if ( args.shortonly == True ):
 								print('Error: Unable to short "' + str(ticker) + '"', file=sys.stderr)
 								stocks[ticker]['stock_qty'] = 0
-								stocks[ticker]['short_signal'] = False
 
+								reset_signals(ticker)
 								stocks[ticker]['shortable'] = False
 								stocks[ticker]['isvalid'] = False
 								continue
@@ -524,9 +789,9 @@ def stochrsi_gobot( stream=None, debug=False ):
 							else:
 								print('Error: Unable to short "' + str(ticker) + '" - disabling shorting', file=sys.stderr)
 
+								reset_signals(ticker)
 								stocks[ticker]['shortable'] = False
 								stocks[ticker]['stock_qty'] = 0
-								stocks[ticker]['short_signal'] = False
 								stocks[ticker]['signal_mode'] = 'buy'
 								continue
 
@@ -537,11 +802,18 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 				else:
 					print('Stock ' + str(ticker) + ' not shorted because market is closed.')
+
+					reset_signals(ticker)
 					stocks[ticker]['stock_qty'] = 0
-					stocks[ticker]['short_signal'] = False
 
 					stocks[ticker]['prev_rsi_k'] = cur_rsi_k
 					stocks[ticker]['prev_rsi_d'] = cur_rsi_d
+
+					stocks[ticker]['prev_plus_di'] = cur_plus_di
+					stocks[ticker]['prev_minus_di'] = cur_minus_di
+
+					stocks[ticker]['prev_macd'] = cur_macd
+					stocks[ticker]['prev_macd_avg'] = cur_macd_avg
 
 					if ( args.shortonly == False ):
 						signal_mode = 'buy'
@@ -554,11 +826,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], short=True, sold=False)
 
-				stocks[ticker]['buy_signal'] = False
-				stocks[ticker]['sell_signal'] = False
-				stocks[ticker]['short_signal'] = False
-				stocks[ticker]['buy_to_cover_signal'] = False
-
+				reset_signals(ticker)
 				stocks[ticker]['signal_mode'] = 'buy_to_cover'
 
 
@@ -606,11 +874,13 @@ def stochrsi_gobot( stream=None, debug=False ):
 					stocks[ticker]['prev_rsi_k'] = cur_rsi_k
 					stocks[ticker]['prev_rsi_d'] = cur_rsi_d
 
-					stocks[ticker]['buy_signal'] = False
-					stocks[ticker]['sell_signal'] = False
-					stocks[ticker]['short_signal'] = False
-					stocks[ticker]['buy_to_cover_signal'] = False
+					stocks[ticker]['prev_plus_di'] = cur_plus_di
+					stocks[ticker]['prev_minus_di'] = cur_minus_di
 
+					stocks[ticker]['prev_macd'] = cur_macd
+					stocks[ticker]['prev_macd_avg'] = cur_macd_avg
+
+					reset_signals(ticker)
 					stocks[ticker]['signal_mode'] = 'buy'
 					if ( args.shortonly == True ):
 						stocks[ticker]['signal_mode'] = 'short'
@@ -665,11 +935,17 @@ def stochrsi_gobot( stream=None, debug=False ):
 					stocks[ticker]['prev_rsi_k'] = -1
 					stocks[ticker]['prev_rsi_d']= -1
 
-					stocks[ticker]['buy_signal'] = False
-					stocks[ticker]['sell_signal'] = False
-					stocks[ticker]['short_signal'] = False
-					stocks[ticker]['buy_to_cover_signal'] = False
+					stocks[ticker]['cur_plus_di'] = -1
+					stocks[ticker]['prev_plus_di'] = -1
+					stocks[ticker]['cur_minus_di'] = -1
+					stocks[ticker]['prev_minus_di'] = -1
 
+					stocks[ticker]['cur_macd'] = -1
+					stocks[ticker]['prev_macd'] = -1
+					stocks[ticker]['cur_macd_avg'] = -1
+					stocks[ticker]['prev_macd_avg'] = -1
+
+					reset_signals(ticker)
 					stocks[ticker]['signal_mode'] = 'buy'
 					if ( args.shortonly == True ):
 						stocks[ticker]['signal_mode'] = 'short'
@@ -718,11 +994,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 				stocks[ticker]['base_price'] = 0
 				stocks[ticker]['orig_base_price'] = 0
 
-				stocks[ticker]['buy_signal'] = False
-				stocks[ticker]['sell_signal'] = False
-				stocks[ticker]['short_signal'] = False
-				stocks[ticker]['buy_to_cover_signal'] = False
-
+				reset_signals(ticker)
 				if ( args.shortonly == True ):
 					stocks[ticker]['signal_mode'] = 'short'
 
@@ -740,6 +1012,12 @@ def stochrsi_gobot( stream=None, debug=False ):
 		print() # Make debug log easier to read
 		stocks[ticker]['prev_rsi_k'] = cur_rsi_k
 		stocks[ticker]['prev_rsi_d'] = cur_rsi_d
+
+		stocks[ticker]['prev_plus_di'] = cur_plus_di
+		stocks[ticker]['prev_minus_di'] = cur_minus_di
+
+		stocks[ticker]['prev_macd'] = cur_macd
+		stocks[ticker]['prev_macd_avg'] = cur_macd_avg
 
 	# END stocks.keys() loop
 

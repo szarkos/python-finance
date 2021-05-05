@@ -370,8 +370,14 @@ for ticker in stocks.keys():
 			time.sleep(5)
 			if ( tda_gobot_helper.tdalogin(passcode) != True ):
 				print('Error: (' + str(ticker) + '): Login failure')
+			continue
+
 		else:
 			stocks[ticker]['pricehistory'] = data
+
+	if ( len(data['candles']) < args.stochrsi_period ):
+		print('Warning: stock(' + str(ticker) + '): len(pricehistory[candles]) is less than stochrsi_period (new stock ticker?), removing from the list')
+		stocks[ticker]['isvalid'] = False
 
 	time.sleep(1)
 

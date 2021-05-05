@@ -42,9 +42,22 @@ def stochrsi_gobot( stream=None, debug=False ):
 		print('Error:')
 		return False
 
+	# Exit of there are no more tickers marked as valid
+	valid = 0
+	for ticker in stocks.keys():
+		if ( stocks[ticker]['isvalid'] == True ):
+			valid = 1
+			break
+
+	if ( valid == 0 ):
+		print("\nNo more valid stock tickers, exiting.")
+		sys.exit(0)
+
+	# Exit if we are not set up to monitor across multiple days
 	if ( tda_gobot_helper.ismarketopen_US() == False and args.multiday == False ):
 		print('Market closed, exiting.')
 		sys.exit(0)
+
 
 	# Example stream:
 	#
@@ -98,8 +111,8 @@ def stochrsi_gobot( stream=None, debug=False ):
 			continue
 
 		# If using the same 1-minute data, the len of stochrsi will be stochrsi_period * (stochrsi_period * 2) - 1
-		if ( len(stochrsi) != len(stocks[ticker]['pricehistory']['candles']) - (stochrsi_period * 2 - 1) ):
-			print('Warning, unexpected length of stochrsi (pricehistory[candles]=' + str(len(stocks[ticker]['pricehistory']['candles'])) + ', len(stochrsi)=' + str(len(stochrsi)) + ')')
+#		if ( len(stochrsi) != len(stocks[ticker]['pricehistory']['candles']) - (stochrsi_period * 2 - 1) ):
+#			print('Warning, unexpected length of stochrsi (pricehistory[candles]=' + str(len(stocks[ticker]['pricehistory']['candles'])) + ', len(stochrsi)=' + str(len(stochrsi)) + ')')
 
 		stocks[ticker]['cur_rsi_k'] = rsi_k[-1]
 		stocks[ticker]['cur_rsi_d'] = rsi_d[-1]
@@ -194,6 +207,8 @@ def stochrsi_gobot( stream=None, debug=False ):
 				', timestamp received from API ' +
 				datetime.datetime.fromtimestamp(float(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f') +
 				' (' + str(int(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])) + ')' )
+
+			print()
 
 		# Loop continuously while after hours if --multiday was set
 		if ( tda_gobot_helper.ismarketopen_US() == False and args.multiday == True ):
@@ -560,7 +575,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 			# If price increases
 			elif ( float(last_price) > float(stocks[ticker]['base_price']) ):
 				percent_change = abs( float(stocks[ticker]['base_price']) / float(last_price) - 1 ) * 100
-				if ( debug == 1 ):
+				if ( debug == True ):
 					print('Stock "' +  str(ticker) + '" +' + str(round(percent_change,2)) + '% (' + str(last_price) + ')')
 
 				# Re-set the base_price to the last_price if we increase by incr_threshold or more
@@ -1020,6 +1035,10 @@ def stochrsi_gobot( stream=None, debug=False ):
 		stocks[ticker]['prev_macd_avg'] = cur_macd_avg
 
 	# END stocks.keys() loop
+
+	# Make the debug messages easier to read
+	if ( debug == True ):
+		print("\n------------------------------------------------------------------------\n")
 
 	time.sleep(loopt)
 

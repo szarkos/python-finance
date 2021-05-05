@@ -851,7 +851,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 				net_change = 0
 				stocks[ticker]['base_price'] = stocks[ticker]['orig_base_price']
 
-				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], short=True, sold=False)
+				tda_gobot_helper.log_monitor(ticker, 0, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], short=True, sold=False)
 
 				reset_signals(ticker)
 				stocks[ticker]['signal_mode'] = 'buy_to_cover'

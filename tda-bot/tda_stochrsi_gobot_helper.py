@@ -320,6 +320,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 			elif ( cur_rsi_k > rsi_low_limit and cur_rsi_d > rsi_low_limit ):
 				# Reset the buy signal if rsi has wandered back above rsi_low_limit
+				print( '(' + str(ticker) + ') BUY SIGNAL CANCELED: RSI moved back above rsi_low_limit' )
 				reset_signals(ticker)
 
 
@@ -685,6 +686,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 			elif ( cur_rsi_k < rsi_high_limit and cur_rsi_d < rsi_high_limit ):
 				# Reset the short signal if rsi has wandered back below rsi_high_limit
+				print( '(' + str(ticker) + ') SHORT SIGNAL CANCELED: RSI moved back below rsi_high_limit' )
 				reset_signals(ticker)
 
 

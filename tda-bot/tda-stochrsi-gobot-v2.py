@@ -50,7 +50,7 @@ parser.add_argument("--max_failed_txs", help='Maximum number of failed transacti
 parser.add_argument("--max_failed_usd", help='Maximum allowed USD for a failed transaction before the stock is blacklisted', default=100, type=int)
 
 parser.add_argument("--rsi_slow", help='Slowing period to use in StochRSI algorithm', default=3, type=int)
-parser.add_argument("--rsi_k_period", help='k period to use in StochRSI algorithm', default=14, type=int)
+parser.add_argument("--rsi_k_period", help='k period to use in StochRSI algorithm', default=128, type=int)
 parser.add_argument("--rsi_d_period", help='D period to use in StochRSI algorithm', default=3, type=int)
 parser.add_argument("--stochrsi_period", help='RSI period to use for stochastic RSI calculation (Default: 128)', default=128, type=int)
 parser.add_argument("--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)

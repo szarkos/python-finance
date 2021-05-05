@@ -171,7 +171,13 @@ for ticker in args.stocks.split(','):
 				    'cur_minus_di':		float(-1),
 				    'prev_minus_di':		float(-1),
 
-				    # AroonOsc
+				    # MACD
+				    'cur_macd':			float(-1),
+				    'prev_macd':		float(-1),
+				    'cur_macd_avg':		float(-1),
+				    'prev_macd_avg':		float(-1),
+
+				    # Aroon Oscillator
 				    'cur_aroonosc':		float(-1),
 
 				    # Support / Resistance
@@ -232,26 +238,54 @@ for ticker in stocks.keys():
 				print('Warning: stock(' + str(ticker) + '): does not appear to be shortable, disabling --short')
 				stocks[ticker]['shortable'] = False
 
-	time.sleep(0.2)
+	time.sleep(1)
 
 
 	# Get general information about the stock that we can use later
 	# I.e. volatility, resistance, etc.
-	try:
-		# 3-week high / low / average
-		stocks[ticker]['three_week_high'], stocks[ticker]['three_week_low'], stocks[ticker]['three_week_avg'] = tda_gobot_helper.get_price_stats(ticker, days=15)
-		time.sleep(0.2) # Avoid throttling
 
-	except Exception as e:
-		print('Warning: get_price_stats(' + str(ticker) + '): ' + str(e))
+	# 3-week high / low / average
+	high = low = avg = False
+	while ( high == False ):
+		try:
+			high, low, avg = tda_gobot_helper.get_price_stats(ticker, days=15)
 
-	try:
-		# 20-week high / low / average
-		stocks[ticker]['twenty_week_high'], stocks[ticker]['twenty_week_low'], stocks[ticker]['twenty_week_avg'] = tda_gobot_helper.get_price_stats(ticker, days=100)
-		time.sleep(0.2) # Avoid throttling
+		except Exception as e:
+			print('Warning: get_price_stats(' + str(ticker) + '): ' + str(e))
 
-	except Exception as e:
-		print('Warning: get_price_stats(' + str(ticker) + '): ' + str(e))
+		if ( isinstance(high, bool) and high == False ):
+			if ( tda_gobot_helper.tdalogin(passcode) != True ):
+				print('Error: (' + str(ticker) + '): Login failure')
+			time.sleep(5)
+
+		else:
+			stocks[ticker]['three_week_high'] = high
+			stocks[ticker]['three_week_low'] = low
+			stocks[ticker]['three_week_avg'] = avg
+			break
+
+
+
+
+	# 20-week high / low / average
+	high = low = avg = False
+	while ( high == False ):
+		try:
+			high, low, avg = tda_gobot_helper.get_price_stats(ticker, days=100)
+
+		except Exception as e:
+			print('Warning: get_price_stats(' + str(ticker) + '): ' + str(e))
+
+		if ( isinstance(high, bool) and high == False ):
+			if ( tda_gobot_helper.tdalogin(passcode) != True ):
+				print('Error: (' + str(ticker) + '): Login failure')
+			time.sleep(5)
+
+		else:
+			stocks[ticker]['twenty_week_high'] = high
+			stocks[ticker]['twenty_week_low'] = low
+			stocks[ticker]['twenty_week_avg'] = avg
+			break
 
 
 # Main Loop
@@ -300,15 +334,19 @@ tda_stochrsi_gobot_helper.aroonosc_period = 128
 # Initialize pricehistory for each stock ticker
 print( 'Populating pricehistory for stock tickers: ' + str(list(stocks.keys())) )
 
+# TDA API is limited to 150 non-transactional calls per minute. It's best to sleep
+#  a bit here to avoid spurious errors later.
+time.sleep(len(stocks))
+
+# Log in again - avoids failing later and we can call this as often as we want
+if ( tda_gobot_helper.tdalogin(passcode) != True ):
+	print('Error: Login failure')
+
 # tda.get_pricehistory() variables
 p_type = 'day'
 period = None
 f_type = 'minute'
 freq = '1'
-
-# Log in again - avoids failing later and we can call this as often as we want
-if ( tda_gobot_helper.tdalogin(passcode) != True ):
-	print('Error: Login failure')
 
 time_now = datetime.datetime.now( mytimezone )
 time_prev = time_now - datetime.timedelta( days=4 )

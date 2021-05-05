@@ -522,7 +522,9 @@ def get_price_stats(ticker=None, days=100, debug=False):
 		print('Caught Exception: get_price_stats(' + str(ticker) + '): ' + str(e))
 
 	if ( data == False ):
-		print('Error: get_price_stats(' + str(ticker) + '): get_pricehistory() returned False', file=sys.stderr)
+		if ( debug == True ):
+			print('Error: get_price_stats(' + str(ticker) + '): get_pricehistory() returned False', file=sys.stderr)
+
 		return False, 0, 0
 
 	high = avg = 0

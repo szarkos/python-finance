@@ -1021,9 +1021,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 	# END stocks.keys() loop
 
-
 	time.sleep(loopt)
-	print('DEBUG: END LOOP')
 
 	return True
 

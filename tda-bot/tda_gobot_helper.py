@@ -149,7 +149,7 @@ def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, ba
 		except NameError:
 			proc_id = '0000'
 
-	logfile = './LOGS/' + str(ticker) + '-' + str(proc_id) + '.txt'
+	logfile = './TRADE_LOGS/' + str(ticker) + '-' + str(proc_id) + '.txt'
 	try:
 		fh = open( logfile, "wt" )
 

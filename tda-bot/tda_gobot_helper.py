@@ -1661,7 +1661,7 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 	for attempt in range(num_attempts):
 		try:
 			data, err = tda.place_order(tda_account_number, order, True)
-			if ( debug == 1 ):
+			if ( debug == True ):
 				print('DEBUG: short_stock_marketprice(' + str(ticker) + '): tda.place_order(): attempt ' + str(attempt+1))
 				print(order)
 				print(data)

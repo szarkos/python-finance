@@ -99,6 +99,11 @@ def stochrsi_gobot( stream=None, debug=False ):
 		if ( stocks[ticker]['isvalid'] == False ):
 			continue
 
+		# Initialize some local variables
+		percent_change = 0
+		net_change = 0
+
+
 		# Get stochastic RSI
 		try:
 			stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(stocks[ticker]['pricehistory'], rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)

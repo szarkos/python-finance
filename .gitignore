@@ -115,6 +115,8 @@ venv.bak/
 *.logs.txt
 *.data.txt
 LOGS
+TRADE_LOGS
+logs
 log.txt
 stocks.txt
 *.swp

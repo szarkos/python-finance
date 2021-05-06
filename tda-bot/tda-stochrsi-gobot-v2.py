@@ -409,7 +409,7 @@ while True:
 
 	except Exception as e:
 		print('Exception caught: client_from_token_file(): unable to log in using tda-client: ' + str(e))
-		time.sleep(30)
+		time.sleep(5)
 		continue
 
 	# Initialize streams client
@@ -419,7 +419,7 @@ while True:
 
 	except Exception as e:
 		print('Exception caught: StreamClient(): ' + str(e) + ': retrying...')
-		time.sleep(30)
+		time.sleep(5)
 		continue
 
 	# Call read_stream():stream_client.handle_message() to read from the stream continuously
@@ -431,7 +431,7 @@ while True:
 
 	except Exception as e:
 		print('Exception caught: read_stream(): ' + str(e) + ': retrying...')
-		time.sleep(30)
+		time.sleep(5)
 
 
 sys.exit(0)

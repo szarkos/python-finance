@@ -194,12 +194,14 @@ while True:
 		if ( args.short == True ):
 			if (percent_change >= decr_percent_threshold):
 				# Buy-to-cover the security
-				print('BUY_TO_COVOR stock ' + str(stock) + '" - the security moved above the decr_percent_threshold (' + str(decr_percent_threshold) + '%)')
+				print('BUY_TO_COVER stock ' + str(stock) + '" - the security moved above the decr_percent_threshold (' + str(decr_percent_threshold) + '%)')
 
 				if ( args.fake == False ):
 					data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, short=args.short, sold=True)
+				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+				exit(0)
 
 		elif ( percent_change >= incr_percent_threshold ):
 

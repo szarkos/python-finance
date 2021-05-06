@@ -1445,7 +1445,7 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 	for attempt in range(num_attempts):
 		try:
 			data, err = tda.place_order(tda_account_number, order, True)
-			if ( debug == 1 ):
+			if ( debug == True ):
 				print('DEBUG: buy_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
 				print(order)
 				print(data)
@@ -1471,7 +1471,7 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 	# Get the order number to feed to tda.get_order
 	try:
 		order_id = tda.get_order_number(data)
-		if ( debug == 1 ):
+		if ( debug == True ):
 			print(order_id)
 
 	except Exception as e:
@@ -1485,7 +1485,7 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 	# Get order information to determine if it was filled
 	try:
 		data,err = tda.get_order(tda_account_number, order_id, True)
-		if ( debug == 1 ):
+		if ( debug == True ):
 			print(data)
 
 	except Exception as e:
@@ -1555,7 +1555,7 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 	for attempt in range(num_attempts):
 		try:
 			data, err = tda.place_order(tda_account_number, order, True)
-			if ( debug == 1 ):
+			if ( debug == True ):
 				print('DEBUG: sell_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
 				print(order)
 				print(data)
@@ -1581,7 +1581,7 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 	# Get the order number to feed to tda.get_order
 	try:
 		order_id = tda.get_order_number(data)
-		if ( debug == 1 ):
+		if ( debug == True ):
 			print(order_id)
 
 	except Exception as e:
@@ -1595,7 +1595,7 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 	# Get order information to determine if it was filled
 	try:
 		data,err = tda.get_order(tda_account_number, order_id, True)
-		if ( debug == 1 ):
+		if ( debug == True ):
 			print(data)
 
 	except Exception as e:
@@ -1687,7 +1687,7 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 	# Get the order number to feed to tda.get_order
 	try:
 		order_id = tda.get_order_number(data)
-		if ( debug == 1 ):
+		if ( debug == True ):
 			print(order_id)
 
 	except Exception as e:
@@ -1701,7 +1701,7 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 	# Get order information to determine if it was filled
 	try:
 		data,err = tda.get_order(tda_account_number, order_id, True)
-		if ( debug == 1 ):
+		if ( debug == True ):
 			print(data)
 
 	except Exception as e:
@@ -1772,7 +1772,7 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 	for attempt in range(num_attempts):
 		try:
 			data, err = tda.place_order(tda_account_number, order, True)
-			if ( debug == 1 ):
+			if ( debug == True ):
 				print('DEBUG: buytocover_stock_marketprice(' + str(ticker) + '): tda.place_order(): attempt ' + str(attempt+1))
 				print(order)
 				print(data)
@@ -1798,7 +1798,7 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 	# Get the order number to feed to tda.get_order
 	try:
 		order_id = tda.get_order_number(data)
-		if ( debug == 1 ):
+		if ( debug == True ):
 			print(order_id)
 
 	except Exception as e:
@@ -1812,7 +1812,7 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 	# Get order information to determine if it was filled
 	try:
 		data,err = tda.get_order(tda_account_number, order_id, True)
-		if ( debug == 1 ):
+		if ( debug == True ):
 			print(data)
 
 	except Exception as e:

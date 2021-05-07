@@ -598,7 +598,11 @@ def stochrsi_gobot( stream=None, debug=False ):
 					print('Stock "' + str(ticker) + '" increased above the incr_threshold (' + str(incr_threshold) + '%), resetting base price to '  + str(last_price))
 					print('Net change (' + str(ticker) + '): ' + str(net_change) + ' USD')
 
-					stocks[ticker]['decr_threshold'] = incr_threshold / 2
+					if ( args.scalp_mode == True ):
+						stocks[ticker]['decr_threshold'] = 0.1
+					else:
+						stocks[ticker]['decr_threshold'] = incr_threshold / 2
+
 
 				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
 
@@ -935,7 +939,10 @@ def stochrsi_gobot( stream=None, debug=False ):
 					print('SHORTED Stock "' + str(ticker) + '" decreased below the incr_threshold (' + str(incr_threshold) + '%), resetting base price to '  + str(last_price))
 					print('Net change (' + str(ticker) + '): ' + str(net_change) + ' USD')
 
-					stocks[ticker]['decr_threshold'] = incr_threshold / 2
+					if ( args.scalp_mode == True ):
+						stocks[ticker]['decr_threshold'] = 0.1
+					else:
+						stocks[ticker]['decr_threshold'] = incr_threshold / 2
 
 			# If price increases
 			elif ( float(last_price) > float(stocks[ticker]['base_price']) ):

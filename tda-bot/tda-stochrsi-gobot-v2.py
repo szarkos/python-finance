@@ -36,7 +36,7 @@ parser.add_argument("--stock_usd", help='Amount of money (USD) to invest per tra
 parser.add_argument("--algo", help='Algorithm to use (rsi|stochrsi)', default='stochrsi', type=str)
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
-parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX_LOGS', default='TX_LOGS' type=str)
+parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX_LOGS', default='TX_LOGS', type=str)
 
 parser.add_argument("--multiday", help='Watch stock until decr_threshold is reached. Do not sell and exit when market closes', action="store_true")
 parser.add_argument("--notmarketclosed", help='Cancel order and exit if US stock market is closed', action="store_true")
@@ -49,6 +49,7 @@ parser.add_argument("--num_purchases", help='Number of purchases allowed per day
 parser.add_argument("--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
 parser.add_argument("--max_failed_txs", help='Maximum number of failed transactions allowed for a given stock before stock is blacklisted', default=2, type=int)
 parser.add_argument("--max_failed_usd", help='Maximum allowed USD for a failed transaction before the stock is blacklisted', default=100, type=int)
+parser.add_argument("--scalp_mode", help='Enable scalp mode (fixes incr_threshold and decr_threshold', action="store_true")
 
 parser.add_argument("--rsi_slow", help='Slowing period to use in StochRSI algorithm', default=3, type=int)
 parser.add_argument("--rsi_k_period", help='k period to use in StochRSI algorithm', default=128, type=int)
@@ -78,6 +79,11 @@ args.debug = True
 mytimezone = pytz.timezone("US/Eastern")
 tda_gobot_helper.mytimezone = mytimezone
 tda_stochrsi_gobot_helper.mytimezone = mytimezone
+
+# Set incr_threshold and decr_threshold is scalp_mode==True
+if ( args.scalp_mode == True ):
+	args.incr_threshold = 0.1
+	args.decr_threshold = 0.25
 
 # Early exit criteria goes here
 if ( args.notmarketclosed == True and tda_gobot_helper.ismarketopen_US() == False ):

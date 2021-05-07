@@ -311,7 +311,7 @@ for ticker in stocks.keys():
 
 # Global variables
 tda_stochrsi_gobot_helper.args = args
-tda_stochrsi_gobot_helper.tx_log_dir = tx_log_dir
+tda_stochrsi_gobot_helper.tx_log_dir = args.tx_log_dir
 tda_stochrsi_gobot_helper.stocks = stocks
 tda_stochrsi_gobot_helper.incr_threshold = args.incr_threshold
 tda_stochrsi_gobot_helper.stock_usd = args.stock_usd

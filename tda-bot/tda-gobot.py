@@ -43,6 +43,7 @@ if ( args.stock_usd == -1 and args.checkticker == False ):
 
 stock = args.stock
 stock_usd = args.stock_usd
+tx_log_dir = args.tx_log_dir
 
 if ( args.notmarketclosed == True and tda_gobot_helper.ismarketopen_US() == False ):
 	print('Canceled order to purchase $' + str(stock_usd) + ' of stock ' + str(stock) + ', because market is closed and --notmarketclosed was set')

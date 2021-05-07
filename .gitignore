@@ -116,6 +116,9 @@ venv.bak/
 *.data.txt
 LOGS
 TRADE_LOGS
+*_LOGS
+TX_LOGS
+TX_LOGS*
 logs
 log.txt
 stocks.txt

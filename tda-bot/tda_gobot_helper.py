@@ -138,7 +138,8 @@ def ismarketopen_US(date=None):
 
 
 # Write logs for each ticker for live monitoring of the stock performance
-def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, base_price=-1, orig_base_price=-1, stock_qty=-1, sold=False, short=False, proc_id=None, debug=0):
+def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, base_price=-1, orig_base_price=-1, stock_qty=-1, sold=False, short=False, proc_id=None, tx_log_dir='TX_LOGS', debug=False):
+
 	if ( ticker == None ):
 		print('Error: log_monitor(' + str(ticker) + '): ticker is empty', file=sys.stderr)
 		return False
@@ -149,7 +150,7 @@ def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, ba
 		except NameError:
 			proc_id = '0000'
 
-	logfile = './TRADE_LOGS/' + str(ticker) + '-' + str(proc_id) + '.txt'
+	logfile = './' + str(tx_log_dir) + '/' + str(ticker) + '-' + str(proc_id) + '.txt'
 	try:
 		fh = open( logfile, "wt" )
 

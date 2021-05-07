@@ -36,6 +36,7 @@ parser.add_argument("--stock_usd", help='Amount of money (USD) to invest per tra
 parser.add_argument("--algo", help='Algorithm to use (rsi|stochrsi)', default='stochrsi', type=str)
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
+parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX_LOGS', default='TX_LOGS' type=str)
 
 parser.add_argument("--multiday", help='Watch stock until decr_threshold is reached. Do not sell and exit when market closes', action="store_true")
 parser.add_argument("--notmarketclosed", help='Cancel order and exit if US stock market is closed', action="store_true")
@@ -304,10 +305,11 @@ for ticker in stocks.keys():
 
 # Global variables
 tda_stochrsi_gobot_helper.args = args
+tda_stochrsi_gobot_helper.tx_log_dir = tx_log_dir
 tda_stochrsi_gobot_helper.stocks = stocks
 tda_stochrsi_gobot_helper.incr_threshold = args.incr_threshold
 tda_stochrsi_gobot_helper.stock_usd = args.stock_usd
-tda_stochrsi_gobot_helper.loopt = 10
+tda_stochrsi_gobot_helper.loopt = 5
 
 # StochRSI
 tda_stochrsi_gobot_helper.rsi_low_limit = args.rsi_low_limit

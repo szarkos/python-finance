@@ -472,7 +472,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 				net_change = 0
 				stocks[ticker]['base_price'] = stocks[ticker]['orig_base_price']
 
-				tda_gobot_helper.log_monitor(ticker, 0, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'])
+				tda_gobot_helper.log_monitor(ticker, 0, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
 
 				reset_signals(ticker)
 				stocks[ticker]['signal_mode'] = 'sell' # Switch to 'sell' mode for the next loop
@@ -504,7 +504,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 					if ( args.fake == False ):
 						data = tda_gobot_helper.sell_stock_marketprice(ticker, stocks[ticker]['stock_qty'], fillwait=True, debug=True)
 
-					tda_gobot_helper.log_monitor(ticker, 0, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], sold=True)
+					tda_gobot_helper.log_monitor(ticker, 0, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, sold=True)
 					print('Net change (' + str(ticker) + '): ' + str(net_change) + ' USD')
 
 					# Add to blacklist if sold at a loss greater than max_failed_usd
@@ -539,7 +539,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 				if ( debug == True ):
 					print('Stock "' +  str(ticker) + '" -' + str(round(percent_change, 2)) + '% (' + str(last_price) + ')')
 
-				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'])
+				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
 
 				# SELL the security if we are using a trailing stoploss
 				if ( percent_change >= stocks[ticker]['decr_threshold'] and args.stoploss == True ):
@@ -548,7 +548,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 					if ( args.fake == False ):
 						data = tda_gobot_helper.sell_stock_marketprice(ticker, stocks[ticker]['stock_qty'], fillwait=True, debug=True)
 
-					tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], sold=True)
+					tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, sold=True)
 					print('Net change (' + str(ticker) + '): ' + str(net_change) + ' USD')
 
 					# Add to blacklist when sold at a loss greater than max_failed_usd, or if we've exceeded failed_tx
@@ -600,11 +600,11 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 					stocks[ticker]['decr_threshold'] = incr_threshold / 2
 
-				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'])
+				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
 
 			# No price change
 			else:
-				tda_gobot_helper.log_monitor(ticker, 0, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'])
+				tda_gobot_helper.log_monitor(ticker, 0, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
 
 
 			# StochRSI MONITOR
@@ -632,7 +632,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 				if ( args.fake == False ):
 					data = tda_gobot_helper.sell_stock_marketprice(ticker, stocks[ticker]['stock_qty'], fillwait=True, debug=True)
 
-				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], sold=True)
+				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, sold=True)
 				print('Net change (' + str(ticker) + '): ' + str(net_change) + ' USD')
 
 				# Add to blacklist if sold at a loss greater than max_failed_usd, or if we've exceeded failed_txs
@@ -856,7 +856,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 				net_change = 0
 				stocks[ticker]['base_price'] = stocks[ticker]['orig_base_price']
 
-				tda_gobot_helper.log_monitor(ticker, 0, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], short=True, sold=False)
+				tda_gobot_helper.log_monitor(ticker, 0, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=True, sold=False)
 
 				reset_signals(ticker)
 				stocks[ticker]['signal_mode'] = 'buy_to_cover'
@@ -890,7 +890,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 					if ( args.fake == False ):
 						data = tda_gobot_helper.buytocover_stock_marketprice(ticker, stocks[ticker]['stock_qty'], fillwait=True, debug=True)
 
-					tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], short=True, sold=True)
+					tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=True, sold=True)
 					print('Net change (' + str(ticker) + '): ' + str(net_change) + ' USD')
 
 					# Add to blacklist if sold at a loss greater than max_failed_usd
@@ -926,7 +926,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 			if ( float(last_price) < float(stocks[ticker]['base_price']) ):
 				percent_change = abs( float(last_price) / float(stocks[ticker]['base_price']) - 1 ) * 100
 
-				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], short=True, proc_id=stocks[ticker]['tx_id'])
+				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], short=True, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
 
 				# Re-set the base_price to the last_price if we increase by incr_threshold or more
 				# This way we can continue to ride a price increase until it starts dropping
@@ -948,7 +948,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 					if ( args.fake == False ):
 						data = tda_gobot_helper.buytocover_stock_marketprice(ticker, stocks[ticker]['stock_qty'], fillwait=True, debug=True)
 
-					tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], short=True, sold=True)
+					tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=True, sold=True)
 					print('Net change (' + str(ticker) + '): ' + str(net_change) + ' USD')
 
 					# Add to blacklist when sold at a loss greater than max_failed_usd, or if we've exceeded failed_tx
@@ -989,7 +989,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 			# No price change
 			else:
-				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], short=True)
+				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=True)
 
 
 			# RSI MONITOR
@@ -1014,7 +1014,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 				if ( args.fake == False ):
 					data = tda_gobot_helper.buytocover_stock_marketprice(ticker, stocks[ticker]['stock_qty'], fillwait=True, debug=True)
 
-				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], short=True, sold=True)
+				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=True, sold=True)
 				print('Net change (' + str(ticker) + '): ' + str(net_change) + ' USD')
 
 				# Add to blacklist if sold at a loss greater than max_failed_usd, or if we've exceeded failed_txs

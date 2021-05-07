@@ -2,6 +2,7 @@
 
 import os, sys
 import time, datetime, pytz, random
+import pickle
 import tda_gobot_helper
 
 
@@ -34,6 +35,28 @@ def reset_signals(ticker=None):
 	return True
 
 
+# Save the pricehistory data for later analysis. This is typically called on exit.
+def export_pricehistory():
+
+	print("Writing stock pricehistory to ./" + args.tx_log_dir + "/\n")
+
+	for ticker in stocks.keys():
+		if ( len(stocks[ticker]['pricehistory']) == 0 ):
+			continue
+
+		try:
+			fname = './' + str(args.tx_log_dir) + '/' + str(ticker) + '.data'
+			file = open(fname, "wb")
+			pickle.dump(stocks[ticker]['pricehistory'], file)
+			file.close()
+
+		except Exception as e:
+			print('Error: Unable to write to file ' + str(fname) + ': ' + str(e))
+			pass
+
+	return True
+
+
 # Main helper function for tda-stochrsi-gobot-v2 that implements the primary stochrsi
 #  algorithm along with any secondary algorithms specified.
 def stochrsi_gobot( stream=None, debug=False ):
@@ -51,11 +74,13 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 	if ( valid == 0 ):
 		print("\nNo more valid stock tickers, exiting.")
+		export_pricehistory()
 		sys.exit(0)
 
 	# Exit if we are not set up to monitor across multiple days
 	if ( tda_gobot_helper.ismarketopen_US() == False and args.multiday == False ):
 		print('Market closed, exiting.')
+		export_pricehistory()
 		sys.exit(0)
 
 
@@ -1069,7 +1094,9 @@ def stochrsi_gobot( stream=None, debug=False ):
 	if ( debug == True ):
 		print("\n------------------------------------------------------------------------\n")
 
-	time.sleep(loopt)
+	time.sleep(0.1)
+	if ( args.scalp_mode == False ):
+		time.sleep(loopt)
 
 	return True
 

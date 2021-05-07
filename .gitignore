@@ -114,6 +114,8 @@ venv.bak/
 *.log.txt
 *.logs.txt
 *.data.txt
+*.data
+*.pickle
 LOGS
 TRADE_LOGS
 *_LOGS

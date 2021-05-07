@@ -30,8 +30,8 @@ parser.add_argument("--with_aroonosc", help='Use Aroon Oscillator as secondary i
 parser.add_argument("--with_macd", help='Use MACD as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
 
 parser.add_argument("--days", help='Number of days to test. Separate with a comma to test multiple days.', default='10', type=str)
-parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', type=float)
-parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', type=float)
+parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
+parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1.5, type=float)
 parser.add_argument("--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
 
 parser.add_argument("--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
@@ -50,15 +50,11 @@ parser.add_argument("-d", "--debug", help='Enable debug output', action="store_t
 args = parser.parse_args()
 
 debug = 1			# Should default to 0 eventually, testing for now
-incr_percent_threshold = 1	# Reset base_price if stock increases by this percent
-decr_percent_threshold = 2	# Max allowed drop percentage of the stock price
-
 if args.debug:
 	debug = 1
-if args.decr_threshold:
-        decr_percent_threshold = args.decr_threshold
-if args.incr_threshold:
-        incr_percent_threshold = args.incr_threshold
+
+decr_percent_threshold = args.decr_threshold
+incr_percent_threshold = args.incr_threshold
 
 stock = args.stock
 stock_usd = args.stock_usd
@@ -209,7 +205,14 @@ for algo in args.algo.split(','):
 		# Note: Not asking for extended hours for now since our bot doesn't even trade after hours
 		if ( args.ifile != None ):
 			# Use ifile for data
-			pass
+			start_day = data['candles'][0]['datetime']
+			end_day = data['candles'][-1]['datetime']
+
+			start_day = datetime.datetime.fromtimestamp(float(start_day)/1000, tz=mytimezone)
+			end_day = datetime.datetime.fromtimestamp(float(end_day)/1000, tz=mytimezone)
+
+			delta = start_day - end_day
+			days = str(abs(int(delta.days)))
 
 		elif ( days != '-1' ):
 			try:
@@ -269,17 +272,8 @@ for algo in args.algo.split(','):
 				print('Unable to write to file ' + str(args.ofile) + ': ' + str(e))
 
 
-		# Due to timestamps corrections the actual number of days retrieved from the API
-		#  might be a bit different than requested via args.days
-		start_day = data['candles'][0]['datetime']
-		end_day = data['candles'][-1]['datetime']
-
-		start_day = datetime.datetime.fromtimestamp(float(start_day)/1000, tz=mytimezone)
-		end_day = datetime.datetime.fromtimestamp(float(end_day)/1000, tz=mytimezone)
-
-		delta = start_day - end_day
-		days = str(abs(int(delta.days)) - 1) # Subtract 1 because stochrsi_analyze_new() skips the first day of data
-
+		# Subtract 1 because stochrsi_analyze_new() skips the first day of data
+		days = int(days) - 1
 
 		# Run the analyze function
 		print('Analyzing ' + str(days) + '-day history for stock ' + str(stock) + ' using the ' + str(algo) + " algorithm:")

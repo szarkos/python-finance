@@ -1380,6 +1380,76 @@ def get_vwap(pricehistory=None, debug=False):
 	return vwap
 
 
+# Calculate Bollinger Bands
+def get_bbands(pricehistory=None, type=None, period=128, stddev=2, debug=False):
+
+	if ( pricehistory == None ):
+		print('Error: get_bbands(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False, [], []
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	prices = []
+	if ( type == 'close' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['close']))
+
+	elif ( type == 'high' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['high']))
+
+	elif ( type == 'low' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['low']))
+
+	elif ( type == 'open' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['open']))
+
+	elif ( type == 'volume' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['volume']))
+
+	elif ( type == 'hl2' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+
+	elif ( type == 'hlc3' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+
+	elif ( type == 'ohlc4' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+
+	else:
+		# Undefined type
+		print('Error: get_bbands(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
+		return False, [], []
+
+	if ( len(prices) < period ):
+		# Something is wrong with the data we got back from tda.get_price_history()
+		print('Warning: get_bbands(' + str(ticker) + '): len(pricehistory) is less than period - is this a new stock ticker?', file=sys.stderr)
+
+	# ti.bbands
+	bbands_lower = []
+	bbands_middle = []
+	bbands_upper = []
+	try:
+		np_prices = np.array( prices )
+		bbands_lower, bbands_middle, bbands_upper = ti.bbands(prices, period, stddev)
+
+	except Exception as e:
+		print( 'Caught Exception: get_bbands(' + str(ticker) + '): ti.bbands(): ' + str(e) + ', len(pricehistory)=' + str(len(pricehistory['candles'])) )
+		return False, [], []
+
+	return bbands_lower, bbands_middle, bbands_upper
+
+
 # Get MACD
 def get_macd(pricehistory=None, short_period=12, long_period=26, signal_period=9, debug=False):
 

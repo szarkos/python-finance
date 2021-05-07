@@ -88,13 +88,13 @@ if ( args.scalp_mode == True ):
 # Early exit criteria goes here
 if ( args.notmarketclosed == True and tda_gobot_helper.ismarketopen_US() == False ):
 	print('Market is closed and --notmarketclosed was set, exiting')
-	exit(1)
+	sys.exit(1)
 
 # Initialize and log into TD Ameritrade
 from dotenv import load_dotenv
 if ( load_dotenv() != True ):
         print('Error: unable to load .env file', file=sys.stderr)
-        exit(1)
+        sys.exit(1)
 
 tda_account_number = os.environ["tda_account_number"]
 passcode = os.environ["tda_encryption_passcode"]
@@ -110,19 +110,7 @@ tda_stochrsi_gobot_helper.passcode = passcode
 
 if ( tda_gobot_helper.tdalogin(passcode) != True ):
 	print('Error: Login failure', file=sys.stderr)
-	exit(1)
-
-# Initialize SIGUSR1 signal handler to dump stocks on signal
-# Calls sell_stocks() to immediately sell or buy_to_cover any open positions
-def siguser1_handler(signum, frame):
-	print("\nNOTICE: siguser1_handler(): received signal")
-	print("NOTICE: Calling sell_stocks() to exit open positions...\n")
-
-	tda_stochrsi_gobot_helper.sell_stocks()
-	sys.exit(0)
-
-signal.signal(signal.SIGUSR1, siguser1_handler)
-
+	sys.exit(1)
 
 # Initialize stocks{}
 print( 'Initializing stock tickers: ' + str(args.stocks.split(',')) )
@@ -216,7 +204,7 @@ for ticker in args.stocks.split(','):
 
 if ( len(stocks) == 0 ):
 	print('Error: no valid stock tickers provided, exiting.')
-	exit(1)
+	sys.exit(1)
 
 # TDA API is limited to 150 non-transactional calls per minute. It's best to sleep
 #  a bit here to avoid spurious errors later.
@@ -271,9 +259,6 @@ for ticker in stocks.keys():
 			stocks[ticker]['three_week_avg'] = avg
 			break
 
-
-
-
 	# 20-week high / low / average
 	high = low = avg = False
 	while ( high == False ):
@@ -293,6 +278,28 @@ for ticker in stocks.keys():
 			stocks[ticker]['twenty_week_low'] = low
 			stocks[ticker]['twenty_week_avg'] = avg
 			break
+
+
+# Initialize signal handlers to dump stock history on exit
+def graceful_exit(signum, frame):
+	print("\nNOTICE: graceful_exit(): received signal: " + str(signum))
+
+	tda_stochrsi_gobot_helper.export_pricehistory()
+	sys.exit(0)
+
+# Initialize SIGUSR1 signal handler to dump stocks on signal
+# Calls sell_stocks() to immediately sell or buy_to_cover any open positions
+def siguser1_handler(signum, frame):
+	print("\nNOTICE: siguser1_handler(): received signal")
+	print("NOTICE: Calling sell_stocks() to exit open positions...\n")
+
+	tda_stochrsi_gobot_helper.sell_stocks()
+	graceful_exit(None, None)
+	sys.exit(0)
+
+signal.signal(signal.SIGINT, graceful_exit)
+signal.signal(signal.SIGTERM, graceful_exit)
+signal.signal(signal.SIGUSR1, siguser1_handler)
 
 
 # Main Loop
@@ -440,6 +447,7 @@ while True:
 		asyncio.run(read_stream())
 
 	except KeyboardInterrupt:
+		graceful_exit(None, None)
 		sys.exit(0)
 
 	except Exception as e:

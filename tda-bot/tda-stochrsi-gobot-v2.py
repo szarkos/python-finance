@@ -397,7 +397,12 @@ tda_pickle = os.environ['HOME'] + '/.tokens/tda2.pickle'
 # Initializes and reads from TDA stream API
 async def read_stream():
 	await stream_client.login()
-	await stream_client.quality_of_service(StreamClient.QOSLevel.REAL_TIME)
+
+	if ( args.scalp_mode == True ):
+		await stream_client.quality_of_service(StreamClient.QOSLevel.EXPRESS)
+	else:
+		await stream_client.quality_of_service(StreamClient.QOSLevel.REAL_TIME)
+
 
 	stream_client.add_chart_equity_handler(
 		lambda msg: tda_stochrsi_gobot_helper.stochrsi_gobot(msg, args.debug) )
@@ -417,7 +422,7 @@ while True:
 
 	except Exception as e:
 		print('Exception caught: client_from_token_file(): unable to log in using tda-client: ' + str(e))
-		time.sleep(5)
+		time.sleep(2)
 		continue
 
 	# Initialize streams client
@@ -427,7 +432,7 @@ while True:
 
 	except Exception as e:
 		print('Exception caught: StreamClient(): ' + str(e) + ': retrying...')
-		time.sleep(5)
+		time.sleep(2)
 		continue
 
 	# Call read_stream():stream_client.handle_message() to read from the stream continuously
@@ -439,7 +444,7 @@ while True:
 
 	except Exception as e:
 		print('Exception caught: read_stream(): ' + str(e) + ': retrying...')
-		time.sleep(5)
+		time.sleep(2)
 
 
 sys.exit(0)

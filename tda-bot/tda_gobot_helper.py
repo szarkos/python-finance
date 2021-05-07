@@ -152,6 +152,14 @@ def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, ba
 
 	logfile = './' + str(tx_log_dir) + '/' + str(ticker) + '-' + str(proc_id) + '.txt'
 	try:
+		if ( os.path.isdir('./' + tx_log_dir) == False ):
+			os.mkdir('./' + tx_log_dir, mode=0o755)
+
+	except OSError as e:
+		print('Error: log_monitor(): Unable to make directory ./' + str(tx_log_dir) + ': ' + e, file=sys.stderr)
+		return False
+
+	try:
 		fh = open( logfile, "wt" )
 
 	except OSError as e:

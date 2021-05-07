@@ -21,6 +21,7 @@ parser.add_argument("stock_usd", help='Amount of money (USD) to invest', nargs='
 parser.add_argument("--checkticker", help="Check if ticker is valid", action="store_true")
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
+parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX_LOGS-GOBOTv1', default='TX_LOGS-GOBOTv1', type=str)
 parser.add_argument("--incr_threshold", help="Reset base_price if stock increases by this percent", default=1, type=float)
 parser.add_argument("--decr_threshold", help="Max allowed drop percentage of the stock price", default=1.5, type=float)
 parser.add_argument("--multiday", help="Watch stock until decr_threshold is reached. Do not sell and exit when market closes", action="store_true")
@@ -140,7 +141,7 @@ while True:
 	# Log the post/pre market pricing, but skip the rest of the loop if the market is closed.
 	# This should only happen if args.multiday == True
 	if ( tda_gobot_helper.ismarketopen_US() == False ):
-		tda_gobot_helper.log_monitor(stock, 0, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id)
+		tda_gobot_helper.log_monitor(stock, 0, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir)
 		time.sleep(loopt * 6)
 		continue
 
@@ -151,7 +152,7 @@ while True:
 		if ( args.fake == False ):
 			data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
-		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, sold=True)
+		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, sold=True)
 		print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 		exit(0)
 
@@ -161,7 +162,7 @@ while True:
 		print('Stock "' +  str(stock) + '" -' + str(round(percent_change, 2)) + '% (' + str(last_price) + ')')
 
 		# Log format - stock:%change:last_price:net_change:base_price:orig_base_price:stock_qty:proc_id:short
-		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, short=args.short)
+		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short)
 
 		if ( args.short == True ):
 			if ( percent_change >= incr_percent_threshold ):
@@ -179,7 +180,7 @@ while True:
 			if ( args.fake == False ):
 				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
-			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, sold=True)
+			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, sold=True)
 			print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 			exit(0)
 
@@ -189,7 +190,7 @@ while True:
 		print('Stock "' +  str(stock) + '" +' + str(round(percent_change,2)) + '% (' + str(last_price) + ')')
 
 		# Log format - stock:%change:last_price:net_change:base_price:orig_base_price
-		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, short=args.short)
+		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short)
 
 		if ( args.short == True ):
 			if (percent_change >= decr_percent_threshold):
@@ -199,7 +200,7 @@ while True:
 				if ( args.fake == False ):
 					data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
-				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, short=args.short, sold=True)
+				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short, sold=True)
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 				exit(0)
 
@@ -219,7 +220,7 @@ while True:
 			print('Stock "' +  str(stock) + '" no change (' + str(last_price) + ')')
 
 		# Log format - stock:%change:last_price:net_change:base_price:orig_base_price
-		tda_gobot_helper.log_monitor(stock, 0, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, short=args.short)
+		tda_gobot_helper.log_monitor(stock, 0, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short)
 
 	time.sleep(loopt)
 

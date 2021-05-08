@@ -1,0 +1,15 @@
+check-ticker.sh uses pfopt-check-history.py. It will iterate over all the
+.csv files and check that the first ticker in the file has a history that
+starts on 2013-01-01. If not it will print the name of the file and the
+ticker name.
+
+This is needed to ensure data is properly downloaded in later scripts. The
+yahoo datareader has some bug that requires that the first ticker has history
+that covers the entire requested range for all stocks.
+
+To get around this I'll just add some default ticker to the top of each of
+these files, i.e.:
+
+A,Agilent Technologies Inc. Common Stock,$127.98,1.02,0.803%,39083729269.00,United States,1999,1257875,Capital Goods,Biotechnology: Laboratory Analytical Instruments
+
+

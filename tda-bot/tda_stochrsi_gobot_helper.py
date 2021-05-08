@@ -468,8 +468,9 @@ def stochrsi_gobot( stream=None, debug=False ):
 						data = tda_gobot_helper.buy_stock_marketprice(ticker, stocks[ticker]['stock_qty'], fillwait=True, debug=True)
 						if ( data == False ):
 							print('Error: Unable to buy stock "' + str(ticker) + '"', file=sys.stderr)
-							reset_signals(ticker)
 							stocks[ticker]['stock_qty'] = 0
+							stocks[ticker]['isvalid'] = False
+							reset_signals(ticker)
 							continue
 
 					try:

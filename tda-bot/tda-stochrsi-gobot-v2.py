@@ -2,9 +2,7 @@
 
 # Monitor a stock's Stochastic RSI values and make purchase decisions based off those values.
 # Examples:
-#  ./tda-rsi-gobot.py --algo=stochrsi --short --multiday --stoploss --decr_threshold=1.5 \
-#			--num_purchases=20 --max_failed_txs=2 --max_failed_usd=300 \
-#			--rsi_high_limit=80 --rsi_low_limit=20 --rsi_period=128 --rsi_k_period=128 --rsi_d_period=3 --rsi_slow=6 \
+#  ./tda-rsi-gobot.py --short --multiday --stoploss --num_purchases=20 \
 #			MSFT  1000
 
 import os, sys, signal

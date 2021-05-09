@@ -467,38 +467,41 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 
 
 # Calculate the high, low and average stock price based on hourly data
-def get_price_stats_hourly(ticker=None, days=10, debug=False):
+def get_price_stats_hourly(ticker=None, days=10, extended_hours=True, debug=False):
 
 	if ( ticker == None ):
 		print('Error: get_price_stats(' + str(ticker) + '): ticker is empty', file=sys.stderr)
-		return False, 0, 0
+		return False, 0, 0, 0
 
 	if ( int(days) > 10 ):
 		days = 10 # TDA API only allows 10-days of 1-minute data
 
 	try:
-		data, epochs = get_pricehistory(ticker, 'day', 'minute', '1', days, needExtendedHoursData=True, debug=False)
+		data, epochs = get_pricehistory(ticker, 'day', 'minute', '1', days, needExtendedHoursData=extended_hours, debug=debug)
 
 	except Exception as e:
 		print('Caught Exception: get_price_stats(' + str(ticker) + '): ' + str(e))
 
 	if ( data == False ):
 		print('Error: get_price_stats(' + str(ticker) + '): get_pricehistory() returned False', file=sys.stderr)
-		return False, 0, 0
+		return False, 0, 0, 0
 
-	high = avg = 0
+	high = avg = avg_vol = float(0)
 	low = 999999
 	for key in data['candles']:
 		avg += float(key['close'])
+		avg_vol += float(key['volume'])
+
 		if ( float(key['close']) > high ):
 			high = float(key['close'])
 		if ( float(key['close']) < low ):
 			low = float(key['close'])
 
-	avg = round(avg / int(len(data['candles'])), 4)
+	avg = round(avg / len(data['candles']), 4)
+	avg_vol = round(avg_vol / len(data['candles']), 0)
 
 	# Return the high, low and average stock price
-	return high, low, avg
+	return high, low, avg, int(avg_vol)
 
 
 # Calculate the high, low and average stock price

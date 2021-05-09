@@ -86,6 +86,7 @@ for ticker in args.stocks.split(','):
 
 	stocks.update( { ticker: { 'shortable':			True,
 				   'isvalid':			True,
+				   'avg_volume':		0,
 
 				   # Candle data
 				   'pricehistory':		{ 'candles': [] }
@@ -105,6 +106,22 @@ else:
 	time.sleep(len(stocks))
 
 # Initialize additional stocks{} values
+time_now = datetime.datetime.now( mytimezone )
+time_prev = time_now - datetime.timedelta( days=10 )
+
+# Make sure start and end dates don't land on a weekend or outside market hours
+time_now = tda_gobot_helper.fix_timestamp(time_now)
+time_prev = tda_gobot_helper.fix_timestamp(time_prev)
+
+time_now_epoch = int( time_now.timestamp() * 1000 )
+time_prev_epoch = int( time_prev.timestamp() * 1000 )
+
+# tda.get_pricehistory() variables
+p_type = 'day'
+period = None
+f_type = 'minute'
+freq = '1'
+
 for ticker in stocks.keys():
 	if ( tda_gobot_helper.check_blacklist(ticker) == True and args.force == False ):
 		print('(' + str(ticker) + ') Error: stock ' + str(ticker) + ' found in blacklist file, removing from the list')
@@ -120,7 +137,21 @@ for ticker in stocks.keys():
 		print('Warning: stock(' + str(ticker) + '): does not appear to be shortable, disabling --short')
 		stocks[ticker]['shortable'] = False
 
-	time.sleep(1)
+	avg_vol = 0
+	data = False
+	while ( data == False ):
+		data, epochs = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, needExtendedHoursData=False)
+		if ( data == False ):
+			time.sleep(5)
+			if ( tda_gobot_helper.tdalogin(passcode) != True ):
+				print('Error: (' + str(ticker) + '): Login failure')
+			continue
+
+	for key in data['candles']:
+		avg_vol += float(key['volume'])
+	stocks[ticker]['avg_volume'] = int( round(avg_vol / len(data['candles']), 0) )
+
+	time.sleep(2)
 
 # Initialize signal handlers to dump stock history on exit
 def graceful_exit(signum, frame):
@@ -180,13 +211,14 @@ def gap_monitor(stream=None, debug=False):
 
 		stocks[ticker]['pricehistory']['candles'].append(candle_data)
 
-		if ( debug == True ):
-			print(str(ticker) + ': ' + str(candle_data))
-
-
-#	if ( tda_gobot_helper.ismarketopen_US() == False ):
 #		if ( debug == True ):
-#			print('Market is closed.')
+#			print(str(ticker) + ': ' + str(candle_data))
+#			print(str(stocks[ticker]['avg_volume']))
+
+
+	if ( tda_gobot_helper.ismarketopen_US() == False ):
+		if ( debug == True ):
+			print('Market is closed.')
 
 		return True
 
@@ -201,8 +233,10 @@ def gap_monitor(stream=None, debug=False):
 		if ( len(stocks[ticker]['pricehistory']['candles']) < 2 ):
 			continue
 
+		open_price = float(stocks[ticker]['pricehistory']['candles'][-1]['open'])
 		cur_price = float(stocks[ticker]['pricehistory']['candles'][-1]['close'])
 		prev_price = float(stocks[ticker]['pricehistory']['candles'][-2]['close'])
+
 		cur_vol = float(stocks[ticker]['pricehistory']['candles'][-1]['volume'])
 		prev_vol = float(stocks[ticker]['pricehistory']['candles'][-2]['volume'])
 
@@ -215,27 +249,27 @@ def gap_monitor(stream=None, debug=False):
 		if ( cur_price > prev_price ):
 			# Bull
 			direction = 'UP'
-			price_change = ( (cur_price - prev_price) / cur_price ) * 100
+			price_change = ( (cur_price - open_price) / prev_price ) * 100
 		else:
 			# Bear
 			direction = 'DOWN'
-			price_change = ( (prev_price - cur_price) / prev_price ) * 100
+			price_change = ( (open_price - cur_price) / prev_price ) * 100
 
-		vol_change = ( (cur_vol - prev_vol) / cur_vol ) * 100
+		vol_change = ( (cur_vol - int(stocks[ticker]['avg_volume'])) / cur_vol ) * 100
 
-
-		# FIXME
-		# Call gap up/down if price and volume change significantly
-		if ( price_change > 0.2 and vol_change > 0.25 ):
+		# Call gap up/down if price and volume change significantly (>1%)
+		if ( price_change > 1 ):
 			print( '(' + str(ticker) + '): Gap ' + str(direction).upper() + ' detected' )
 
-			print( 'Current Price: ' + str(round(cur_price, 2)) +
-				', Previous Price: ' + str(round(prev_price, 2)) +
+			print( 'Current Price: ' + str(round(cur_price, 2)) + ', ' +
+				'Previous Price: ' + str(round(prev_price, 2)) +
 				' (' + str(round(price_change, 2)) + '%)' )
 
-			print( 'Current Volume: ' + str(cur_vol) +
-				', Previous Volume: ' + str(prev_vol) +
-				' (' + str(round(vol_change, 2)) + '%)' )
+			print( 'Current Volume: ' + str(cur_vol) + ', ' +
+				'Average Volume: ' + str(stocks[ticker]['avg_volume']) +
+				'(+' + str(vol_change) + '%)' )
+
+		# FIXME: unsure what to look for regarding volume - need to do some live testing
 
 	return True
 

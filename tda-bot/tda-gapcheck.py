@@ -22,7 +22,6 @@ import json
 parser = argparse.ArgumentParser()
 parser.add_argument("--stocks", help='Stock ticker(s) to purchase (comma delimited)', required=True, type=str)
 parser.add_argument("--stock_usd", help='Amount of money (USD) to invest per trade', default=1000, type=float)
-parser.add_argument("--algo", help='Algorithm to use (rsi|stochrsi)', default='stochrsi', type=str)
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
 parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX_LOGS', default='TX_LOGS', type=str)
@@ -37,7 +36,6 @@ parser.add_argument("--max_failed_txs", help='Maximum number of failed transacti
 parser.add_argument("--max_failed_usd", help='Maximum allowed USD for a failed transaction before the stock is blacklisted', default=100, type=int)
 parser.add_argument("--scalp_mode", help='Enable scalp mode (fixes incr_threshold and decr_threshold', action="store_true")
 
-parser.add_argument("--short", help='Enable short selling of stock', action="store_true")
 parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
 args = parser.parse_args()
 
@@ -54,11 +52,6 @@ if ( args.scalp_mode == True ):
 	args.incr_threshold = 0.1
 	args.decr_threshold = 0.25
 
-# Early exit criteria goes here
-if ( args.notmarketclosed == True and tda_gobot_helper.ismarketopen_US() == False ):
-	print('Market is closed and --notmarketclosed was set, exiting')
-	sys.exit(1)
-
 # Initialize and log into TD Ameritrade
 from dotenv import load_dotenv
 if ( load_dotenv() != True ):
@@ -69,13 +62,8 @@ tda_account_number = os.environ["tda_account_number"]
 passcode = os.environ["tda_encryption_passcode"]
 
 tda_gobot_helper.tda = tda
-tda_stochrsi_gobot_helper.tda = tda
-
 tda_gobot_helper.tda_account_number = tda_account_number
-tda_stochrsi_gobot_helper.tda_account_number = tda_account_number
-
 tda_gobot_helper.passcode = passcode
-tda_stochrsi_gobot_helper.passcode = passcode
 
 if ( tda_gobot_helper.tdalogin(passcode) != True ):
 	print('Error: Login failure', file=sys.stderr)
@@ -100,7 +88,7 @@ for ticker in args.stocks.split(','):
 				   'isvalid':			True,
 
 				   # Candle data
-				   'pricehistory':		{}
+				   'pricehistory':		{ 'candles': [] }
 			}} )
 
 	time.sleep(1)
@@ -111,7 +99,10 @@ if ( len(stocks) == 0 ):
 
 # TDA API is limited to 150 non-transactional calls per minute. It's best to sleep
 #  a bit here to avoid spurious errors later.
-time.sleep(60)
+if ( len(stocks) > 20 ):
+	time.sleep(60)
+else:
+	time.sleep(len(stocks))
 
 # Initialize additional stocks{} values
 for ticker in stocks.keys():
@@ -121,20 +112,13 @@ for ticker in stocks.keys():
 		continue
 
 	# Confirm that we can short this stock
-	if ( args.short == True or args.shortonly == True ):
-		data,err = tda.stocks.get_quote(ticker, True)
-		if ( err != None ):
-			print('Error: get_quote(' + str(ticker) + '): ' + str(err), file=sys.stderr)
+	data,err = tda.stocks.get_quote(ticker, True)
+	if ( err != None ):
+		print('Error: get_quote(' + str(ticker) + '): ' + str(err), file=sys.stderr)
 
-		if ( str(data[ticker]['shortable']) == str(False) or str(data[ticker]['marginable']) == str(False) ):
-			if ( args.shortonly == True ):
-				print('Error: stock(' + str(ticker) + '): does not appear to be shortable, removing from the list')
-				stocks[ticker]['isvalid'] = False
-				continue
-
-			elif ( args.short == True ):
-				print('Warning: stock(' + str(ticker) + '): does not appear to be shortable, disabling --short')
-				stocks[ticker]['shortable'] = False
+	if ( str(data[ticker]['shortable']) == str(False) or str(data[ticker]['marginable']) == str(False) ):
+		print('Warning: stock(' + str(ticker) + '): does not appear to be shortable, disabling --short')
+		stocks[ticker]['shortable'] = False
 
 	time.sleep(1)
 
@@ -149,7 +133,7 @@ def siguser1_handler(signum, frame):
 	print("\nNOTICE: siguser1_handler(): received signal")
 	print("NOTICE: Calling sell_stocks() to exit open positions...\n")
 
-	tda_stochrsi_gobot_helper.sell_stocks()
+	sell_stocks()
 	graceful_exit(None, None)
 	sys.exit(0)
 
@@ -158,26 +142,11 @@ signal.signal(signal.SIGTERM, graceful_exit)
 signal.signal(signal.SIGUSR1, siguser1_handler)
 
 
-# MAIN: Log into tda-api and run the stream client
-tda_api_key = os.environ['tda_consumer_key']
-tda_pickle = os.environ['HOME'] + '/.tokens/tda2.pickle'
-
-# Initializes and reads from TDA stream API
-async def read_stream():
-	await stream_client.login()
-	await stream_client.quality_of_service(StreamClient.QOSLevel.EXPRESS)
-
-	stream_client.add_chart_equity_handler(
-		lambda msg: gap_monitor(msg, args.debug) )
-
-	await stream_client.chart_equity_subs( stocks.keys() )
-
-	while True:
-		await stream_client.handle_message()
-
-
 # Monitor stock for big jumps in price and volume
 def gap_monitor(stream=None, debug=False):
+
+	if ( stream == None ):
+		return False
 
 	# Example stream:
 	#
@@ -211,8 +180,14 @@ def gap_monitor(stream=None, debug=False):
 
 		stocks[ticker]['pricehistory']['candles'].append(candle_data)
 
+		if ( debug == True ):
+			print(str(ticker) + ': ' + str(candle_data))
 
-	if ( tda_gobot_helper.ismarketopen_US() == False ):
+
+#	if ( tda_gobot_helper.ismarketopen_US() == False ):
+#		if ( debug == True ):
+#			print('Market is closed.')
+
 		return True
 
 	# Iterate through the stock tickers
@@ -265,6 +240,52 @@ def gap_monitor(stream=None, debug=False):
 	return True
 
 
+# Sell any open positions. This is usually called via a signal handler.
+def sell_stocks():
+
+	# Make sure we are logged into TDA
+	if ( tda_gobot_helper.tdalogin(passcode) != True ):
+		print('Error: sell_stocks(): tdalogin(): login failure')
+		return False
+
+	# Run through the stocks we are watching and sell/buy-to-cover any open positions
+	data = tda.get_account(tda_account_number, options='positions', jsonify=True)
+	for ticker in stocks.keys():
+
+		# Look up the stock in the account and sell
+		for asset in data[0]['securitiesAccount']['positions']:
+			if ( str(asset['instrument']['symbol']).upper() == str(ticker).upper() ):
+
+				if ( float(asset['shortQuantity']) > 0 ):
+					print('Covering ' + str(asset['shortQuantity']) + ' shares of ' + str(ticker))
+					data = tda_gobot_helper.buytocover_stock_marketprice(ticker, asset['shortQuantity'], fillwait=False, debug=False)
+				else:
+					print('Selling ' + str(asset['longQuantity']) + ' shares of ' + str(ticker))
+					data = tda_gobot_helper.sell_stock_marketprice(ticker, asset['longQuantity'], fillwait=False, debug=False)
+
+				break
+
+	return True
+
+
+# MAIN: Log into tda-api and run the stream client
+tda_api_key = os.environ['tda_consumer_key']
+tda_pickle = os.environ['HOME'] + '/.tokens/tda2.pickle'
+
+# Initializes and reads from TDA stream API
+async def read_stream():
+	await stream_client.login()
+	await stream_client.quality_of_service(StreamClient.QOSLevel.EXPRESS)
+
+	stream_client.add_chart_equity_handler(
+		lambda msg: gap_monitor(msg, args.debug) )
+
+	await stream_client.chart_equity_subs( stocks.keys() )
+
+	while True:
+		await stream_client.handle_message()
+
+
 # MAIN
 while True:
 
@@ -301,3 +322,4 @@ while True:
 
 
 sys.exit(0)
+

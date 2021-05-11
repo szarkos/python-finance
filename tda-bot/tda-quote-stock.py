@@ -24,6 +24,7 @@ parser.add_argument("-n", "--lines", help="Number of lines to output (relevant f
 
 parser.add_argument("--rawquote", help="Get the raw quote info from the API", action="store_true")
 parser.add_argument("--quote", help="Get the latest price quote", action="store_true")
+parser.add_argument("--blacklist", help="Blacklist stock ticker for one month", action="store_true")
 parser.add_argument("--history", help="Get price history", action="store_true")
 parser.add_argument("--vwap", help="Get VWAP values", action="store_true")
 parser.add_argument("--rsi", help="Get RSI values", action="store_true")
@@ -110,6 +111,11 @@ if ( args.quote == True ):
 		exit(1)
 
 	print( str(stock) + "\t" + str(last_price))
+	exit(0)
+
+
+if ( args.blacklist == True ):
+	tda_gobot_helper.write_blacklist(stock, 0, 0, 0, 0, 0)
 	exit(0)
 
 

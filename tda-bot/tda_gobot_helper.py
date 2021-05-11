@@ -241,7 +241,7 @@ def write_blacklist(ticker=None, stock_qty=-1, orig_base_price=-1, last_price=-1
 
 	blacklist = '.stock-blacklist'
 	try:
-		fh = open( blacklist, "wt" )
+		fh = open( blacklist, "at" )
 
 	except OSError as e:
 		print('Error: write_blacklist(): Unable to open file ' + str(blacklist) + ': ' + e, file=sys.stderr)
@@ -2885,47 +2885,49 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	# SMA200 and EMA50
 	# Determine if the stock is bearish or bullish based on SMA/EMA
 	isbull = isbear = None
-	sma, p_history = get_sma(ticker, 200, False)
-	if ( isinstance(sma, bool) and sma == False ):
-		print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_sma() returned false - no data')
-	else:
-		ema, p_history = get_ema(ticker, 50, False)
-		if ( isinstance(ema, bool) and ema == False ):
-			print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_ema() returned false - no data')
-		else:
-			isbull = False
-			isbear = True
-			if ( float(ema[-1]) > float(sma[-1]) ):
-				isbull = True
-				isbear = False
-	del(p_history)
+#	sma, p_history = get_sma(ticker, 200, False)
+#	if ( isinstance(sma, bool) and sma == False ):
+#		print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_sma() returned false - no data')
+#	else:
+#		ema, p_history = get_ema(ticker, 50, False)
+#		if ( isinstance(ema, bool) and ema == False ):
+#			print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_ema() returned false - no data')
+#		else:
+#			isbull = False
+#			isbear = True
+#			if ( float(ema[-1]) > float(sma[-1]) ):
+#				isbull = True
+#				isbear = False
+#	del(p_history)
 
 	# Get general information about the stock that we can use later
 	# I.e. volatility, resistance, etc.
 	three_week_high = three_week_low = three_week_avg = -1
 	twenty_week_high = twenty_week_low = twenty_week_avg = -1
-	try:
-		# 3-week high / low / average
-		three_week_high, three_week_low, three_week_avg = get_price_stats(ticker, days=15)
-
-	except Exception as e:
-		print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
-
-	time.sleep(0.5)
-	try:
-		# 20-week high / low / average
-		twenty_week_high, twenty_week_low, twenty_week_avg = get_price_stats(ticker, days=100)
-
-	except Exception as e:
-		print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
-
-	# Set the price resistance and support based on whether the stock is bull or bearish
-	if ( isbull == True ):
-		price_resistance_pct = 1
-		price_support_pct = 1.5
-	else:
-		price_resistance_pct = 1.5
-		price_support_pct = 1
+#	try:
+#		# 3-week high / low / average
+#		three_week_high, three_week_low, three_week_avg = get_price_stats(ticker, days=15)
+#
+#	except Exception as e:
+#		print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
+#
+#	time.sleep(0.5)
+#	try:
+#		# 20-week high / low / average
+#		twenty_week_high, twenty_week_low, twenty_week_avg = get_price_stats(ticker, days=100)
+#
+#	except Exception as e:
+#		print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
+#
+#	# Set the price resistance and support based on whether the stock is bull or bearish
+#	if ( isbull == True ):
+#		price_resistance_pct = 1
+#		price_support_pct = 1.5
+#	else:
+#		price_resistance_pct = 1.5
+#		price_support_pct = 1
+	price_resistance_pct = 1
+	price_support_pct = 1.5
 
 
 	# Run through the RSI values and log the results

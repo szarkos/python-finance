@@ -88,19 +88,20 @@ if ( tda_gobot_helper.check_blacklist(stock) == True ):
 	print('(' + str(stock) + ') WARNING: stock ' + str(stock) + ' is currently blacklisted')
 
 # Confirm that we can short this stock
-if ( args.noshort == False or args.shortonly == True ):
-	data,err = tda.stocks.get_quote(stock, True)
-	if ( err != None ):
-		print('Error: get_quote(' + str(stock) + '): ' + str(err), file=sys.stderr)
+if ( args.ifile == None ):
+	if ( args.noshort == False or args.shortonly == True ):
+		data,err = tda.stocks.get_quote(stock, True)
+		if ( err != None ):
+			print('Error: get_quote(' + str(stock) + '): ' + str(err), file=sys.stderr)
 
-	if ( str(data[stock]['shortable']) == str(False) or str(data[stock]['marginable']) == str(False) ):
-		if ( args.shortonly == True ):
-			print('Error: stock(' + str(stock) + '): does not appear to be shortable, exiting.')
-			exit(1)
+		if ( str(data[stock]['shortable']) == str(False) or str(data[stock]['marginable']) == str(False) ):
+			if ( args.shortonly == True ):
+				print('Error: stock(' + str(stock) + '): does not appear to be shortable, exiting.')
+				exit(1)
 
-		if ( args.noshort == False ):
-			print('Warning: stock(' + str(stock) + '): does not appear to be shortable, disabling sell-short')
-			args.noshort = True
+			if ( args.noshort == False ):
+				print('Warning: stock(' + str(stock) + '): does not appear to be shortable, disabling sell-short')
+				args.noshort = True
 
 
 # tda.get_price_history() variables
@@ -135,24 +136,25 @@ volatility = 0
 lastprice = 0
 high = low = 0
 
-try:
-	data,err = tda.stocks.get_quote(stock, True)
-	if ( err == None and data != {} ):
-		if ( str(data[stock]['marginable']) == 'True' ):
-			marginable = True
-		if ( str(data[stock]['shortable']) == 'True' ):
-			shortable = True
-		if ( str(data[stock]['delayed']) == 'False' ):
-			delayed = False
+if ( args.ifile == None ):
+	try:
+		data,err = tda.stocks.get_quote(stock, True)
+		if ( err == None and data != {} ):
+			if ( str(data[stock]['marginable']) == 'True' ):
+				marginable = True
+			if ( str(data[stock]['shortable']) == 'True' ):
+				shortable = True
+			if ( str(data[stock]['delayed']) == 'False' ):
+				delayed = False
 
-		volatility = data[stock]['volatility'] # FIXME: I don't know what this means yet
-		lastprice = data[stock]['lastPrice']
-		high = data[stock]['52WkHigh']
-		low = data[stock]['52WkLow']
+			volatility = data[stock]['volatility'] # FIXME: I don't know what this means yet
+			lastprice = data[stock]['lastPrice']
+			high = data[stock]['52WkHigh']
+			low = data[stock]['52WkLow']
 
-except Exception as e:
-	print('Caught exception in tda.stocks.get_quote(' + str(stock) + '): ' + str(e))
-	pass
+	except Exception as e:
+		print('Caught exception in tda.stocks.get_quote(' + str(stock) + '): ' + str(e))
+		pass
 
 print()
 print( 'Stock summary for "' + str(stock) + "\"\n" )
@@ -271,7 +273,6 @@ for algo in args.algo.split(','):
 			except Exception as e:
 				print('Unable to write to file ' + str(args.ofile) + ': ' + str(e))
 
-
 		# Subtract 1 because stochrsi_analyze_new() skips the first day of data
 		days = int(days) - 1
 
@@ -303,7 +304,6 @@ for algo in args.algo.split(','):
 		if ( int(len(results)) == 0 ):
 			print('There were no possible trades for requested time period, exiting.')
 			continue
-
 
 		# Print the returned results
 		if ( algo == 'rsi' and args.verbose ):
@@ -425,9 +425,16 @@ for algo in args.algo.split(','):
 		#   <-3			 = Bad
 		#   Success % <= Fail %  = FAIL
 		#   Avg Gain <= Avg Loss = FAIL
-		success_pct = (int(success) / int(len(results) / 2) ) * 100	# % Successful trades using algorithm
-		fail_pct = ( int(fail) / int(len(results) / 2) ) * 100		# % Failed trades using algorithm
 		txs = int(len(results) / 2) / int(days)				# Average buy or sell triggers per day
+		if ( success == 0 ):
+			success_pct = 0
+		else:
+			success_pct = (int(success) / int(len(results) / 2) ) * 100	# % Successful trades using algorithm
+
+		if ( fail == 0 ):
+			fail_pct = 0
+		else:
+			fail_pct = ( int(fail) / int(len(results) / 2) ) * 100		# % Failed trades using algorithm
 
 		average_gain = 0
 		average_loss = 0
@@ -470,7 +477,11 @@ for algo in args.algo.split(','):
 		print( 'Average loss: ' + text_color + str(round(average_loss, 2)) + ' / share' + reset_color )
 
 		# Calculate the average gain per share price
-		last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=False)
+		if ( args.ifile != None ):
+			last_price = data['candles'][-1]['close']
+		else:
+			last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=False)
+
 		if ( last_price != False ):
 			avg_gain_per_share = float(average_gain) / float(last_price) * 100
 			if ( avg_gain_per_share < 1 ):

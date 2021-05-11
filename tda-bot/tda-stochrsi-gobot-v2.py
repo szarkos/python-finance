@@ -36,7 +36,9 @@ parser.add_argument("--force", help='Force bot to purchase the stock even if it 
 parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
 parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX_LOGS', default='TX_LOGS', type=str)
 
-parser.add_argument("--multiday", help='Watch stock until decr_threshold is reached. Do not sell and exit when market closes', action="store_true")
+parser.add_argument("--multiday", help='Run and monitor stock continuously across multiple days (but will not trade after hours)', action="store_true")
+parser.add_argument("--singleday", help='Allows bot to start (but not trade) before market opens. Bot will revert to non-multiday behavior after the market opens.', action="store_true")
+parser.add_argument("--unsafe", help='Allow trading between 9:30-10:15AM where volatility is high', action="store_true")
 parser.add_argument("--notmarketclosed", help='Cancel order and exit if US stock market is closed', action="store_true")
 parser.add_argument("--hold_overnight", help='Hold stocks overnight when --multiday is in use (default: False)', action="store_true")
 parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (default=False)', action="store_true")
@@ -78,13 +80,19 @@ mytimezone = pytz.timezone("US/Eastern")
 tda_gobot_helper.mytimezone = mytimezone
 tda_stochrsi_gobot_helper.mytimezone = mytimezone
 
+# safe_open ensure that we don't trade until after 10:15AM Eastern
+safe_open = True
+if ( args.unsafe == True ):
+	safe_open = False
+tda_stochrsi_gobot_helper.safe_open = safe_open
+
 # Set incr_threshold and decr_threshold is scalp_mode==True
 if ( args.scalp_mode == True ):
 	args.incr_threshold = 0.1
 	args.decr_threshold = 0.25
 
 # Early exit criteria goes here
-if ( args.notmarketclosed == True and tda_gobot_helper.ismarketopen_US() == False ):
+if ( args.notmarketclosed == True and tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False ):
 	print('Market is closed and --notmarketclosed was set, exiting')
 	sys.exit(1)
 

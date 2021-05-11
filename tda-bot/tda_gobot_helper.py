@@ -83,7 +83,7 @@ def isnewday():
 
 # Returns True the US markets are open
 # Nasdaq and NYSE open at 9:30AM and close at 4:00PM, Monday-Friday
-def ismarketopen_US(date=None):
+def ismarketopen_US(date=None, safe_open=False):
 	eastern = timezone('US/Eastern') # Observes EST and EDT
 
 	if ( date == None ):
@@ -126,13 +126,27 @@ def ismarketopen_US(date=None):
 	if ( int(est_time.strftime('%w')) != 0 and int(est_time.strftime('%w')) != 6 ): # 0=Sunday, 6=Saturday
 		if ( int(est_time.strftime('%-H')) >= 9 ):
 			if ( int(est_time.strftime('%-H')) == 9 ):
-				if ( int(est_time.strftime('%-M')) < 30 ):
+
+				# Do not return True until after 10AM to void some of the volatility of the open
+				if ( isinstance(safe_open, bool) and safe_open == True ):
 					return False
+
+				if ( int(est_time.strftime('%-M')) >= 30 ):
+					return True
 				else:
-					return True
-			else:
-				if ( int(est_time.strftime('%-H')) <= 15 and int(est_time.strftime('%-M')) <= 59 ):
-					return True
+					return False
+
+			if ( int(est_time.strftime('%-H')) == 10 ):
+
+				# Do not return True until after 10AM to void some of the volatility of the open
+				if ( isinstance(safe_open, bool) and safe_open == True ):
+					if ( int(est_time.strftime('%-M')) >= 15 ):
+						return True
+					else:
+						return False
+
+			if ( int(est_time.strftime('%-H')) <= 15 and int(est_time.strftime('%-M')) <= 59 ):
+				return True
 
 	return False
 

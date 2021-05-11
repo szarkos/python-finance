@@ -39,6 +39,13 @@ def reset_signals(ticker=None):
 def export_pricehistory():
 
 	print("Writing stock pricehistory to ./" + args.tx_log_dir + "/\n")
+	try:
+		if ( os.path.isdir('./' + str(args.tx_log_dir)) == False ):
+			os.mkdir('./' + str(args.tx_log_dir), mode=0o755)
+
+	except OSError as e:
+		print('Error: export_pricehistory(): Unable to make directory ./' + str(args.tx_log_dir) + ': ' + e, file=sys.stderr)
+		return False
 
 	for ticker in stocks.keys():
 		if ( len(stocks[ticker]['pricehistory']) == 0 ):
@@ -78,10 +85,11 @@ def stochrsi_gobot( stream=None, debug=False ):
 		sys.exit(0)
 
 	# Exit if we are not set up to monitor across multiple days
-	if ( tda_gobot_helper.ismarketopen_US() == False and args.multiday == False ):
-		print('Market closed, exiting.')
-		export_pricehistory()
-		sys.exit(0)
+	if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False ):
+		if ( args.singleday == False and args.multiday == False ):
+			print('Market closed, exiting.')
+			export_pricehistory()
+			sys.exit(0)
 
 
 	# Example stream:
@@ -112,7 +120,6 @@ def stochrsi_gobot( stream=None, debug=False ):
 				'low':		idx['LOW_PRICE'],
 				'close':	idx['CLOSE_PRICE'],
 				'volume':	idx['VOLUME'],
-#				'datetime':	idx['CHART_TIME'] }
 				'datetime':	stream['timestamp'] }
 
 		stocks[ticker]['pricehistory']['candles'].append(candle_data)
@@ -244,9 +251,13 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 			print()
 
-		# Loop continuously while after hours if --multiday was set
-		if ( tda_gobot_helper.ismarketopen_US() == False and args.multiday == True ):
-			continue
+		# Loop continuously while after hours if --multiday or --singleday is set
+		# Also re-set --singleday to False when the market opens
+		if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False ):
+			if ( args.multiday == True or args.singleday == True ):
+				continue
+		else:
+			args.singleday = False
 
 		# Set some short variables to improve readability :)
 		signal_mode	= stocks[ticker]['signal_mode']
@@ -289,7 +300,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 			# If --multiday isn't set then we do not want to start trading if the market is closed.
 			# Also if --multiday isn't set we should avoid buying any securities if it's within
 			#  1-hour from market close. Otherwise we may be forced to sell too early.
-			if ( (tda_gobot_helper.isendofday(60) == True or tda_gobot_helper.ismarketopen_US() == False) and args.multiday == False ):
+			if ( (tda_gobot_helper.isendofday(60) == True or tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False) and args.multiday == False ):
 				print('(' + str(ticker) + ') Market is closed or near closing.')
 
 				reset_signals(ticker)
@@ -460,7 +471,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 						continue
 
 				# Purchase the stock
-				if ( tda_gobot_helper.ismarketopen_US() == True ):
+				if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == True ):
 					print('Purchasing ' + str(stocks[ticker]['stock_qty']) + ' shares of ' + str(ticker))
 					stocks[ticker]['num_purchases'] -= 1
 
@@ -832,7 +843,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 						continue
 
 				# Short the stock
-				if ( tda_gobot_helper.ismarketopen_US() == True ):
+				if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == True ):
 					print('Shorting ' + str(stocks[ticker]['stock_qty']) + ' shares of ' + str(ticker))
 					stocks[ticker]['num_purchases'] -= 1
 

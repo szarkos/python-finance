@@ -109,6 +109,8 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# TDA stuff
 .tokens
 *.log
 *.log.txt
@@ -126,6 +128,7 @@ log.txt
 stocks.txt
 *.swp
 *.csv
+.stock-blacklist
 
 # Spyder project settings
 .spyderproject

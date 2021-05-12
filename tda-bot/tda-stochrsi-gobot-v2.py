@@ -36,11 +36,11 @@ parser.add_argument("--force", help='Force bot to purchase the stock even if it 
 parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
 parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX_LOGS', default='TX_LOGS', type=str)
 
-parser.add_argument("--multiday", help='Run and monitor stock continuously across multiple days (but will not trade after hours)', action="store_true")
+parser.add_argument("--multiday", help='Run and monitor stock continuously across multiple days (but will not trade after hours) - see also --hold_overnight', action="store_true")
 parser.add_argument("--singleday", help='Allows bot to start (but not trade) before market opens. Bot will revert to non-multiday behavior after the market opens.', action="store_true")
 parser.add_argument("--unsafe", help='Allow trading between 9:30-10:15AM where volatility is high', action="store_true")
 parser.add_argument("--notmarketclosed", help='Cancel order and exit if US stock market is closed', action="store_true")
-parser.add_argument("--hold_overnight", help='Hold stocks overnight when --multiday is in use (default: False)', action="store_true")
+parser.add_argument("--hold_overnight", help='Hold stocks overnight when --multiday is in use (default: False) - Warning: implies --unsafe', action="store_true")
 parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (default=False)', action="store_true")
 
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
@@ -80,7 +80,13 @@ mytimezone = pytz.timezone("US/Eastern")
 tda_gobot_helper.mytimezone = mytimezone
 tda_stochrsi_gobot_helper.mytimezone = mytimezone
 
-# safe_open ensure that we don't trade until after 10:15AM Eastern
+# --hold_overnight implies --multiday
+# --hold_overnight implies --unsafe (safe_open=False)
+if ( args.hold_overnight == True ):
+	args.multiday = True
+	args.unsafe = True
+
+# Safe open - ensure that we don't trade until after 10:15AM Eastern
 safe_open = True
 if ( args.unsafe == True ):
 	safe_open = False

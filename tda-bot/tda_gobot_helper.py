@@ -9,6 +9,7 @@ from pytz import timezone
 import tulipy as ti
 import numpy as np
 import pandas as pd
+from pandas_datareader import data as web
 
 from func_timeout import func_timeout, FunctionTimedOut
 
@@ -566,6 +567,50 @@ def get_price_stats(ticker=None, days=100, debug=False):
 
 	# Return the high, low and average stock price
 	return high, low, avg
+
+
+# Get previous day close
+def get_pdc(pricehistory=None, debug=False):
+
+	if ( pricehistory == None ):
+		return None
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		print('(' + str(ticker) + '): Exception caught: ' + str(e))
+		return None
+
+	try:
+		mytimezone
+	except:
+		mytimezone = timezone("US/Eastern")
+
+	today = pricehistory['candles'][-1]['datetime']
+	today = datetime.fromtimestamp(float(today)/1000, tz=mytimezone)
+
+	yesterday = today - timedelta(days=1)
+	yesterday = fix_timestamp(yesterday)
+	yesterday = yesterday.strftime('%Y-%m-%d')
+
+	today = today.strftime('%Y-%m-%d')
+
+	pdc = None
+	try:
+		pdc = func_timeout( 10, web.DataReader, args=(ticker,), kwargs={'data_source': 'yahoo', 'start': yesterday, 'end': yesterday} )
+		pdc = pdc['Adj Close']
+		pdc = pdc.values[0]
+
+	except FunctionTimedOut:
+		print('(' + str(ticker) + '): Exception caught: ' + str(e))
+		return None
+
+	except Exception as e:
+		print('(' + str(ticker) + '): Exception caught: ' + str(e))
+		return None
+
+	return pdc
 
 
 # Return the N-day simple moving average (SMA) (default: 200-day)
@@ -1204,20 +1249,93 @@ def get_rsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 	return rsi
 
 
-# Return numpy array of Stochastic RSI values for a given price history.
-# Reference: https://tulipindicators.org/stochrsi
-# 'pricehistory' should be a data list obtained from get_pricehistory()
-def get_stochrsi(pricehistory=None, rsi_period=14, stochrsi_period=128, type='close', rsi_d_period=3, rsi_k_period=14, slow_period=3, debug=False):
-
-	if ( pricehistory == None ):
-		print('Error: get_stochrsi(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
-		return False, [], []
+# Wilder RSI
+def get_wilders_rsi(pricehistory=None, rsi_period=14, round_rsi=True, type='close', debug=False):
 
 	ticker = ''
 	try:
 		ticker = pricehistory['symbol']
 	except:
 		pass
+
+	if ( pricehistory == None ):
+		print('Error: get_stochrsi(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False, [], []
+
+	prices = []
+	if ( type == 'close' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['close']))
+
+	elif ( type == 'high' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['high']))
+
+	elif ( type == 'low' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['low']))
+
+	elif ( type == 'open' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['open']))
+
+	elif ( type == 'volume' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['volume']))
+
+	elif ( type == 'hl2' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+
+	elif ( type == 'hlc3' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+
+	elif ( type == 'ohlc4' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+
+	else:
+		# Undefined type
+		print('Error: get_rsi(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
+		return False
+
+	prices = np.array( prices )
+	columns = ['close']
+	prices = pd.DataFrame(data=prices, columns=columns)
+
+	delta = prices['close'].diff()
+
+	up = delta.copy()
+	up[up < 0] = 0
+	up = pd.Series.ewm(up, alpha=1/rsi_period).mean()
+
+	down = delta.copy()
+	down[down > 0] = 0
+	down *= -1
+	down = pd.Series.ewm(down, alpha=1/rsi_period).mean()
+
+	rsi = np.where(up == 0, 0, np.where(down == 0, 100, 100 - (100 / (1 + up / down))))
+	if ( round_rsi == True ):
+		return np.round(rsi, 2)
+	else:
+		return rsi
+
+
+# Return numpy array of Stochastic RSI values for a given price history.
+# Reference: https://tulipindicators.org/stochrsi
+# 'pricehistory' should be a data list obtained from get_pricehistory()
+def get_stochrsi(pricehistory=None, rsi_period=14, stochrsi_period=128, type='close', rsi_d_period=3, rsi_k_period=128, slow_period=3, debug=False):
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	if ( pricehistory == None ):
+		print('Error: get_stochrsi(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False, [], []
 
 	prices = []
 	if ( type == 'close' ):
@@ -1261,10 +1379,11 @@ def get_stochrsi(pricehistory=None, rsi_period=14, stochrsi_period=128, type='cl
 		# Something is wrong with the data we got back from tda.get_price_history()
 		print('Warning: get_stochrsi(' + str(ticker) + '): len(pricehistory) is less than stochrsi_period - is this a new stock ticker?', file=sys.stderr)
 
+	prices = np.array( prices )
+
 	# ti.stochrsi
 	try:
-		np_prices = np.array( prices )
-		stochrsi = ti.stochrsi( np_prices, period=rsi_period )
+		stochrsi = ti.stochrsi( prices, period=rsi_period )
 
 	except Exception as e:
 		print( 'Caught Exception: get_stochrsi(' + str(ticker) + '): ti.stochrsi(): ' + str(e) + ', len(pricehistory)=' + str(len(pricehistory['candles'])) )
@@ -1275,7 +1394,7 @@ def get_stochrsi(pricehistory=None, rsi_period=14, stochrsi_period=128, type='cl
 	#   K measures the strength of the current move relative to the range of the previous n-periods
 	#   D is a simple moving average of the K
 	try:
-		rsi = get_rsi( pricehistory, rsi_period=stochrsi_period, type=type )
+		rsi = ti.rsi( prices, period=stochrsi_period )
 		k, d = ti.stoch( rsi, rsi, rsi, rsi_k_period, slow_period, rsi_d_period )
 
 	except Exception as e:
@@ -2828,9 +2947,9 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 
 
 # Like stochrsi_analyze(), but sexier
-def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=14, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=14, rsi_d_period=3,
-			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=2, hold_overnight=False,
-			  noshort=False, shortonly=False, no_use_resistance=False, with_adx=True, with_dmi=True, with_aroonosc=True, with_macd=True, debug=False ):
+def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3,
+			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=1.5, hold_overnight=False,
+			  noshort=False, shortonly=False, no_use_resistance=False, with_rsi=True, with_adx=True, with_dmi=True, with_aroonosc=True, with_macd=True, safe_open=True, start_date=None, debug=False ):
 
 	if ( ticker == None or pricehistory == None ):
 		print('Error: stochrsi_analyze(' + str(ticker) + '): Either pricehistory or ticker is empty', file=sys.stderr)
@@ -2845,7 +2964,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	try:
 		stochrsi, rsi_k, rsi_d = get_stochrsi(pricehistory, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
 
-	except:
+	except Exception as e:
 		print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_stochrsi(): ' + str(e))
 		return False
 
@@ -2863,6 +2982,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	if ( len(rsi_k) != len(rsi_d) ):
 		print( 'Warning, unexpected length of rsi_k (pricehistory[candles]=' + str(len(pricehistory['candles'])) +
 			', len(rsi_k)=' + str(len(stochrsi)) + '), len(rsi_d)=' + str(len(rsi_d)) + ')' )
+
+	# Get RSI
+	try:
+		rsi = get_rsi(pricehistory, rsi_period, rsi_type, debug=False)
+	except:
+		print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_rsi(): ' + str(e))
+		return False
 
 	# ADX, +DI, -DI
 	adx = []
@@ -2918,30 +3044,34 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	# I.e. volatility, resistance, etc.
 	three_week_high = three_week_low = three_week_avg = -1
 	twenty_week_high = twenty_week_low = twenty_week_avg = -1
-#	try:
-#		# 3-week high / low / average
-#		three_week_high, three_week_low, three_week_avg = get_price_stats(ticker, days=15)
-#
-#	except Exception as e:
-#		print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
-#
-#	time.sleep(0.5)
-#	try:
-#		# 20-week high / low / average
-#		twenty_week_high, twenty_week_low, twenty_week_avg = get_price_stats(ticker, days=100)
-#
-#	except Exception as e:
-#		print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
-#
-#	# Set the price resistance and support based on whether the stock is bull or bearish
-#	if ( isbull == True ):
-#		price_resistance_pct = 1
-#		price_support_pct = 1.5
-#	else:
-#		price_resistance_pct = 1.5
-#		price_support_pct = 1
 	price_resistance_pct = 1
 	price_support_pct = 1.5
+	if ( no_use_resistance == False ):
+		try:
+			# 3-week high / low / average
+			three_week_high, three_week_low, three_week_avg = get_price_stats(ticker, days=15)
+
+		except Exception as e:
+			print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
+
+		time.sleep(0.5)
+		try:
+			# 20-week high / low / average
+			twenty_week_high, twenty_week_low, twenty_week_avg = get_price_stats(ticker, days=100)
+
+		except Exception as e:
+			print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
+
+		# Set the price resistance and support based on whether the stock is bull or bearish
+		if ( isbull == True ):
+			price_resistance_pct = 1
+			price_support_pct = 1.5
+		else:
+			price_resistance_pct = 1.5
+			price_support_pct = 1
+
+
+	previous_day_close = get_pdc(pricehistory)
 
 
 	# Run through the RSI values and log the results
@@ -2953,6 +3083,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	aroonosc_idx = len(pricehistory['candles']) - len(aroonosc)
 	macd_idx = len(pricehistory['candles']) - len(macd)
 
+	r_idx = len(pricehistory['candles']) - len(rsi)
+
 	buy_signal = False
 	sell_signal = False
 	short_signal = False
@@ -2963,6 +3095,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	final_short_signal = False
 	final_buy_to_cover_signal = False
 
+	rsi_signal = False
 	adx_signal = False
 	dmi_signal = False
 	aroonosc_signal = False
@@ -3005,6 +3138,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		cur_rsi_d = rsi_d[idx - rsi_idx]
 		prev_rsi_d = rsi_d[(idx - rsi_idx) - 1]
 
+		cur_r = rsi[idx - r_idx]
+
 		# Additional indicators
 		cur_adx = adx[idx - adx_idx]
 
@@ -3024,8 +3159,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 
 		# Ignore pre-post market since we cannot trade during those hours
+		# Also skip to start_date if one is set
 		date = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone)
-		if ( ismarketopen_US(date) != True ):
+		if ( ismarketopen_US(date, safe_open=safe_open) != True ):
+			continue
+		elif ( start_date != None and date.strftime('%Y-%m-%d') != start_date ):
 			continue
 
 
@@ -3076,6 +3214,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 
 			# Secondary Indicators
+			# RSI signal
+			rsi_signal = False
+			if ( cur_r < 25 ):
+				rsi_signal = True
+
 			# ADX signal
 			adx_signal = False
 			if ( cur_adx > 25 ):
@@ -3129,6 +3272,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
 			final_buy_signal = True
 			if ( buy_signal == True ):
+				if ( with_rsi == True and rsi_signal != True ):
+					final_buy_signal = False
+
 				if ( with_adx == True and adx_signal != True ):
 					final_buy_signal = False
 
@@ -3290,6 +3436,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 
 			# Secondary Indicators
+			# RSI signal
+			rsi_signal = False
+			if ( cur_r > 75 ):
+				rsi_signal = True
+
 			# ADX signal
 			adx_signal = False
 			if ( cur_adx > 25 ):
@@ -3342,6 +3493,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
 			final_short_signal = True
 			if ( short_signal == True ):
+				if ( with_rsi == True and rsi_signal != True ):
+					final_short_signal = False
+
 				if ( with_adx == True and adx_signal != True ):
 					final_short_signal = False
 

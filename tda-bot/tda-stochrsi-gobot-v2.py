@@ -60,6 +60,7 @@ parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/l
 parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=int)
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
 
+parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
 parser.add_argument("--with_adx", help='Use the Average Directional Index (ADX) as a secondary indicator', action="store_true")
 parser.add_argument("--with_dmi", help='Use the Directional Movement Index(DMI) as a secondary indicator', action="store_true")
 parser.add_argument("--with_macd", help='Use the Moving Average Convergence Divergence (MACD) as a secondary indicator', action="store_true")
@@ -138,6 +139,7 @@ for ticker in args.stocks.split(','):
 	if ( tda_gobot_helper.check_stock_symbol(ticker) != True ):
 		print('Error: check_stock_symbol(' + str(ticker) + ') returned False, removing from the list')
 		continue
+
 	time.sleep(1)
 
 	stocks.update( { ticker: { 'shortable':			True,
@@ -188,6 +190,9 @@ for ticker in args.stocks.split(','):
 				    # Aroon Oscillator
 				    'cur_aroonosc':		float(-1),
 
+				    # RSI
+				    'cur_rsi':			flot(-1),
+
 				    # Support / Resistance
 				    'three_week_high':		float(0),
 				    'three_week_low':		float(0),
@@ -196,7 +201,10 @@ for ticker in args.stocks.split(','):
 				    'twenty_week_low':		float(0),
 				    'twenty_week_avg':		float(0),
 
+				    'previous_day_close':	None,
+
 				   # Indicator Signals
+				   'rsi_signal':		False,
 				   'adx_signal':		False,
 				   'dmi_signal':		False,
 				   'aroonosc_signal':		False,
@@ -221,7 +229,10 @@ if ( len(stocks) == 0 ):
 
 # TDA API is limited to 150 non-transactional calls per minute. It's best to sleep
 #  a bit here to avoid spurious errors later.
-time.sleep(len(stocks) * 2)
+if ( len(stocks) > 30 ):
+	time.sleep(60)
+else:
+	time.sleep(len(stocks))
 
 # Initialize additional stocks{} values
 for ticker in stocks.keys():
@@ -247,7 +258,6 @@ for ticker in stocks.keys():
 				stocks[ticker]['shortable'] = False
 
 	time.sleep(1)
-
 
 	# Get general information about the stock that we can use later
 	# I.e. volatility, resistance, etc.
@@ -364,7 +374,10 @@ print( 'Populating pricehistory for stock tickers: ' + str(list(stocks.keys())) 
 
 # TDA API is limited to 150 non-transactional calls per minute. It's best to sleep
 #  a bit here to avoid spurious errors later.
-time.sleep(len(stocks))
+if ( len(stocks) > 30 ):
+	time.sleep(60)
+else:
+	time.sleep(len(stocks))
 
 # Log in again - avoids failing later and we can call this as often as we want
 if ( tda_gobot_helper.tdalogin(passcode) != True ):
@@ -377,7 +390,7 @@ f_type = 'minute'
 freq = '1'
 
 time_now = datetime.datetime.now( mytimezone )
-time_prev = time_now - datetime.timedelta( days=4 )
+time_prev = time_now - datetime.timedelta( days=8 )
 
 # Make sure start and end dates don't land on a weekend or outside market hours
 time_now = tda_gobot_helper.fix_timestamp(time_now)
@@ -393,7 +406,7 @@ for ticker in stocks.keys():
 	# Pull the stock history that we'll use to calculate the Stochastic RSI
 	data = False
 	while ( data == False ):
-		data, epochs = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, needExtendedHoursData=True, debug=False)
+		data, epochs = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, needExtendedHoursData=False, debug=False)
 		if ( data == False ):
 			time.sleep(5)
 			if ( tda_gobot_helper.tdalogin(passcode) != True ):
@@ -406,6 +419,9 @@ for ticker in stocks.keys():
 	if ( len(data['candles']) < int(args.stochrsi_period) * 2 ):
 		print('Warning: stock(' + str(ticker) + '): len(pricehistory[candles]) is less than stochrsi_period*2 (new stock ticker?), removing from the list')
 		stocks[ticker]['isvalid'] = False
+		continue
+
+	stocks[ticker]['previous_day_close'] = tda_gobot_helper.get_pdc(ticker)
 
 	time.sleep(1)
 

@@ -22,6 +22,7 @@ def reset_signals(ticker=None):
 	stocks[ticker]['final_short_signal']		= False
 	stocks[ticker]['final_buy_to_cover_signal']	= False
 
+	stocks[ticker]['rsi_signal']			= False
 	stocks[ticker]['adx_signal']			= False
 	stocks[ticker]['dmi_signal']			= False
 	stocks[ticker]['macd_signal']			= False
@@ -135,7 +136,6 @@ def stochrsi_gobot( stream=None, debug=False ):
 		percent_change = 0
 		net_change = 0
 
-
 		# Get stochastic RSI
 		try:
 			stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(stocks[ticker]['pricehistory'], rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
@@ -156,6 +156,20 @@ def stochrsi_gobot( stream=None, debug=False ):
 		if ( stocks[ticker]['prev_rsi_k'] == -1 or stocks[ticker]['prev_rsi_d'] == -1 ):
 			stocks[ticker]['prev_rsi_k'] = stocks[ticker]['cur_rsi_k']
 			stocks[ticker]['prev_rsi_d'] = stocks[ticker]['cur_rsi_d']
+
+		# RSI
+		if ( args.with_rsi == True ):
+			try:
+				rsi = tda_gobot_helper.get_rsi(stocks[ticker]['pricehistory'], rsi_period, rsi_type, debug=False)
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(): get_rsi(' + str(ticker) + '): ' + str(e))
+
+			if ( isinstance(rsi, bool) and rsi == False ):
+				print('Error: stochrsi_gobot(): get_rsi(' + str(ticker) + ') returned false - no data', file=sys.stderr)
+				continue
+
+			stocks[ticker]['cur_rsi'] = rsi[-1]
 
 		# ADX, +DI, -DI
 		if ( args.with_adx == True or args.with_dmi == True ):
@@ -220,6 +234,10 @@ def stochrsi_gobot( stream=None, debug=False ):
 						' / Previous StochRSI K: ' + str(round(stocks[ticker]['prev_rsi_k'], 2)))
 			print('(' + str(ticker) + ') Current StochRSI D: ' + str(round(stocks[ticker]['cur_rsi_d'], 2)) +
 						' / Previous StochRSI D: ' + str(round(stocks[ticker]['prev_rsi_d'], 2)))
+
+			# RSI
+			if ( args.with_rsi == True ):
+				print('(' + str(ticker) + ') Current RSI: ' + str(round(stocks[ticker]['cur_rsi'], 2)))
 
 			# ADX
 			if ( args.with_adx == True ):
@@ -367,6 +385,12 @@ def stochrsi_gobot( stream=None, debug=False ):
 				reset_signals(ticker)
 
 			# Process any secondary indicators
+			# RSI
+			if ( args.with_rsi == True ):
+				stocks[ticker]['rsi_signal'] = False
+				if ( cur_rsi < 25 ):
+					stocks[ticker]['rsi_signal'] = True
+
 			# ADX signal
 			if ( args.with_adx == True ):
 				stocks[ticker]['adx_signal'] = False
@@ -413,6 +437,9 @@ def stochrsi_gobot( stream=None, debug=False ):
 			if ( stocks[ticker]['buy_signal'] == True ):
 
 				stocks[ticker]['final_buy_signal'] = True
+				if ( args.with_rsi == True and stocks[ticker]['rsi_signal'] != True ):
+					stocks[ticker]['final_buy_signal'] = False
+
 				if ( args.with_adx == True and stocks[ticker]['adx_signal'] != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
@@ -430,20 +457,11 @@ def stochrsi_gobot( stream=None, debug=False ):
 			if ( stocks[ticker]['buy_signal'] == True and stocks[ticker]['final_buy_signal'] == True ):
 
 				# Calculate stock quantity from investment amount
-				last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
-				if ( last_price == False ):
-					print('Error: get_lastprice(' + str(ticker)+ ') returned False')
-					time.sleep(1)
-
-					# Try logging in and looping around again
-					if ( tda_gobot_helper.tdalogin(passcode) != True ):
-						print('Error: tdalogin(): login failure')
-
-					continue
-
+				last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 				stocks[ticker]['stock_qty'] = int( float(stock_usd) / float(last_price) )
 
 				# Final sanity checks should go here
+				# Check resistance at 20-week high
 				if ( args.no_use_resistance == False ):
 					if ( float(last_price) >= float(stocks[ticker]['twenty_week_high']) ):
 						# This is not a good bet
@@ -519,17 +537,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 		elif ( signal_mode == 'sell' ):
 
 			# In 'sell' mode we want to monitor the stock price along with RSI
-			last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
-			if ( last_price == False ):
-				print('Error: get_lastprice(' + str(ticker) + ') returned False')
-
-				# Try logging in and looping around again
-				time.sleep(1)
-				if ( tda_gobot_helper.tdalogin(passcode) != True ):
-					print('Error: tdalogin(): login failure')
-
-				continue
-
+			last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 			net_change = round( (last_price - stocks[ticker]['orig_base_price']) * stocks[ticker]['stock_qty'], 3 )
 
 			# End of trading day - dump the stock and exit unless --multiday was set
@@ -739,6 +747,12 @@ def stochrsi_gobot( stream=None, debug=False ):
 				reset_signals(ticker)
 
 			# Secondary Indicators
+			# RSI
+			if ( args.with_rsi == True ):
+				stocks[ticker]['rsi_signal'] = False
+				if ( cur_rsi > 75 ):
+					stocks[ticker]['rsi_signal'] = True
+
 			# ADX signal
 			if ( args.with_adx == True ):
 				stocks[ticker]['adx_signal'] = False
@@ -785,6 +799,9 @@ def stochrsi_gobot( stream=None, debug=False ):
 			if ( stocks[ticker]['short_signal'] == True ):
 
 				stocks[ticker]['final_short_signal'] = True
+				if ( args.with_rsi == True and stocks[ticker]['rsi_signal'] != True ):
+					stocks[ticker]['final_short_signal'] = False
+
 				if ( args.with_adx == True and stocks[ticker]['adx_signal'] != True ):
 					stocks[ticker]['final_short_signal'] = False
 
@@ -802,20 +819,11 @@ def stochrsi_gobot( stream=None, debug=False ):
 			if ( stocks[ticker]['short_signal'] == True and stocks[ticker]['final_short_signal'] == True ):
 
 				# Calculate stock quantity from investment amount
-				last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
-				if ( last_price == False ):
-					print('Error: get_lastprice(' + str(ticker) + ') returned False')
-					time.sleep(1)
-
-					# Try logging in and looping around again
-					if ( tda_gobot_helper.tdalogin(passcode) != True ):
-						print('Error: tdalogin(): login failure')
-
-					continue
-
+				last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 				stocks[ticker]['stock_qty'] = int( float(stock_usd) / float(last_price) )
 
 				# Final sanity checks should go here
+				# Check resistance at 20-week low
 				if ( args.no_use_resistance == False ):
 					if ( float(last_price) <= float(stocks[ticker]['twenty_week_low']) ):
 						# This is not a good bet
@@ -909,17 +917,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 		#   need to monitor stoploss in case the stock rises above a threshold.
 		elif ( signal_mode == 'buy_to_cover' ):
 
-			last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
-			if ( last_price == False ):
-				print('Error: get_lastprice(' + str(ticker) + ') returned False')
-
-				# Try logging in and looping around again
-				time.sleep(1)
-				if ( tda_gobot_helper.tdalogin(passcode) != True ):
-					print('Error: tdalogin(): login failure')
-
-				continue
-
+			last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 			net_change = round( (last_price - stocks[ticker]['orig_base_price']) * stocks[ticker]['stock_qty'], 3 )
 
 			# End of trading day - dump the stock and exit unless --multiday was set

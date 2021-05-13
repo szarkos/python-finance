@@ -19,11 +19,14 @@ parser.add_argument("stock_usd", help='Amount of money (USD) to invest', nargs='
 parser.add_argument("--algo", help='Analyze the most recent 5-day and 10-day history for a stock ticker using this bot\'s algorithim(s) - (rsi|stochrsi)', default='rsi', type=str)
 parser.add_argument("--ofile", help='Dump the pricehistory data to pickle file', default=None, type=str)
 parser.add_argument("--ifile", help='Use pickle file for pricehistory data rather than accessing the API', default=None, type=str)
+parser.add_argument("--start_date", help='The day to start trading (i.e. 2021-05-12). Typically useful for verifying history logs.', default=None, type=str)
 
 parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal (default=False)', action="store_true")
 parser.add_argument("--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (default=False)', action="store_true")
 parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (default=False)', action="store_true")
 parser.add_argument("--use_candle_monitor", help='Enable the trivial candle monitor (default=False)', action="store_true")
+
+parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
 parser.add_argument("--with_adx", help='Use ADX as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
 parser.add_argument("--with_dmi", help='Use DMI as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
 parser.add_argument("--with_aroonosc", help='Use Aroon Oscillator as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
@@ -35,13 +38,13 @@ parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the
 parser.add_argument("--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
 
 parser.add_argument("--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
-parser.add_argument("--stochrsi_period", help='RSI period to use for StochRSI calculation (Default: 14)', default=14, type=int)
+parser.add_argument("--stochrsi_period", help='RSI period to use for StochRSI calculation (Default: 128)', default=128, type=int)
 parser.add_argument("--rsi_slow", help='Slowing period to use in StochRSI algorithm', default=3, type=int)
-parser.add_argument("--rsi_k_period", help='k period to use in StochRSI algorithm', default=14, type=int)
+parser.add_argument("--rsi_k_period", help='k period to use in StochRSI algorithm', default=128, type=int)
 parser.add_argument("--rsi_d_period", help='D period to use in StochRSI algorithm', default=3, type=int)
 parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='ohlc4', type=str)
-parser.add_argument("--rsi_high_limit", help='RSI high limit', default=70, type=int)
-parser.add_argument("--rsi_low_limit", help='RSI low limit', default=30, type=int)
+parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=int)
+parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
 
 parser.add_argument("--noshort", help='Disable short selling of stock', action="store_true")
 parser.add_argument("--shortonly", help='Only short sell the stock', action="store_true")
@@ -280,23 +283,27 @@ for algo in args.algo.split(','):
 		print('Analyzing ' + str(days) + '-day history for stock ' + str(stock) + ' using the ' + str(algo) + " algorithm:")
 
 		if ( algo == 'rsi' ):
+			print('WARNING: resetting RSI high and low to 70/30')
+			args.rsi_high_limit = rsi_high_limit = 70
+			args.rsi_low_limit = rsi_low_limit = 30
 			results = tda_gobot_helper.rsi_analyze( pricehistory=data, ticker=stock, rsi_period=rsi_period, stochrsi_period=stochrsi_period, rsi_type=rsi_type,
 								rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
 								stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly, no_use_resistance=args.no_use_resistance, debug=True )
 
 		elif ( algo == 'stochrsi' ):
 			results = tda_gobot_helper.stochrsi_analyze( pricehistory=data, ticker=stock, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type,
-								     rsi_low_limit=20, rsi_high_limit=80, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
+								     rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
 								     stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly,
 								     nocrossover=args.nocrossover, crossover_only=args.crossover_only, no_use_resistance=args.no_use_resistance,
 								     use_candle_monitor=args.use_candle_monitor, debug=True )
 
 		elif ( algo == 'stochrsi-new' ):
 			results = tda_gobot_helper.stochrsi_analyze_new( pricehistory=data, ticker=stock, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type,
-									 rsi_low_limit=20, rsi_high_limit=80, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
+									 rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
 									 stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly,
-									 no_use_resistance=args.no_use_resistance, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_macd=args.with_macd,
-									 debug=True )
+									 no_use_resistance=args.no_use_resistance, with_rsi=args.with_rsi, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_macd=args.with_macd,
+									 incr_percent_threshold=args.incr_threshold, decr_percent_threshold=args.decr_threshold,
+									 safe_open=True, start_date=args.start_date, debug=True )
 
 		if ( results == False ):
 			print('Error: rsi_analyze() returned false', file=sys.stderr)

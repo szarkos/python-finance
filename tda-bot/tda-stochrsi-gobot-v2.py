@@ -172,6 +172,9 @@ for ticker in args.stocks.split(','):
 				    'cur_rsi_d':		float(-1),
 				    'prev_rsi_d':		float(-1),
 
+				    # RSI
+				    'cur_rsi':			float(-1),
+
 				    # ADX
 				    'cur_adx':			float(-1),
 
@@ -189,9 +192,6 @@ for ticker in args.stocks.split(','):
 
 				    # Aroon Oscillator
 				    'cur_aroonosc':		float(-1),
-
-				    # RSI
-				    'cur_rsi':			float(-1),
 
 				    # Support / Resistance
 				    'three_week_high':		float(0),
@@ -304,7 +304,7 @@ for ticker in stocks.keys():
 
 
 # Initialize signal handlers to dump stock history on exit
-def graceful_exit(signum, frame):
+def graceful_exit(signum=None, frame=None):
 	print("\nNOTICE: graceful_exit(): received signal: " + str(signum))
 
 	tda_stochrsi_gobot_helper.export_pricehistory()
@@ -312,7 +312,7 @@ def graceful_exit(signum, frame):
 
 # Initialize SIGUSR1 signal handler to dump stocks on signal
 # Calls sell_stocks() to immediately sell or buy_to_cover any open positions
-def siguser1_handler(signum, frame):
+def siguser1_handler(signum=None, frame=None):
 	print("\nNOTICE: siguser1_handler(): received signal")
 	print("NOTICE: Calling sell_stocks() to exit open positions...\n")
 
@@ -345,7 +345,7 @@ tda_stochrsi_gobot_helper.tx_log_dir = args.tx_log_dir
 tda_stochrsi_gobot_helper.stocks = stocks
 tda_stochrsi_gobot_helper.incr_threshold = args.incr_threshold
 tda_stochrsi_gobot_helper.stock_usd = args.stock_usd
-tda_stochrsi_gobot_helper.loopt = 5
+tda_stochrsi_gobot_helper.loopt = 0.1
 
 # StochRSI
 tda_stochrsi_gobot_helper.rsi_low_limit = args.rsi_low_limit
@@ -421,7 +421,7 @@ for ticker in stocks.keys():
 		stocks[ticker]['isvalid'] = False
 		continue
 
-	stocks[ticker]['previous_day_close'] = tda_gobot_helper.get_pdc(ticker)
+#	stocks[ticker]['previous_day_close'] = tda_gobot_helper.get_pdc(data)
 
 	time.sleep(1)
 
@@ -432,6 +432,11 @@ tda_pickle = os.environ['HOME'] + '/.tokens/tda2.pickle'
 
 # Initializes and reads from TDA stream API
 async def read_stream():
+	loop = asyncio.get_running_loop()
+	loop.add_signal_handler(signal.SIGINT, graceful_exit)
+	loop.add_signal_handler(signal.SIGTERM, graceful_exit)
+	loop.add_signal_handler(signal.SIGUSR1, siguser1_handler)
+
 	await stream_client.login()
 
 	if ( args.scalp_mode == True ):

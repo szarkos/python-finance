@@ -284,6 +284,8 @@ def stochrsi_gobot( stream=None, debug=False ):
 		cur_rsi_d	= stocks[ticker]['cur_rsi_d']
 		prev_rsi_d	= stocks[ticker]['prev_rsi_d']
 
+		cur_rsi		= stocks[ticker]['cur_rsi']
+
 		cur_adx		= stocks[ticker]['cur_adx']
 
 		cur_plus_di	= stocks[ticker]['cur_plus_di']
@@ -648,7 +650,6 @@ def stochrsi_gobot( stream=None, debug=False ):
 					else:
 						stocks[ticker]['decr_threshold'] = incr_threshold / 2
 
-
 				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
 
 			# No price change
@@ -964,8 +965,8 @@ def stochrsi_gobot( stream=None, debug=False ):
 			# If price decreases
 			if ( float(last_price) < float(stocks[ticker]['base_price']) ):
 				percent_change = abs( float(last_price) / float(stocks[ticker]['base_price']) - 1 ) * 100
-
-				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], short=True, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
+				if ( debug == True ):
+					print('Stock "' +  str(ticker) + '" -' + str(round(percent_change, 2)) + '% (' + str(last_price) + ')')
 
 				# Re-set the base_price to the last_price if we increase by incr_threshold or more
 				# This way we can continue to ride a price increase until it starts dropping
@@ -979,9 +980,15 @@ def stochrsi_gobot( stream=None, debug=False ):
 					else:
 						stocks[ticker]['decr_threshold'] = incr_threshold / 2
 
+				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], short=True, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
+
 			# If price increases
 			elif ( float(last_price) > float(stocks[ticker]['base_price']) ):
 				percent_change = abs( float(stocks[ticker]['base_price']) / float(last_price) - 1 ) * 100
+				if ( debug == True ):
+					print('Stock "' +  str(ticker) + '" -' + str(round(percent_change, 2)) + '% (' + str(last_price) + ')')
+
+				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], short=True, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
 
 				# BUY-TO-COVER the security if we are using a trailing stoploss
 				if ( percent_change >= stocks[ticker]['decr_threshold'] and args.stoploss == True ):

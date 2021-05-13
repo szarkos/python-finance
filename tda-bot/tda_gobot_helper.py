@@ -578,7 +578,8 @@ def get_pdc(pricehistory=None, debug=False):
 	ticker = ''
 	try:
 		ticker = pricehistory['symbol']
-	except:
+
+	except Exception as e:
 		print('(' + str(ticker) + '): Exception caught: ' + str(e))
 		return None
 
@@ -1679,7 +1680,7 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 			if ( tdalogin(passcode) != True ):
 				print('Error: buy_stock_marketprice(): tdalogin(): Login failure', file=sys.stderr)
 
-			time.sleep(5)
+			time.sleep(2)
 		else:
 			break
 
@@ -1715,7 +1716,7 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 
 	# Loop and wait for order to be filled if fillwait==True
 	if ( fillwait == True and data['filledQuantity'] != quantity ):
-		while time.sleep(10):
+		while time.sleep(5):
 			try:
 				data,err = tda.get_order(tda_account_number, order_id, True)
 				if ( debug == True ):
@@ -1789,7 +1790,7 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 			if ( tdalogin(passcode) != True ):
 				print('Error: sell_stock_marketprice(): tdalogin(): Login failure', file=sys.stderr)
 
-			time.sleep(5)
+			time.sleep(2)
 		else:
 			break
 
@@ -1825,7 +1826,7 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 
 	# Loop and wait for order to be filled if fillwait==True
 	if ( fillwait == True and data['filledQuantity'] != quantity ):
-		while time.sleep(10):
+		while time.sleep(5):
 			try:
 				data,err = tda.get_order(tda_account_number, order_id, True)
 				if ( debug == True ):
@@ -1895,7 +1896,7 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 			if ( tdalogin(passcode) != True ):
 				print('Error: short_stock_marketprice(): tdalogin(): Login failure', file=sys.stderr)
 
-			time.sleep(5)
+			time.sleep(2)
 		else:
 			break
 
@@ -1936,7 +1937,7 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 
 	# Loop and wait for order to be filled if fillwait==True
 	if ( fillwait == True and float(data['filledQuantity']) != float(quantity) ):
-		while time.sleep(10):
+		while time.sleep(5):
 			try:
 				data,err = tda.get_order(tda_account_number, order_id, True)
 				if ( debug == True ):
@@ -2006,7 +2007,7 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 			if ( tdalogin(passcode) != True ):
 				print('Error: buytocover_stock_marketprice(): tdalogin(): Login failure', file=sys.stderr)
 
-			time.sleep(5)
+			time.sleep(2)
 		else:
 			break
 
@@ -2042,7 +2043,7 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 
 	# Loop and wait for order to be filled if fillwait==True
 	if ( fillwait == True and data['filledQuantity'] != quantity ):
-		while time.sleep(10):
+		while time.sleep(5):
 			try:
 				data,err = tda.get_order(tda_account_number, order_id, True)
 				if ( debug == True ):

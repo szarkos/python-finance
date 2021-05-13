@@ -354,7 +354,6 @@ def get_lastprice(ticker=None, WarnDelayed=True, debug=False):
 		return False
 
 	try:
-		#data,err = tda.stocks.get_quote(ticker, True)
 		data,err = func_timeout(10, tda.stocks.get_quote, args=(ticker, True))
 
 	except FunctionTimedOut:
@@ -445,7 +444,6 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 	# Example: {'open': 236.25, 'high': 236.25, 'low': 236.25, 'close': 236.25, 'volume': 500, 'datetime': 1616796960000}
 	try:
 		data = err = ''
-		#data,err = tda.get_price_history(ticker, p_type, f_type, freq, period, start_date=start_date, end_date=end_date, needExtendedHoursData=needExtendedHoursData, jsonify=True)
 		data,err = func_timeout(10, tda.get_price_history, args=(ticker, p_type, f_type, freq, period, start_date, end_date, needExtendedHoursData, True))
 
 	except FunctionTimedOut:
@@ -1660,12 +1658,16 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 	# Try to buy the stock num_attempts tries or return False
 	for attempt in range(num_attempts):
 		try:
-			data, err = tda.place_order(tda_account_number, order, True)
+#			data, err = tda.place_order(tda_account_number, order, True)
+			data, err = func_timeout(12, tda.place_order, args=(tda_account_number, order, True))
 			if ( debug == True ):
-				print('DEBUG: buy_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
+				print('DEBUG: sell_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
 				print(order)
 				print(data)
 				print(err)
+
+		except FunctionTimedOut:
+			print('Caught Exception: buy_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 12 seconds' + str(e))
 
 		except Exception as e:
 			print('Caught Exception: buy_stock_marketprice(' + str(ticker) + '): tda.place_order(): ' + str(e))
@@ -1686,7 +1688,7 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 
 	# Get the order number to feed to tda.get_order
 	try:
-		order_id = tda.get_order_number(data)
+		order_id = func_timeout(5, tda.get_order_number, args=(data,))
 		if ( debug == True ):
 			print(order_id)
 
@@ -1695,12 +1697,12 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 		return data
 
 	if ( str(order_id) == '' ):
-		print('Error: buy_stock_marketprice('+ str(ticker) + '): Unable to get order ID', file=sys.stderr)
+		print('Error: buy_stock_marketprice('+ str(ticker) + '): tda.get_order_number(): Unable to get order ID', file=sys.stderr)
 		return data
 
 	# Get order information to determine if it was filled
 	try:
-		data,err = tda.get_order(tda_account_number, order_id, True)
+		data,err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
 		if ( debug == True ):
 			print(data)
 
@@ -1718,7 +1720,7 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 	if ( fillwait == True and data['filledQuantity'] != quantity ):
 		while time.sleep(5):
 			try:
-				data,err = tda.get_order(tda_account_number, order_id, True)
+				data,err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
 				if ( debug == True ):
 					print(data)
 
@@ -1770,12 +1772,16 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 	# Try to sell the stock num_attempts tries or return False
 	for attempt in range(num_attempts):
 		try:
-			data, err = tda.place_order(tda_account_number, order, True)
+#			data, err = tda.place_order(tda_account_number, order, True)
+			data, err = func_timeout(12, tda.place_order, args=(tda_account_number, order, True))
 			if ( debug == True ):
 				print('DEBUG: sell_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
 				print(order)
 				print(data)
 				print(err)
+
+		except FunctionTimedOut:
+			print('Caught Exception: sell_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 12 seconds' + str(e))
 
 		except Exception as e:
 			print('Caught Exception: sell_stock_marketprice(' + str(ticker) + '): tda.place_order(): ' + str(e))
@@ -1796,7 +1802,7 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 
 	# Get the order number to feed to tda.get_order
 	try:
-		order_id = tda.get_order_number(data)
+		order_id = func_timeout(5, tda.get_order_number, args=(data,))
 		if ( debug == True ):
 			print(order_id)
 
@@ -1805,12 +1811,12 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 		return data
 
 	if ( str(order_id) == '' ):
-		print('Error: sell_stock_marketprice('+ str(ticker) + '): Unable to get order ID', file=sys.stderr)
+		print('Error: sell_stock_marketprice('+ str(ticker) + '): tda.get_order_number(): Unable to get order ID', file=sys.stderr)
 		return data
 
 	# Get order information to determine if it was filled
 	try:
-		data,err = tda.get_order(tda_account_number, order_id, True)
+		data,err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
 		if ( debug == True ):
 			print(data)
 
@@ -1828,7 +1834,7 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 	if ( fillwait == True and data['filledQuantity'] != quantity ):
 		while time.sleep(5):
 			try:
-				data,err = tda.get_order(tda_account_number, order_id, True)
+				data,err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
 				if ( debug == True ):
 					print(data)
 
@@ -1876,12 +1882,16 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 	# Try to buy the stock num_attempts tries or return False
 	for attempt in range(num_attempts):
 		try:
-			data, err = tda.place_order(tda_account_number, order, True)
+#			data, err = tda.place_order(tda_account_number, order, True)
+			data, err = func_timeout(12, tda.place_order, args=(tda_account_number, order, True))
 			if ( debug == True ):
-				print('DEBUG: short_stock_marketprice(' + str(ticker) + '): tda.place_order(): attempt ' + str(attempt+1))
+				print('DEBUG: sell_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
 				print(order)
 				print(data)
 				print(err)
+
+		except FunctionTimedOut:
+			print('Caught Exception: short_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 12 seconds' + str(e))
 
 		except Exception as e:
 			print('Caught Exception: short_stock_marketprice(' + str(ticker) + ': tda.place_order(): ' + str(e))
@@ -1902,7 +1912,7 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 
 	# Get the order number to feed to tda.get_order
 	try:
-		order_id = tda.get_order_number(data)
+		order_id = func_timeout(5, tda.get_order_number, args=(data,))
 		if ( debug == True ):
 			print(order_id)
 
@@ -1916,7 +1926,7 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 
 	# Get order information to determine if it was filled
 	try:
-		data,err = tda.get_order(tda_account_number, order_id, True)
+		data,err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
 		if ( debug == True ):
 			print(data)
 
@@ -1939,7 +1949,7 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 	if ( fillwait == True and float(data['filledQuantity']) != float(quantity) ):
 		while time.sleep(5):
 			try:
-				data,err = tda.get_order(tda_account_number, order_id, True)
+				data,err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
 				if ( debug == True ):
 					print(data)
 
@@ -1987,12 +1997,16 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 	# Try to sell the stock num_attempts tries or return False
 	for attempt in range(num_attempts):
 		try:
-			data, err = tda.place_order(tda_account_number, order, True)
+			#data, err = tda.place_order(tda_account_number, order, True)
+			data, err = func_timeout(12, tda.place_order, args=(tda_account_number, order, True))
 			if ( debug == True ):
-				print('DEBUG: buytocover_stock_marketprice(' + str(ticker) + '): tda.place_order(): attempt ' + str(attempt+1))
+				print('DEBUG: sell_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
 				print(order)
 				print(data)
 				print(err)
+
+		except FunctionTimedOut:
+			print('Caught Exception: buytocover_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 12 seconds' + str(e))
 
 		except Exception as e:
 			print('Caught Exception: buytocover_stock_marketprice(' + str(ticker) + '): tda.place_order(): ' + str(e))
@@ -2013,7 +2027,7 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 
 	# Get the order number to feed to tda.get_order
 	try:
-		order_id = tda.get_order_number(data)
+		order_id = func_timeout(5, tda.get_order_number, args=(data,))
 		if ( debug == True ):
 			print(order_id)
 
@@ -2027,7 +2041,7 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 
 	# Get order information to determine if it was filled
 	try:
-		data,err = tda.get_order(tda_account_number, order_id, True)
+		data,err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
 		if ( debug == True ):
 			print(data)
 
@@ -2045,7 +2059,7 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 	if ( fillwait == True and data['filledQuantity'] != quantity ):
 		while time.sleep(5):
 			try:
-				data,err = tda.get_order(tda_account_number, order_id, True)
+				data,err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
 				if ( debug == True ):
 					print(data)
 

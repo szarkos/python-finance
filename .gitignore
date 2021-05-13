@@ -128,7 +128,7 @@ log.txt
 stocks.txt
 *.swp
 *.csv
-.stock-blacklist
+#.stock-blacklist
 
 # Spyder project settings
 .spyderproject

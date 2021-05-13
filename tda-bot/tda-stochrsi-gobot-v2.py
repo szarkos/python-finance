@@ -191,7 +191,7 @@ for ticker in args.stocks.split(','):
 				    'cur_aroonosc':		float(-1),
 
 				    # RSI
-				    'cur_rsi':			flot(-1),
+				    'cur_rsi':			float(-1),
 
 				    # Support / Resistance
 				    'three_week_high':		float(0),
@@ -406,7 +406,7 @@ for ticker in stocks.keys():
 	# Pull the stock history that we'll use to calculate the Stochastic RSI
 	data = False
 	while ( data == False ):
-		data, epochs = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, needExtendedHoursData=False, debug=False)
+		data, epochs = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, needExtendedHoursData=True, debug=False)
 		if ( data == False ):
 			time.sleep(5)
 			if ( tda_gobot_helper.tdalogin(passcode) != True ):

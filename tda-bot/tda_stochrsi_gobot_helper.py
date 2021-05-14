@@ -390,7 +390,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 			# RSI
 			if ( args.with_rsi == True ):
 				stocks[ticker]['rsi_signal'] = False
-				if ( cur_rsi < 25 ):
+				if ( cur_rsi < 20 ):
 					stocks[ticker]['rsi_signal'] = True
 
 			# ADX signal

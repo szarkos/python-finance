@@ -1258,7 +1258,7 @@ def get_wilders_rsi(pricehistory=None, rsi_period=14, round_rsi=True, type='clos
 		pass
 
 	if ( pricehistory == None ):
-		print('Error: get_stochrsi(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		print('Error: get_wilders_rsi(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
 		return False, [], []
 
 	prices = []
@@ -3085,9 +3085,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			price_resistance_pct = 1.5
 			price_support_pct = 1
 
-
-	previous_day_close = get_pdc(pricehistory)
-
+#	previous_day_close = get_pdc(pricehistory)
 
 	# Run through the RSI values and log the results
 	results = []

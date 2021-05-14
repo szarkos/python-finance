@@ -12,7 +12,7 @@ import argparse
 import tda_gobot_helper
 
 process_id = random.randint(1000, 9999) # Used to identify this process (i.e. for log_monitor)
-loopt = 10				# Period between stock get_lastprice() checks
+loopt = 3				# Period between stock get_lastprice() checks
 
 # Parse and check variables
 parser = argparse.ArgumentParser()
@@ -22,8 +22,12 @@ parser.add_argument("--checkticker", help="Check if ticker is valid", action="st
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
 parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX_LOGS-GOBOTv1', default='TX_LOGS-GOBOTv1', type=str)
+
 parser.add_argument("--incr_threshold", help="Reset base_price if stock increases by this percent", default=1, type=float)
 parser.add_argument("--decr_threshold", help="Max allowed drop percentage of the stock price", default=1.5, type=float)
+parser.add_argument("--entry_price", help="The price to enter a trade", default=0, type=float)
+parser.add_argument("--exit_price", help="The price to exit a trade", default=0, type=float)
+
 parser.add_argument("--multiday", help="Watch stock until decr_threshold is reached. Do not sell and exit when market closes", action="store_true")
 parser.add_argument("--notmarketclosed", help="Cancel order and exit if US stock market is closed", action="store_true")
 parser.add_argument("--short", help='Enable short selling of stock', action="store_true")
@@ -84,11 +88,29 @@ if ( tda_gobot_helper.check_blacklist(stock) == True ):
 		print('(' + str(stock) + ') Warning: stock ' + str(stock) + ' found in blacklist file.')
 
 
-# Calculate stock quantity from investment amount
-time.sleep(0.2) # avoid hammering the API
-last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=False)
-stock_qty = int( float(stock_usd) / float(last_price) )
+# Loop until the entry price is acheived.
+if ( args.entry_price != 0 ):
 
+	while True:
+		last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=False)
+		print('(' + str(stock) + '): entry_price=' + str(args.entry_price) + ', last_price=' + str(last_price))
+
+		if ( args.short == True ):
+			if ( last_price >= args.entry_price): # Need to be careful with this one
+				break
+
+		else:
+			if ( last_price <= args.entry_price ):
+				break
+
+		time.sleep(loopt)
+
+else:
+	last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=False)
+
+
+# Calculate stock quantity from investment amount
+stock_qty = int( float(stock_usd) / float(last_price) )
 
 # Purchase stock, set orig_base_price to the price that we purchases the stock
 if ( tda_gobot_helper.ismarketopen_US() == True ):
@@ -146,6 +168,34 @@ while True:
 		time.sleep(loopt * 6)
 		continue
 
+	# If exit_price was set
+	if ( args.exit_price != 0 ):
+		percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
+
+		if ( args.short == True ):
+			if ( last_price <= args.exit_price ):
+				print('SELLING stock ' + str(stock) + '" - the last_price (' + str(last_price) + ') crossed the exit_price(' + str(args.exit_price) + ')')
+
+				if ( args.fake == False ):
+					data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+
+				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short, sold=True)
+
+				exit(0)
+
+		else:
+			if ( last_price >= args.exit_price ):
+				print('SELLING stock ' + str(stock) + '" - the last_price (' + str(last_price) + ') crossed the exit_price(' + str(args.exit_price) + ')')
+
+				if ( args.fake == False ):
+					data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
+
+				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, sold=True)
+
+				exit(0)
+
 	# Sell the security if we're getting close to market close
 	if ( tda_gobot_helper.isendofday() == True and args.multiday == False ):
 		print('Market closing, selling stock ' + str(stock))
@@ -153,7 +203,7 @@ while True:
 		if ( args.fake == False ):
 			data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 
-		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, sold=True)
+		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short, sold=True)
 		print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 		exit(0)
 

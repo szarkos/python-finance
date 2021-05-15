@@ -249,7 +249,7 @@ def check_stock_symbol(stock=None):
 
 
 # Write a stock blacklist that can be used to avoid wash sales
-def write_blacklist(ticker=None, stock_qty=-1, orig_base_price=-1, last_price=-1, net_change=-1, percent_change=-1, debug=1):
+def write_blacklist(ticker=None, stock_qty=-1, orig_base_price=-1, last_price=-1, net_change=-1, percent_change=-1, permanent=False, debug=False):
 	if ( ticker == None ):
 		print('Error: write_blacklist(' + str(ticker) + '): ticker is empty', file=sys.stderr)
 		return False
@@ -267,7 +267,9 @@ def write_blacklist(ticker=None, stock_qty=-1, orig_base_price=-1, last_price=-1
 	except:
 		mytimezone = timezone("US/Eastern")
 
-	time_now = round( datetime.now(mytimezone).timestamp() )
+	time_now = 9999999999
+	if ( permanent == False ):
+		time_now = round( datetime.now(mytimezone).timestamp() )
 
 	# Log format - stock|stock_qty|orig_base_price|last_price|net_change|percent_change|timestamp
 	if ( float(last_price) < float(orig_base_price) ):

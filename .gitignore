@@ -130,6 +130,7 @@ stocks.txt
 *.csv
 .stock-blacklist
 results/
+results/*
 
 # Spyder project settings
 .spyderproject

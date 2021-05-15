@@ -11,6 +11,7 @@ from subprocess import Popen, PIPE, STDOUT
 parser = argparse.ArgumentParser()
 parser.add_argument("--ifile", help='Pickle file to read', required=True, type=str)
 parser.add_argument("--ofile", help='File to output results', required=True, type=str)
+parser.add_argument("--all", help='File to output results', action="store_true")
 args = parser.parse_args()
 
 mytimezone = pytz.timezone("US/Eastern")
@@ -61,12 +62,17 @@ scenarios = {   'stochrsi_rsi':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_
 		'stochrsi_rsi_adx_macd_dmi_aroonosc':	'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_macd --with_dmi --with_aroonosc'
 }
 
-yesterday = datetime.datetime.now(mytimezone) - datetime.timedelta(days=1)
-yesterday = yesterday.strftime('%Y-%m-%d')
+start_date = ''
+if ( args.all == False ):
+	yesterday = datetime.datetime.now(mytimezone) - datetime.timedelta(days=1)
+	yesterday = yesterday.strftime('%Y-%m-%d')
 
+	start_date = ' --start_date=' + str(yesterday)
+
+# Run the data through all available test scenarios
 for key in scenarios:
 
-	command = './tda-gobot-analyze.py ' + str(ticker) + ' --algo=stochrsi-new --no_use_resistance --stoploss --incr_threshold=0.5 --decr_threshold=1 --verbose ' + '--ifile=' + str(args.ifile) + ' --start_date=' + str(yesterday) + ' ' + str(scenarios[key])
+	command = './tda-gobot-analyze.py ' + str(ticker) + ' --algo=stochrsi-new --no_use_resistance --stoploss --incr_threshold=0.5 --decr_threshold=1 --verbose ' + '--ifile=' + str(args.ifile) + str(start_date) + ' ' + str(scenarios[key])
 	outfile = str(args.ofile) + '-' + str(key)
 
 	try:

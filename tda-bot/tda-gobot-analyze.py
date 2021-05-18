@@ -36,6 +36,7 @@ parser.add_argument("--days", help='Number of days to test. Separate with a comm
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
 parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1.5, type=float)
 parser.add_argument("--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
+parser.add_argument("--exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
 
 parser.add_argument("--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
 parser.add_argument("--stochrsi_period", help='RSI period to use for StochRSI calculation (Default: 128)', default=128, type=int)
@@ -124,6 +125,12 @@ cur_rsi = 0
 prev_rsi = 0
 rsi_low_limit = args.rsi_low_limit
 rsi_high_limit = args.rsi_high_limit
+
+# RSI limits for signal cancellation
+rsi_signal_cancel_low_limit = 20
+rsi_signal_cancel_high_limit = 80
+tda_gobot_helper.rsi_signal_cancel_low_limit = rsi_signal_cancel_low_limit
+tda_gobot_helper.rsi_signal_cancel_high_limit = rsi_signal_cancel_high_limit
 
 # Report colors
 red = '\033[0;31m'
@@ -303,7 +310,7 @@ for algo in args.algo.split(','):
 									 stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly,
 									 no_use_resistance=args.no_use_resistance, with_rsi=args.with_rsi, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_macd=args.with_macd,
 									 incr_percent_threshold=args.incr_threshold, decr_percent_threshold=args.decr_threshold,
-									 safe_open=True, start_date=args.start_date, debug=True )
+									 safe_open=True, exit_percent=args.exit_percent, start_date=args.start_date, debug=True )
 
 		if ( results == False ):
 			print('Error: rsi_analyze() returned false', file=sys.stderr)

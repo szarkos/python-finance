@@ -1,31 +1,50 @@
-#!/bin/bash
 
-for result in results/*; do
-	test_case=$( echo -n $result | sed 's/.*\-//' )
+#tests="stochrsi_adx stochrsi_rsi_adx stochrsi_rsi_adx_aroonosc stochrsi_rsi_adx_dmi stochrsi_rsi_adx_dmi_aroonosc stochrsi_rsi_adx_dmi_macd stochrsi_rsi_adx_macd stochrsi_rsi_adx_macd_aroonosc stochrsi_rsi_adx_macd_dmi_aroonosc stochrsi_rsi_aroonosc stochrsi_rsi_dmi stochrsi_rsi_macd"
+tests="stochrsi_adx \
+	stochrsi_adx_aroonosc \
+	stochrsi_adx_dmi \
+	stochrsi_adx_dmi_aroonosc \
+	stochrsi_adx_dmi_macd \
+	stochrsi_adx_macd \
+	stochrsi_adx_macd_aroonosc \
+	stochrsi_adx_macd_dmi_aroonosc \
+	stochrsi_aroonosc \
+	stochrsi_dmi \
+	stochrsi_macd"
 
-	declare "${test_case}_wins"=0
-	declare "${test_case}_loss"=0
+source ./tickers.conf
+tickers=$( echo -n $SMALL_MID2 | sed 's/,/ /g' )
+
+cd results
+
+echo -n "stock,"
+for i in $tests; do
+	echo -n "$i,"
 done
 
+echo
+for t in $tickers; do
 
-output=""
-for result in results/*; do
+	echo -n "$t,"
+	wins=0
+	for i in $tests; do
+		wins=$( grep -e '[0-9]\-[0-9]' "${t}-${i}" | grep  -c 32m )
 
-	ticker=$( echo -n $result | sed 's/\-.*//' )
-	test_case=$( echo -n $result | sed 's/.*\-//' )
-
-	let wins=$( grep -c 32m $result )
-	let loss=$( grep -c 31m $result )
-
-	var="${test_case}_wins"
-	declare -i "${test_case}_wins"=${!var}+$wins
-
-	var="${test_case}_loss"
-	declare -i "${test_case}_loss"=${!var}+$loss
-
-	output="$output\n"$( echo -n "${ticker}: ${test_case}: wins=${wins}, losses=${loss}" )
-
+		echo -n "$wins,"
+	done
+	echo
 done
 
-set | grep '_wins'
-set | grep '_loss'
+echo -e "\n\n"
+for t in $tickers; do
+
+	echo -n "$t,"
+	loss=0
+	for i in $tests; do
+		loss=$( grep -e '[0-9]\-[0-9]' "${t}-${i}" | grep  -c 31m )
+
+		echo -n "$loss,"
+	done
+	echo
+done
+

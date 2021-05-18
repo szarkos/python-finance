@@ -24,9 +24,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--stocks", help='Stock ticker(s) to purchase (comma delimited)', required=True, type=str)
 parser.add_argument("--stock_usd", help='Amount of money (USD) to invest per trade', default=1000, type=float)
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
-parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
-parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
-parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1.5, type=float)
+parser.add_argument("--fake", help='Paper trade only - runs tda-gobot with --fake option', action="store_true")
+parser.add_argument("--monitor", help='Disables buy/sell functions', action="store_true")
+parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=0.5, type=float)
+parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1, type=float)
 parser.add_argument("--scalp_mode", help='Enable scalp mode (fixes incr_threshold and decr_threshold', action="store_true")
 
 parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
@@ -124,12 +125,13 @@ for ticker in stocks.keys():
 
 	# Confirm that we can short this stock
 	data,err = tda.stocks.get_quote(ticker, True)
-	if ( err != None ):
+	if ( err != None or data == False ):
 		print('Error: get_quote(' + str(ticker) + '): ' + str(err), file=sys.stderr)
-
-	if ( str(data[ticker]['shortable']) == str(False) or str(data[ticker]['marginable']) == str(False) ):
-		print('Warning: stock(' + str(ticker) + '): does not appear to be shortable, disabling --short')
 		stocks[ticker]['shortable'] = False
+	else:
+		if ( str(data[ticker]['shortable']) == str(False) or str(data[ticker]['marginable']) == str(False) ):
+			print('Warning: stock(' + str(ticker) + '): does not appear to be shortable, disabling --short')
+			stocks[ticker]['shortable'] = False
 
 	avg_vol = 0
 	data = False
@@ -159,7 +161,9 @@ def siguser1_handler(signum, frame):
 	print("\nNOTICE: siguser1_handler(): received signal")
 	print("NOTICE: Calling sell_stocks() to exit open positions...\n")
 
-	sell_stocks()
+	if ( args.monitor == False ):
+		sell_stocks()
+
 	graceful_exit(None, None)
 	sys.exit(0)
 
@@ -224,24 +228,25 @@ def gap_monitor(stream=None, debug=False):
 		if ( stocks[ticker]['isvalid'] == False ):
 			continue
 
-		# Wait for some data before making purchasing decisions
-		if ( len(stocks[ticker]['pricehistory']['candles']) < 2 ):
+		# Wait for some data before making decisions
+		if ( len(stocks[ticker]['pricehistory']['candles']) < 10 ):
 			continue
 
 		# Command to run if we need to purchase/short this stock
 		gobot_command = ['./tda-gobot.py', str(ticker), str(args.stock_usd), '--tx_log_dir=TX_LOGS-GAPCHECK',
-				 '--decr_threshold='+str(args.decr_threshold), '--incr_threshold'+str(args.incr_threshold)]
+				 '--decr_threshold='+str(args.decr_threshold), '--incr_threshold='+str(args.incr_threshold)]
 
 		if ( args.fake == True ):
 			gobot_command.append('--fake')
 
 		# Get the latest candle open/close prices and volume
-		open_price = float(stocks[ticker]['pricehistory']['candles'][-1]['open'])
 		cur_price = float(stocks[ticker]['pricehistory']['candles'][-1]['close'])
-		prev_price = float(stocks[ticker]['pricehistory']['candles'][-2]['close'])
+		prev_price = float(stocks[ticker]['pricehistory']['candles'][-4]['close'])
 
-		cur_vol = float(stocks[ticker]['pricehistory']['candles'][-1]['volume'])
-		prev_vol = float(stocks[ticker]['pricehistory']['candles'][-2]['volume'])
+		cur_vol = float(stocks[ticker]['pricehistory']['candles'][-1]['volume']) + \
+				float(stocks[ticker]['pricehistory']['candles'][-2]['volume']) + \
+				float(stocks[ticker]['pricehistory']['candles'][-3]['volume']) + \
+				float(stocks[ticker]['pricehistory']['candles'][-4]['volume'])
 
 		# Skip if price hasn't changed
 		if ( cur_price == prev_price ):
@@ -252,19 +257,17 @@ def gap_monitor(stream=None, debug=False):
 		if ( cur_price > prev_price ):
 			# Bull
 			direction = 'UP'
-			price_change = ( (cur_price - open_price) / prev_price ) * 100
+			price_change = ( (cur_price - prev_price) / prev_price ) * 100
 		else:
 			# Bear
 			direction = 'DOWN'
-			price_change = ( (open_price - cur_price) / prev_price ) * 100
+			price_change = ( (prev_price - cur_price) / prev_price ) * 100
 
 		# Call gap up/down if price and volume change significantly (>1%)
 		# Streams often gets two candles/minute, so combining volume from the last two
 		#  candles makes sense to get a more accurate picture.
-		if ( price_change > 1.5 and (cur_vol + prev_vol) > stocks[ticker]['avg_volume'] ):
-			vol_change = ( (cur_vol + prev_vol - stocks[ticker]['avg_volume']) / avg_vol ) * 100
-			if ( vol_change < 15 ):
-				continue
+		if ( price_change > 1.2 and cur_vol > stocks[ticker]['avg_volume'] ):
+			vol_change = ( (cur_vol - stocks[ticker]['avg_volume']) / stocks[ticker]['avg_volume'] ) * 100
 
 			time_now = datetime.datetime.now(mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 			print( '(' + str(ticker) + '): Gap ' + str(direction).upper() + ' detected (' + str(time_now) + ')' )
@@ -273,8 +276,8 @@ def gap_monitor(stream=None, debug=False):
 				'Previous Price: ' + str(round(prev_price, 2)) +
 				' (' + str(round(price_change, 2)) + '%)' )
 
-			print( 'Current Volume: ' + str(cur_vol+prev_vol) + ', ' +
-				'Average Volume: ' + str(stocks[ticker]['avg_volume']) +
+			print( 'Current Volume: ' + str(cur_vol) + ', ' +
+				'Average Volume: ' + str(round(stocks[ticker]['avg_volume'], 2)) +
 				'(+' + str(vol_change) + '%)' )
 
 			print()
@@ -294,7 +297,7 @@ def gap_monitor(stream=None, debug=False):
 					continue
 
 			# If process==None then we should be safe to run a gobot instance for this stock
-			if ( stocks[ticker]['process'] == None ):
+			if ( stocks[ticker]['process'] == None and args.monitor == False ):
 				try:
 					stocks[ticker]['process'] = Popen(gobot_command, stdin=None, stdout=log_fh, stderr=STDOUT, shell=False)
 
@@ -342,7 +345,7 @@ tda_pickle = os.environ['HOME'] + '/.tokens/tda2.pickle'
 # Initializes and reads from TDA stream API
 async def read_stream():
 	await stream_client.login()
-	await stream_client.quality_of_service(StreamClient.QOSLevel.MODERATE)
+	await stream_client.quality_of_service(StreamClient.QOSLevel.SLOW)
 
 	stream_client.add_chart_equity_handler(
 		lambda msg: gap_monitor(msg, args.debug) )

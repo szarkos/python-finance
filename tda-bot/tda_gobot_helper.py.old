@@ -2965,7 +2965,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 
 # Like stochrsi_analyze(), but sexier
 def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3,
-			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=1.5, hold_overnight=False, exit_percent=None,
+			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=1.5, hold_overnight=False,
 			  noshort=False, shortonly=False, no_use_resistance=False, with_rsi=True, with_adx=True, with_dmi=True, with_aroonosc=True, with_macd=True, safe_open=True, start_date=None, debug=False ):
 
 	if ( ticker == None or pricehistory == None ):
@@ -3222,6 +3222,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				if ( cur_rsi_k >= rsi_low_limit ):
 					buy_signal = True
 
+#			elif ( cur_rsi_k > rsi_low_limit and cur_rsi_d > rsi_low_limit ):
 			elif ( cur_rsi_k > rsi_signal_cancel_low_limit and cur_rsi_d > rsi_signal_cancel_low_limit ):
 				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
@@ -3355,33 +3356,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 						adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
 						plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
-						signal_mode = 'short'
+						signal_mode = 'buy'
 						continue
 
 				elif ( float(last_price) > float(base_price) ):
 					percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
-
-					if ( exit_percent != None and percent_change >= float(exit_percent) ):
-
-						# Sell
-						sell_price = float(pricehistory['candles'][idx]['close'])
-						sell_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
-
-						# sell_price,bool(short),rsi,stochrsi,sell_time
-						results.append( str(sell_price) + ',' + str(short) + ',' +
-								str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' +
-								str(sell_time) )
-
-						buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
-						final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
-
-						adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
-						plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
-
-						signal_mode = 'short'
-						if ( noshort == True ):
-							signal_mode = 'buy'
-						continue
 
 					if ( percent_change >= incr_percent_threshold ):
 						base_price = last_price
@@ -3464,6 +3443,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				if ( cur_rsi_k <= rsi_high_limit ):
 					short_signal = True
 
+#			elif ( cur_rsi_k < rsi_high_limit and cur_rsi_d < rsi_high_limit ):
 			elif ( cur_rsi_k < rsi_signal_cancel_high_limit and cur_rsi_d < rsi_signal_cancel_high_limit ):
 				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
@@ -3606,28 +3586,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				elif ( float(last_price) < float(base_price) ):
 					percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
-
-					if ( exit_percent != None and percent_change >= float(exit_percent) ):
-
-						# Buy-to-cover
-						buy_to_cover_price = float(pricehistory['candles'][idx]['close'])
-						buy_to_cover_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
-
-						results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
-								str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' +
-								str(buy_to_cover_time) )
-
-						buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
-						final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
-
-						adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
-						plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
-
-						if ( shortonly == True ):
-							signal_mode = 'short'
-						else:
-							signal_mode = 'buy'
-							continue
 
 					if ( percent_change >= incr_percent_threshold ):
 						base_price = last_price

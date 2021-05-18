@@ -41,7 +41,10 @@ try:
 			if ( time == 'time' ):
 				continue
 
-			time = int( datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S').replace(tzinfo=mytimezone).timestamp() * 1000 )
+			time = datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S')
+			time = mytimezone.localize(time)
+			time = time.timestamp() * 1000
+
 			candle_data = { 'open':		open,
 					'high':		high,
 					'low':		low,

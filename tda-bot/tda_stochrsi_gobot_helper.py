@@ -379,7 +379,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 					stocks[ticker]['buy_signal'] = True
 
-			elif ( cur_rsi_k > rsi_low_limit and cur_rsi_d > rsi_low_limit ):
+			elif ( cur_rsi_k > rsi_signal_cancel_low_limit and cur_rsi_d > rsi_signal_cancel_low_limit ):
 				# Reset the buy signal if rsi has wandered back above rsi_low_limit
 				if ( stocks[ticker]['buy_signal'] == True ):
 					print( '(' + str(ticker) + ') BUY SIGNAL CANCELED: RSI moved back above rsi_low_limit' )
@@ -638,9 +638,12 @@ def stochrsi_gobot( stream=None, debug=False ):
 				if ( debug == True ):
 					print('Stock "' +  str(ticker) + '" +' + str(round(percent_change,2)) + '% (' + str(last_price) + ')')
 
+				if ( args.exit_percent != None and percent_change >= float(args.exit_percent) ):
+					stocks[ticker]['sell_signal'] = True
+
 				# Re-set the base_price to the last_price if we increase by incr_threshold or more
 				# This way we can continue to ride a price increase until it starts dropping
-				if ( percent_change >= incr_threshold ):
+				elif ( percent_change >= incr_threshold ):
 					stocks[ticker]['base_price'] = last_price
 					print('Stock "' + str(ticker) + '" increased above the incr_threshold (' + str(incr_threshold) + '%), resetting base price to '  + str(last_price))
 					print('Net change (' + str(ticker) + '): ' + str(net_change) + ' USD')
@@ -740,7 +743,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 					stocks[ticker]['short_signal'] = True
 
-			elif ( cur_rsi_k < rsi_high_limit and cur_rsi_d < rsi_high_limit ):
+			elif ( cur_rsi_k < rsi_signal_cancel_high_limit and cur_rsi_d < rsi_signal_cancel_high_limit ):
 				# Reset the short signal if rsi has wandered back below rsi_high_limit
 				if ( stocks[ticker]['short_signal'] == True ):
 					print( '(' + str(ticker) + ') SHORT SIGNAL CANCELED: RSI moved back below rsi_high_limit' )
@@ -967,6 +970,9 @@ def stochrsi_gobot( stream=None, debug=False ):
 				percent_change = abs( float(last_price) / float(stocks[ticker]['base_price']) - 1 ) * 100
 				if ( debug == True ):
 					print('Stock "' +  str(ticker) + '" -' + str(round(percent_change, 2)) + '% (' + str(last_price) + ')')
+
+				if ( args.exit_percent != None and percent_change >= float(args.exit_percent) ):
+					stocks[ticker]['buy_to_cover_signal'] = True
 
 				# Re-set the base_price to the last_price if we increase by incr_threshold or more
 				# This way we can continue to ride a price increase until it starts dropping

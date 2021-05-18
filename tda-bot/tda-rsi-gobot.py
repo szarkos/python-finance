@@ -233,7 +233,9 @@ while ( algo == 'rsi' ):
 	newday = tda_gobot_helper.isnewday()
 
 	# Helpful datetime conversion hints:
-	#   start = int( datetime.datetime.strptime('2021-03-26 09:30:00', '%Y-%m-%d %H:%M:%S').replace(tzinfo=mytimezone).timestamp() * 1000 )
+	#   start = datetime.datetime.strptime('2021-03-26 09:30:00', '%Y-%m-%d %H:%M:%S')
+	#     start = mytimezone.localize(start)
+	#     start = int( start.timestamp() * 1000 )
 	#   datetime.datetime.fromtimestamp(<epoch>/1000).strftime('%Y-%m-%d %H:%M:%S.%f')
 	#   datetime.datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 	#   time_now = datetime.datetime.strptime('2021-03-29 15:59:00', '%Y-%m-%d %H:%M:%S').replace(tzinfo=mytimezone)

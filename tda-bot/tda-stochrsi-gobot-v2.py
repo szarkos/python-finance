@@ -50,6 +50,7 @@ parser.add_argument("--stoploss", help='Sell security if price drops below --dec
 parser.add_argument("--max_failed_txs", help='Maximum number of failed transactions allowed for a given stock before stock is blacklisted', default=2, type=int)
 parser.add_argument("--max_failed_usd", help='Maximum allowed USD for a failed transaction before the stock is blacklisted', default=100, type=int)
 parser.add_argument("--scalp_mode", help='Enable scalp mode (fixes incr_threshold and decr_threshold)', action="store_true")
+parser.add_argument("--exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
 
 parser.add_argument("--rsi_slow", help='Slowing period to use in StochRSI algorithm', default=3, type=int)
 parser.add_argument("--rsi_k_period", help='k period to use in StochRSI algorithm', default=128, type=int)
@@ -97,6 +98,8 @@ tda_stochrsi_gobot_helper.safe_open = safe_open
 if ( args.scalp_mode == True ):
 	args.incr_threshold = 0.1
 	args.decr_threshold = 0.25
+	if ( args.exit_percent == None ):
+		args.exit_percent = 0.2
 
 # Early exit criteria goes here
 if ( args.notmarketclosed == True and tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False ):
@@ -350,6 +353,10 @@ tda_stochrsi_gobot_helper.loopt = 0.1
 # StochRSI
 tda_stochrsi_gobot_helper.rsi_low_limit = args.rsi_low_limit
 tda_stochrsi_gobot_helper.rsi_high_limit = args.rsi_high_limit
+
+tda_stochrsi_gobot_helper.rsi_signal_cancel_low_limit = 20
+tda_stochrsi_gobot_helper.rsi_signal_cancel_high_limit = 80
+
 tda_stochrsi_gobot_helper.rsi_period = args.rsi_period
 tda_stochrsi_gobot_helper.stochrsi_period = args.stochrsi_period
 tda_stochrsi_gobot_helper.rsi_slow = args.rsi_slow

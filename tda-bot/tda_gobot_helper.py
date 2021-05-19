@@ -2,6 +2,7 @@
 
 import os, sys, fcntl, re
 import time
+from collections import OrderedDict
 
 from datetime import datetime, timedelta
 from pytz import timezone
@@ -1480,21 +1481,34 @@ def get_stoch_oscillator(pricehistory=None, type=None, k_period=14, d_period=3, 
 #  5) Divide the Cumulative Totals
 #
 #  VWAP = Cumulative(Typical Price x Volume) / Cumulative(Volume)
-def get_vwap(pricehistory=None, debug=False):
+def get_vwap(pricehistory=None, day='today', end_timestamp=None, num_dev=2, debug=False):
 
 	if ( pricehistory == None ):
 		return False
 
-	prices = np.array([[1,1,1]])
-	try:
-		ticker = pricehistory['symbol']
-		for key in pricehistory['candles']:
-			price = ( float(key['high']) + float(key['low']) + float(key['close']) ) / 3
-			prices = np.append( prices, [[float(key['datetime']), price, float(key['volume'])]], axis=0 )
+	if ( day != None ):
+		if ( day == 'today' ):
+			today = datetime.now(mytimezone).strftime('%Y-%m-%d')
+		else:
+			today = day # must be in %Y-%m-%d format or we'll choke later
 
-	except Exception as e:
-		print('Caught Exception: get_vwap(' + str(ticker) + '): ' + str(e))
-		return False
+		day_start = datetime.strptime(str(today) + ' 01:00:00', '%Y-%m-%d %H:%M:%S')
+		day_start = mytimezone.localize(day_start)
+		day_start = int( day_start.timestamp() * 1000 )
+
+	# Calculate VWAP
+	prices = np.array([[1,1,1]])
+	ticker = pricehistory['symbol']
+	for key in pricehistory['candles']:
+		if ( day != None and float(key['datetime']) < day_start ):
+				continue
+
+		price = ( float(key['high']) + float(key['low']) + float(key['close']) ) / 3
+		prices = np.append( prices, [[float(key['datetime']), price, float(key['volume'])]], axis=0 )
+
+		if ( end_timestamp != None ):
+			if ( float(key['datetime']) >= float(end_timestamp) ):
+				break
 
 	# Remove the first value used to initialize np array
 	prices = np.delete(prices, 0, axis=0)
@@ -1506,15 +1520,39 @@ def get_vwap(pricehistory=None, debug=False):
 
 	# vwap = Cumulative(Typical Price x Volume) / Cumulative(Volume)
 	vwap = df.assign(vwap=(p * q).cumsum() / q.cumsum())
+	vwap = vwap['vwap'].to_numpy()
+
+	# Calculate the standard deviation for each bar and the upper/lower bands
+	vwap_up = []
+	vwap_down = []
+	vwap_sum = float(0)
+	vwap_dev_cumsum = float(0)
+
+	for idx,val in enumerate(vwap):
+		vwap_sum += val
+		vwap_avg = vwap_sum / (idx + 1)
+		vwap_dev_cumsum += (val - vwap_avg) ** 2
+
+		stdev = np.sqrt( vwap_dev_cumsum / (idx + 1) )
+
+		vwap_up.append( val + stdev * num_dev )
+		vwap_down.append( val - stdev * num_dev )
 
 	if ( debug == True ):
-		pd.set_option('display.max_rows', None)
-		pd.set_option('display.max_columns', None)
-		pd.set_option('display.width', None)
-		pd.set_option('display.max_colwidth', None)
-		print(vwap)
+		idx = 0
+		for key in pricehistory['candles']:
+			if ( day == True and float(key['datetime']) < day_start ):
+				continue
 
-	return vwap
+			date = datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+			print( 'Date: ' + str(date) +
+				', VWAP: ' + str(vwap[idx]) +
+				', VWAP_UP: ' + str(vwap_up[idx]) +
+				', VWAP_DOWN: ' + str(vwap_down[idx]) )
+
+			idx += 1
+
+	return vwap, vwap_up, vwap_down
 
 
 # Calculate Bollinger Bands
@@ -2965,7 +3003,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 
 # Like stochrsi_analyze(), but sexier
 def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3,
-			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=1.5, hold_overnight=False, exit_percent=None,
+			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=1.5, hold_overnight=False, exit_percent=None, vwap_exit=False,
 			  noshort=False, shortonly=False, no_use_resistance=False, with_rsi=True, with_adx=True, with_dmi=True, with_aroonosc=True, with_macd=True, safe_open=True, start_date=None, debug=False ):
 
 	if ( ticker == None or pricehistory == None ):
@@ -3038,6 +3076,45 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	except Exception as e:
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_aroon_osc(): ' + str(e))
 		return False
+
+
+	# Calculate vwap_exit
+	if ( vwap_exit == True ):
+		vwap_vals = OrderedDict()
+		days = OrderedDict()
+
+		# Create a dict containing all the days and timestamps for which we need vwap data
+		prev_day = ''
+		prev_timestamp = ''
+		for key in pricehistory['candles']:
+
+			day = datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d')
+			if day not in days:
+				days[day] = { 'start': key['datetime'], 'end': '', 'timestamps': [] }
+				if ( prev_day != '' ):
+					days[prev_day]['end'] = prev_timestamp
+
+			prev_day = day
+			prev_timestamp = key['datetime']
+			days[day]['timestamps'].append(key['datetime'])
+
+		days[day]['end'] = prev_timestamp
+
+		# Calculate the VWAP data for each day in days{}
+		for key in days:
+			vwap, vwap_up, vwap_down = get_vwap(pricehistory, day=key, end_timestamp=days[key]['end'])
+
+			if ( len(vwap) != len(days[key]['timestamps']) ):
+				print('WARNING: len(vwap) != len(days[key][timestamps]): ' + str(len(vwap)) + ', ' + str(len(days[key]['timestamps'])))
+
+			for idx,val in enumerate(vwap):
+				vwap_vals.update( { days[key]['timestamps'][idx]: {
+							'vwap': float(val),
+							'vwap_up': float(vwap_up[idx]),
+							'vwap_down': float(vwap_down[idx]) }
+						} )
+#				vwap_vals[days[key]['timestamps'][idx]] = { 'vwap': float(val), 'vwap_up': float(vwap_up[idx]), 'vwap_down': float(vwap_down[idx]) }
+
 
 	# SMA200 and EMA50
 	# Determine if the stock is bearish or bullish based on SMA/EMA
@@ -3361,6 +3438,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				elif ( float(last_price) > float(base_price) ):
 					percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
 
+					# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
+					if ( vwap_exit == True ):
+						cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
+						cur_vwap_up = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap_up']
+						if ( cur_vwap > purchase_price ):
+							if ( last_price >= ((cur_vwap - purchase_price) / 2) + purchase_price ):
+								sell_signal = True
+
+						elif ( cur_vwap < purchase_price ):
+							if ( last_price >= ((cur_vwap_up - cur_vwap) / 2) + cur_vwap ):
+								sell_signal = True
+
 					if ( exit_percent != None and percent_change >= float(exit_percent) ):
 
 						# Sell
@@ -3606,6 +3695,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				elif ( float(last_price) < float(base_price) ):
 					percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
+
+					# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
+					if ( vwap_exit == True ):
+
+						cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
+						cur_vwap_down = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap_down']
+						if ( cur_vwap < short_price ):
+							if ( last_price <= ((short_price - cur_vwap) / 2) + cur_vwap ):
+								buy_to_cover_signal = True
+
+						elif ( cur_vwap > short_price ):
+							if ( last_price <= ((cur_vwap - cur_vwap_down) / 2) + cur_vwap_down ):
+								buy_to_cover_signal = True
 
 					if ( exit_percent != None and percent_change >= float(exit_percent) ):
 

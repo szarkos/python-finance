@@ -51,6 +51,7 @@ parser.add_argument("--max_failed_txs", help='Maximum number of failed transacti
 parser.add_argument("--max_failed_usd", help='Maximum allowed USD for a failed transaction before the stock is blacklisted', default=100, type=int)
 parser.add_argument("--scalp_mode", help='Enable scalp mode (fixes incr_threshold and decr_threshold)', action="store_true")
 parser.add_argument("--exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
+parser.add_argument("--vwap_exit", help='Use vwap exit strategy - sell/close at half way between entry point and vwap', action="store_true")
 
 parser.add_argument("--rsi_slow", help='Slowing period to use in StochRSI algorithm', default=3, type=int)
 parser.add_argument("--rsi_k_period", help='k period to use in StochRSI algorithm', default=128, type=int)
@@ -195,6 +196,9 @@ for ticker in args.stocks.split(','):
 
 				    # Aroon Oscillator
 				    'cur_aroonosc':		float(-1),
+
+				    # VWAP
+				    'cur_vwap':			float(-1),
 
 				    # Support / Resistance
 				    'three_week_high':		float(0),

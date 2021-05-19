@@ -223,6 +223,21 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 			stocks[ticker]['cur_aroonosc'] = aroonosc[-1]
 
+		# VWAP
+		# Calculate vwap to use as exit strategy
+		if ( args.vwap_exit == True ):
+			vwap = []
+			vwap_up = []
+			vwap_down = []
+			try:
+				vwap, vwap_up, vwap_down = tda_gobot_helper.get_vwap( stocks[ticker]['pricehistory'] )
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(): get_vwap(' + str(ticker) + '): ' + str(e))
+
+			stocks[ticker]['cur_vwap'] = float(vwap[-1])
+
+
 		# Debug
 		if ( debug == True ):
 			time_now = datetime.datetime.now( mytimezone )
@@ -299,6 +314,10 @@ def stochrsi_gobot( stream=None, debug=False ):
 		prev_macd_avg	= stocks[ticker]['prev_macd_avg']
 
 		cur_aroonosc	= stocks[ticker]['cur_aroonosc']
+
+		cur_vwap	= stocks[ticker]['cur_vwap']
+		cur_vwap_up	= vwap_up[-1]
+		cur_vwap_down	= vwap_down[-1]
 
 
 		# Criteria for when we will not enter new trades
@@ -507,7 +526,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 					try:
 						stocks[ticker]['orig_base_price'] = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
 					except:
-						stocks[ticker]['orig_base_price'] = last_price
+						stocks[ticker]['orig_base_price'] = float(last_price)
 
 				else:
 					print('Stock ' + str(ticker) + ' not purchased because market is closed.')
@@ -638,8 +657,19 @@ def stochrsi_gobot( stream=None, debug=False ):
 				if ( debug == True ):
 					print('Stock "' +  str(ticker) + '" +' + str(round(percent_change,2)) + '% (' + str(last_price) + ')')
 
+				# Sell if --exit_percent was set and threshold met
 				if ( args.exit_percent != None and percent_change >= float(args.exit_percent) ):
 					stocks[ticker]['sell_signal'] = True
+
+				# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
+				if ( args.vwap_exit == True ):
+					if ( cur_vwap > stocks[ticker]['orig_base_price'] ):
+						if ( last_price >= ((cur_vwap - stocks[ticker]['orig_base_price']) / 2) + stocks[ticker]['orig_base_price'] ):
+							stocks[ticker]['sell_signal'] = True
+
+					elif ( cur_vwap < stocks[ticker]['orig_base_price'] ):
+						if ( last_price >= ((cur_vwap_up - cur_vwap) / 2) + cur_vwap ):
+							stocks[ticker]['sell_signal'] = True
 
 				# Re-set the base_price to the last_price if we increase by incr_threshold or more
 				# This way we can continue to ride a price increase until it starts dropping
@@ -973,6 +1003,17 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 				if ( args.exit_percent != None and percent_change >= float(args.exit_percent) ):
 					stocks[ticker]['buy_to_cover_signal'] = True
+
+
+				# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
+				if ( args.vwap_exit == True ):
+					if ( cur_vwap < stocks[ticker]['orig_base_price'] ):
+						if ( last_price <= ((stocks[ticker]['orig_base_price'] - cur_vwap) / 2) + cur_vwap ):
+							stocks[ticker]['buy_to_cover_signal'] = True
+
+					elif ( cur_vwap > stocks[ticker]['orig_base_price'] ):
+						if ( last_price <= ((cur_vwap - cur_vwap_down) / 2) + cur_vwap_down ):
+							stocks[ticker]['buy_to_cover_signal'] = True
 
 				# Re-set the base_price to the last_price if we increase by incr_threshold or more
 				# This way we can continue to ride a price increase until it starts dropping

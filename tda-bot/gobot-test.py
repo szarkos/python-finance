@@ -105,7 +105,7 @@ scenarios = {	'stochrsi_adx':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_ad
 # Run the data through all available test scenarios
 for key in scenarios:
 
-	command = './tda-gobot-analyze.py ' + str(ticker) + ' --algo=stochrsi-new --no_use_resistance --stoploss --incr_threshold=0.5 --decr_threshold=1 --verbose ' + \
+	command = './tda-gobot-analyze.py ' + str(ticker) + ' --algo=stochrsi-new --no_use_resistance --stoploss --incr_threshold=0.5 --decr_threshold=0.5 --verbose ' + \
 			str(opts) + ' --ifile=' + str(args.ifile) + ' ' + str(start_date) + ' ' + str(scenarios[key])
 
 	outfile = str(args.ofile) + '-' + str(key)

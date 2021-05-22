@@ -1119,6 +1119,52 @@ def get_adx(pricehistory=None, period=14, debug=False):
 	return tuple(adx), tuple(plus_di), tuple(minus_di)
 
 
+# Volume Price Trend
+# VPT = Previous VPT + Volume x (Today’s Close – Previous Close) / Previous Close
+def get_vpt(pricehistory=None, period=28, debug=False):
+
+	if ( pricehistory == None ):
+		return False, []
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	if ( len(pricehistory['candles']) < period ):
+		# Possibly this ticker is too new, not enough history
+		print( 'Warning: get_vpt(' + str(ticker) + ', ' + str(period) + '): len(pricehistory) is less than period (' +
+			str(len(pricehistory['candles'])) + ') - unable to calculate VPT')
+		return False, []
+
+	vpt = []
+	vpt_sum = float(0)
+	for idx,key in enumerate(pricehistory['candles']):
+		if ( idx == 0 ):
+			vpt.append(0)
+			continue
+
+		prev_close = float( pricehistory['candles'][idx-1]['close'] )
+		cur_close = float( key['close'] )
+
+		vpt_sum = vpt_sum + key['volume'] * ((cur_close - prev_close) / prev_close)
+
+		vpt.append(vpt_sum)
+
+	# Get the vpt signal line
+	vpt = np.array( vpt )
+	vpt_sma = []
+	try:
+		vpt_sma = ti.sma(vpt, period=period)
+
+	except Exception as e:
+		print('Caught Exception: get_vpt(' + str(ticker) + '): ti.sma(): ' + str(e))
+		return False, []
+
+	return vpt, vpt_sma
+
+
 # Return the Aroon Oscillator value
 # https://tulipindicators.org/aroon
 def get_aroon_osc(pricehistory=None, period=25, debug=False):

@@ -1481,10 +1481,18 @@ def get_stoch_oscillator(pricehistory=None, type=None, k_period=14, d_period=3, 
 #  5) Divide the Cumulative Totals
 #
 #  VWAP = Cumulative(Typical Price x Volume) / Cumulative(Volume)
-def get_vwap(pricehistory=None, day='today', end_timestamp=None, num_dev=2, debug=False):
+#
+# day - since vwap is a daily indicator, by default we start the calculation on the current
+#	day and skip any pricehistory candles before it. When backtesting historic data, 'day'
+#	should be a date string (2021-05-21).
+# end_timestamp = the last timestamp of the day, used for backtesting historic data.
+# use_bands = calculate the stddev bands if desired. In some cases these are not needed and
+#	skipping this step saves time.
+# num_stddev = the standard deviation to use for the bands
+def get_vwap(pricehistory=None, day='today', end_timestamp=None, use_bands=True, num_stddev=2, debug=False):
 
 	if ( pricehistory == None ):
-		return False
+		return False, [], []
 
 	if ( day != None ):
 		if ( day == 'today' ):
@@ -1522,21 +1530,24 @@ def get_vwap(pricehistory=None, day='today', end_timestamp=None, num_dev=2, debu
 	vwap = df.assign(vwap=(p * q).cumsum() / q.cumsum())
 	vwap = vwap['vwap'].to_numpy()
 
+	if ( use_bands == False ):
+		return vwap
+
 	# Calculate the standard deviation for each bar and the upper/lower bands
 	vwap_up = []
 	vwap_down = []
 	vwap_sum = float(0)
-	vwap_dev_cumsum = float(0)
+	vwap_stddev_cumsum = float(0)
 
 	for idx,val in enumerate(vwap):
 		vwap_sum += val
 		vwap_avg = vwap_sum / (idx + 1)
-		vwap_dev_cumsum += (val - vwap_avg) ** 2
+		vwap_stddev_cumsum += (val - vwap_avg) ** 2
 
-		stdev = np.sqrt( vwap_dev_cumsum / (idx + 1) )
+		stdev = np.sqrt( vwap_stddev_cumsum / (idx + 1) )
 
-		vwap_up.append( val + stdev * num_dev )
-		vwap_down.append( val - stdev * num_dev )
+		vwap_up.append( val + stdev * num_stddev )
+		vwap_down.append( val - stdev * num_stddev )
 
 	if ( debug == True ):
 		idx = 0
@@ -3004,7 +3015,9 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 # Like stochrsi_analyze(), but sexier
 def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3,
 			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=1.5, hold_overnight=False, exit_percent=None, vwap_exit=False,
-			  noshort=False, shortonly=False, no_use_resistance=False, with_rsi=True, with_adx=True, with_dmi=True, with_aroonosc=True, with_macd=True, safe_open=True, start_date=None, debug=False ):
+			  no_use_resistance=False, with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_macd=False, with_vwap=False,
+			  noshort=False, shortonly=False, safe_open=True, start_date=None,
+			  debug=False ):
 
 	if ( ticker == None or pricehistory == None ):
 		print('Error: stochrsi_analyze(' + str(ticker) + '): Either pricehistory or ticker is empty', file=sys.stderr)
@@ -3077,9 +3090,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_aroon_osc(): ' + str(e))
 		return False
 
-
-	# Calculate vwap_exit
-	if ( vwap_exit == True ):
+	# Calculate vwap and/or vwap_exit
+	if ( with_vwap == True or vwap_exit == True ):
 		vwap_vals = OrderedDict()
 		days = OrderedDict()
 
@@ -3102,7 +3114,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 		# Calculate the VWAP data for each day in days{}
 		for key in days:
-			vwap, vwap_up, vwap_down = get_vwap(pricehistory, day=key, end_timestamp=days[key]['end'])
+			try:
+				vwap, vwap_up, vwap_down = get_vwap(pricehistory, day=key, end_timestamp=days[key]['end'], num_stddev=2)
+
+			except Exception as e:
+				print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_vwap(): ' + str(e))
+				return False
 
 			if ( len(vwap) != len(days[key]['timestamps']) ):
 				print('WARNING: len(vwap) != len(days[key][timestamps]): ' + str(len(vwap)) + ', ' + str(len(days[key]['timestamps'])))
@@ -3113,7 +3130,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 							'vwap_up': float(vwap_up[idx]),
 							'vwap_down': float(vwap_down[idx]) }
 						} )
-#				vwap_vals[days[key]['timestamps'][idx]] = { 'vwap': float(val), 'vwap_up': float(vwap_up[idx]), 'vwap_down': float(vwap_down[idx]) }
 
 
 	# SMA200 and EMA50
@@ -3187,11 +3203,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	final_short_signal = False
 	final_buy_to_cover_signal = False
 
+	exit_signal = False
+
 	rsi_signal = False
 	adx_signal = False
 	dmi_signal = False
-	aroonosc_signal = False
 	macd_signal = False
+	aroonosc_signal = False
+	vwap_signal = False
 	resistance_signal = False
 
 	plus_di_crossover = False
@@ -3268,7 +3287,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_sell_signal = final_buy_signal = False
 
-				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 				continue
@@ -3280,7 +3299,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_sell_signal = final_buy_signal = False
 
-				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 				signal_mode = 'short'
@@ -3300,7 +3319,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					buy_signal = True
 
 			elif ( cur_rsi_k > rsi_signal_cancel_low_limit and cur_rsi_d > rsi_signal_cancel_low_limit ):
-				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 				buy_signal = False
 
@@ -3329,12 +3348,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			if ( plus_di_crossover == True and cur_plus_di > cur_minus_di ):
 				dmi_signal = True
 
-			# Aroon oscillator signals
-			# Values closer to 100 indicate an uptrend
-			aroonosc_signal = False
-			if ( cur_aroonosc > 60 ):
-				aroonosc_signal = True
-
 			# MACD crossover signals
 			if ( prev_macd < prev_macd_avg and cur_macd >= cur_macd_avg ):
 				macd_crossover = True
@@ -3346,6 +3359,20 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			macd_signal = False
 			if ( macd_crossover == True and cur_macd > cur_macd_avg ):
 				macd_signal = True
+
+			# Aroon oscillator signals
+			# Values closer to 100 indicate an uptrend
+			aroonosc_signal = False
+			if ( cur_aroonosc > 60 ):
+				aroonosc_signal = True
+
+			# VWAP
+			# This is the most simple/pessimistic approach right now
+			if ( with_vwap == True ):
+				cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
+				cur_price = float(pricehistory['candles'][idx]['close'])
+				if ( cur_price < cur_vwap ):
+					vwap_signal = True
 
 			# High / low resistance
 			resistance_signal = True
@@ -3360,8 +3387,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				resistance_signal = False
 
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
-			final_buy_signal = True
 			if ( buy_signal == True ):
+				final_buy_signal = True
 				if ( with_rsi == True and rsi_signal != True ):
 					final_buy_signal = False
 
@@ -3375,6 +3402,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					final_buy_signal = False
 
 				if ( with_macd == True and macd_signal != True ):
+					final_buy_signal = False
+
+				if ( with_vwap == True and vwap_signal != True ):
 					final_buy_signal = False
 
 				if ( no_use_resistance == False and resistance_signal != True ):
@@ -3393,7 +3423,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_sell_signal = final_buy_signal = False
 
-				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 				signal_mode = 'sell'
@@ -3429,7 +3459,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 						buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 						final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
 
-						adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+						adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = resistance_signal = False
 						plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 						signal_mode = 'short'
@@ -3450,27 +3480,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 							if ( last_price >= ((cur_vwap_up - cur_vwap) / 2) + cur_vwap ):
 								sell_signal = True
 
-					if ( exit_percent != None and percent_change >= float(exit_percent) ):
+					# Sell if exit_percent is specified
+					if ( exit_percent != None ):
 
-						# Sell
-						sell_price = float(pricehistory['candles'][idx]['close'])
-						sell_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+						# If exit_percent has been hit, we will sell at the first RED candle
+						if ( exit_signal == True ):
+							if ( float(pricehistory['candles'][idx]['close']) < float(pricehistory['candles'][idx]['open']) ):
+								sell_signal = True
 
-						# sell_price,bool(short),rsi,stochrsi,sell_time
-						results.append( str(sell_price) + ',' + str(short) + ',' +
-								str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' +
-								str(sell_time) )
-
-						buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
-						final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
-
-						adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
-						plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
-
-						signal_mode = 'short'
-						if ( noshort == True ):
-							signal_mode = 'buy'
-						continue
+						elif ( percent_change >= float(exit_percent) ):
+							exit_signal = True
 
 					if ( percent_change >= incr_percent_threshold ):
 						base_price = last_price
@@ -3504,8 +3523,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
+				exit_signal = False
 
-				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 				if ( noshort == False ):
@@ -3525,7 +3545,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
 
-				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 				continue
@@ -3535,7 +3555,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
 
-				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 				signal_mode = 'buy'
@@ -3554,7 +3574,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					short_signal = True
 
 			elif ( cur_rsi_k < rsi_signal_cancel_high_limit and cur_rsi_d < rsi_signal_cancel_high_limit ):
-				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 				short_signal = False
 
@@ -3583,12 +3603,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			if ( minus_di_crossover == True and cur_plus_di < cur_minus_di ):
 				dmi_signal = True
 
-			# Aroon oscillator signals
-			# Values closer to -100 indicate a downtrend
-			aroonosc_signal = False
-			if ( cur_aroonosc < -60 ):
-				aroonosc_signal = True
-
 			# MACD crossover signals
 			if ( prev_macd < prev_macd_avg and cur_macd >= cur_macd_avg ):
 				macd_crossover = True
@@ -3600,6 +3614,20 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			macd_signal = False
 			if ( cur_macd < cur_macd_avg ):
 				macd_signal = True
+
+			# Aroon oscillator signals
+			# Values closer to -100 indicate a downtrend
+			aroonosc_signal = False
+			if ( cur_aroonosc < -60 ):
+				aroonosc_signal = True
+
+			# VWAP
+			# This is the most simple/pessimistic approach right now
+			if ( with_vwap == True ):
+				cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
+				cur_price = float(pricehistory['candles'][idx]['close'])
+				if ( cur_price > cur_vwap ):
+					vwap_signal = True
 
 			# High / low resistance
 			short_price = float(pricehistory['candles'][idx]['close'])
@@ -3615,8 +3643,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				resistance_signal = False
 
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
-			final_short_signal = True
 			if ( short_signal == True ):
+				final_short_signal = True
 				if ( with_rsi == True and rsi_signal != True ):
 					final_short_signal = False
 
@@ -3630,6 +3658,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					final_short_signal = False
 
 				if ( with_macd == True and macd_signal != True ):
+					final_short_signal = False
+
+				if ( with_vwap == True and vwap_signal != True ):
 					final_short_signal = False
 
 				if ( no_use_resistance == False and resistance_signal != True ):
@@ -3649,7 +3680,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				sell_signal = buy_signal = short_signal = buy_to_cover_signal = False
 				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
 
-				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 				signal_mode = 'buy_to_cover'
@@ -3684,7 +3715,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 						buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 						final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
 
-						adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+						adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = resistance_signal = False
 						plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 						if ( shortonly == True ):
@@ -3709,27 +3740,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 							if ( last_price <= ((cur_vwap - cur_vwap_down) / 2) + cur_vwap_down ):
 								buy_to_cover_signal = True
 
-					if ( exit_percent != None and percent_change >= float(exit_percent) ):
+					# Sell if exit_percent is specified
+					if ( exit_percent != None ):
 
-						# Buy-to-cover
-						buy_to_cover_price = float(pricehistory['candles'][idx]['close'])
-						buy_to_cover_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+						# If exit_percent has been hit, we will sell at the first GREEN candle
+						if ( exit_signal == True ):
+							if ( float(pricehistory['candles'][idx]['close']) > float(pricehistory['candles'][idx]['open']) ):
+								buy_to_cover_signal = True
 
-						results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
-								str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' +
-								str(buy_to_cover_time) )
-
-						buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
-						final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
-
-						adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
-						plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
-
-						if ( shortonly == True ):
-							signal_mode = 'short'
-						else:
-							signal_mode = 'buy'
-							continue
+						elif ( percent_change >= float(exit_percent) ):
+							exit_signal = True
 
 					if ( percent_change >= incr_percent_threshold ):
 						base_price = last_price
@@ -3763,7 +3783,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
 
-				adx_signal = dmi_signal = aroonosc_signal = macd_signal = resistance_signal = False
+				exit_signal = False
+
+				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 				if ( shortonly == True ):

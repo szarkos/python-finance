@@ -18,15 +18,18 @@ def reset_signals(ticker=None):
 	stocks[ticker]['buy_to_cover_signal']		= False
 
 	stocks[ticker]['final_buy_signal']		= False
-	stocks[ticker]['final_sell_signal']		= False
+	stocks[ticker]['final_sell_signal']		= False		# Currently unused
 	stocks[ticker]['final_short_signal']		= False
-	stocks[ticker]['final_buy_to_cover_signal']	= False
+	stocks[ticker]['final_buy_to_cover_signal']	= False		# Currently unused
+
+	stocks[ticker]['exit_signal']			= False
 
 	stocks[ticker]['rsi_signal']			= False
 	stocks[ticker]['adx_signal']			= False
 	stocks[ticker]['dmi_signal']			= False
 	stocks[ticker]['macd_signal']			= False
 	stocks[ticker]['aroonosc_signal']		= False
+	stocks[ticker]['vwap_signal']			= False
 
 	stocks[ticker]['plus_di_crossover']		= False
 	stocks[ticker]['minus_di_crossover']		= False
@@ -225,7 +228,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 		# VWAP
 		# Calculate vwap to use as exit strategy
-		if ( args.vwap_exit == True ):
+		if ( args.with_vwap or args.vwap_exit == True ):
 			vwap = []
 			vwap_up = []
 			vwap_down = []
@@ -236,6 +239,8 @@ def stochrsi_gobot( stream=None, debug=False ):
 				print('Error: stochrsi_gobot(): get_vwap(' + str(ticker) + '): ' + str(e))
 
 			stocks[ticker]['cur_vwap'] = float(vwap[-1])
+			stocks[ticker]['cur_vwap_up'] = float(vwap_up[-1])
+			stocks[ticker]['cur_vwap_down'] = float(vwap_down[-1])
 
 
 		# Debug
@@ -316,8 +321,8 @@ def stochrsi_gobot( stream=None, debug=False ):
 		cur_aroonosc	= stocks[ticker]['cur_aroonosc']
 
 		cur_vwap	= stocks[ticker]['cur_vwap']
-		cur_vwap_up	= vwap_up[-1]
-		cur_vwap_down	= vwap_down[-1]
+		cur_vwap_up	= stocks[ticker]['cur_vwap_up']
+		cur_vwap_down	= stocks[ticker]['cur_vwap_down']
 
 
 		# Criteria for when we will not enter new trades
@@ -454,6 +459,14 @@ def stochrsi_gobot( stream=None, debug=False ):
 				if ( stocks[ticker]['macd_crossover'] == True and cur_macd > cur_macd_avg ):
 					stocks[ticker]['macd_signal'] = True
 
+			# VWAP signal
+			# This is the most simple/pessimistic approach right now
+			if ( args.with_vwap == True ):
+				stocks[ticker]['vwap_signal'] = False
+				cur_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+				if ( cur_price < cur_vwap ):
+					stocks[ticker]['vwap_signal'] = True
+
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
 			if ( stocks[ticker]['buy_signal'] == True ):
 
@@ -471,6 +484,9 @@ def stochrsi_gobot( stream=None, debug=False ):
 					stocks[ticker]['final_buy_signal'] = False
 
 				if ( args.with_macd == True and stocks[ticker]['macd_signal'] != True ):
+					stocks[ticker]['final_buy_signal'] = False
+
+				if ( args.with_vwap == True and stocks[ticker]['vwap_signal'] != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
 
@@ -658,8 +674,18 @@ def stochrsi_gobot( stream=None, debug=False ):
 					print('Stock "' +  str(ticker) + '" +' + str(round(percent_change,2)) + '% (' + str(last_price) + ')')
 
 				# Sell if --exit_percent was set and threshold met
-				if ( args.exit_percent != None and percent_change >= float(args.exit_percent) ):
-					stocks[ticker]['sell_signal'] = True
+				if ( args.exit_percent != None ):
+
+					# If exit_percent has been hit, we will sell at the first RED candle
+					if ( stocks[ticker]['exit_signal'] == True ):
+
+						last_close = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+						last_open = float( stocks[ticker]['pricehistory']['candles'][-1]['open'] )
+						if ( last_close < last_open ):
+							stocks[ticker]['sell_signal'] = True
+
+					elif ( percent_change >= float(args.exit_percent) ):
+						stocks[ticker]['exit_signal'] = True
 
 				# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
 				if ( args.vwap_exit == True ):
@@ -673,7 +699,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 				# Re-set the base_price to the last_price if we increase by incr_threshold or more
 				# This way we can continue to ride a price increase until it starts dropping
-				elif ( percent_change >= incr_threshold ):
+				if ( percent_change >= incr_threshold ):
 					stocks[ticker]['base_price'] = last_price
 					print('Stock "' + str(ticker) + '" increased above the incr_threshold (' + str(incr_threshold) + '%), resetting base price to '  + str(last_price))
 					print('Net change (' + str(ticker) + '): ' + str(net_change) + ' USD')
@@ -829,6 +855,14 @@ def stochrsi_gobot( stream=None, debug=False ):
 				if ( stocks[ticker]['macd_avg_crossover'] == True and cur_macd < cur_macd_avg ):
 					stocks[ticker]['macd_signal'] = True
 
+			# VWAP signal
+			# This is the most simple/pessimistic approach right now
+			if ( args.with_vwap == True ):
+				stocks[ticker]['vwap_signal'] = False
+				cur_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+				if ( cur_price > cur_vwap ):
+					stocks[ticker]['vwap_signal'] = True
+
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
 			if ( stocks[ticker]['short_signal'] == True ):
 
@@ -846,6 +880,9 @@ def stochrsi_gobot( stream=None, debug=False ):
 					stocks[ticker]['final_short_signal'] = False
 
 				if ( args.with_macd == True and stocks[ticker]['macd_signal'] != True ):
+					stocks[ticker]['final_short_signal'] = False
+
+				if ( args.with_vwap == True and stocks[ticker]['vwap_signal'] != True ):
 					stocks[ticker]['final_short_signal'] = False
 
 
@@ -1001,8 +1038,18 @@ def stochrsi_gobot( stream=None, debug=False ):
 				if ( debug == True ):
 					print('Stock "' +  str(ticker) + '" -' + str(round(percent_change, 2)) + '% (' + str(last_price) + ')')
 
-				if ( args.exit_percent != None and percent_change >= float(args.exit_percent) ):
-					stocks[ticker]['buy_to_cover_signal'] = True
+				if ( args.exit_percent != None ):
+
+					# If exit_percent has been hit, we will sell at the first GREEN candle
+					if ( stocks[ticker]['exit_signal'] == True ):
+
+						last_close = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+						last_open = float( stocks[ticker]['pricehistory']['candles'][-1]['open'] )
+						if ( last_close > last_open ):
+							stocks[ticker]['buy_to_cover_signal'] = True
+
+					elif ( percent_change >= float(args.exit_percent) ):
+						stocks[ticker]['exit_signal'] = True
 
 
 				# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap

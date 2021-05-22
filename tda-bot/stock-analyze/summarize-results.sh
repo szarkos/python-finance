@@ -1,16 +1,41 @@
 
-#tests="stochrsi_adx stochrsi_rsi_adx stochrsi_rsi_adx_aroonosc stochrsi_rsi_adx_dmi stochrsi_rsi_adx_dmi_aroonosc stochrsi_rsi_adx_dmi_macd stochrsi_rsi_adx_macd stochrsi_rsi_adx_macd_aroonosc stochrsi_rsi_adx_macd_dmi_aroonosc stochrsi_rsi_aroonosc stochrsi_rsi_dmi stochrsi_rsi_macd"
-tests="stochrsi_adx \
-	stochrsi_adx_aroonosc \
-	stochrsi_adx_dmi \
-	stochrsi_adx_dmi_aroonosc \
-	stochrsi_adx_dmi_macd \
-	stochrsi_adx_macd \
-	stochrsi_adx_macd_aroonosc \
-	stochrsi_adx_macd_dmi_aroonosc \
-	stochrsi_aroonosc \
-	stochrsi_dmi \
-	stochrsi_macd"
+tests="stochrsi_rsi \
+	stochrsi_rsi_adx \
+	stochrsi_rsi_dmi \
+	stochrsi_rsi_macd \
+	stochrsi_rsi_aroonosc \
+	stochrsi_rsi_adx_dmi \
+	stochrsi_rsi_adx_macd \
+	stochrsi_rsi_adx_aroonosc \
+	stochrsi_rsi_adx_dmi_macd \
+	stochrsi_rsi_adx_dmi_aroonosc \
+	stochrsi_rsi_adx_macd_aroonosc \
+	stochrsi_rsi_adx_macd_dmi_aroonosc"
+
+#tests="stochrsi_rsi_vwap \
+#	stochrsi_rsi_adx_vwap \
+#	stochrsi_rsi_dmi_vwap \
+#	stochrsi_rsi_macd_vwap \
+#	stochrsi_rsi_aroonosc_vwap \
+#	stochrsi_rsi_adx_dmi_vwap \
+#	stochrsi_rsi_adx_macd_vwap \
+#	stochrsi_rsi_adx_aroonosc_vwap \
+#	stochrsi_rsi_adx_dmi_macd_vwap \
+#	stochrsi_rsi_adx_dmi_aroonosc_vwap \
+#	stochrsi_rsi_adx_macd_aroonosc_vwap \
+#	stochrsi_rsi_adx_macd_dmi_aroonosc"
+
+#tests="stochrsi_adx \
+#	stochrsi_dmi \
+#	stochrsi_macd \
+#	stochrsi_aroonosc \
+#	stochrsi_adx_dmi \
+#	stochrsi_adx_macd \
+#	stochrsi_adx_aroonosc \
+#	stochrsi_adx_dmi_macd \
+#	stochrsi_adx_dmi_aroonosc \
+#	stochrsi_adx_macd_aroonosc \
+#	stochrsi_adx_macd_dmi_aroonosc"
 
 source ./tickers.conf
 tickers=$( echo -n $SMALL_MID2 | sed 's/,/ /g' )

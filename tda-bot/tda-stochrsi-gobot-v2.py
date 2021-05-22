@@ -67,6 +67,7 @@ parser.add_argument("--with_adx", help='Use the Average Directional Index (ADX) 
 parser.add_argument("--with_dmi", help='Use the Directional Movement Index(DMI) as a secondary indicator', action="store_true")
 parser.add_argument("--with_macd", help='Use the Moving Average Convergence Divergence (MACD) as a secondary indicator', action="store_true")
 parser.add_argument("--with_aroonosc", help='Use the Aroon Oscillator as a secondary indicator', action="store_true")
+parser.add_argument("--with_vwap", help='Use VWAP as a secondary indicator', action="store_true")
 
 parser.add_argument("--short", help='Enable short selling of stock', action="store_true")
 parser.add_argument("--shortonly", help='Only short sell the stock', action="store_true")
@@ -163,9 +164,11 @@ for ticker in args.stocks.split(','):
 				   'buy_to_cover_signal':	False,
 
 				   'final_buy_signal':		False,
-				   'final_sell_signal':		False,
+				   'final_sell_signal':		False,		# Currently unused
 				   'final_short_signal':	False,
-				   'final_buy_to_cover_signal':	False,
+				   'final_buy_to_cover_signal':	False,		# Currently unused
+
+				   'exit_signal':		False,
 
 				   'signal_mode':		'buy',
 
@@ -199,6 +202,8 @@ for ticker in args.stocks.split(','):
 
 				    # VWAP
 				    'cur_vwap':			float(-1),
+				    'cur_vwap_up':		float(-1),
+				    'cur_vwap_down':		float(-1),
 
 				    # Support / Resistance
 				    'three_week_high':		float(0),
@@ -214,8 +219,9 @@ for ticker in args.stocks.split(','):
 				   'rsi_signal':		False,
 				   'adx_signal':		False,
 				   'dmi_signal':		False,
-				   'aroonosc_signal':		False,
 				   'macd_signal':		False,
+				   'aroonosc_signal':		False,
+				   'vwap_signal':		False,
 
 				   'plus_di_crossover':		False,
 				   'minus_di_crossover':	False,

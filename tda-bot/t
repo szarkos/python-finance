@@ -1,0 +1,8 @@
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--stocks", help='Stock ticker(s) to purchase (comma delimited)', required=True, nargs="*", action='append', type=str)
+args = parser.parse_args()
+
+print(args.stocks)
+

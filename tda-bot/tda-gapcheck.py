@@ -66,16 +66,15 @@ if ( tda_gobot_helper.tdalogin(passcode) != True ):
 # Initialize stocks{}
 print( 'Initializing stock tickers: ' + str(args.stocks.split(',')) )
 
+# Fix up and sanity check the stock symbol before proceeding
+args.stocks = tda_gobot_helper.fix_stock_symbol(args.stocks)
+args.stocks = tda_gobot_helper.check_stock_symbol(args.stocks)
+time.sleep(2)
+
 stocks = OrderedDict()
 for ticker in args.stocks.split(','):
 
 	if ( ticker == '' ):
-		continue
-
-	# Fix up and sanity check the stock symbol before proceeding
-	ticker = tda_gobot_helper.fix_stock_symbol(ticker)
-	if ( tda_gobot_helper.check_stock_symbol(ticker) != True ):
-		print('Error: check_stock_symbol(' + str(ticker) + ') returned False, removing from the list')
 		continue
 
 	stocks.update( { ticker: { 'shortable':			True,
@@ -87,22 +86,13 @@ for ticker in args.stocks.split(','):
 				   'pricehistory':		{ 'candles': [] }
 			}} )
 
-	time.sleep(1)
-
 if ( len(stocks) == 0 ):
 	print('Error: no valid stock tickers provided, exiting.')
 	sys.exit(1)
 
-# TDA API is limited to 150 non-transactional calls per minute. It's best to sleep
-#  a bit here to avoid spurious errors later.
-if ( len(stocks) > 20 ):
-	time.sleep(60)
-else:
-	time.sleep(len(stocks))
-
 # Initialize additional stocks{} values
 time_now = datetime.datetime.now( mytimezone )
-time_prev = time_now - datetime.timedelta( days=10 )
+time_prev = time_now - datetime.timedelta( days=9 )
 
 # Make sure start and end dates don't land on a weekend or outside market hours
 time_now = tda_gobot_helper.fix_timestamp(time_now)
@@ -117,6 +107,14 @@ period = None
 f_type = 'minute'
 freq = '1'
 
+# Get stock_data info about the stock that we can use later (i.e. shortable)
+try:
+	stock_data,err = tda.stocks.get_quotes(args.stocks, True)
+except Exception as e:
+	print('Caught exception: get_quote(' + str(ticker) + '): ' + str(e), file=sys.stderr)
+	sys.exit(1)
+
+# Populate ticker info in stocks[]
 for ticker in stocks.keys():
 	if ( tda_gobot_helper.check_blacklist(ticker) == True and args.force == False ):
 		print('(' + str(ticker) + ') Error: stock ' + str(ticker) + ' found in blacklist file, removing from the list')
@@ -124,14 +122,9 @@ for ticker in stocks.keys():
 		continue
 
 	# Confirm that we can short this stock
-	data,err = tda.stocks.get_quote(ticker, True)
-	if ( err != None or data == False ):
-		print('Error: get_quote(' + str(ticker) + '): ' + str(err), file=sys.stderr)
+	if ( stock_data[ticker]['shortable'] == str(False) or stock_data[ticker]['marginable'] == str(False) ):
+		print('Warning: stock(' + str(ticker) + '): does not appear to be shortable, disabling --short')
 		stocks[ticker]['shortable'] = False
-	else:
-		if ( str(data[ticker]['shortable']) == str(False) or str(data[ticker]['marginable']) == str(False) ):
-			print('Warning: stock(' + str(ticker) + '): does not appear to be shortable, disabling --short')
-			stocks[ticker]['shortable'] = False
 
 	avg_vol = 0
 	data = False
@@ -290,7 +283,7 @@ def gap_monitor(stream=None, debug=False):
 			if ( isinstance(stocks[ticker]['process'], Popen) == True ):
 				if ( stocks[ticker]['process'].poll() != None ):
 					# process has exited
-					stocks[ticker]['process'] == None
+					stocks[ticker]['process'] = None
 				else:
 					# Another process is running for this ticker
 					print('(' + str(ticker) + '): Another process (pid: ' + str(stocks[ticker]['process'].pid) + ') is already running')

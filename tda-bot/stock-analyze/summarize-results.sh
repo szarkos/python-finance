@@ -1,16 +1,28 @@
 
-tests="stochrsi_rsi \
-	stochrsi_rsi_adx \
-	stochrsi_rsi_dmi \
-	stochrsi_rsi_macd \
-	stochrsi_rsi_aroonosc \
-	stochrsi_rsi_adx_dmi \
-	stochrsi_rsi_adx_macd \
-	stochrsi_rsi_adx_aroonosc \
-	stochrsi_rsi_adx_dmi_macd \
-	stochrsi_rsi_adx_dmi_aroonosc \
-	stochrsi_rsi_adx_macd_aroonosc \
-	stochrsi_rsi_adx_macd_dmi_aroonosc"
+tests="stochrsi_rsi_vpt \
+stochrsi_rsi_adx_vpt \
+stochrsi_rsi_dmi_vpt \
+stochrsi_rsi_macd_vpt \
+stochrsi_rsi_aroonosc_vpt \
+stochrsi_rsi_adx_macd_vpt \
+stochrsi_vpt \
+stochrsi_adx_vpt \
+stochrsi_dmi_vpt \
+stochrsi_macd_vpt \
+stochrsi_aroonosc_vpt"
+
+#tests="stochrsi_rsi \
+#	stochrsi_rsi_adx \
+#	stochrsi_rsi_dmi \
+#	stochrsi_rsi_macd \
+#	stochrsi_rsi_aroonosc \
+#	stochrsi_rsi_adx_dmi \
+#	stochrsi_rsi_adx_macd \
+#	stochrsi_rsi_adx_aroonosc \
+#	stochrsi_rsi_adx_dmi_macd \
+#	stochrsi_rsi_adx_dmi_aroonosc \
+#	stochrsi_rsi_adx_macd_aroonosc \
+#	stochrsi_rsi_adx_macd_dmi_aroonosc"
 
 #tests="stochrsi_rsi_vwap \
 #	stochrsi_rsi_adx_vwap \

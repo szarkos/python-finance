@@ -6,6 +6,27 @@ import pickle
 import tda_gobot_helper
 
 
+# Runs from stream_client.handle_message() - calls stochrsi_gobot() with each
+#  set of specified algorithms
+def stochrsi_gobot_run(stream=None, algos=None, debug=False):
+
+	if not isinstance(stream, dict):
+		print('Error:')
+		return False
+
+	if not isinstance(algos, list):
+		print('Error:')
+		return False
+
+	# Call stochrsi_gobot() for each set of specific algorithms
+	for algo_list in algos:
+		ret = stochrsi_gobot( stream=stream, algos=algo_list, debug=debug )
+		if ( ret == False ):
+			print('Error: stochrsi_gobot_start(): stochrsi_gobot(' + str(algo) + '): returned False')
+
+	return True
+
+
 # Reset all the buy/sell/short/buy-to-cover and indicator signals
 def reset_signals(ticker=None):
 
@@ -30,6 +51,7 @@ def reset_signals(ticker=None):
 	stocks[ticker]['macd_signal']			= False
 	stocks[ticker]['aroonosc_signal']		= False
 	stocks[ticker]['vwap_signal']			= False
+	stocks[ticker]['vpt_signal']			= False
 
 	stocks[ticker]['plus_di_crossover']		= False
 	stocks[ticker]['minus_di_crossover']		= False
@@ -70,9 +92,13 @@ def export_pricehistory():
 
 # Main helper function for tda-stochrsi-gobot-v2 that implements the primary stochrsi
 #  algorithm along with any secondary algorithms specified.
-def stochrsi_gobot( stream=None, debug=False ):
+def stochrsi_gobot( stream=None, algos=None, debug=False ):
 
 	if not isinstance(stream, dict):
+		print('Error:')
+		return False
+
+	if not isinstance(algos, dict):
 		print('Error:')
 		return False
 
@@ -161,7 +187,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 			stocks[ticker]['prev_rsi_d'] = stocks[ticker]['cur_rsi_d']
 
 		# RSI
-		if ( args.with_rsi == True ):
+		if ( algos['rsi'] == True ):
 			try:
 				rsi = tda_gobot_helper.get_rsi(stocks[ticker]['pricehistory'], rsi_period, rsi_type, debug=False)
 
@@ -175,7 +201,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 			stocks[ticker]['cur_rsi'] = rsi[-1]
 
 		# ADX, +DI, -DI
-		if ( args.with_adx == True or args.with_dmi == True ):
+		if ( algos['adx'] == True or algos['dmi'] == True ):
 			adx = []
 			plus_di = []
 			minus_di = []
@@ -196,7 +222,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 				stocks[ticker]['prev_minus_di'] = stocks[ticker]['cur_minus_di']
 
 		# MACD - 48, 104, 36
-		if ( args.with_macd == True ):
+		if ( algos['macd'] == True ):
 			macd = []
 			macd_signal = []
 			macd_histogram = []
@@ -215,7 +241,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 				stocks[ticker]['prev_macd_avg'] = stocks[ticker]['cur_macd_avg']
 
 		# Aroon Oscillator
-		if ( args.with_aroonosc == True ):
+		if ( algos['aroonosc'] == True ):
 			aroonosc = []
 			try:
 				aroonosc = tda_gobot_helper.get_aroon_osc(stocks[ticker]['pricehistory'], period=aroonosc_period)
@@ -227,8 +253,8 @@ def stochrsi_gobot( stream=None, debug=False ):
 			stocks[ticker]['cur_aroonosc'] = aroonosc[-1]
 
 		# VWAP
-		# Calculate vwap to use as exit strategy
-		if ( args.with_vwap or args.vwap_exit == True ):
+		# Calculate vwap to use as entry or exit algorithm
+		if ( algos['vwap'] or args.vwap_exit == True ):
 			vwap = []
 			vwap_up = []
 			vwap_down = []
@@ -241,6 +267,22 @@ def stochrsi_gobot( stream=None, debug=False ):
 			stocks[ticker]['cur_vwap'] = float(vwap[-1])
 			stocks[ticker]['cur_vwap_up'] = float(vwap_up[-1])
 			stocks[ticker]['cur_vwap_down'] = float(vwap_down[-1])
+
+		# VPT
+		vpt_sma_period = 72
+		if ( algos['vpt'] == True ):
+			vpt = []
+			vpt_sma = []
+			try:
+				vpt, vpt_sma = tda_gobot_helper.get_vpt(stocks[ticker]['pricehistory'], period=vpt_sma_period)
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(): get_vpt(' + str(ticker) + '): ' + str(e))
+
+			stocks[ticker]['cur_vpt'] = float(vpt[-1])
+			stocks[ticker]['prev_vpt'] = float(vpt[-2])
+			stocks[ticker]['cur_vpt_sma'] = float(vpt_sma[-1])
+			stocks[ticker]['prev_vpt_sma'] = float(vpt_sma[-2])
 
 
 		# Debug
@@ -256,30 +298,43 @@ def stochrsi_gobot( stream=None, debug=False ):
 						' / Previous StochRSI D: ' + str(round(stocks[ticker]['prev_rsi_d'], 2)))
 
 			# RSI
-			if ( args.with_rsi == True ):
+			if ( algos['rsi'] == True ):
 				print('(' + str(ticker) + ') Current RSI: ' + str(round(stocks[ticker]['cur_rsi'], 2)))
 
 			# ADX
-			if ( args.with_adx == True ):
+			if ( algos['adx'] == True ):
 				print('(' + str(ticker) + ') Current ADX: ' + str(round(stocks[ticker]['cur_adx'], 2)))
 
 			# PLUS/MINUS DI
-			if ( args.with_dmi == True ):
+			if ( algos['dmi'] == True ):
 				print('(' + str(ticker) + ') Current PLUS_DI: ' + str(round(stocks[ticker]['cur_plus_di'], 2)) +
 							' / Previous PLUS_DI: ' + str(round(stocks[ticker]['prev_plus_di'], 2)))
 				print('(' + str(ticker) + ') Current MINUS_DI: ' + str(round(stocks[ticker]['cur_minus_di'], 2)) +
 							' / Previous MINUS_DI: ' + str(round(stocks[ticker]['prev_minus_di'], 2)))
 
 			# MACD
-			if ( args.with_macd == True ):
+			if ( algos['macd'] == True ):
 				print('(' + str(ticker) + ') Current MACD: ' + str(round(stocks[ticker]['cur_macd'], 2)) +
 							' / Previous MACD: ' + str(round(stocks[ticker]['prev_macd'], 2)))
 				print('(' + str(ticker) + ') Current MACD_AVG: ' + str(round(stocks[ticker]['cur_macd_avg'], 2)) +
 							' / Previous MACD_AVG: ' + str(round(stocks[ticker]['prev_macd_avg'], 2)))
 
 			# AroonOsc
-			if (args.with_aroonosc == True ):
+			if ( algos['aroonosc'] == True ):
 				print('(' + str(ticker) + ') Current AroonOsc: ' + str(round(stocks[ticker]['cur_aroonosc'], 2)))
+
+			# VWAP
+			if ( algos['vwap'] == True ):
+				print('(' + str(ticker) + ') Current VWAP: ' + str(round(stocks[ticker]['cur_vwap'], 2)) +
+							' / Current VWAP_UP: ' + str(round(stocks[ticker]['cur_vwap_up'], 2)) +
+							' / Current VWAP_DOWN: ' + str(round(stocks[ticker]['cur_vwap_down'], 2)))
+
+			# VPT
+			if ( algos['vpt'] == True ):
+				print('(' + str(ticker) + ') Current VPT: ' + str(round(stocks[ticker]['cur_vpt'], 2)) +
+							' / Previous VPT: ' + str(round(stocks[ticker]['prev_vpt'], 2)))
+				print('(' + str(ticker) + ') Current VPT_SMA: ' + str(round(stocks[ticker]['cur_vpt_sma'], 2)) +
+							' / Previous VPT_SMA: ' + str(round(stocks[ticker]['prev_vpt_sma'], 2)))
 
 			# Timestamp check
 			print('(' + str(ticker) + ') Time now: ' + time_now.strftime('%Y-%m-%d %H:%M:%S') +
@@ -323,6 +378,11 @@ def stochrsi_gobot( stream=None, debug=False ):
 		cur_vwap	= stocks[ticker]['cur_vwap']
 		cur_vwap_up	= stocks[ticker]['cur_vwap_up']
 		cur_vwap_down	= stocks[ticker]['cur_vwap_down']
+
+		cur_vpt		= stocks[ticker]['cur_vpt']
+		prev_vpt	= stocks[ticker]['prev_vpt']
+		cur_vpt_sma	= stocks[ticker]['cur_vpt_sma']
+		prev_vpt_sma	= stocks[ticker]['prev_vpt_sma']
 
 
 		# Criteria for when we will not enter new trades
@@ -412,20 +472,20 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 			# Process any secondary indicators
 			# RSI
-			if ( args.with_rsi == True ):
+			if ( algos['rsi'] == True ):
 				stocks[ticker]['rsi_signal'] = False
 				if ( cur_rsi < 20 ):
 					stocks[ticker]['rsi_signal'] = True
 
 			# ADX signal
-			if ( args.with_adx == True ):
+			if ( algos['adx'] == True ):
 				stocks[ticker]['adx_signal'] = False
 				if ( cur_adx > 25 ):
 					stocks[ticker]['adx_signal'] = True
 
 			# DMI signals
 			# DI+ cross above DI- indicates uptrend
-			if ( args.with_dmi == True ):
+			if ( algos['dmi'] == True ):
 				if ( prev_plus_di < prev_minus_di and cur_plus_di > cur_minus_di ):
 					stocks[ticker]['plus_di_crossover'] = True
 					stocks[ticker]['minus_di_crossover'] = False
@@ -440,13 +500,13 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 			# Aroon oscillator signals
 			# Values closer to 100 indicate an uptrend
-			if ( args.with_aroonosc == True ):
+			if ( algos['aroonosc'] == True ):
 				stocks[ticker]['aroonosc_signal'] = False
 				if ( cur_aroonosc > 60 ):
 					stocks[ticker]['aroonosc_signal'] = True
 
 			# MACD crossover signals
-			if ( args.with_macd == True ):
+			if ( algos['macd'] == True ):
 				if ( prev_macd < prev_macd_avg and cur_macd >= cur_macd_avg ):
 					stocks[ticker]['macd_crossover'] = True
 					stocks[ticker]['macd_avg_crossover'] = False
@@ -461,34 +521,42 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 			# VWAP signal
 			# This is the most simple/pessimistic approach right now
-			if ( args.with_vwap == True ):
+			if ( algos['vwap'] == True ):
 				stocks[ticker]['vwap_signal'] = False
 				cur_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 				if ( cur_price < cur_vwap ):
 					stocks[ticker]['vwap_signal'] = True
 
+			# VPT
+			if ( algos['vpt'] == True ):
+				# Buy signal - VPT crosses above vpt_sma
+				if ( prev_vpt < prev_vpt_sma and cur_vpt >= cur_vpt_sma ):
+					stocks[ticker]['vpt_signal'] = True
+
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
 			if ( stocks[ticker]['buy_signal'] == True ):
 
 				stocks[ticker]['final_buy_signal'] = True
-				if ( args.with_rsi == True and stocks[ticker]['rsi_signal'] != True ):
+				if ( algos['rsi'] == True and stocks[ticker]['rsi_signal'] != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
-				if ( args.with_adx == True and stocks[ticker]['adx_signal'] != True ):
+				if ( algos['adx'] == True and stocks[ticker]['adx_signal'] != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
-				if ( args.with_dmi == True and stocks[ticker]['dmi_signal'] != True ):
+				if ( algos['dmi'] == True and stocks[ticker]['dmi_signal'] != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
-				if ( args.with_aroonosc == True and stocks[ticker]['aroonosc_signal'] != True ):
+				if ( algos['aroonosc'] == True and stocks[ticker]['aroonosc_signal'] != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
-				if ( args.with_macd == True and stocks[ticker]['macd_signal'] != True ):
+				if ( algos['macd'] == True and stocks[ticker]['macd_signal'] != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
-				if ( args.with_vwap == True and stocks[ticker]['vwap_signal'] != True ):
+				if ( algos['vwap'] == True and stocks[ticker]['vwap_signal'] != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
+				if ( algos['vpt'] == True and stocks[ticker]['vpt_signal'] != True ):
+					stocks[ticker]['final_buy_signal'] = False
 
 			# BUY THE STOCK
 			if ( stocks[ticker]['buy_signal'] == True and stocks[ticker]['final_buy_signal'] == True ):
@@ -499,7 +567,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 				# Final sanity checks should go here
 				# Check resistance at 20-week high
-				if ( args.no_use_resistance == False ):
+				if ( algos['support_resistance'] == True and args.no_use_resistance == False ):
 					if ( float(last_price) >= float(stocks[ticker]['twenty_week_high']) ):
 						# This is not a good bet
 						stocks[ticker]['twenty_week_high'] = float(last_price)
@@ -808,20 +876,20 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 			# Secondary Indicators
 			# RSI
-			if ( args.with_rsi == True ):
+			if ( algos['rsi'] == True ):
 				stocks[ticker]['rsi_signal'] = False
 				if ( cur_rsi > 75 ):
 					stocks[ticker]['rsi_signal'] = True
 
 			# ADX signal
-			if ( args.with_adx == True ):
+			if ( algos['adx'] == True ):
 				stocks[ticker]['adx_signal'] = False
 				if ( cur_adx > 25 ):
 					stocks[ticker]['adx_signal'] = True
 
 			# DMI signals
 			# DI+ cross above DI- indicates uptrend
-			if ( args.with_dmi == True ):
+			if ( algos['dmi'] == True ):
 				if ( prev_plus_di < prev_minus_di and cur_plus_di > cur_minus_di ):
 					stocks[ticker]['plus_di_crossover'] = True
 					stocks[ticker]['minus_di_crossover'] = False
@@ -836,13 +904,13 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 			# Aroon oscillator signals
 			# Values closer to -100 indicate a downtrend
-			if ( args.with_aroonosc == True ):
+			if ( algos['aroonosc'] == True ):
 				stocks[ticker]['aroonosc_signal'] = False
 				if ( cur_aroonosc < -60 ):
 					stocks[ticker]['aroonosc_signal'] = True
 
 			# MACD crossover signals
-			if ( args.with_macd == True ):
+			if ( algos['macd'] == True ):
 				if ( prev_macd < prev_macd_avg and cur_macd >= cur_macd_avg ):
 					stocks[ticker]['macd_crossover'] = True
 					stocks[ticker]['macd_avg_crossover'] = False
@@ -857,32 +925,41 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 			# VWAP signal
 			# This is the most simple/pessimistic approach right now
-			if ( args.with_vwap == True ):
+			if ( algos['vwap'] == True ):
 				stocks[ticker]['vwap_signal'] = False
 				cur_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 				if ( cur_price > cur_vwap ):
 					stocks[ticker]['vwap_signal'] = True
 
+			# VPT
+			if ( algos['vpt'] == True ):
+				# Short signal - VPT crosses below vpt_sma
+				if ( prev_vpt > prev_vpt_sma and cur_vpt <= cur_vpt_sma ):
+					stocks[ticker]['vpt_signal'] = True
+
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
 			if ( stocks[ticker]['short_signal'] == True ):
 
 				stocks[ticker]['final_short_signal'] = True
-				if ( args.with_rsi == True and stocks[ticker]['rsi_signal'] != True ):
+				if ( algos['rsi'] == True and stocks[ticker]['rsi_signal'] != True ):
 					stocks[ticker]['final_short_signal'] = False
 
-				if ( args.with_adx == True and stocks[ticker]['adx_signal'] != True ):
+				if ( algos['adx'] == True and stocks[ticker]['adx_signal'] != True ):
 					stocks[ticker]['final_short_signal'] = False
 
-				if ( args.with_dmi == True and stocks[ticker]['dmi_signal'] != True ):
+				if ( algos['dmi'] == True and stocks[ticker]['dmi_signal'] != True ):
 					stocks[ticker]['final_short_signal'] = False
 
-				if ( args.with_aroonosc == True and stocks[ticker]['aroonosc_signal'] != True ):
+				if ( algos['aroonosc'] == True and stocks[ticker]['aroonosc_signal'] != True ):
 					stocks[ticker]['final_short_signal'] = False
 
-				if ( args.with_macd == True and stocks[ticker]['macd_signal'] != True ):
+				if ( algos['macd'] == True and stocks[ticker]['macd_signal'] != True ):
 					stocks[ticker]['final_short_signal'] = False
 
-				if ( args.with_vwap == True and stocks[ticker]['vwap_signal'] != True ):
+				if ( algos['vwap'] == True and stocks[ticker]['vwap_signal'] != True ):
+					stocks[ticker]['final_short_signal'] = False
+
+				if ( algos['vpt'] == True and stocks[ticker]['vpt_signal'] != True ):
 					stocks[ticker]['final_short_signal'] = False
 
 
@@ -895,7 +972,7 @@ def stochrsi_gobot( stream=None, debug=False ):
 
 				# Final sanity checks should go here
 				# Check resistance at 20-week low
-				if ( args.no_use_resistance == False ):
+				if ( algos['support_resistance'] == True and args.no_use_resistance == False ):
 					if ( float(last_price) <= float(stocks[ticker]['twenty_week_low']) ):
 						# This is not a good bet
 						stocks[ticker]['twenty_week_low'] = float(last_price)

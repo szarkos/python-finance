@@ -31,7 +31,7 @@ import tulipy as ti
 parser = argparse.ArgumentParser()
 parser.add_argument("--stocks", help='Stock ticker(s) to purchase (comma delimited)', required=True, type=str)
 parser.add_argument("--stock_usd", help='Amount of money (USD) to invest per trade', default=1000, type=float)
-parser.add_argument("--algo", help='Algorithm to use (rsi|stochrsi)', default='stochrsi', type=str)
+parser.add_argument("--algos", help='Algorithms to use, comma delimited. Supported options: stochrsi, rsi, adx, dmi, macd, aroonosc, vwap, vpt, support_resistance (Example: --algos=stochrsi,adx --algos=stochrsi,macd)', required=True, nargs="*", action='append', type=str)
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
 parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX_LOGS', default='TX_LOGS', type=str)
@@ -62,12 +62,13 @@ parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/l
 parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=int)
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
 
-parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
-parser.add_argument("--with_adx", help='Use the Average Directional Index (ADX) as a secondary indicator', action="store_true")
-parser.add_argument("--with_dmi", help='Use the Directional Movement Index(DMI) as a secondary indicator', action="store_true")
-parser.add_argument("--with_macd", help='Use the Moving Average Convergence Divergence (MACD) as a secondary indicator', action="store_true")
-parser.add_argument("--with_aroonosc", help='Use the Aroon Oscillator as a secondary indicator', action="store_true")
-parser.add_argument("--with_vwap", help='Use VWAP as a secondary indicator', action="store_true")
+# Deprecated - use --algos=... instead
+#parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
+#parser.add_argument("--with_adx", help='Use the Average Directional Index (ADX) as a secondary indicator', action="store_true")
+#parser.add_argument("--with_dmi", help='Use the Directional Movement Index(DMI) as a secondary indicator', action="store_true")
+#parser.add_argument("--with_macd", help='Use the Moving Average Convergence Divergence (MACD) as a secondary indicator', action="store_true")
+#parser.add_argument("--with_aroonosc", help='Use the Aroon Oscillator as a secondary indicator', action="store_true")
+#parser.add_argument("--with_vwap", help='Use VWAP as a secondary indicator', action="store_true")
 
 parser.add_argument("--short", help='Enable short selling of stock', action="store_true")
 parser.add_argument("--shortonly", help='Only short sell the stock', action="store_true")
@@ -130,22 +131,68 @@ if ( tda_gobot_helper.tdalogin(passcode) != True ):
 	print('Error: Login failure', file=sys.stderr)
 	sys.exit(1)
 
+# Initialize algos[]
+#
+# args.algos = [[algo1,algo2], [...]]
+#
+# algos = [ {'stochrsi':		True,  # For now this cannot be turned off
+#	   'rsi':			False,
+#	   'adx':			False,
+#	   'dmi':			False,
+#	   'macd':			False,
+#	   'aroonosc':			False,
+#	   'vwap':			False,
+#	   'vpt':			False,
+#	   'support_resistance':	False
+#	}, {...} ]
+print('Initializing algorithms... ', end = '')
+
+algos = []
+for algo in args.algos:
+	print(algo, end = '')
+	algo = ','.join(algo)
+
+	stochrsi = rsi = adx = dmi = macd = aroonosc = vwap = vpt = support_resistance = False
+	for a in algo.split(','):
+
+		if ( a == 'stochrsi' ):		stochrsi	= True
+		if ( a == 'rsi' ):		rsi		= True
+		if ( a == 'adx' ):		adx		= True
+		if ( a == 'dmi' ):		dmi		= True
+		if ( a == 'macd' ):		macd		= True
+		if ( a == 'aroonosc' ):		aroonosc	= True
+		if ( a == 'vwap' ):		vwap		= True
+		if ( a == 'vpt' ):		vpt		= True
+		if ( a == 'support_resistance' ): support_resistance = True
+
+	algo_list = {	'stochrsi':		True,  # For now this cannot be turned off
+			'rsi':			rsi,
+			'adx':			adx,
+			'dmi':			dmi,
+			'macd':			macd,
+			'aroonosc':		aroonosc,
+			'vwap':			vwap,
+			'vpt':			vpt,
+			'support_resistance':	support_resistance }
+
+	algos.append(algo_list)
+
+del(stochrsi,rsi,adx,dmi,macd,aroonosc,vwap,vpt,support_resistance)
+
+
 # Initialize stocks{}
 print( 'Initializing stock tickers: ' + str(args.stocks.split(',')) )
+
+# Fix up and sanity check the stock symbol before proceeding
+args.stocks = tda_gobot_helper.fix_stock_symbol(args.stocks)
+args.stocks = tda_gobot_helper.check_stock_symbol(args.stocks)
+time.sleep(2)
 
 stocks = OrderedDict()
 for ticker in args.stocks.split(','):
 
 	if ( ticker == '' ):
 		continue
-
-	# Fix up and sanity check the stock symbol before proceeding
-	ticker = tda_gobot_helper.fix_stock_symbol(ticker)
-	if ( tda_gobot_helper.check_stock_symbol(ticker) != True ):
-		print('Error: check_stock_symbol(' + str(ticker) + ') returned False, removing from the list')
-		continue
-
-	time.sleep(1)
 
 	stocks.update( { ticker: { 'shortable':			True,
 				   'isvalid':			True,
@@ -205,6 +252,12 @@ for ticker in args.stocks.split(','):
 				    'cur_vwap_up':		float(-1),
 				    'cur_vwap_down':		float(-1),
 
+				    # VPT
+				    'cur_vpt':			float(-1),
+				    'prev_vpt':			float(-1),
+				    'cur_vpt_sma':		float(-1),
+				    'prev_vpt_sma':		float(-1),
+
 				    # Support / Resistance
 				    'three_week_high':		float(0),
 				    'three_week_low':		float(0),
@@ -222,6 +275,7 @@ for ticker in args.stocks.split(','):
 				   'macd_signal':		False,
 				   'aroonosc_signal':		False,
 				   'vwap_signal':		False,
+				   'vpt_signal':		False,
 
 				   'plus_di_crossover':		False,
 				   'minus_di_crossover':	False,
@@ -240,12 +294,13 @@ if ( len(stocks) == 0 ):
 	print('Error: no valid stock tickers provided, exiting.')
 	sys.exit(1)
 
-# TDA API is limited to 150 non-transactional calls per minute. It's best to sleep
-#  a bit here to avoid spurious errors later.
-if ( len(stocks) > 30 ):
-	time.sleep(60)
-else:
-	time.sleep(len(stocks))
+# Get stock_data info about the stock that we can use later (i.e. shortable)
+try:
+	stock_data,err = tda.stocks.get_quotes(args.stocks, True)
+
+except Exception as e:
+	print('Caught exception: get_quote(' + str(ticker) + '): ' + str(e), file=sys.stderr)
+	sys.exit(1)
 
 # Initialize additional stocks{} values
 for ticker in stocks.keys():
@@ -256,11 +311,7 @@ for ticker in stocks.keys():
 
 	# Confirm that we can short this stock
 	if ( args.short == True or args.shortonly == True ):
-		data,err = tda.stocks.get_quote(ticker, True)
-		if ( err != None ):
-			print('Error: get_quote(' + str(ticker) + '): ' + str(err), file=sys.stderr)
-
-		if ( str(data[ticker]['shortable']) == str(False) or str(data[ticker]['marginable']) == str(False) ):
+		if ( stock_data[ticker]['shortable'] == str(False) or stock_data[ticker]['marginable'] == str(False) ):
 			if ( args.shortonly == True ):
 				print('Error: stock(' + str(ticker) + '): does not appear to be shortable, removing from the list')
 				stocks[ticker]['isvalid'] = False
@@ -269,8 +320,6 @@ for ticker in stocks.keys():
 			elif ( args.short == True ):
 				print('Warning: stock(' + str(ticker) + '): does not appear to be shortable, disabling --short')
 				stocks[ticker]['shortable'] = False
-
-	time.sleep(1)
 
 	# Get general information about the stock that we can use later
 	# I.e. volatility, resistance, etc.
@@ -314,6 +363,8 @@ for ticker in stocks.keys():
 			stocks[ticker]['twenty_week_low'] = low
 			stocks[ticker]['twenty_week_avg'] = avg
 			break
+
+	time.sleep(1)
 
 
 # Initialize signal handlers to dump stock history on exit
@@ -463,7 +514,7 @@ async def read_stream():
 
 
 	stream_client.add_chart_equity_handler(
-		lambda msg: tda_stochrsi_gobot_helper.stochrsi_gobot(msg, args.debug) )
+		lambda msg: tda_stochrsi_gobot_helper.stochrsi_gobot_run(msg, algos, args.debug) )
 
 	await stream_client.chart_equity_subs( stocks.keys() )
 

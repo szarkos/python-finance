@@ -43,7 +43,7 @@ if args.incr_threshold:
 	incr_percent_threshold = args.incr_threshold	# Reset base_price if stock increases by this percent
 if ( args.stock_usd == -1 and args.checkticker == False ):
 	print('Error: please enter stock amount (USD) to invest')
-	exit(1)
+	sys.exit(1)
 
 stock = args.stock
 stock_usd = args.stock_usd
@@ -51,14 +51,14 @@ tx_log_dir = args.tx_log_dir
 
 if ( args.notmarketclosed == True and tda_gobot_helper.ismarketopen_US() == False ):
 	print('Canceled order to purchase $' + str(stock_usd) + ' of stock ' + str(stock) + ', because market is closed and --notmarketclosed was set')
-	exit(1)
+	sys.exit(1)
 
 
 # Initialize and log into TD Ameritrade
 from dotenv import load_dotenv
 if ( load_dotenv() != True ):
 	print('Error: unable to load .env file')
-	exit(1)
+	sys.exit(1)
 
 tda_account_number = os.environ["tda_account_number"]
 passcode = os.environ["tda_encryption_passcode"]
@@ -69,21 +69,21 @@ tda_gobot_helper.passcode = passcode
 
 if ( tda_gobot_helper.tdalogin(passcode) != True ):
 	print('Error: Login failure')
-	exit(1)
+	sys.exit(1)
 
 # Fix up and sanity check the stock symbol before proceeding
 stock = tda_gobot_helper.fix_stock_symbol(stock)
 if ( tda_gobot_helper.check_stock_symbol(stock) != True ):
 	print('Error: check_stock_symbol(' + str(stock) + ') returned False, exiting.')
-	exit(1)
+	sys.exit(1)
 
 if ( args.checkticker == True ): # --checkticker means we only wanted to validate the stock ticker
-	exit(0)
+	sys.exit(0)
 
 if ( tda_gobot_helper.check_blacklist(stock) == True ):
 	if ( args.force == False ):
 		print('(' + str(stock) + ') Error: stock ' + str(stock) + ' found in blacklist file, exiting.')
-		exit(1)
+		sys.exit(1)
 	else:
 		print('(' + str(stock) + ') Warning: stock ' + str(stock) + ' found in blacklist file.')
 
@@ -121,7 +121,7 @@ if ( tda_gobot_helper.ismarketopen_US() == True ):
 			data = tda_gobot_helper.short_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 			if ( data == False ):
 				print('Error: Unable to short "' + str(stock) + '"', file=sys.stderr)
-				exit(1)
+				sys.exit(1)
 
 	else:
 		print('PURCHASING ' + str(stock_qty) + ' shares of ' + str(stock))
@@ -129,11 +129,11 @@ if ( tda_gobot_helper.ismarketopen_US() == True ):
 			data = tda_gobot_helper.buy_stock_marketprice(stock, stock_qty, fillwait=True, debug=True)
 			if ( data == False ):
 				print('Error: Unable to buy stock "' + str(ticker) + '"', file=sys.stderr)
-				exit(1)
+				sys.exit(1)
 
 else:
 	print('Error: stock ' + str(stock) + ' not purchased because market is closed, exiting.')
-	exit(1)
+	sys.exit(1)
 
 try:
 	orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
@@ -182,7 +182,7 @@ while True:
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short, sold=True)
 
-				exit(0)
+				sys.exit(0)
 
 		else:
 			if ( last_price >= args.exit_price ):
@@ -194,7 +194,7 @@ while True:
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, sold=True)
 
-				exit(0)
+				sys.exit(0)
 
 	# Sell the security if we're getting close to market close
 	if ( tda_gobot_helper.isendofday() == True and args.multiday == False ):
@@ -205,7 +205,7 @@ while True:
 
 		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short, sold=True)
 		print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
-		exit(0)
+		sys.exit(0)
 
 	# If price decreases
 	elif ( float(last_price) < float(base_price) ):
@@ -233,7 +233,7 @@ while True:
 
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, sold=True)
 			print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
-			exit(0)
+			sys.exit(0)
 
 	# If price increases
 	elif ( float(last_price) > float(base_price) ):
@@ -253,7 +253,7 @@ while True:
 
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short, sold=True)
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
-				exit(0)
+				sys.exit(0)
 
 		elif ( percent_change >= incr_percent_threshold ):
 
@@ -276,4 +276,4 @@ while True:
 	time.sleep(loopt)
 
 
-exit(0)
+sys.exit(0)

@@ -32,6 +32,7 @@ parser.add_argument("--with_dmi", help='Use DMI as secondary indicator to advise
 parser.add_argument("--with_aroonosc", help='Use Aroon Oscillator as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
 parser.add_argument("--with_macd", help='Use MACD as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
 parser.add_argument("--with_vwap", help='Use VWAP as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
+parser.add_argument("--with_vpt", help='Use VPT as secondary indicator to advise trade entries (default=False)', action="store_true")
 
 parser.add_argument("--days", help='Number of days to test. Separate with a comma to test multiple days.', default='10', type=str)
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
@@ -310,7 +311,7 @@ for algo in args.algo.split(','):
 			results = tda_gobot_helper.stochrsi_analyze_new( pricehistory=data, ticker=stock, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type,
 									 rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
 									 stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly,
-									 no_use_resistance=args.no_use_resistance, with_rsi=args.with_rsi, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_macd=args.with_macd, with_vwap=args.with_vwap,
+									 no_use_resistance=args.no_use_resistance, with_rsi=args.with_rsi, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_macd=args.with_macd, with_vwap=args.with_vwap, with_vpt=args.with_vpt,
 									 incr_percent_threshold=args.incr_threshold, decr_percent_threshold=args.decr_threshold,
 									 safe_open=True, exit_percent=args.exit_percent, vwap_exit=args.vwap_exit, start_date=args.start_date, debug=True )
 

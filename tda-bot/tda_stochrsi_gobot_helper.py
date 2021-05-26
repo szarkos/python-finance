@@ -269,12 +269,11 @@ def stochrsi_gobot( stream=None, algos=None, debug=False ):
 			stocks[ticker]['cur_vwap_down'] = float(vwap_down[-1])
 
 		# VPT
-		vpt_sma_period = 72
 		if ( algos['vpt'] == True ):
 			vpt = []
 			vpt_sma = []
 			try:
-				vpt, vpt_sma = tda_gobot_helper.get_vpt(stocks[ticker]['pricehistory'], period=vpt_sma_period)
+				vpt, vpt_sma = tda_gobot_helper.get_vpt(stocks[ticker]['pricehistory'], period=args.vpt_sma_period)
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(): get_vpt(' + str(ticker) + '): ' + str(e))

@@ -61,6 +61,7 @@ parser.add_argument("--rsi_period", help='RSI period to use for calculation (Def
 parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='ohlc4', type=str)
 parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=int)
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
+parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', default=72, type=int)
 
 # Deprecated - use --algos=... instead
 #parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")

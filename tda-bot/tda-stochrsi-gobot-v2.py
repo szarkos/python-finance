@@ -516,7 +516,7 @@ async def read_stream():
 	stream_client.add_chart_equity_handler(
 		lambda msg: tda_stochrsi_gobot_helper.stochrsi_gobot_run(msg, algos, args.debug) )
 
-	await asyncio.wait_for( stream_client.chart_equity_subs(stocks.keys()), 30 )
+	await asyncio.wait_for( stream_client.chart_equity_subs(stocks.keys()), 10 )
 
 	while True:
 		await asyncio.wait_for( stream_client.handle_message(), 120 )

@@ -18,9 +18,42 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 		print('Error:')
 		return False
 
+	# Example stream:
+	#
+	# { 'service': 'CHART_EQUITY',
+	#   'timestamp': 1619813320675,
+	#   'command': 'SUBS',
+	#   'content': [{
+	#		'seq': 2712,
+	#		'key': 'FB',
+	#		'OPEN_PRICE': 325.05,
+	#		'HIGH_PRICE': 325.05,
+	#		'LOW_PRICE': 325.0,
+	#		'CLOSE_PRICE': 325.02,
+	#		'VOLUME': 898.0,
+	#		'SEQUENCE': 547,
+	#		'CHART_TIME': 1619813220000,
+	#		'CHART_DAY': 18747 }]
+	# }
+	for idx in stream['content']:
+		ticker = idx['key']
+
+		if ( stocks[ticker]['isvalid'] == False ):
+			continue
+
+		candle_data = {	'open':		idx['OPEN_PRICE'],
+				'high':		idx['HIGH_PRICE'],
+				'low':		idx['LOW_PRICE'],
+				'close':	idx['CLOSE_PRICE'],
+				'volume':	idx['VOLUME'],
+				'datetime':	stream['timestamp'] }
+
+		stocks[ticker]['pricehistory']['candles'].append(candle_data)
+
+
 	# Call stochrsi_gobot() for each set of specific algorithms
 	for algo_list in algos:
-		ret = stochrsi_gobot( stream=stream, algos=algo_list, debug=debug )
+		ret = stochrsi_gobot( algos=algo_list, debug=debug )
 		if ( ret == False ):
 			print('Error: stochrsi_gobot_start(): stochrsi_gobot(' + str(algo) + '): returned False')
 
@@ -92,11 +125,7 @@ def export_pricehistory():
 
 # Main helper function for tda-stochrsi-gobot-v2 that implements the primary stochrsi
 #  algorithm along with any secondary algorithms specified.
-def stochrsi_gobot( stream=None, algos=None, debug=False ):
-
-	if not isinstance(stream, dict):
-		print('Error:')
-		return False
+def stochrsi_gobot( algos=None, debug=False ):
 
 	if not isinstance(algos, dict):
 		print('Error:')
@@ -120,40 +149,6 @@ def stochrsi_gobot( stream=None, algos=None, debug=False ):
 			print('Market closed, exiting.')
 			export_pricehistory()
 			sys.exit(0)
-
-
-	# Example stream:
-	#
-	# { 'service': 'CHART_EQUITY',
-	#   'timestamp': 1619813320675,
-	#   'command': 'SUBS',
-	#   'content': [{
-	#		'seq': 2712,
-	#		'key': 'FB',
-	#		'OPEN_PRICE': 325.05,
-	#		'HIGH_PRICE': 325.05,
-	#		'LOW_PRICE': 325.0,
-	#		'CLOSE_PRICE': 325.02,
-	#		'VOLUME': 898.0,
-	#		'SEQUENCE': 547,
-	#		'CHART_TIME': 1619813220000,
-	#		'CHART_DAY': 18747 }]
-	# }
-	for idx in stream['content']:
-		ticker = idx['key']
-
-		if ( stocks[ticker]['isvalid'] == False ):
-			continue
-
-		candle_data = {	'open':		idx['OPEN_PRICE'],
-				'high':		idx['HIGH_PRICE'],
-				'low':		idx['LOW_PRICE'],
-				'close':	idx['CLOSE_PRICE'],
-				'volume':	idx['VOLUME'],
-				'datetime':	stream['timestamp'] }
-
-		stocks[ticker]['pricehistory']['candles'].append(candle_data)
-
 
 	# Iterate through the stock tickers, calculate the stochRSI, and make buy/sell decisions
 	for ticker in stocks.keys():
@@ -205,7 +200,6 @@ def stochrsi_gobot( stream=None, algos=None, debug=False ):
 			adx = []
 			plus_di = []
 			minus_di = []
-			adx_period = 64
 			try:
 				adx, plus_di, minus_di = tda_gobot_helper.get_adx(stocks[ticker]['pricehistory'], period=adx_period)
 

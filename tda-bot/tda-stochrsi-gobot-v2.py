@@ -502,25 +502,24 @@ tda_pickle = os.environ['HOME'] + '/.tokens/tda2.pickle'
 # Initializes and reads from TDA stream API
 async def read_stream():
 	loop = asyncio.get_running_loop()
-	loop.add_signal_handler(signal.SIGINT, graceful_exit)
-	loop.add_signal_handler(signal.SIGTERM, graceful_exit)
-	loop.add_signal_handler(signal.SIGUSR1, siguser1_handler)
+	loop.add_signal_handler( signal.SIGINT, graceful_exit )
+	loop.add_signal_handler( signal.SIGTERM, graceful_exit )
+	loop.add_signal_handler( signal.SIGUSR1, siguser1_handler )
 
-	await stream_client.login()
+	await asyncio.wait_for( stream_client.login(), 10 )
 
 	if ( args.scalp_mode == True ):
 		await stream_client.quality_of_service(StreamClient.QOSLevel.EXPRESS)
 	else:
 		await stream_client.quality_of_service(StreamClient.QOSLevel.REAL_TIME)
 
-
 	stream_client.add_chart_equity_handler(
 		lambda msg: tda_stochrsi_gobot_helper.stochrsi_gobot_run(msg, algos, args.debug) )
 
-	await stream_client.chart_equity_subs( stocks.keys() )
+	await asyncio.wait_for( stream_client.chart_equity_subs(stocks.keys()), 30 )
 
 	while True:
-		await stream_client.handle_message()
+		await asyncio.wait_for( stream_client.handle_message(), 120 )
 
 
 # MAIN

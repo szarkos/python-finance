@@ -337,16 +337,16 @@ tda_pickle = os.environ['HOME'] + '/.tokens/tda2.pickle'
 
 # Initializes and reads from TDA stream API
 async def read_stream():
-	await stream_client.login()
-	await stream_client.quality_of_service(StreamClient.QOSLevel.SLOW)
+	await asyncio.wait_for( stream_client.login(), 10 )
+	await asyncio.wait_for( stream_client.quality_of_service(StreamClient.QOSLevel.EXPRESS), 10 )
 
 	stream_client.add_chart_equity_handler(
 		lambda msg: gap_monitor(msg, args.debug) )
 
-	await stream_client.chart_equity_subs( stocks.keys() )
+	await asyncio.wait_for( stream_client.chart_equity_subs(stocks.keys()), 10 )
 
 	while True:
-		await stream_client.handle_message()
+		await asyncio.wait_for( stream_client.handle_message(), 120 )
 
 
 # MAIN

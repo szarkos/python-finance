@@ -19,6 +19,7 @@ parser.add_argument("stock_usd", help='Amount of money (USD) to invest', nargs='
 parser.add_argument("--algo", help='Analyze the most recent 5-day and 10-day history for a stock ticker using this bot\'s algorithim(s) - (rsi|stochrsi)', default='rsi', type=str)
 parser.add_argument("--ofile", help='Dump the pricehistory data to pickle file', default=None, type=str)
 parser.add_argument("--ifile", help='Use pickle file for pricehistory data rather than accessing the API', default=None, type=str)
+parser.add_argument("--augment_ifile", help='Pull additional history data and append it to candles imported from ifile', action="store_true")
 parser.add_argument("--start_date", help='The day to start trading (i.e. 2021-05-12). Typically useful for verifying history logs.', default=None, type=str)
 
 parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal (default=False)', action="store_true")
@@ -212,6 +213,50 @@ for algo in args.algo.split(','):
 			exit(1)
 
 		args.days = -1
+
+
+		# Add data to ifile to ensure we have enough history to perform calculations
+		if ( args.augment_ifile == True ):
+
+			days = 3
+			time_now = datetime.datetime.now( mytimezone )
+			time_prev = time_now - datetime.timedelta( days=days )
+
+			# Make sure start and end dates don't land on a weekend
+			#  or outside market hours
+			time_now = tda_gobot_helper.fix_timestamp(time_now)
+			time_prev = tda_gobot_helper.fix_timestamp(time_prev)
+
+			time_now_epoch = int( time_now.timestamp() * 1000 )
+			time_prev_epoch = int( time_prev.timestamp() * 1000 )
+
+			try:
+				ph_data, epochs = tda_gobot_helper.get_pricehistory(stock, p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=False)
+
+			except Exception as e:
+				print('Caught Exception: get_pricehistory(' + str(ticker) + ', ' + str(time_prev_epoch) + ', ' + str(time_now_epoch) + '): ' + str(e))
+				continue
+
+			if ( ph_data == False ):
+				continue
+
+			# Populate new_data up until the last date
+			new_data = { 'candles': [],
+				     'symbol': ph_data['symbol'] }
+
+			last_date = float( data['candles'][0]['datetime'] )
+			for idx,key in enumerate(ph_data['candles']):
+				if ( float(key['datetime']) < last_date ):
+					new_data['candles'].append( ph_data['candles'][idx] )
+				else:
+					break
+
+			for idx,key in enumerate(data['candles']):
+				new_data['candles'].append( data['candles'][idx] )
+
+			data = new_data
+			del(new_data, ph_data)
+
 
 	# Print results for the most recent 10 and 5 days of data
 	for days in str(args.days).split(','):

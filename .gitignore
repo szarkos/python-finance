@@ -131,6 +131,8 @@ stocks.txt
 .stock-blacklist
 results/
 results/*
+*.gz
+*.bz2
 
 # Spyder project settings
 .spyderproject

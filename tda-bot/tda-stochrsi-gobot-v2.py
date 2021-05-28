@@ -62,6 +62,7 @@ parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/l
 parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=int)
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
 parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', default=72, type=int)
+parser.add_argument("--period_multiplier", help='Period multiplier - set statically here, or otherwise gobot will determine based on the number of candles it receives per minute.', default=0, type=int)
 
 # Deprecated - use --algos=... instead
 #parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
@@ -283,6 +284,10 @@ for ticker in args.stocks.split(','):
 				   'macd_crossover':		False,
 				   'macd_avg_crossover':	False,
 
+				   # Period log will log datetime to determine period_multiplier
+				   'period_log':		[],
+				   'period_multiplier':		args.period_multiplier,
+
 				   # Candle data
 				   'pricehistory':		{}
 			}} )
@@ -489,6 +494,10 @@ for ticker in stocks.keys():
 		print('Warning: stock(' + str(ticker) + '): len(pricehistory[candles]) is less than stochrsi_period*2 (new stock ticker?), removing from the list')
 		stocks[ticker]['isvalid'] = False
 		continue
+
+	# Populate the period_log with history data
+	for key in data['candles']:
+		stocks[ticker]['period_log'].append( key['datetime'] )
 
 #	stocks[ticker]['previous_day_close'] = tda_gobot_helper.get_pdc(data)
 

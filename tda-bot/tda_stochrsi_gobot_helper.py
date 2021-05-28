@@ -48,7 +48,28 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 				'volume':	idx['VOLUME'],
 				'datetime':	stream['timestamp'] }
 
-		stocks[ticker]['pricehistory']['candles'].append(candle_data)
+		stocks[ticker]['pricehistory']['candles'].append( candle_data )
+
+		# Look back through period_log to determine average number of candles received
+		#  and set period_multiplier accordingly
+		stocks[ticker]['period_log'].append( stream['timestamp'] )
+		if ( stocks[ticker]['period_multiplier'] == 0 ):
+
+			num_candles = 0
+			cur_time = float( stream['timestamp'] )
+			cur_time = datetime.datetime.fromtimestamp(cur_time/1000, tz=mytimezone)
+			lookback_time = cur_time - datetime.timedelta( minutes=60 )
+			lookback_time = lookback_time.timestamp() * 1000
+
+			for idx,t_stamp in enumerate( stocks[ticker]['period_log'] ):
+				if ( float(t_stamp) >= lookback_time ):
+					num_candles = len(stocks[ticker]['period_log']) - idx
+					break
+
+			# num_candles should be the number of candles from 1-hour ago to the current time
+			stocks[ticker]['period_multiplier'] = round( num_candles / 60 )
+			if ( stocks[ticker]['period_multiplier'] < 1 ):
+				stocks[ticker]['period_multiplier'] = 1
 
 
 	# Call stochrsi_gobot() for each set of specific algorithms
@@ -160,9 +181,13 @@ def stochrsi_gobot( algos=None, debug=False ):
 		percent_change = 0
 		net_change = 0
 
+		t_rsi_period = rsi_period * stocks[ticker]['period_multiplier']
+		t_stochrsi_period = stochrsi_period * stocks[ticker]['period_multiplier']
+		t_rsi_k_period = rsi_k_period * stocks[ticker]['period_multiplier']
+
 		# Get stochastic RSI
 		try:
-			stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(stocks[ticker]['pricehistory'], rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+			stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(stocks[ticker]['pricehistory'], rsi_period=t_rsi_period, stochrsi_period=t_stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=t_rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
 
 		except Exception as e:
 			print('Error: stochrsi_gobot(): get_stochrsi(' + str(ticker) + '): ' + str(e))
@@ -183,8 +208,10 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 		# RSI
 		if ( algos['rsi'] == True ):
+			t_rsi_period = rsi_period * stocks[ticker]['period_multiplier']
+
 			try:
-				rsi = tda_gobot_helper.get_rsi(stocks[ticker]['pricehistory'], rsi_period, rsi_type, debug=False)
+				rsi = tda_gobot_helper.get_rsi(stocks[ticker]['pricehistory'], t_rsi_period, rsi_type, debug=False)
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(): get_rsi(' + str(ticker) + '): ' + str(e))
@@ -200,8 +227,10 @@ def stochrsi_gobot( algos=None, debug=False ):
 			adx = []
 			plus_di = []
 			minus_di = []
+			t_adx_period = adx_period * stocks[ticker]['period_multiplier']
+
 			try:
-				adx, plus_di, minus_di = tda_gobot_helper.get_adx(stocks[ticker]['pricehistory'], period=adx_period)
+				adx, plus_di, minus_di = tda_gobot_helper.get_adx(stocks[ticker]['pricehistory'], period=t_adx_period)
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(' + str(ticker) + '): get_adx(): ' + str(e))
@@ -220,8 +249,13 @@ def stochrsi_gobot( algos=None, debug=False ):
 			macd = []
 			macd_signal = []
 			macd_histogram = []
+
+			t_macd_short_period = macd_short_period * stocks[ticker]['period_multiplier']
+			t_macd_long_period = macd_long_period * stocks[ticker]['period_multiplier']
+			t_macd_signal_period = macd_signal_period * stocks[ticker]['period_multiplier']
+
 			try:
-				macd, macd_avg, macd_histogram = tda_gobot_helper.get_macd(stocks[ticker]['pricehistory'], short_period=macd_short_period, long_period=macd_long_period, signal_period=macd_signal_period)
+				macd, macd_avg, macd_histogram = tda_gobot_helper.get_macd(stocks[ticker]['pricehistory'], short_period=t_macd_short_period, long_period=t_macd_long_period, signal_period=t_macd_signal_period)
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(): get_macd(' + str(ticker) + '): ' + str(e))
@@ -237,8 +271,10 @@ def stochrsi_gobot( algos=None, debug=False ):
 		# Aroon Oscillator
 		if ( algos['aroonosc'] == True ):
 			aroonosc = []
+			t_aroonosc_period = aroonosc_period * stocks[ticker]['period_multiplier']
+
 			try:
-				aroonosc = tda_gobot_helper.get_aroon_osc(stocks[ticker]['pricehistory'], period=aroonosc_period)
+				aroonosc = tda_gobot_helper.get_aroon_osc(stocks[ticker]['pricehistory'], period=t_aroonosc_period)
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(): get_aroon_osc(' + str(ticker) + '): ' + str(e))
@@ -266,8 +302,10 @@ def stochrsi_gobot( algos=None, debug=False ):
 		if ( algos['vpt'] == True ):
 			vpt = []
 			vpt_sma = []
+			t_vpt_sma_period = args.vpt_sma_period * stocks[ticker]['period_multiplier']
+
 			try:
-				vpt, vpt_sma = tda_gobot_helper.get_vpt(stocks[ticker]['pricehistory'], period=args.vpt_sma_period)
+				vpt, vpt_sma = tda_gobot_helper.get_vpt(stocks[ticker]['pricehistory'], period=t_vpt_sma_period)
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(): get_vpt(' + str(ticker) + '): ' + str(e))
@@ -328,6 +366,8 @@ def stochrsi_gobot( algos=None, debug=False ):
 							' / Previous VPT: ' + str(round(stocks[ticker]['prev_vpt'], 2)))
 				print('(' + str(ticker) + ') Current VPT_SMA: ' + str(round(stocks[ticker]['cur_vpt_sma'], 2)) +
 							' / Previous VPT_SMA: ' + str(round(stocks[ticker]['prev_vpt_sma'], 2)))
+
+			print('(' + str(ticker) + ') Period Multiplier: ' + str(stocks[ticker]['period_multiplier']))
 
 			# Timestamp check
 			print('(' + str(ticker) + ') Time now: ' + time_now.strftime('%Y-%m-%d %H:%M:%S') +

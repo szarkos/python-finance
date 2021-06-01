@@ -49,11 +49,12 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 				'datetime':	stream['timestamp'] }
 
 		stocks[ticker]['pricehistory']['candles'].append( candle_data )
+		stocks[ticker]['period_log'].append( stream['timestamp'] )
 
 		# Look back through period_log to determine average number of candles received
 		#  and set period_multiplier accordingly
-		stocks[ticker]['period_log'].append( stream['timestamp'] )
-		if ( stocks[ticker]['period_multiplier'] == 0 ):
+		# But don't muck with this if user explicitely changed the default of 0 via --period_multiplier
+		if ( args.period_multiplier == 0 ):
 
 			num_candles = 0
 			cur_time = float( stream['timestamp'] )
@@ -302,7 +303,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 		if ( algos['vpt'] == True ):
 			vpt = []
 			vpt_sma = []
-			t_vpt_sma_period = args.vpt_sma_period * stocks[ticker]['period_multiplier']
+			t_vpt_sma_period = vpt_sma_period * stocks[ticker]['period_multiplier']
 
 			try:
 				vpt, vpt_sma = tda_gobot_helper.get_vpt(stocks[ticker]['pricehistory'], period=t_vpt_sma_period)

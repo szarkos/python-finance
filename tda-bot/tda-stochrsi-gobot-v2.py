@@ -62,6 +62,7 @@ parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/l
 parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=int)
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
 parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', default=72, type=int)
+parser.add_argument("--adx_period", help='ADX period', default=48, type=int)
 parser.add_argument("--period_multiplier", help='Period multiplier - set statically here, or otherwise gobot will determine based on the number of candles it receives per minute.', default=0, type=int)
 
 # Deprecated - use --algos=... instead
@@ -180,7 +181,7 @@ for algo in args.algos:
 	algos.append(algo_list)
 
 del(stochrsi,rsi,adx,dmi,macd,aroonosc,vwap,vpt,support_resistance)
-
+print()
 
 # Initialize stocks{}
 print( 'Initializing stock tickers: ' + str(args.stocks.split(',')) )
@@ -188,6 +189,10 @@ print( 'Initializing stock tickers: ' + str(args.stocks.split(',')) )
 # Fix up and sanity check the stock symbol before proceeding
 args.stocks = tda_gobot_helper.fix_stock_symbol(args.stocks)
 args.stocks = tda_gobot_helper.check_stock_symbol(args.stocks)
+if ( isinstance(args.stocks, bool) and args.stocks == False ):
+	print('Error: check_stock_symbol(' + str(args.stocks) + ') returned False, exiting.')
+	exit(1)
+
 time.sleep(2)
 
 stocks = OrderedDict()
@@ -432,7 +437,7 @@ tda_stochrsi_gobot_helper.rsi_d_period = args.rsi_d_period
 tda_stochrsi_gobot_helper.rsi_type = args.rsi_type
 
 # ADX / DMI
-tda_stochrsi_gobot_helper.adx_period = 64
+tda_stochrsi_gobot_helper.adx_period = args.adx_period # Usually 48-62
 
 # MACD
 tda_stochrsi_gobot_helper.macd_short_period = 48
@@ -442,6 +447,8 @@ tda_stochrsi_gobot_helper.macd_signal_period = 36
 # Aroonosc
 tda_stochrsi_gobot_helper.aroonosc_period = 128
 
+# VPT
+tda_stochrsi_gobot_helper.vpt_sma_period = args.vpt_sma_period # Typically 72
 
 # Initialize pricehistory for each stock ticker
 print( 'Populating pricehistory for stock tickers: ' + str(list(stocks.keys())) )

@@ -283,7 +283,9 @@ def check_stock_symbol(stock=None):
 			# Ticker may be invalid
 			return False
 
-	return True
+		return stock
+
+	return False
 
 
 # Write a stock blacklist that can be used to avoid wash sales
@@ -1593,7 +1595,7 @@ def get_vwap(pricehistory=None, day='today', end_timestamp=None, use_bands=True,
 	ticker = pricehistory['symbol']
 	for key in pricehistory['candles']:
 		if ( day != None and float(key['datetime']) < day_start ):
-				continue
+			continue
 
 		price = ( float(key['high']) + float(key['low']) + float(key['close']) ) / 3
 		prices = np.append( prices, [[float(key['datetime']), price, float(key['volume'])]], axis=0 )
@@ -3100,6 +3102,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3,
 			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=1.5, hold_overnight=False, exit_percent=None, vwap_exit=False,
 			  no_use_resistance=False, with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_macd=False, with_vwap=False, with_vpt=False,
+			  vpt_sma_period=72, adx_period=48,
 			  noshort=False, shortonly=False, safe_open=True, start_date=None,
 			  debug=False ):
 
@@ -3146,7 +3149,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	adx = []
 	plus_di = []
 	minus_di = []
-	adx_period = 64
 	try:
 		adx, plus_di, minus_di = get_adx(pricehistory, period=adx_period)
 
@@ -3216,7 +3218,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 						} )
 
 	# VPT - Volume Price Trend
-	vpt_sma_period = 72
 	if ( with_vpt == True ):
 		vpt = []
 		vpt_sma = []

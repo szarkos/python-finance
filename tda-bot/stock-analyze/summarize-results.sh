@@ -50,7 +50,7 @@ stochrsi_aroonosc_vpt"
 #	stochrsi_adx_macd_dmi_aroonosc"
 
 source ./tickers.conf
-tickers=$( echo -n $SMALL_MID2 | sed 's/,/ /g' )
+tickers=$( echo -n $SMALL_MID3 | sed 's/,/ /g' )
 
 cd results
 

@@ -50,6 +50,8 @@ parser.add_argument("--rsi_d_period", help='D period to use in StochRSI algorith
 parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='ohlc4', type=str)
 parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=int)
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
+parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', default=72, type=int)
+parser.add_argument("--adx_period", help='ADX period', default=48, type=int)
 
 parser.add_argument("--noshort", help='Disable short selling of stock', action="store_true")
 parser.add_argument("--shortonly", help='Only short sell the stock', action="store_true")
@@ -322,6 +324,7 @@ for algo in args.algo.split(','):
 			print('Not enough data - returned candles=' + str(len(data['candles'])) + ', rsi_period=' + str(rsi_period))
 			continue
 
+
 		# Dump pickle data if requested
 		if ( args.ofile != None ):
 			try:
@@ -357,6 +360,7 @@ for algo in args.algo.split(','):
 									 rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
 									 stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly,
 									 no_use_resistance=args.no_use_resistance, with_rsi=args.with_rsi, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_macd=args.with_macd, with_vwap=args.with_vwap, with_vpt=args.with_vpt,
+									 vpt_sma_period=args.vpt_sma_period, adx_period=args.adx_period,
 									 incr_percent_threshold=args.incr_threshold, decr_percent_threshold=args.decr_threshold,
 									 safe_open=True, exit_percent=args.exit_percent, vwap_exit=args.vwap_exit, start_date=args.start_date, debug=True )
 

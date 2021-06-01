@@ -69,6 +69,9 @@ print( 'Initializing stock tickers: ' + str(args.stocks.split(',')) )
 # Fix up and sanity check the stock symbol before proceeding
 args.stocks = tda_gobot_helper.fix_stock_symbol(args.stocks)
 args.stocks = tda_gobot_helper.check_stock_symbol(args.stocks)
+if ( isinstance(args.stocks, bool) and args.stocks == False ):
+	print('Error: check_stock_symbol(' + str(args.stocks) + ') returned False, exiting.')
+	exit(1)
 time.sleep(2)
 
 stocks = OrderedDict()

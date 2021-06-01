@@ -45,7 +45,8 @@ if ( stock != None ):
 
 	# Fix up and sanity check the stock symbol before proceeding
 	stock = tda_gobot_helper.fix_stock_symbol(stock)
-	if ( tda_gobot_helper.check_stock_symbol(stock) != True ):
+	ret = tda_gobot_helper.check_stock_symbol(stock)
+	if ( isinstance(ret, bool) and ret == False ):
 		print('Error: check_stock_symbol(' + str(stock) + ') returned False, exiting.')
 		exit(1)
 

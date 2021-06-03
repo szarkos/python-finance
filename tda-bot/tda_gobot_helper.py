@@ -2137,7 +2137,7 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 			#data, err = tda.place_order(tda_account_number, order, True)
 			data, err = func_timeout(12, tda.place_order, args=(tda_account_number, order, True))
 			if ( debug == True ):
-				print('DEBUG: sell_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
+				print('DEBUG: buytocover_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
 				print(order)
 				print(data)
 				print(err)
@@ -3102,7 +3102,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3,
 			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=1.5, hold_overnight=False, exit_percent=None, vwap_exit=False,
 			  no_use_resistance=False, with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_macd=False, with_vwap=False, with_vpt=False,
-			  vpt_sma_period=72, adx_period=48,
+			  with_dmi_simple=False, with_macd_simple=False, vpt_sma_period=72, adx_period=48,
 			  noshort=False, shortonly=False, safe_open=True, start_date=None,
 			  debug=False ):
 
@@ -3146,6 +3146,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		return False
 
 	# ADX, +DI, -DI
+	if ( with_dmi == True and with_dmi_simple == True ):
+		with_dmi_simple = False
+
 	adx = []
 	plus_di = []
 	minus_di = []
@@ -3157,6 +3160,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		return False
 
 	# MACD - 48, 104, 36
+	if ( with_macd == True and with_macd_simple == True):
+		with_macd_simple = False
+
 	macd = []
 	macd_signal = []
 	macd_histogram = []
@@ -3449,20 +3455,26 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				minus_di_crossover = True
 
 			dmi_signal = False
-			if ( plus_di_crossover == True and cur_plus_di > cur_minus_di ):
-				dmi_signal = True
+			if ( cur_plus_di > cur_minus_di ):
+				if ( with_dmi_simple == True ):
+					dmi_signal = True
+				elif ( plus_di_crossover == True ):
+					dmi_signal = True
 
 			# MACD crossover signals
-			if ( prev_macd < prev_macd_avg and cur_macd >= cur_macd_avg ):
+			if ( prev_macd < prev_macd_avg and cur_macd > cur_macd_avg ):
 				macd_crossover = True
 				macd_avg_crossover = False
 			elif ( prev_macd > prev_macd_avg and cur_macd < cur_macd_avg ):
-				macd_crossover = True
+				macd_crossover = False
 				macd_avg_crossover = True
 
 			macd_signal = False
-			if ( macd_crossover == True and cur_macd > cur_macd_avg ):
-				macd_signal = True
+			if ( cur_macd > cur_macd_avg ):
+				if ( with_macd_simple == True ):
+					macd_signal = True
+				elif ( macd_crossover == True ):
+					macd_signal = True
 
 			# Aroon oscillator signals
 			# Values closer to 100 indicate an uptrend
@@ -3507,13 +3519,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				if ( with_adx == True and adx_signal != True ):
 					final_buy_signal = False
 
-				if ( with_dmi == True and dmi_signal != True ):
+				if ( (with_dmi == True or with_dmi_simple == True) and dmi_signal != True ):
 					final_buy_signal = False
 
 				if ( with_aroonosc == True and aroonosc_signal != True ):
 					final_buy_signal = False
 
-				if ( with_macd == True and macd_signal != True ):
+				if ( (with_macd == True or with_macd_simple == True) and macd_signal != True ):
 					final_buy_signal = False
 
 				if ( with_vwap == True and vwap_signal != True ):
@@ -3715,20 +3727,26 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				minus_di_crossover = True
 
 			dmi_signal = False
-			if ( minus_di_crossover == True and cur_plus_di < cur_minus_di ):
-				dmi_signal = True
+			if ( cur_plus_di < cur_minus_di ):
+				if ( with_dmi_simple == True ):
+					dmi_signal = True
+				elif ( minus_di_crossover == True ):
+					dmi_signal = True
 
 			# MACD crossover signals
-			if ( prev_macd < prev_macd_avg and cur_macd >= cur_macd_avg ):
+			if ( prev_macd < prev_macd_avg and cur_macd > cur_macd_avg ):
 				macd_crossover = True
 				macd_avg_crossover = False
 			elif ( prev_macd > prev_macd_avg and cur_macd < cur_macd_avg ):
-				macd_crossover = True
+				macd_crossover = False
 				macd_avg_crossover = True
 
 			macd_signal = False
 			if ( cur_macd < cur_macd_avg ):
-				macd_signal = True
+				if ( with_macd_simple == True ):
+					macd_signal = True
+				elif ( macd_avg_crossover == True ):
+					macd_signal = True
 
 			# Aroon oscillator signals
 			# Values closer to -100 indicate a downtrend
@@ -3772,13 +3790,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				if ( with_adx == True and adx_signal != True ):
 					final_short_signal = False
 
-				if ( with_dmi == True and dmi_signal != True ):
+				if ( (with_dmi == True or with_dmi_simple == True) and dmi_signal != True ):
 					final_short_signal = False
 
 				if ( with_aroonosc == True and aroonosc_signal != True ):
 					final_short_signal = False
 
-				if ( with_macd == True and macd_signal != True ):
+				if ( (with_macd == True or with_macd_simple == True) and macd_signal != True ):
 					final_short_signal = False
 
 				if ( with_vwap == True and vwap_signal != True ):

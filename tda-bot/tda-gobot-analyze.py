@@ -30,8 +30,10 @@ parser.add_argument("--use_candle_monitor", help='Enable the trivial candle moni
 parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
 parser.add_argument("--with_adx", help='Use ADX as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
 parser.add_argument("--with_dmi", help='Use DMI as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
+parser.add_argument("--with_dmi_simple", help='Use DMI as secondary indicator to advise trade entries/exits, but do not wait for crossover (default=False)', action="store_true")
 parser.add_argument("--with_aroonosc", help='Use Aroon Oscillator as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
 parser.add_argument("--with_macd", help='Use MACD as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
+parser.add_argument("--with_macd_simple", help='Use MACD as secondary indicator to advise trade entries/exits, but do not wait for crossover (default=False)', action="store_true")
 parser.add_argument("--with_vwap", help='Use VWAP as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
 parser.add_argument("--with_vpt", help='Use VPT as secondary indicator to advise trade entries (default=False)', action="store_true")
 
@@ -217,7 +219,6 @@ for algo in args.algo.split(','):
 
 		args.days = -1
 
-
 		# Add data to ifile to ensure we have enough history to perform calculations
 		if ( args.augment_ifile == True ):
 
@@ -361,7 +362,7 @@ for algo in args.algo.split(','):
 									 rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
 									 stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly,
 									 no_use_resistance=args.no_use_resistance, with_rsi=args.with_rsi, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_macd=args.with_macd, with_vwap=args.with_vwap, with_vpt=args.with_vpt,
-									 vpt_sma_period=args.vpt_sma_period, adx_period=args.adx_period,
+									 with_dmi_simple=args.with_dmi_simple, with_macd_simple=args.with_macd_simple, vpt_sma_period=args.vpt_sma_period, adx_period=args.adx_period,
 									 incr_percent_threshold=args.incr_threshold, decr_percent_threshold=args.decr_threshold,
 									 safe_open=True, exit_percent=args.exit_percent, vwap_exit=args.vwap_exit, start_date=args.start_date, debug=True )
 

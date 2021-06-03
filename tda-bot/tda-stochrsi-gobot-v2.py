@@ -45,7 +45,7 @@ parser.add_argument("--no_use_resistance", help='Do no use the high/low resistan
 
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
 parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1.5, type=float)
-parser.add_argument("--num_purchases", help='Number of purchases allowed per day', nargs='?', default=10, type=int)
+parser.add_argument("--num_purchases", help='Number of purchases allowed per day', default=10, type=int)
 parser.add_argument("--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
 parser.add_argument("--max_failed_txs", help='Maximum number of failed transactions allowed for a given stock before stock is blacklisted', default=2, type=int)
 parser.add_argument("--max_failed_usd", help='Maximum allowed USD for a failed transaction before the stock is blacklisted', default=100, type=int)
@@ -142,7 +142,9 @@ if ( tda_gobot_helper.tdalogin(passcode) != True ):
 #	   'rsi':			False,
 #	   'adx':			False,
 #	   'dmi':			False,
+#	   'dmi_simple':			False,
 #	   'macd':			False,
+#	   'macd_simple':		False,
 #	   'aroonosc':			False,
 #	   'vwap':			False,
 #	   'vpt':			False,
@@ -155,24 +157,33 @@ for algo in args.algos:
 	print(algo, end = '')
 	algo = ','.join(algo)
 
-	stochrsi = rsi = adx = dmi = macd = aroonosc = vwap = vpt = support_resistance = False
+	stochrsi = rsi = adx = dmi = dmi_simple = macd = macd_simple = aroonosc = vwap = vpt = support_resistance = False
 	for a in algo.split(','):
 
 		if ( a == 'stochrsi' ):		stochrsi	= True
 		if ( a == 'rsi' ):		rsi		= True
 		if ( a == 'adx' ):		adx		= True
 		if ( a == 'dmi' ):		dmi		= True
+		if ( a == 'dmi_simple' ):	dmi_simple	= True
 		if ( a == 'macd' ):		macd		= True
+		if ( a == 'macd_simple' ):	macd_simple	= True
 		if ( a == 'aroonosc' ):		aroonosc	= True
 		if ( a == 'vwap' ):		vwap		= True
 		if ( a == 'vpt' ):		vpt		= True
 		if ( a == 'support_resistance' ): support_resistance = True
 
+		if ( dmi == True and dmi_simple == True ):
+			dmi_simple = False
+		if ( macd == True and macd_simple == True ):
+			macd_simple = False
+
 	algo_list = {	'stochrsi':		True,  # For now this cannot be turned off
 			'rsi':			rsi,
 			'adx':			adx,
 			'dmi':			dmi,
+			'dmi_simple':		dmi_simple,
 			'macd':			macd,
+			'macd_simple':		macd_simple,
 			'aroonosc':		aroonosc,
 			'vwap':			vwap,
 			'vpt':			vpt,
@@ -437,7 +448,7 @@ tda_stochrsi_gobot_helper.rsi_d_period = args.rsi_d_period
 tda_stochrsi_gobot_helper.rsi_type = args.rsi_type
 
 # ADX / DMI
-tda_stochrsi_gobot_helper.adx_period = args.adx_period # Usually 48-62
+tda_stochrsi_gobot_helper.adx_period = args.adx_period # Usually 48-64
 
 # MACD
 tda_stochrsi_gobot_helper.macd_short_period = 48

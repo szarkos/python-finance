@@ -24,6 +24,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--stocks", help='Stock ticker(s) to purchase (comma delimited)', required=True, type=str)
 parser.add_argument("--stock_usd", help='Amount of money (USD) to invest per trade', default=1000, type=float)
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
+parser.add_argument("--autotrade", help='Make trades automatically with gap up/down alerts occur', action="store_true")
 parser.add_argument("--fake", help='Paper trade only - runs tda-gobot with --fake option', action="store_true")
 parser.add_argument("--monitor", help='Disables buy/sell functions', action="store_true")
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=0.5, type=float)
@@ -282,23 +283,26 @@ def gap_monitor(stream=None, debug=False):
 			if ( direction == 'DOWN' ):
 				gobot_command.append('--short')
 
-			# Check to see if we have a running process
-			if ( isinstance(stocks[ticker]['process'], Popen) == True ):
-				if ( stocks[ticker]['process'].poll() != None ):
-					# process has exited
-					stocks[ticker]['process'] = None
-				else:
-					# Another process is running for this ticker
-					print('(' + str(ticker) + '): Another process (pid: ' + str(stocks[ticker]['process'].pid) + ') is already running')
-					continue
+			# Make a trade on gapping stock if args.autotrade is set
+			if ( args.autotrade == True ):
 
-			# If process==None then we should be safe to run a gobot instance for this stock
-			if ( stocks[ticker]['process'] == None and args.monitor == False ):
-				try:
-					stocks[ticker]['process'] = Popen(gobot_command, stdin=None, stdout=log_fh, stderr=STDOUT, shell=False)
+				# Check to see if we have a running process
+				if ( isinstance(stocks[ticker]['process'], Popen) == True ):
+					if ( stocks[ticker]['process'].poll() != None ):
+						# process has exited
+						stocks[ticker]['process'] = None
+					else:
+						# Another process is running for this ticker
+						print('(' + str(ticker) + '): Another process (pid: ' + str(stocks[ticker]['process'].pid) + ') is already running')
+						continue
 
-				except Exception as e:
-					print('(' + str(ticker) + '): Exception caught: ' + str(e))
+				# If process==None then we should be safe to run a gobot instance for this stock
+				if ( stocks[ticker]['process'] == None and args.monitor == False ):
+					try:
+						stocks[ticker]['process'] = Popen(gobot_command, stdin=None, stdout=log_fh, stderr=STDOUT, shell=False)
+
+					except Exception as e:
+						print('(' + str(ticker) + '): Exception caught: ' + str(e))
 
 	return True
 

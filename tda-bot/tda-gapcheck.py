@@ -120,10 +120,11 @@ except Exception as e:
 
 # Populate ticker info in stocks[]
 for ticker in stocks.keys():
-	if ( tda_gobot_helper.check_blacklist(ticker) == True and args.force == False ):
-		print('(' + str(ticker) + ') Error: stock ' + str(ticker) + ' found in blacklist file, removing from the list')
-		stocks[ticker]['isvalid'] = False
-		continue
+	if ( args.autotrade == True ):
+		if ( tda_gobot_helper.check_blacklist(ticker) == True and args.force == False ):
+			print('(' + str(ticker) + ') Error: stock ' + str(ticker) + ' found in blacklist file, removing from the list')
+			stocks[ticker]['isvalid'] = False
+			continue
 
 	# Confirm that we can short this stock
 	if ( stock_data[ticker]['shortable'] == str(False) or stock_data[ticker]['marginable'] == str(False) ):

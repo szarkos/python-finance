@@ -107,6 +107,7 @@ def reset_signals(ticker=None):
 	stocks[ticker]['aroonosc_signal']		= False
 	stocks[ticker]['vwap_signal']			= False
 	stocks[ticker]['vpt_signal']			= False
+	stocks[ticker]['resistance_signal']		= False
 
 	stocks[ticker]['plus_di_crossover']		= False
 	stocks[ticker]['minus_di_crossover']		= False
@@ -285,7 +286,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 		# VWAP
 		# Calculate vwap to use as entry or exit algorithm
-		if ( algos['vwap'] or args.vwap_exit == True ):
+		if ( algos['vwap'] or args.vwap_exit == True or algos['support_resistance'] == True ):
 			vwap = []
 			vwap_up = []
 			vwap_down = []
@@ -356,7 +357,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 				print('(' + str(ticker) + ') Current AroonOsc: ' + str(round(stocks[ticker]['cur_aroonosc'], 2)))
 
 			# VWAP
-			if ( algos['vwap'] == True ):
+			if ( algos['vwap'] == True or algos['support_resistance'] == True ):
 				print('(' + str(ticker) + ') Current VWAP: ' + str(round(stocks[ticker]['cur_vwap'], 2)) +
 							' / Current VWAP_UP: ' + str(round(stocks[ticker]['cur_vwap_up'], 2)) +
 							' / Current VWAP_DOWN: ' + str(round(stocks[ticker]['cur_vwap_down'], 2)))
@@ -573,6 +574,52 @@ def stochrsi_gobot( algos=None, debug=False ):
 				if ( prev_vpt < prev_vpt_sma and cur_vpt >= cur_vpt_sma ):
 					stocks[ticker]['vpt_signal'] = True
 
+			# Support / Resistance
+			if ( algos['support_resistance'] == True and args.no_use_resistance == False ):
+				stocks[ticker]['resistance_signal'] = True
+				cur_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+
+				# PDC
+				if ( stocks[ticker]['previous_day_close'] != 0 ):
+					if ( abs((stocks[ticker]['previous_day_close'] / cur_price - 1) * 100) <= price_resistance_pct ):
+
+						# Current price is very close to PDC
+						# Next check average of last 15 (minute) candles
+						avg = 0
+						for i in range(15, 0, -1):
+							avg += float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
+						avg = avg / 15
+
+						# If average was below PDC then PDC is resistance
+						# If average was above PDC then PDC is support
+						if ( avg < stocks[ticker]['previous_day_close'] ):
+							stocks[ticker]['resistance_signal'] = False
+
+				# VWAP
+				if ( abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
+
+					# Current price is very close to VWAP
+					# Next check average of last 15 (minute) candles
+					avg = 0
+					for i in range(15, 0, -1):
+						avg += float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
+					avg = avg / 15
+
+					# If average was below VWAP then VWAP is resistance
+					# If average was above VWAP then VWAP is support
+					if ( avg < cur_vwap ):
+						stocks[ticker]['resistance_signal'] = False
+
+#				# 20-week high
+#				if ( cur_price >= float(stocks[ticker]['twenty_week_high']) ):
+#					# This is not a good bet
+#					stocks[ticker]['twenty_week_high'] = cur_price
+#					stocks[ticker]['resistance_signal'] = False
+#
+#				elif ( ( abs(cur_price / float(stocks[ticker]['twenty_week_high']) - 1) * 100 ) < 1 ):
+#					# Current high is within 1% of 20-week high, not a good bet
+#					stocks[ticker]['resistance_signal'] = False
+
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
 			if ( stocks[ticker]['buy_signal'] == True ):
 
@@ -598,40 +645,15 @@ def stochrsi_gobot( algos=None, debug=False ):
 				if ( algos['vpt'] == True and stocks[ticker]['vpt_signal'] != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
+				if ( (algos['support_resistance'] == True and args.no_use_resistance == False) and stocks[ticker]['resistance_signal'] != True ):
+					stocks[ticker]['final_buy_signal'] = False
+
 			# BUY THE STOCK
 			if ( stocks[ticker]['buy_signal'] == True and stocks[ticker]['final_buy_signal'] == True ):
 
 				# Calculate stock quantity from investment amount
 				last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 				stocks[ticker]['stock_qty'] = int( float(stock_usd) / float(last_price) )
-
-				# Final sanity checks should go here
-				# Check resistance at 20-week high
-				if ( algos['support_resistance'] == True and args.no_use_resistance == False ):
-					if ( float(last_price) >= float(stocks[ticker]['twenty_week_high']) ):
-						# This is not a good bet
-						stocks[ticker]['twenty_week_high'] = float(last_price)
-						print('Stock ' + str(ticker) + ' buy signal indicated, but last price (' + str(last_price) + ') is already above the 20-week high (' + str(stocks[ticker]['twenty_week_high']) + ')')
-						stocks[ticker]['buy_signal'] = False
-
-					elif ( ( abs(float(last_price) / float(stocks[ticker]['twenty_week_high']) - 1) * 100 ) < 1 ):
-						# Current high is within 1% of 20-week high, not a good bet
-						print('Stock ' + str(ticker) + ' buy signal indicated, but last price (' + str(last_price) + ') is already within 1% of the 20-week high (' + str(stocks[ticker]['twenty_week_high']) + ')')
-						stocks[ticker]['buy_signal'] = False
-
-					if ( stocks[ticker]['buy_signal'] == False ):
-						reset_signals(ticker)
-						stocks[ticker]['stock_qty'] = 0
-
-						stocks[ticker]['prev_rsi_k'] = cur_rsi_k
-						stocks[ticker]['prev_rsi_d'] = cur_rsi_d
-
-						stocks[ticker]['prev_plus_di'] = cur_plus_di
-						stocks[ticker]['prev_minus_di'] = cur_minus_di
-
-						stocks[ticker]['prev_macd'] = cur_macd
-						stocks[ticker]['prev_macd_avg'] = cur_macd_avg
-						continue
 
 				# Purchase the stock
 				if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == True ):
@@ -983,6 +1005,52 @@ def stochrsi_gobot( algos=None, debug=False ):
 				if ( prev_vpt > prev_vpt_sma and cur_vpt <= cur_vpt_sma ):
 					stocks[ticker]['vpt_signal'] = True
 
+			# Support / Resistance
+			if ( algos['support_resistance'] == True and args.no_use_resistance == False ):
+				stocks[ticker]['resistance_signal'] = True
+				cur_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+
+				# PDC
+				if ( stocks[ticker]['previous_day_close'] != 0 ):
+					if ( abs((stocks[ticker]['previous_day_close'] / cur_price - 1) * 100) <= price_resistance_pct ):
+
+						# Current price is very close to PDC
+						# Next check average of last 15 (minute) candles
+						avg = 0
+						for i in range(15, 0, -1):
+							avg += float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
+						avg = avg / 15
+
+						# If average was below PDC then PDC is resistance (good for short)
+						# If average was above PDC then PDC is support (bad for short)
+						if ( avg > stocks[ticker]['previous_day_close'] ):
+							stocks[ticker]['resistance_signal'] = False
+
+				# VWAP
+				if ( abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
+
+					# Current price is very close to VWAP
+					# Next check average of last 15 (minute) candles
+					avg = 0
+					for i in range(15, 0, -1):
+						avg += float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
+					avg = avg / 15
+
+					# If average was below VWAP then VWAP is resistance (good for short)
+					# If average was above VWAP then VWAP is support (bad for short)
+					if ( avg > cur_vwap ):
+						stocks[ticker]['resistance_signal'] = False
+
+#				# 20-week low
+#				if ( cur_price <= float(stocks[ticker]['twenty_week_low']) ):
+#					# This is not a good bet
+#					stocks[ticker]['twenty_week_low'] = cur_price
+#					stocks[ticker]['resistance_signal'] = False
+#
+#				elif ( ( abs(float(stocks[ticker]['twenty_week_low']) / float(cur_price) - 1) * 100 ) < 1 ):
+#					# Current low is within 1% of 20-week low, not a good bet
+#					stocks[ticker]['resistance_signal'] = False
+
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
 			if ( stocks[ticker]['short_signal'] == True ):
 
@@ -1008,6 +1076,9 @@ def stochrsi_gobot( algos=None, debug=False ):
 				if ( algos['vpt'] == True and stocks[ticker]['vpt_signal'] != True ):
 					stocks[ticker]['final_short_signal'] = False
 
+				if ( (algos['support_resistance'] == True and args.no_use_resistance == False) and stocks[ticker]['resistance_signal'] != True ):
+					stocks[ticker]['final_short_signal'] = False
+
 
 			# SHORT THE STOCK
 			if ( stocks[ticker]['short_signal'] == True and stocks[ticker]['final_short_signal'] == True ):
@@ -1015,34 +1086,6 @@ def stochrsi_gobot( algos=None, debug=False ):
 				# Calculate stock quantity from investment amount
 				last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 				stocks[ticker]['stock_qty'] = int( float(stock_usd) / float(last_price) )
-
-				# Final sanity checks should go here
-				# Check resistance at 20-week low
-				if ( algos['support_resistance'] == True and args.no_use_resistance == False ):
-					if ( float(last_price) <= float(stocks[ticker]['twenty_week_low']) ):
-						# This is not a good bet
-						stocks[ticker]['twenty_week_low'] = float(last_price)
-						print('Stock ' + str(ticker) + ' short signal indicated, but last price (' + str(last_price) + ') is already below the 20-week low (' + str(stocks[ticker]['twenty_week_low']) + ')')
-						stocks[ticker]['short_signal'] = False
-
-					elif ( ( abs(float(stocks[ticker]['twenty_week_low']) / float(last_price) - 1) * 100 ) < 1 ):
-						# Current low is within 1% of 20-week low, not a good bet
-						print('Stock ' + str(ticker) + ' short signal indicated, but last price (' + str(last_price) + ') is already within 1% of the 20-week low (' + str(stocks[ticker]['twenty_week_low']) + ')')
-						stocks[ticker]['short_signal'] = False
-
-					if ( stocks[ticker]['short_signal'] == False ):
-						reset_signals(ticker)
-						stocks[ticker]['stock_qty'] = 0
-
-						stocks[ticker]['prev_rsi_k'] = cur_rsi_k
-						stocks[ticker]['prev_rsi_d'] = cur_rsi_d
-
-						stocks[ticker]['prev_plus_di'] = cur_plus_di
-						stocks[ticker]['prev_minus_di'] = cur_minus_di
-
-						stocks[ticker]['prev_macd'] = cur_macd
-						stocks[ticker]['prev_macd_avg'] = cur_macd_avg
-						continue
 
 				# Short the stock
 				if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == True ):

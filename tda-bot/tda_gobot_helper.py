@@ -484,8 +484,8 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 			return False, []
 
 	# Example: {'open': 236.25, 'high': 236.25, 'low': 236.25, 'close': 236.25, 'volume': 500, 'datetime': 1616796960000}
+	data = err = ''
 	try:
-		data = err = ''
 		data,err = func_timeout(10, tda.get_price_history, args=(ticker, p_type, f_type, freq, period, start_date, end_date, needExtendedHoursData, True))
 
 	except FunctionTimedOut:
@@ -651,7 +651,7 @@ def get_pdc(pricehistory=None, debug=False):
 		print('(' + str(ticker) + '): Exception caught: ' + str(e))
 		return None
 
-	return pdc
+	return float(pdc)
 
 
 # Return the N-day simple moving average (SMA) (default: 200-day)
@@ -3183,7 +3183,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		return False
 
 	# Calculate vwap and/or vwap_exit
-	if ( with_vwap == True or vwap_exit == True ):
+	if ( with_vwap == True or vwap_exit == True or no_use_resistance == False ):
 		vwap_vals = OrderedDict()
 		days = OrderedDict()
 
@@ -3224,66 +3224,74 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 						} )
 
 	# VPT - Volume Price Trend
-	if ( with_vpt == True ):
-		vpt = []
-		vpt_sma = []
-		try:
-			vpt, vpt_sma = get_vpt(pricehistory, period=vpt_sma_period)
+	vpt = []
+	vpt_sma = []
+	try:
+		vpt, vpt_sma = get_vpt(pricehistory, period=vpt_sma_period)
 
-		except Exception as e:
-			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_vpt(): ' + str(e))
-			return False
+	except Exception as e:
+		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_vpt(): ' + str(e))
+		return False
 
-
-	# SMA200 and EMA50
-	# Determine if the stock is bearish or bullish based on SMA/EMA
-	isbull = isbear = None
-#	sma, p_history = get_sma(ticker, 200, False)
-#	if ( isinstance(sma, bool) and sma == False ):
-#		print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_sma() returned false - no data')
-#	else:
-#		ema, p_history = get_ema(ticker, 50, False)
-#		if ( isinstance(ema, bool) and ema == False ):
-#			print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_ema() returned false - no data')
-#		else:
-#			isbull = False
-#			isbear = True
-#			if ( float(ema[-1]) > float(sma[-1]) ):
-#				isbull = True
-#				isbear = False
-#	del(p_history)
-
-	# Get general information about the stock that we can use later
-	# I.e. volatility, resistance, etc.
-	three_week_high = three_week_low = three_week_avg = -1
-	twenty_week_high = twenty_week_low = twenty_week_avg = -1
-	price_resistance_pct = 1
-	price_support_pct = 1.5
+	# Resistance / Support
 	if ( no_use_resistance == False ):
-		try:
-			# 3-week high / low / average
-			three_week_high, three_week_low, three_week_avg = get_price_stats(ticker, days=15)
 
-		except Exception as e:
-			print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
+		price_resistance_pct = 1
+		price_support_pct = 1
 
-		time.sleep(0.5)
-		try:
-			# 20-week high / low / average
-			twenty_week_high, twenty_week_low, twenty_week_avg = get_price_stats(ticker, days=100)
+		# Day stats
+		pdc = OrderedDict()
+		for key in pricehistory['candles']:
 
-		except Exception as e:
-			print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
+			today = datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone)
+			time = today.strftime('%H:%M')
 
-		# Set the price resistance and support based on whether the stock is bull or bearish
-		if ( isbull == True ):
-			price_resistance_pct = 1
-			price_support_pct = 1.5
-		else:
-			price_resistance_pct = 1.5
-			price_support_pct = 1
+			yesterday = today - timedelta(days=1)
+			yesterday = fix_timestamp(yesterday)
 
-#	previous_day_close = get_pdc(pricehistory)
+			today = today.strftime('%Y-%m-%d')
+			yesterday = yesterday.strftime('%Y-%m-%d')
+
+			if ( today not in pdc ):
+				pdc[today] = {  'open':		0,
+						'high':		0,
+						'low':		100000,
+						'close':	0,
+						'pdc':		0 }
+
+			if ( yesterday in pdc ):
+				pdc[today]['pdc'] = float(pdc[yesterday]['close'])
+
+			if ( float(key['close']) > pdc[today]['high'] ):
+				pdc[today]['high'] = float(key['close'])
+
+			if ( float(key['close']) < pdc[today]['low'] ):
+				pdc[today]['low'] = float(key['close'])
+
+			if ( time == '09:30'):
+				pdc[today]['open'] = float(key['open'])
+
+			elif ( time == '16:00'):
+				pdc[today]['close'] = float(key['close'])
+
+
+#		three_week_high = three_week_low = three_week_avg = -1
+		twenty_week_high = twenty_week_low = twenty_week_avg = -1
+
+#		try:
+#			# 3-week high / low / average
+#			three_week_high, three_week_low, three_week_avg = get_price_stats(ticker, days=15)
+#
+#		except Exception as e:
+#			print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
+#
+#		try:
+#			# 20-week high / low / average
+#			twenty_week_high, twenty_week_low, twenty_week_avg = get_price_stats(ticker, days=100)
+#
+#		except Exception as e:
+#			print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
+
 
 	# Run through the RSI values and log the results
 	results = []
@@ -3498,17 +3506,61 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				if ( prev_vpt < prev_vpt_sma and cur_vpt >= cur_vpt_sma ):
 					vpt_signal = True
 
-			# High / low resistance
-			resistance_signal = True
-			purchase_price = float(pricehistory['candles'][idx]['close'])
-			if ( purchase_price >= twenty_week_high ):
-				# This is not a good bet
-				twenty_week_high = float(purchase_price)
-				resistance_signal = False
+			# Resistance
+			if ( no_use_resistance == False ):
 
-			elif ( ( abs(float(purchase_price) / float(twenty_week_high) - 1) * 100 ) < price_resistance_pct ):
-				# Current high is within price_resistance_pct of 20-week high, not a good bet
-				resistance_signal = False
+				resistance_signal = True
+
+				# PDC
+				today = datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d')
+				prev_day_close = 0
+				if ( today in pdc ):
+					prev_day_close = pdc[today]['pdc']
+
+				if ( prev_day_close != 0 ):
+
+					cur_price = float(pricehistory['candles'][idx]['close'])
+					if ( abs((prev_day_close / cur_price - 1) * 100) <= price_resistance_pct ):
+
+						# Current price is very close to PDC
+						# Next check average of last 15 (minute) candles
+						avg = 0
+						for i in range(15, 0, -1):
+							avg += float( pricehistory['candles'][idx-i]['close'] )
+						avg = avg / 15
+
+						# If average was below PDC then PDC is resistance
+						# If average was above PDC then PDC is support
+						if ( avg < prev_day_close ):
+							resistance_signal = False
+
+				# VWAP
+				cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
+				cur_price = float(pricehistory['candles'][idx]['close'])
+				if ( abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
+
+					# Current price is very close to VWAP
+					# Next check average of last 15 (minute) candles
+					avg = 0
+					for i in range(15, 0, -1):
+						avg += float( pricehistory['candles'][idx-i]['close'] )
+					avg = avg / 15
+
+					# If average was below VWAP then VWAP is resistance
+					# If average was above VWAP then VWAP is support
+					if ( avg < cur_vwap ):
+						resistance_signal = False
+
+				# 20-week high
+#				purchase_price = float(pricehistory['candles'][idx]['close'])
+#				if ( purchase_price >= twenty_week_high ):
+#					# This is not a good bet
+#					twenty_week_high = float(purchase_price)
+#					resistance_signal = False
+#
+#				elif ( ( abs(float(purchase_price) / float(twenty_week_high) - 1) * 100 ) < price_resistance_pct ):
+#					# Current high is within price_resistance_pct of 20-week high, not a good bet
+#					resistance_signal = False
 
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
 			if ( buy_signal == True ):
@@ -3768,18 +3820,61 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				if ( prev_vpt > prev_vpt_sma and cur_vpt <= cur_vpt_sma ):
 					vpt_signal = True
 
-			# High / low resistance
-			short_price = float(pricehistory['candles'][idx]['close'])
-			if ( float(short_price) <= float(twenty_week_low) ):
-				# This is not a good bet
-				#print('Stock ' + str(ticker) + ' short signal indicated, but last price (' + str(short_price) + ') is already below the 20-week low (' + str(twenty_week_low) + ')')
-				twenty_week_low = float(short_price)
-				resistance_signal = False
+			# Resistance
+			if ( no_use_resistance == False ):
 
-			elif ( ( abs(float(twenty_week_low) / float(short_price) - 1) * 100 ) < price_support_pct ):
-				# Current low is within price_support_pct of 20-week low, not a good bet
-				#print('Stock ' + str(ticker) + ' short signal indicated, but last price (' + str(short_price) + ') is already within ' + str(price_support_pct) + '% of the 20-week low (' + str(twenty_week_low) + ')')
-				resistance_signal = False
+				resistance_signal = True
+
+				# PDC
+				today = datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d')
+				prev_day_close = 0
+				if ( today in pdc ):
+					prev_day_close = pdc[today]['pdc']
+
+				if ( prev_day_close != 0 ):
+
+					cur_price = float(pricehistory['candles'][idx]['close'])
+					if ( abs((prev_day_close / cur_price - 1) * 100) <= price_resistance_pct ):
+
+						# Current price is very close to PDC
+						# Next check average of last 15 (minute) candles
+						avg = 0
+						for i in range(15, 0, -1):
+							avg += float( pricehistory['candles'][idx-i]['close'] )
+						avg = avg / 15
+
+						# If average was below PDC then PDC is resistance (good for short)
+						# If average was above PDC then PDC is support (bad for short)
+						if ( avg > prev_day_close ):
+							resistance_signal = False
+
+				# VWAP
+				cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
+				cur_price = float(pricehistory['candles'][idx]['close'])
+				if ( abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
+
+					# Current price is very close to VWAP
+					# Next check average of last 15 (minute) candles
+					avg = 0
+					for i in range(15, 0, -1):
+						avg += float( pricehistory['candles'][idx-i]['close'] )
+					avg = avg / 15
+
+					# If average was below VWAP then VWAP is resistance (good for short)
+					# If average was above VWAP then VWAP is support (bad for short)
+					if ( avg > cur_vwap ):
+						resistance_signal = False
+
+				# High / low resistance
+#				short_price = float(pricehistory['candles'][idx]['close'])
+#				if ( float(short_price) <= float(twenty_week_low) ):
+#					# This is not a good bet
+#					twenty_week_low = float(short_price)
+#					resistance_signal = False
+#
+#				elif ( ( abs(float(twenty_week_low) / float(short_price) - 1) * 100 ) < price_support_pct ):
+#					# Current low is within price_support_pct of 20-week low, not a good bet
+#					resistance_signal = False
 
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
 			if ( short_signal == True ):

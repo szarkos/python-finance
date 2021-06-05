@@ -286,26 +286,27 @@ for ticker in args.stocks.split(','):
 
 				    'previous_day_close':	None,
 
-				   # Indicator Signals
-				   'rsi_signal':		False,
-				   'adx_signal':		False,
-				   'dmi_signal':		False,
-				   'macd_signal':		False,
-				   'aroonosc_signal':		False,
-				   'vwap_signal':		False,
-				   'vpt_signal':		False,
+				    # Indicator Signals
+				    'rsi_signal':		False,
+				    'adx_signal':		False,
+				    'dmi_signal':		False,
+				    'macd_signal':		False,
+				    'aroonosc_signal':		False,
+				    'vwap_signal':		False,
+				    'vpt_signal':		False,
+				    'resistance_signal':	False,
 
-				   'plus_di_crossover':		False,
-				   'minus_di_crossover':	False,
-				   'macd_crossover':		False,
-				   'macd_avg_crossover':	False,
+				    'plus_di_crossover':	False,
+				    'minus_di_crossover':	False,
+				    'macd_crossover':		False,
+				    'macd_avg_crossover':	False,
 
-				   # Period log will log datetime to determine period_multiplier
-				   'period_log':		[],
-				   'period_multiplier':		args.period_multiplier,
+				    # Period log will log datetime to determine period_multiplier
+				    'period_log':		[],
+				    'period_multiplier':	args.period_multiplier,
 
-				   # Candle data
-				   'pricehistory':		{}
+				    # Candle data
+				    'pricehistory':		{}
 			}} )
 
 	# Start in 'buy' mode unless we're only shorting
@@ -345,7 +346,6 @@ for ticker in stocks.keys():
 
 	# Get general information about the stock that we can use later
 	# I.e. volatility, resistance, etc.
-
 	# 3-week high / low / average
 	high = low = avg = False
 	while ( high == False ):
@@ -461,6 +461,10 @@ tda_stochrsi_gobot_helper.aroonosc_period = 128
 # VPT
 tda_stochrsi_gobot_helper.vpt_sma_period = args.vpt_sma_period # Typically 72
 
+# Support / Resistance
+tda_stochrsi_gobot_helper.price_resistance_pct = 1
+tda_stochrsi_gobot_helper.price_support_pct = 1
+
 # Initialize pricehistory for each stock ticker
 print( 'Populating pricehistory for stock tickers: ' + str(list(stocks.keys())) )
 
@@ -517,7 +521,11 @@ for ticker in stocks.keys():
 	for key in data['candles']:
 		stocks[ticker]['period_log'].append( key['datetime'] )
 
-#	stocks[ticker]['previous_day_close'] = tda_gobot_helper.get_pdc(data)
+	while ( stocks[ticker]['previous_day_close'] == None ):
+		stocks[ticker]['previous_day_close'] = tda_gobot_helper.get_pdc(data)
+		if ( stocks[ticker]['previous_day_close'] == None ):
+			print('Error: (' + str(ticker) + '): get_pdc() returned None, retrying...')
+			time.sleep(2)
 
 	time.sleep(1)
 

@@ -24,7 +24,7 @@ parser.add_argument("--fake", help='Paper trade only - disables buy/sell functio
 parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX_LOGS-GOBOTv1', default='TX_LOGS-GOBOTv1', type=str)
 
 parser.add_argument("--incr_threshold", help="Reset base_price if stock increases by this percent", default=1, type=float)
-parser.add_argument("--decr_threshold", help="Max allowed drop percentage of the stock price", default=1.5, type=float)
+parser.add_argument("--decr_threshold", help="Max allowed drop percentage of the stock price", default=1, type=float)
 parser.add_argument("--entry_price", help="The price to enter a trade", default=0, type=float)
 parser.add_argument("--exit_price", help="The price to exit a trade", default=0, type=float)
 

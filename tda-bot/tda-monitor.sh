@@ -1,10 +1,9 @@
 #!/bin/bash
 
 # Usage:
-#  ./tda-automation.sh <monitor]> <TX-LOG-DIR>
+#  ./tda-automation.sh <TX-LOG-DIR>
 
-command=${1-"monitor"}
-command=${2-"TX_LOGS"}
+command=${1-"TX_LOGS"}
 
 ############################################################################################
 # Monitor the logs
@@ -13,7 +12,7 @@ while [ 1 ]; do
 	printf "\033c"
 	echo -e "Stock\t% Change\tLast Price\tNet Change\tBase Price\tOriginal Base Price\tQuantity\tShort\tSold"
 
-	for i in ${2}/*.txt; do
+	for i in ${1}/*.txt; do
 		short=$( cat "$i" | awk -F : '{print $9}' )
 		if [ "$short" == True ]; then
 			line=$( cat "$i" | awk -F : '{print $1"*\t"$2"%\t\t"$3"\t\t"$4"\t\t"$5"\t\t"$6"\t\t\t"$7"\t\t"$9"\t"$8}' )
@@ -26,7 +25,7 @@ while [ 1 ]; do
 	echo
 
 	let net_change=0
-	for i in ${2}/*.txt; do
+	for i in ${1}/*.txt; do
 		short=$( cat "$i" | awk -F : '{print $9}' )
 		change=$( cat "$i" | awk -F : '{print $4}' | sed -r 's/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g' ) # Net Change
 		regexp='^-?[0-9]*([.][0-9]*)?$'

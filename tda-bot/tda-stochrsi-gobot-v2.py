@@ -1,9 +1,18 @@
 #!/usr/bin/python3 -u
 
-# Monitor a stock's Stochastic RSI values and make purchase decisions based off those values.
-# Examples:
-#  ./tda-rsi-gobot.py --short --multiday --stoploss --num_purchases=20 \
-#			MSFT  1000
+# Monitor a stock's Stochastic RSI and other indicator values and make purchase decisions based off those values.
+# Example:
+
+# $ source stock-analyze/tickers.conf
+# $ ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=1000 --stocks=$SMALL_LARGE2 --short \
+#	--decr_threshold=0.4 --incr_threshold=0.5 --max_failed_txs=1 --exit_percent=0.25 --tx_log_dir=TX_LOGS_v2 \
+#	--rsi_high_limit=95 --rsi_low_limit=5 \
+#	--algos=stochrsi,rsi,adx,support_resistance \
+#	--algos=stochrsi,rsi,macd,support_resistance \
+#	--algos=stochrsi,adx,macd,support_resistance \
+#	--algos=stochrsi,rsi,adx,vpt,support_resistance \
+#	--algos=stochrsi,adx,dmi,support_resistance \
+#	> logs/gobot-v2.log 2>&1
 
 import os, sys, signal
 import time, datetime, pytz, random
@@ -29,7 +38,7 @@ import tulipy as ti
 
 # Parse and check variables
 parser = argparse.ArgumentParser()
-parser.add_argument("--stocks", help='Stock ticker(s) to purchase (comma delimited)', required=True, type=str)
+parser.add_argument("--stocks", help='Stock ticker(s) to watch (comma delimited). Max supported tickers supported by TDA: 300', required=True, type=str)
 parser.add_argument("--stock_usd", help='Amount of money (USD) to invest per trade', default=1000, type=float)
 parser.add_argument("--algos", help='Algorithms to use, comma delimited. Supported options: stochrsi, rsi, adx, dmi, macd, aroonosc, vwap, vpt, support_resistance (Example: --algos=stochrsi,adx --algos=stochrsi,macd)', required=True, nargs="*", action='append', type=str)
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
@@ -319,10 +328,10 @@ if ( len(stocks) == 0 ):
 
 # Get stock_data info about the stock that we can use later (i.e. shortable)
 try:
-	stock_data,err = tda.stocks.get_quotes(args.stocks, True)
+	stock_data = tda_gobot_helper.get_quotes(args.stocks)
 
 except Exception as e:
-	print('Caught exception: get_quote(' + str(ticker) + '): ' + str(e), file=sys.stderr)
+	print('Caught exception: tda_gobot_helper.get_quote(' + str(args.stocks) + '): ' + str(e), file=sys.stderr)
 	sys.exit(1)
 
 # Initialize additional stocks{} values
@@ -330,14 +339,34 @@ for ticker in stocks.keys():
 	if ( tda_gobot_helper.check_blacklist(ticker) == True and args.force == False ):
 		print('(' + str(ticker) + ') Error: stock ' + str(ticker) + ' found in blacklist file, removing from the list')
 		stocks[ticker]['isvalid'] = False
+
+		try:
+			del stocks[ticker]
+		except KeyError:
+			print('Warning: failed to delete key "' + str(ticker) + '" from stocks{}')
+
 		continue
 
 	# Confirm that we can short this stock
+	# Sometimes this parameter is not set in the TDA get_quote response?
+	try:
+		stock_data[ticker]['shortable']
+		stock_data[ticker]['marginable']
+	except:
+		stock_data[ticker]['shortable'] = str(False)
+		stock_data[ticker]['marginable'] = str(False)
+
 	if ( args.short == True or args.shortonly == True ):
 		if ( stock_data[ticker]['shortable'] == str(False) or stock_data[ticker]['marginable'] == str(False) ):
 			if ( args.shortonly == True ):
 				print('Error: stock(' + str(ticker) + '): does not appear to be shortable, removing from the list')
 				stocks[ticker]['isvalid'] = False
+
+				try:
+					del stocks[ticker]
+				except KeyError:
+					print('Warning: failed to delete key "' + str(ticker) + '" from stocks{}')
+
 				continue
 
 			elif ( args.short == True ):
@@ -515,6 +544,12 @@ for ticker in stocks.keys():
 	if ( len(data['candles']) < int(args.stochrsi_period) * 2 ):
 		print('Warning: stock(' + str(ticker) + '): len(pricehistory[candles]) is less than stochrsi_period*2 (new stock ticker?), removing from the list')
 		stocks[ticker]['isvalid'] = False
+
+		try:
+			del stocks[ticker]
+		except KeyError:
+			print('Warning: failed to delete key "' + str(ticker) + '" from stocks{}')
+
 		continue
 
 	# Populate the period_log with history data
@@ -551,6 +586,7 @@ async def read_stream():
 	stream_client.add_chart_equity_handler(
 		lambda msg: tda_stochrsi_gobot_helper.stochrsi_gobot_run(msg, algos, args.debug) )
 
+	# Max equity subs=300
 	await asyncio.wait_for( stream_client.chart_equity_subs(stocks.keys()), 10 )
 
 	while True:

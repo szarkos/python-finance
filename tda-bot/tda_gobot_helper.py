@@ -247,27 +247,63 @@ def check_stock_symbol(stock=None):
 	# Multiple stock check
 	if ( re.search(',', stock) ):
 
-		try:
-			data,err = func_timeout(10, tda.stocks.get_quotes, args=(str(stock), True))
+		# Split the request in batches of 100
+		if ( len(stock.split(',')) > 100 ):
+			maxq = 100
+			stocks = ''
 
-		except FunctionTimedOut:
-			print('Caught Exception: check_stock_symbol(' + str(stock) + '): tda.stocks.get_quotes(): timed out after 10 seconds', file=sys.stderr)
-			return False
+			all_stocks = stock.split(',')
+			all_stocks = [all_stocks[i:i + maxq] for i in range(0, len(all_stocks), maxq)]
 
-		except Exception as e:
-			print('Caught Exception: check_stock_symbol(' + str(stock) + '): tda.stocks.get_quotes(): ' + str(e), file=sys.stderr)
-			return False
+			for query in all_stocks:
 
-		if ( err != None ):
-			print('Error: get_lastprice(' + str(ticker) + '): ' + str(err), file=sys.stderr)
-			return False
-		elif ( data == {} ):
-			print('Error: get_lastprice(' + str(ticker) + '): Empty data set', file=sys.stderr)
-			return False
+				query = ','.join(query)
+				try:
+					data,err = func_timeout(10, tda.stocks.get_quotes, args=(str(query), True))
 
-		stocks = ','.join(list(data.keys()))
+				except FunctionTimedOut:
+					print('Caught Exception: check_stock_symbol(' + str(query) + '): tda.stocks.get_quotes(): timed out after 10 seconds', file=sys.stderr)
+					return False
+				except Exception as e:
+					print('Caught Exception: check_stock_symbol(' + str(query) + '): tda.stocks.get_quotes(): ' + str(e), file=sys.stderr)
+					return False
 
-		return stocks
+				if ( err != None ):
+					print('Error: check_stock_symbol(' + str(query) + '): tda.stocks.get_quotes(): ' + str(err), file=sys.stderr)
+					return False
+				elif ( data == {} ):
+					print('Error: check_stock_symbol(' + str(query) + '): tda.stocks.get_quotes(): Empty data set', file=sys.stderr)
+					return False
+
+				stocks += ',' + ','.join(list(data.keys()))
+
+			stocks = re.sub('^,', '', stocks)
+			stocks = re.sub(',$', '', stocks)
+
+			return stocks
+
+		else:
+			try:
+				data,err = func_timeout(10, tda.stocks.get_quotes, args=(str(stock), True))
+
+			except FunctionTimedOut:
+				print('Caught Exception: check_stock_symbol(' + str(stock) + '): tda.stocks.get_quotes(): timed out after 10 seconds', file=sys.stderr)
+				return False
+			except Exception as e:
+				print('Caught Exception: check_stock_symbol(' + str(stock) + '): tda.stocks.get_quotes(): ' + str(e), file=sys.stderr)
+				return False
+
+			if ( err != None ):
+				print('Error: get_lastprice(' + str(stock) + '): ' + str(err), file=sys.stderr)
+				return False
+			elif ( data == {} ):
+				print('Error: get_lastprice(' + str(stock) + '): Empty data set', file=sys.stderr)
+				return False
+
+			stocks = ','.join(list(data.keys()))
+
+			return stocks
+
 
 	# Single stock check
 	else:
@@ -276,7 +312,7 @@ def check_stock_symbol(stock=None):
 			last_price = get_lastprice(stock, WarnDelayed=False)
 
 		except Exception as e:
-			print('Caught Exception: get_lastprice(' + str(ticker) + '): ' + str(e), file=sys.stderr)
+			print('Caught Exception: get_lastprice(' + str(stock) + '): ' + str(e), file=sys.stderr)
 			return False
 
 		if ( last_price == False ):
@@ -421,6 +457,72 @@ def get_lastprice(ticker=None, WarnDelayed=True, debug=False):
 
 	# Note: return regularMarketLastPrice if we don't want extended hours pricing
 	return float(data[ticker]['lastPrice'])
+
+
+# Return the quote information for one or more stock tickers
+# This can be a little tricky as TDA's API sometimes truncates large queries, so we need to break
+#  up the list of tickers into multiple queries.
+def get_quotes(stock=None):
+	if ( stock == None ):
+		print('Error: get_quotes(' + str(stock) + '): ticker is empty', file=sys.stderr)
+		return False
+
+	# Get quotes for multiple stocks
+	if ( re.search(',', stock) ):
+
+		# Split the request in batches of 100
+		if ( len(stock.split(',')) > 100 ):
+			maxq = 100
+			stocks = {}
+
+			all_stocks = stock.split(',')
+			all_stocks = [all_stocks[i:i + maxq] for i in range(0, len(all_stocks), maxq)]
+
+			for query in all_stocks:
+
+				query = ','.join(query)
+				try:
+					data,err = func_timeout(10, tda.stocks.get_quotes, args=(str(query), True))
+
+				except FunctionTimedOut:
+					print('Caught Exception: get_quotes(' + str(query) + '): tda.stocks.get_quotes(): timed out after 10 seconds', file=sys.stderr)
+					return False
+				except Exception as e:
+					print('Caught Exception: get_quotes(' + str(query) + '): tda.stocks.get_quotes(): ' + str(e), file=sys.stderr)
+					return False
+
+				if ( err != None ):
+					print('Error: get_quotes(' + str(query) + '): tda.stocks.get_quotes(): ' + str(err), file=sys.stderr)
+					return False
+				elif ( data == {} ):
+					print('Error: get_quotes(' + str(query) + '): tda.stocks.get_quotes(): Empty data set', file=sys.stderr)
+					return False
+
+				stocks.update(data)
+
+			return stocks
+
+		else:
+			try:
+				data,err = func_timeout(10, tda.stocks.get_quotes, args=(str(stock), True))
+
+			except FunctionTimedOut:
+				print('Caught Exception: get_quotes(' + str(stock) + '): tda.stocks.get_quotes(): timed out after 10 seconds', file=sys.stderr)
+				return False
+			except Exception as e:
+				print('Caught Exception: get_quotes(' + str(stock) + '): tda.stocks.get_quotes(): ' + str(e), file=sys.stderr)
+				return False
+
+			if ( err != None ):
+				print('Error: get_quotes(' + str(stock) + '): tda.stocks.get_quotes(): ' + str(err), file=sys.stderr)
+				return False
+			elif ( data == {} ):
+				print('Error: get_quotes(' + str(stock) + '): tda.stocks.get_quotes(): Empty data set', file=sys.stderr)
+				return False
+
+			return data
+
+	return False
 
 
 # Fix the timestamp for get_pricehistory()

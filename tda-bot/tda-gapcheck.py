@@ -29,7 +29,8 @@ parser.add_argument("--fake", help='Paper trade only - runs tda-gobot with --fak
 parser.add_argument("--monitor", help='Disables buy/sell functions', action="store_true")
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=0.5, type=float)
 parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1, type=float)
-parser.add_argument("--scalp_mode", help='Enable scalp mode (fixes incr_threshold and decr_threshold', action="store_true")
+parser.add_argument("--scalp_mode", help='Enable scalp mode (fixes incr_threshold and decr_threshold to low values)', action="store_true")
+parser.add_argument("--skip_avgvol", help='Skip calculating average volume - speeds startup avoiding get_pricehistory API', action="store_true")
 
 parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
 args = parser.parse_args()
@@ -113,9 +114,14 @@ freq = '1'
 
 # Get stock_data info about the stock that we can use later (i.e. shortable)
 try:
-	stock_data,err = tda.stocks.get_quotes(args.stocks, True)
+	stock_data = tda_gobot_helper.get_quotes(args.stocks)
+
 except Exception as e:
-	print('Caught exception: get_quote(' + str(ticker) + '): ' + str(e), file=sys.stderr)
+	print('Caught exception: get_quote(): ' + str(e), file=sys.stderr)
+	sys.exit(1)
+
+if ( isinstance(stock_data, bool) and stock_data == False ):
+	print('Error: tda_gobot_helper.get_quotes(): returned False')
 	sys.exit(1)
 
 # Populate ticker info in stocks[]
@@ -124,28 +130,42 @@ for ticker in stocks.keys():
 		if ( tda_gobot_helper.check_blacklist(ticker) == True and args.force == False ):
 			print('(' + str(ticker) + ') Error: stock ' + str(ticker) + ' found in blacklist file, removing from the list')
 			stocks[ticker]['isvalid'] = False
+
+			try:
+				del stocks[ticker]
+			except KeyError:
+				print('Warning: failed to delete key "' + str(ticker) + '" from stocks{}')
+
 			continue
 
 	# Confirm that we can short this stock
+	try:
+		stock_data[ticker]['shortable']
+		stock_data[ticker]['marginable']
+	except:
+		stock_data[ticker]['shortable'] = str(False)
+		stock_data[ticker]['marginable'] = str(False)
+
 	if ( stock_data[ticker]['shortable'] == str(False) or stock_data[ticker]['marginable'] == str(False) ):
 		print('Warning: stock(' + str(ticker) + '): does not appear to be shortable, disabling --short')
 		stocks[ticker]['shortable'] = False
 
-	avg_vol = 0
-	data = False
-	while ( data == False ):
-		data, epochs = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, needExtendedHoursData=False)
-		if ( data == False ):
-			time.sleep(5)
-			if ( tda_gobot_helper.tdalogin(passcode) != True ):
-				print('Error: (' + str(ticker) + '): Login failure')
-			continue
+	if ( args.skip_avgvol == False ):
+		avg_vol = 0
+		data = False
+		while ( data == False ):
+			data, epochs = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, needExtendedHoursData=False)
+			if ( data == False ):
+				time.sleep(5)
+				if ( tda_gobot_helper.tdalogin(passcode) != True ):
+					print('Error: (' + str(ticker) + '): Login failure')
+				continue
 
-	for key in data['candles']:
-		avg_vol += float(key['volume'])
-	stocks[ticker]['avg_volume'] = int( round(avg_vol / len(data['candles']), 0) )
+		for key in data['candles']:
+			avg_vol += float(key['volume'])
+		stocks[ticker]['avg_volume'] = int( round(avg_vol / len(data['candles']), 0) )
 
-	time.sleep(2)
+		time.sleep(2)
 
 # Initialize signal handlers to dump stock history on exit
 def graceful_exit(signum, frame):

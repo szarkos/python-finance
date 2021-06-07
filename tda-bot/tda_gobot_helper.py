@@ -3100,7 +3100,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 
 # Like stochrsi_analyze(), but sexier
 def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3,
-			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=1.5, hold_overnight=False, exit_percent=None, vwap_exit=False,
+			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=1.5, hold_overnight=False, exit_percent=None, vwap_exit=False, quick_exit=False,
 			  no_use_resistance=False, with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_macd=False, with_vwap=False, with_vpt=False,
 			  with_dmi_simple=False, with_macd_simple=False, vpt_sma_period=72, adx_period=48,
 			  noshort=False, shortonly=False, safe_open=True, start_date=None,
@@ -3663,12 +3663,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					if ( exit_percent != None ):
 
 						# If exit_percent has been hit, we will sell at the first RED candle
+						#  unless --quick_exit was set.
 						if ( exit_signal == True ):
 							if ( float(pricehistory['candles'][idx]['close']) < float(pricehistory['candles'][idx]['open']) ):
 								sell_signal = True
 
 						elif ( percent_change >= float(exit_percent) ):
 							exit_signal = True
+							if ( quick_exit == True ):
+								sell_signal = True
 
 					if ( percent_change >= incr_percent_threshold ):
 						base_price = last_price
@@ -3981,12 +3984,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					if ( exit_percent != None ):
 
 						# If exit_percent has been hit, we will sell at the first GREEN candle
+						#  unless quick_exit was set.
 						if ( exit_signal == True ):
 							if ( float(pricehistory['candles'][idx]['close']) > float(pricehistory['candles'][idx]['open']) ):
 								buy_to_cover_signal = True
 
 						elif ( percent_change >= float(exit_percent) ):
 							exit_signal = True
+							if ( quick_exit == True ):
+								sell_signal = True
 
 					if ( percent_change >= incr_percent_threshold ):
 						base_price = last_price

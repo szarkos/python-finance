@@ -81,40 +81,50 @@ if ( args.opts != None ):
 #stochrsi_rsi_adx_macd
 #stochrsi_adx_dmi
 #stochrsi_adx_macd
+#scenarios = {	'stochrsi_rsi_adx_vpt':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_vpt',
+#		'stochrsi_rsi_macd_vpt':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_macd --with_vpt',
+#		'stochrsi_adx_vpt':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_vpt',
+#		'stochrsi_adx_vpt_macd_simple':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_vpt --with_macd_simple',
+#		'stochrsi_macd_vpt_dmi_simple':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_macd --with_vpt --with_dmi_simple',
+#		'stochrsi_dmi_vpt_macd_simple':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_dmi --with_vpt --with_macd_simple',
+#		'stochrsi_rsi_adx_macd':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_macd',
+#		'stochrsi_adx_dmi':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_dmi',
+#		'stochrsi_adx_macd':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_macd',
+#}
 
-scenarios = {
-		'stochrsi_rsi_adx_vpt':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_vpt',
+#scenarios = {
+#		'stochrsi_rsi_adx_vpt':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_vpt',
 #		'stochrsi_rsi_adx_vpt_macd_simple':	'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_vpt --with_macd_simple',
 #		'stochrsi_rsi_adx_vpt_dmi_simple':	'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_vpt --with_dmi_simple',
-
-		'stochrsi_rsi_macd_vpt':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_macd --with_vpt',
+#
+#		'stochrsi_rsi_macd_vpt':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_macd --with_vpt',
 #		'stochrsi_rsi_macd_vpt_dmi_simple':	'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_macd --with_vpt --with_dmi_simple',
-
+#
 #		'stochrsi_rsi_dmi_vpt':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_dmi --with_vpt',
 #		'stochrsi_rsi_dmi_vpt_macd_simple':	'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_dmi --with_vpt --with_macd_simple',
-
-		'stochrsi_adx_vpt':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_vpt',
+#
+#		'stochrsi_adx_vpt':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_vpt',
 #		'stochrsi_adx_vpt_dmi_simple':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_vpt --with_dmi_simple',
-		'stochrsi_adx_vpt_macd_simple':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_vpt --with_macd_simple',
-
+#		'stochrsi_adx_vpt_macd_simple':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_vpt --with_macd_simple',
+#
 #		'stochrsi_macd_vpt':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_macd --with_vpt',
-		'stochrsi_macd_vpt_dmi_simple':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_macd --with_vpt --with_dmi_simple',
-
+#		'stochrsi_macd_vpt_dmi_simple':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_macd --with_vpt --with_dmi_simple',
+#
 #		'stochrsi_dmi_vpt':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_dmi --with_vpt',
-		'stochrsi_dmi_vpt_macd_simple':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_dmi --with_vpt --with_macd_simple',
-
+#		'stochrsi_dmi_vpt_macd_simple':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_dmi --with_vpt --with_macd_simple',
+#
 #		'stochrsi_rsi_adx_dmi':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_dmi',
 #		'stochrsi_rsi_adx_dmi_macd_simple':	'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_dmi --with_macd_simple',
-
-		'stochrsi_rsi_adx_macd':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_macd',
+#
+#		'stochrsi_rsi_adx_macd':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_macd',
 #		'stochrsi_rsi_adx_macd_dmi_simple':	'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_macd --with_dmi_simple',
-
-		'stochrsi_adx_dmi':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_dmi',
+#
+#		'stochrsi_adx_dmi':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_dmi',
 #		'stochrsi_adx_dmi_macd_simple':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_dmi --with_macd_simple',
-
-		'stochrsi_adx_macd':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_macd',
+#
+#		'stochrsi_adx_macd':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_macd',
 #		'stochrsi_adx_macd_dmi_simple':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_macd --with_dmi_simple'
-}
+#}
 
 #scenarios = {  'stochrsi_rsi_vpt':				'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_vpt',
 #		'stochrsi_rsi_adx_vpt':				'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_vpt',
@@ -137,12 +147,11 @@ scenarios = {
 #		'stochrsi_rsi_adx_macd_aroonosc_vpt':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_macd --with_aroonosc --with_vpt',
 #		'stochrsi_rsi_adx_macd_dmi_aroonosc_vpt':	'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_macd --with_dmi --with_aroonosc --with_vpt'
 #}
-#scenarios = {   'stochrsi_rsi':				'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi',
+#scenarios = {  'stochrsi_rsi':				'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi',
 #		'stochrsi_rsi_adx':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx',
-#		'stochrsi_rsi_dmi':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_dmi',
+#		'stochrsi_rsi_dmi':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_dmi', 
 #		'stochrsi_rsi_macd':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_macd',
 #		'stochrsi_rsi_aroonosc':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_aroonosc',
-#
 #		'stochrsi_rsi_adx_dmi':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_dmi',
 #		'stochrsi_rsi_adx_macd':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_macd',
 #		'stochrsi_rsi_adx_aroonosc':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_aroonosc',
@@ -153,11 +162,17 @@ scenarios = {
 #
 #		'stochrsi_rsi_adx_macd_dmi_aroonosc':	'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_macd --with_dmi --with_aroonosc'
 #}
-#scenarios = {	'stochrsi_adx':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx',
-#		'stochrsi_dmi':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_dmi',
-#		'stochrsi_macd':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_macd',
-#		'stochrsi_aroonosc':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_aroonosc',
-#
+scenarios = {	'stochrsi':			'--rsi_high_limit=95 --rsi_low_limit=5',
+		'stochrsi_rsi':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi',
+		'stochrsi_adx':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx',
+		'stochrsi_dmi':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_dmi',
+		'stochrsi_macd':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_macd',
+		'stochrsi_aroonosc':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_aroonosc',
+		'stochrsi_rsi_adx':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx',
+		'stochrsi_rsi_dmi':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_dmi',
+		'stochrsi_rsi_macd':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_macd',
+		'stochrsi_rsi_aroonosc':	'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_aroonosc',
+
 #		'stochrsi_adx_dmi':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_dmi',
 #		'stochrsi_adx_macd':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_macd',
 #		'stochrsi_adx_aroonosc':	'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_aroonosc',
@@ -167,7 +182,7 @@ scenarios = {
 #		'stochrsi_adx_macd_aroonosc':	'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_macd --with_aroonosc',
 #
 #		'stochrsi_adx_macd_dmi_aroonosc':'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_macd --with_dmi --with_aroonosc'
-#}
+}
 
 # Run the data through all available test scenarios
 for key in scenarios:

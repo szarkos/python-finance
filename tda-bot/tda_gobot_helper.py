@@ -3205,7 +3205,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=1.5, hold_overnight=False, exit_percent=None, vwap_exit=False, quick_exit=False,
 			  no_use_resistance=False, with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_macd=False, with_vwap=False, with_vpt=False,
 			  with_dmi_simple=False, with_macd_simple=False, vpt_sma_period=72, adx_period=48,
-			  noshort=False, shortonly=False, safe_open=True, start_date=None,
+			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None,
 			  debug=False ):
 
 	if ( ticker == None or pricehistory == None ):
@@ -3394,6 +3394,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 #		except Exception as e:
 #			print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
 
+	# Check the SMA and EMA to see if stock is bearish or bullish
+	sma = {}
+	ema = {}
+	if ( check_ma == True ):
+		import av_gobot_helper
+		sma = av_gobot_helper.av_get_ma(ticker, ma_type='sma', time_period=200)
+		ema = av_gobot_helper.av_get_ma(ticker, ma_type='ema', time_period=50)
+
 
 	# Run through the RSI values and log the results
 	results = []
@@ -3496,6 +3504,22 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			continue
 		elif ( start_date != None and date.strftime('%Y-%m-%d') != start_date ):
 			continue
+
+		# Check SMA/EMA to see if stock is bullish or bearish
+		if ( check_ma == True ):
+			cur_day = date.strftime('%Y-%m-%d')
+			cur_sma = sma['moving_avg'][cur_day]
+			cur_ema = ema['moving_avg'][cur_day]
+
+			if ( cur_sma < cur_ema ):
+				# Stock is bullish, disable shorting for now
+				noshort = True
+				if ( signal_mode == 'short' ):
+					signal_mode = 'buy'
+
+			elif ( cur_sma > cur_ema ):
+				# Stock is bearish, allow shorting
+				noshort = False
 
 
 		# BUY mode

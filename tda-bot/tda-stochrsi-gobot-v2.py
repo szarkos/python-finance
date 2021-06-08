@@ -335,7 +335,7 @@ except Exception as e:
 	sys.exit(1)
 
 # Initialize additional stocks{} values
-for ticker in stocks.keys():
+for ticker in list(stocks.keys()):
 	if ( tda_gobot_helper.check_blacklist(ticker) == True and args.force == False ):
 		print('(' + str(ticker) + ') Error: stock ' + str(ticker) + ' found in blacklist file, removing from the list')
 		stocks[ticker]['isvalid'] = False
@@ -524,7 +524,7 @@ time_prev = tda_gobot_helper.fix_timestamp(time_prev)
 time_now_epoch = int( time_now.timestamp() * 1000 )
 time_prev_epoch = int( time_prev.timestamp() * 1000 )
 
-for ticker in stocks.keys():
+for ticker in list(stocks.keys()):
 	if ( stocks[ticker]['isvalid'] == False ):
 		continue
 

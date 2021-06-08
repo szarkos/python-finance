@@ -94,10 +94,13 @@ stochrsi_rsi_aroonosc"
 #	stochrsi_adx_macd_aroonosc \
 #	stochrsi_adx_macd_dmi_aroonosc"
 
-source ./tickers.conf
-tickers=$( echo -n $SMALL_LARGE2 | sed 's/,/ /g' )
-
 cd results
+
+tickers=''
+for i in *-stochrsi*; do
+	tickers="$tickers "$( echo -n $i | sed 's/\-.*//' )
+done
+tickers=$( echo -n $tickers | sed 's/ /\n/g' | uniq | tr '\n' ' ' )
 
 echo -n "stock,"
 for i in $tests; do

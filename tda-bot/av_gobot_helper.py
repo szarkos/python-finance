@@ -3,7 +3,7 @@
 # Helper functions for Alpha Vantage API
 # https://www.alphavantage.co/documentation/
 
-import os, sys
+import os, sys, re
 import datetime, pytz
 
 # Obtain API key for Alpha Vantage
@@ -184,7 +184,7 @@ def av_get_ma(ticker=None, ma_type='sma', interval='daily', time_period=200, ser
 	data = data.content.decode()
 
 	ma = {}
-	ma['moving_avg'] = []
+	ma['moving_avg'] = {}
 	time = mavg = ''
 	for line in reversed( data.split('\r\n') ):
 		if ( line == 'time,' + ma_type or line == '' ):
@@ -197,11 +197,11 @@ def av_get_ma(ticker=None, ma_type='sma', interval='daily', time_period=200, ser
 			print('Error: av_get_ma(' + str(ticker) + '): error parsing moving average data: ' + str(e))
 			return False
 
-		ma['moving_avg'].append( { 'ma':	mavg,
-					   'datetime':	time } )
+		time = re.sub( '\s.*$', '', time )
+		ma['moving_avg'][time] = mavg
 
-		ma['ma_type'] = str(ma_type)
-		ma['symbol'] = str(ticker)
+	ma['ma_type'] = str(ma_type)
+	ma['symbol'] = str(ticker)
 
 	return ma
 

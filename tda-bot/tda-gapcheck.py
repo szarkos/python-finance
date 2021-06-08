@@ -125,7 +125,7 @@ if ( isinstance(stock_data, bool) and stock_data == False ):
 	sys.exit(1)
 
 # Populate ticker info in stocks[]
-for ticker in stocks.keys():
+for ticker in list(stocks.keys()):
 	if ( args.autotrade == True ):
 		if ( tda_gobot_helper.check_blacklist(ticker) == True and args.force == False ):
 			print('(' + str(ticker) + ') Error: stock ' + str(ticker) + ' found in blacklist file, removing from the list')

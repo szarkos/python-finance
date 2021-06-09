@@ -23,6 +23,7 @@ import argparse
 import robin_stocks.tda as tda
 import tda_gobot_helper
 import tda_stochrsi_gobot_helper
+import av_gobot_helper
 
 # tda-api is used for streaming client
 # https://tda-api.readthedocs.io/en/stable/streaming.html
@@ -84,6 +85,7 @@ parser.add_argument("--period_multiplier", help='Period multiplier - set statica
 
 parser.add_argument("--short", help='Enable short selling of stock', action="store_true")
 parser.add_argument("--shortonly", help='Only short sell the stock', action="store_true")
+parser.add_argument("--short_check_ma", help='Allow short selling of the stock when it is bearish (SMA200 < SMA50)', action="store_true")
 
 parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
 args = parser.parse_args()
@@ -295,6 +297,10 @@ for ticker in args.stocks.split(','):
 
 				    'previous_day_close':	None,
 
+				    # SMA200 and EMA50
+				    'cur_sma':			None,
+				    'cur_ema':			None,
+
 				    # Indicator Signals
 				    'rsi_signal':		False,
 				    'adx_signal':		False,
@@ -414,6 +420,27 @@ for ticker in list(stocks.keys()):
 			stocks[ticker]['twenty_week_low'] = low
 			stocks[ticker]['twenty_week_avg'] = avg
 			break
+
+	# SMA200 and EMA50
+	if ( args.short_check_ma == True ):
+		try:
+			sma_t = av_gobot_helper.av_get_ma(ticker, ma_type='sma', time_period=200)
+			ema_t = av_gobot_helper.av_get_ma(ticker, ma_type='ema', time_period=50)
+
+		except Exception as e:
+			print('Warning: av_get_ma(' + str(ticker) + '): ' + str(e) + ', skipping sma/ema check')
+
+		else:
+			# Check SMA/EMA to see if stock is bullish or bearish
+			day_t = next(reversed( sma_t['moving_avg'] )) # This returns only the key to the latest value
+			stocks[ticker]['cur_sma'] = float( sma_t['moving_avg'][day_t] )
+
+			day_t = next(reversed( ema_t['moving_avg'] ))
+			stocks[ticker]['cur_ema'] = float( ema_t['moving_avg'][day_t] )
+
+			if ( stocks[ticker]['cur_ema'] > stocks[ticker]['cur_sma'] ):
+				# Stock is bullish, disable shorting
+				stocks[ticker]['shortable'] = False
 
 	time.sleep(1)
 

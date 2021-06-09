@@ -460,7 +460,6 @@ tda_stochrsi_gobot_helper.tx_log_dir = args.tx_log_dir
 tda_stochrsi_gobot_helper.stocks = stocks
 tda_stochrsi_gobot_helper.incr_threshold = args.incr_threshold
 tda_stochrsi_gobot_helper.stock_usd = args.stock_usd
-tda_stochrsi_gobot_helper.loopt = 0.1
 
 # StochRSI
 tda_stochrsi_gobot_helper.rsi_low_limit = args.rsi_low_limit
@@ -553,14 +552,31 @@ for ticker in list(stocks.keys()):
 		continue
 
 	# Populate the period_log with history data
+	#  and find PDC
+	yesterday = time_now - datetime.timedelta(days=1)
+	yesterday = tda_gobot_helper.fix_timestamp(yesterday)
+	yesterday = yesterday.strftime('%Y-%m-%d')
 	for key in data['candles']:
+
 		stocks[ticker]['period_log'].append( key['datetime'] )
 
-	while ( stocks[ticker]['previous_day_close'] == None ):
-		stocks[ticker]['previous_day_close'] = tda_gobot_helper.get_pdc(data)
-		if ( stocks[ticker]['previous_day_close'] == None ):
-			print('Error: (' + str(ticker) + '): get_pdc() returned None, retrying...')
-			time.sleep(2)
+		# PDC
+		day = datetime.datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone)
+		if ( day.strftime('%Y-%m-%d') == yesterday ):
+
+			# Sometimes low/zero EOD volume misses a candle, try a couple EOD candles to be safe
+			hm = day.strftime('%H:%M')
+			if ( hm == '15:59' or hm == '16:00' ):
+				stocks[ticker]['previous_day_close'] = float( key['close'] )
+
+	if ( stocks[ticker]['previous_day_close'] == None ):
+		print('Warning: (' + str(ticker) + '): failed to find PDC from pricehistory, falling back to get_pdc()')
+
+		while ( stocks[ticker]['previous_day_close'] == None ):
+			stocks[ticker]['previous_day_close'] = tda_gobot_helper.get_pdc(data)
+			if ( stocks[ticker]['previous_day_close'] == None ):
+				print('Error: (' + str(ticker) + '): get_pdc() returned None, retrying...')
+				time.sleep(5)
 
 	time.sleep(1)
 

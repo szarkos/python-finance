@@ -198,15 +198,10 @@ def stochrsi_gobot( algos=None, debug=False ):
 			print('Error: stochrsi_gobot(): get_stochrsi(' + str(ticker) + ') returned false - no data', file=sys.stderr)
 			continue
 
-		# If using the same 1-minute data, the len of stochrsi will be stochrsi_period * (stochrsi_period * 2) - 1
-#		if ( len(stochrsi) != len(stocks[ticker]['pricehistory']['candles']) - (stochrsi_period * 2 - 1) ):
-#			print('Warning, unexpected length of stochrsi (pricehistory[candles]=' + str(len(stocks[ticker]['pricehistory']['candles'])) + ', len(stochrsi)=' + str(len(stochrsi)) + ')')
-
-		stocks[ticker]['cur_rsi_k'] = rsi_k[-1]
-		stocks[ticker]['cur_rsi_d'] = rsi_d[-1]
-		if ( stocks[ticker]['prev_rsi_k'] == -1 or stocks[ticker]['prev_rsi_d'] == -1 ):
-			stocks[ticker]['prev_rsi_k'] = stocks[ticker]['cur_rsi_k']
-			stocks[ticker]['prev_rsi_d'] = stocks[ticker]['cur_rsi_d']
+		stocks[ticker]['cur_rsi_k']	= float( rsi_k[-1] )
+		stocks[ticker]['cur_rsi_d']	= float( rsi_d[-1] )
+		stocks[ticker]['prev_rsi_k']	= float( rsi_k[-2] )
+		stocks[ticker]['prev_rsi_d']	= float( rsi_d[-2] )
 
 		# RSI
 		if ( algos['rsi'] == True ):
@@ -222,7 +217,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 				print('Error: stochrsi_gobot(): get_rsi(' + str(ticker) + ') returned false - no data', file=sys.stderr)
 				continue
 
-			stocks[ticker]['cur_rsi'] = rsi[-1]
+			stocks[ticker]['cur_rsi'] = float( rsi[-1] )
 
 		# ADX, +DI, -DI
 		if ( algos['adx'] == True or algos['dmi'] == True or algos['dmi_simple'] == True ):
@@ -238,13 +233,11 @@ def stochrsi_gobot( algos=None, debug=False ):
 				print('Error: stochrsi_gobot(' + str(ticker) + '): get_adx(): ' + str(e))
 				continue
 
-			stocks[ticker]['cur_adx'] = adx[-1]
-			stocks[ticker]['cur_plus_di'] = plus_di[-1]
-			stocks[ticker]['cur_minus_di'] = minus_di[-1]
-
-			if ( stocks[ticker]['prev_plus_di'] == -1 or stocks[ticker]['prev_minus_di'] == -1 ):
-				stocks[ticker]['prev_plus_di'] = stocks[ticker]['cur_plus_di']
-				stocks[ticker]['prev_minus_di'] = stocks[ticker]['cur_minus_di']
+			stocks[ticker]['cur_adx']	= float( adx[-1] )
+			stocks[ticker]['cur_plus_di']	= float( plus_di[-1] )
+			stocks[ticker]['cur_minus_di']	= float( minus_di[-1] )
+			stocks[ticker]['prev_plus_di']	= float( plus_di[-2] )
+			stocks[ticker]['prev_minus_di']	= float( minus_di[-2] )
 
 		# MACD - 48, 104, 36
 		if ( algos['macd'] == True or algos['macd_simple'] == True ):
@@ -263,12 +256,10 @@ def stochrsi_gobot( algos=None, debug=False ):
 				print('Error: stochrsi_gobot(): get_macd(' + str(ticker) + '): ' + str(e))
 				continue
 
-			stocks[ticker]['cur_macd'] = macd[-1]
-			stocks[ticker]['cur_macd_avg'] = macd_avg[-1]
-
-			if ( stocks[ticker]['prev_macd'] == -1 or stocks[ticker]['prev_macd_avg'] == -1 ):
-				stocks[ticker]['prev_macd'] = stocks[ticker]['cur_macd']
-				stocks[ticker]['prev_macd_avg'] = stocks[ticker]['cur_macd_avg']
+			stocks[ticker]['cur_macd']	= float( macd[-1] )
+			stocks[ticker]['cur_macd_avg']	= float( macd_avg[-1] )
+			stocks[ticker]['prev_macd']	= float( macd[-2] )
+			stocks[ticker]['prev_macd_avg']	= float( macd_avg[-2] )
 
 		# Aroon Oscillator
 		if ( algos['aroonosc'] == True ):
@@ -282,7 +273,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 				print('Error: stochrsi_gobot(): get_aroon_osc(' + str(ticker) + '): ' + str(e))
 				continue
 
-			stocks[ticker]['cur_aroonosc'] = aroonosc[-1]
+			stocks[ticker]['cur_aroonosc'] = float( aroonosc[-1] )
 
 		# VWAP
 		# Calculate vwap to use as entry or exit algorithm
@@ -296,9 +287,9 @@ def stochrsi_gobot( algos=None, debug=False ):
 			except Exception as e:
 				print('Error: stochrsi_gobot(): get_vwap(' + str(ticker) + '): ' + str(e))
 
-			stocks[ticker]['cur_vwap'] = float(vwap[-1])
-			stocks[ticker]['cur_vwap_up'] = float(vwap_up[-1])
-			stocks[ticker]['cur_vwap_down'] = float(vwap_down[-1])
+			stocks[ticker]['cur_vwap']	= float( vwap[-1] )
+			stocks[ticker]['cur_vwap_up']	= float( vwap_up[-1] )
+			stocks[ticker]['cur_vwap_down']	= float( vwap_down[-1] )
 
 		# VPT
 		if ( algos['vpt'] == True ):
@@ -312,10 +303,10 @@ def stochrsi_gobot( algos=None, debug=False ):
 			except Exception as e:
 				print('Error: stochrsi_gobot(): get_vpt(' + str(ticker) + '): ' + str(e))
 
-			stocks[ticker]['cur_vpt'] = float(vpt[-1])
-			stocks[ticker]['prev_vpt'] = float(vpt[-2])
-			stocks[ticker]['cur_vpt_sma'] = float(vpt_sma[-1])
-			stocks[ticker]['prev_vpt_sma'] = float(vpt_sma[-2])
+			stocks[ticker]['cur_vpt']	= float( vpt[-1] )
+			stocks[ticker]['prev_vpt']	= float( vpt[-2] )
+			stocks[ticker]['cur_vpt_sma']	= float( vpt_sma[-1] )
+			stocks[ticker]['prev_vpt_sma']	= float( vpt_sma[-2] )
 
 
 		# Debug
@@ -441,29 +432,12 @@ def stochrsi_gobot( algos=None, debug=False ):
 			#  1-hour from market close. Otherwise we may be forced to sell too early.
 			if ( (tda_gobot_helper.isendofday(60) == True or tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False) and args.multiday == False ):
 				print('(' + str(ticker) + ') Market is closed or near closing.')
-
 				reset_signals(ticker)
-				stocks[ticker]['prev_rsi_k'] = cur_rsi_k
-				stocks[ticker]['prev_rsi_d'] = cur_rsi_d
-
-				stocks[ticker]['prev_plus_di'] = cur_plus_di
-				stocks[ticker]['prev_minus_di'] = cur_minus_di
-
-				stocks[ticker]['prev_macd'] = cur_macd
-				stocks[ticker]['prev_macd_avg'] = cur_macd_avg
 				continue
 
 			# If args.hold_overnight=False and args.multiday==True, we won't enter any new trades 1-hour before market close
 			if ( args.multiday == True and args.hold_overnight == False and tda_gobot_helper.isendofday(60) ):
 				reset_signals(ticker)
-				stocks[ticker]['prev_rsi_k'] = cur_rsi_k
-				stocks[ticker]['prev_rsi_d'] = cur_rsi_d
-
-				stocks[ticker]['prev_plus_di'] = cur_plus_di
-				stocks[ticker]['prev_minus_di'] = cur_minus_di
-
-				stocks[ticker]['prev_macd'] = cur_macd
-				stocks[ticker]['prev_macd_avg'] = cur_macd_avg
 				continue
 
 
@@ -683,17 +657,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 					reset_signals(ticker)
 					stocks[ticker]['stock_qty'] = 0
-
-					stocks[ticker]['prev_rsi_k'] = cur_rsi_k
-					stocks[ticker]['prev_rsi_d'] = cur_rsi_d
-
-					stocks[ticker]['prev_plus_di'] = cur_plus_di
-					stocks[ticker]['prev_minus_di'] = cur_minus_di
-
-					stocks[ticker]['prev_macd'] = cur_macd
-					stocks[ticker]['prev_macd_avg'] = cur_macd_avg
 					continue
-
 
 				net_change = 0
 				stocks[ticker]['base_price'] = stocks[ticker]['orig_base_price']
@@ -734,15 +698,6 @@ def stochrsi_gobot( algos=None, debug=False ):
 					stocks[ticker]['base_price'] = 0
 					stocks[ticker]['orig_base_price'] = 0
 
-					stocks[ticker]['prev_rsi_k'] = cur_rsi_k
-					stocks[ticker]['prev_rsi_d'] = cur_rsi_d
-
-					stocks[ticker]['prev_plus_di'] = cur_plus_di
-					stocks[ticker]['prev_minus_di'] = cur_minus_di
-
-					stocks[ticker]['prev_macd'] = cur_macd
-					stocks[ticker]['prev_macd_avg'] = cur_macd_avg
-
 					reset_signals(ticker)
 					stocks[ticker]['signal_mode'] = 'buy'
 					continue
@@ -780,21 +735,6 @@ def stochrsi_gobot( algos=None, debug=False ):
 					stocks[ticker]['stock_qty'] = 0
 					stocks[ticker]['base_price'] = 0
 					stocks[ticker]['orig_base_price'] = 0
-
-					stocks[ticker]['cur_rsi_k'] = -1
-					stocks[ticker]['cur_rsi_d'] = -1
-					stocks[ticker]['prev_rsi_k'] = -1
-					stocks[ticker]['prev_rsi_d']= -1
-
-					stocks[ticker]['cur_plus_di'] = -1
-					stocks[ticker]['prev_plus_di'] = -1
-					stocks[ticker]['cur_minus_di'] = -1
-					stocks[ticker]['prev_minus_di'] = -1
-
-					stocks[ticker]['cur_macd'] = -1
-					stocks[ticker]['prev_macd'] = -1
-					stocks[ticker]['cur_macd_avg'] = -1
-					stocks[ticker]['prev_macd_avg'] = -1
 
 					reset_signals(ticker)
 					stocks[ticker]['signal_mode'] = 'buy'
@@ -1131,21 +1071,10 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 					reset_signals(ticker)
 					stocks[ticker]['stock_qty'] = 0
-
-					stocks[ticker]['prev_rsi_k'] = cur_rsi_k
-					stocks[ticker]['prev_rsi_d'] = cur_rsi_d
-
-					stocks[ticker]['prev_plus_di'] = cur_plus_di
-					stocks[ticker]['prev_minus_di'] = cur_minus_di
-
-					stocks[ticker]['prev_macd'] = cur_macd
-					stocks[ticker]['prev_macd_avg'] = cur_macd_avg
-
 					if ( args.shortonly == False ):
 						signal_mode = 'buy'
 
 					continue
-
 
 				net_change = 0
 				stocks[ticker]['base_price'] = stocks[ticker]['orig_base_price']
@@ -1187,15 +1116,6 @@ def stochrsi_gobot( algos=None, debug=False ):
 					stocks[ticker]['stock_qty'] = 0
 					stocks[ticker]['base_price'] = 0
 					stocks[ticker]['orig_base_price'] = 0
-
-					stocks[ticker]['prev_rsi_k'] = cur_rsi_k
-					stocks[ticker]['prev_rsi_d'] = cur_rsi_d
-
-					stocks[ticker]['prev_plus_di'] = cur_plus_di
-					stocks[ticker]['prev_minus_di'] = cur_minus_di
-
-					stocks[ticker]['prev_macd'] = cur_macd
-					stocks[ticker]['prev_macd_avg'] = cur_macd_avg
 
 					reset_signals(ticker)
 					stocks[ticker]['signal_mode'] = 'buy'
@@ -1282,21 +1202,6 @@ def stochrsi_gobot( algos=None, debug=False ):
 					stocks[ticker]['base_price'] = 0
 					stocks[ticker]['orig_base_price'] = 0
 
-					stocks[ticker]['cur_rsi_k'] = -1
-					stocks[ticker]['cur_rsi_d'] = -1
-					stocks[ticker]['prev_rsi_k'] = -1
-					stocks[ticker]['prev_rsi_d']= -1
-
-					stocks[ticker]['cur_plus_di'] = -1
-					stocks[ticker]['prev_plus_di'] = -1
-					stocks[ticker]['cur_minus_di'] = -1
-					stocks[ticker]['prev_minus_di'] = -1
-
-					stocks[ticker]['cur_macd'] = -1
-					stocks[ticker]['prev_macd'] = -1
-					stocks[ticker]['cur_macd_avg'] = -1
-					stocks[ticker]['prev_macd_avg'] = -1
-
 					reset_signals(ticker)
 					stocks[ticker]['signal_mode'] = 'buy'
 					if ( args.shortonly == True ):
@@ -1362,16 +1267,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 		else:
 			print('Error: undefined signal_mode: ' + str(signal_mode))
 
-
 		print() # Make debug log easier to read
-		stocks[ticker]['prev_rsi_k'] = cur_rsi_k
-		stocks[ticker]['prev_rsi_d'] = cur_rsi_d
-
-		stocks[ticker]['prev_plus_di'] = cur_plus_di
-		stocks[ticker]['prev_minus_di'] = cur_minus_di
-
-		stocks[ticker]['prev_macd'] = cur_macd
-		stocks[ticker]['prev_macd_avg'] = cur_macd_avg
 
 	# END stocks.keys() loop
 
@@ -1379,9 +1275,6 @@ def stochrsi_gobot( algos=None, debug=False ):
 	if ( debug == True ):
 		print("\n------------------------------------------------------------------------\n")
 
-	time.sleep(0.1)
-	if ( args.scalp_mode == False ):
-		time.sleep(loopt)
 
 	return True
 

@@ -672,7 +672,14 @@ def stochrsi_gobot( algos=None, debug=False ):
 		elif ( signal_mode == 'sell' ):
 
 			# In 'sell' mode we want to monitor the stock price along with RSI
-			last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+			last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
+			if ( last_price == False ):
+				print('Error: get_lastprice(' + str(ticker) + ') returned False, falling back to latest candle')
+				last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+
+				tda_gobot_helper.tdalogin(passcode) != True ):
+				time.sleep(0.5)
+
 			net_change = round( (last_price - stocks[ticker]['orig_base_price']) * stocks[ticker]['stock_qty'], 3 )
 
 			# End of trading day - dump the stock and exit unless --multiday was set
@@ -1091,7 +1098,14 @@ def stochrsi_gobot( algos=None, debug=False ):
 		#   need to monitor stoploss in case the stock rises above a threshold.
 		elif ( signal_mode == 'buy_to_cover' ):
 
-			last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+			last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
+			if ( last_price == False ):
+				print('Error: get_lastprice(' + str(ticker) + ') returned False, falling back to latest candle')
+				last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+
+				tda_gobot_helper.tdalogin(passcode) != True ):
+				time.sleep(0.5)
+
 			net_change = round( (last_price - stocks[ticker]['orig_base_price']) * stocks[ticker]['stock_qty'], 3 )
 
 			# End of trading day - dump the stock and exit unless --multiday was set

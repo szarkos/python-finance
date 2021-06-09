@@ -571,8 +571,12 @@ def stochrsi_gobot( algos=None, debug=False ):
 			# VPT
 			if ( algos['vpt'] == True ):
 				# Buy signal - VPT crosses above vpt_sma
-				if ( prev_vpt < prev_vpt_sma and cur_vpt >= cur_vpt_sma ):
+				if ( prev_vpt < prev_vpt_sma and cur_vpt > cur_vpt_sma ):
 					stocks[ticker]['vpt_signal'] = True
+
+				# Cancel signal if VPT crosses back over
+				elif ( cur_vpt < cur_vpt_sma ):
+					stocks[ticker]['vpt_signal'] = False
 
 			# Support / Resistance
 			if ( algos['support_resistance'] == True and args.no_use_resistance == False ):
@@ -1002,8 +1006,12 @@ def stochrsi_gobot( algos=None, debug=False ):
 			# VPT
 			if ( algos['vpt'] == True ):
 				# Short signal - VPT crosses below vpt_sma
-				if ( prev_vpt > prev_vpt_sma and cur_vpt <= cur_vpt_sma ):
+				if ( prev_vpt > prev_vpt_sma and cur_vpt < cur_vpt_sma ):
 					stocks[ticker]['vpt_signal'] = True
+
+				# Cancel signal if VPT crosses back over
+				elif ( cur_vpt > cur_vpt_sma ):
+					stocks[ticker]['vpt_signal'] = False
 
 			# Support / Resistance
 			if ( algos['support_resistance'] == True and args.no_use_resistance == False ):

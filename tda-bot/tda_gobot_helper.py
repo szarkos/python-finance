@@ -3629,8 +3629,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			# VPT
 			if ( with_vpt == True ):
 				# Buy signal - VPT crosses above vpt_sma
-				if ( prev_vpt < prev_vpt_sma and cur_vpt >= cur_vpt_sma ):
+				if ( prev_vpt < prev_vpt_sma and cur_vpt > cur_vpt_sma ):
 					vpt_signal = True
+
+				# Cancel signal if VPT cross back over
+				elif ( cur_vpt < cur_vpt_sma ):
+					vpt_signal = False
 
 			# Resistance
 			if ( no_use_resistance == False ):
@@ -3946,8 +3950,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			# VPT
 			if ( with_vpt == True ):
 				# Short signal - VPT crosses below vpt_sma
-				if ( prev_vpt > prev_vpt_sma and cur_vpt <= cur_vpt_sma ):
+				if ( prev_vpt > prev_vpt_sma and cur_vpt < cur_vpt_sma ):
 					vpt_signal = True
+
+				# Cancel signal if VPT cross back over
+				elif ( cur_vpt > cur_vpt_sma ):
+					vpt_signal = False
 
 			# Resistance
 			if ( no_use_resistance == False ):

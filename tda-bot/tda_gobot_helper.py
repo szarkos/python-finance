@@ -3262,6 +3262,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		return False
 
 	# MACD - 48, 104, 36
+	macd_offset = 0.006
 	if ( with_macd == True and with_macd_simple == True):
 		with_macd_simple = False
 
@@ -3604,7 +3605,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				macd_avg_crossover = True
 
 			macd_signal = False
-			if ( cur_macd > cur_macd_avg ):
+			if ( cur_macd > cur_macd_avg and cur_macd - cur_macd_avg > macd_offset ):
 				if ( with_macd_simple == True ):
 					macd_signal = True
 				elif ( macd_crossover == True ):
@@ -3927,7 +3928,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				macd_avg_crossover = True
 
 			macd_signal = False
-			if ( cur_macd < cur_macd_avg ):
+			if ( cur_macd < cur_macd_avg and cur_macd_avg - cur_macd > macd_offset ):
 				if ( with_macd_simple == True ):
 					macd_signal = True
 				elif ( macd_avg_crossover == True ):

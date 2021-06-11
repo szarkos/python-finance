@@ -509,6 +509,7 @@ tda_stochrsi_gobot_helper.adx_period = args.adx_period # Usually 48-64
 tda_stochrsi_gobot_helper.macd_short_period = 48
 tda_stochrsi_gobot_helper.macd_long_period = 104
 tda_stochrsi_gobot_helper.macd_signal_period = 36
+tda_stochrsi_gobot_helper.macd_offset = 0.006
 
 # Aroonosc
 tda_stochrsi_gobot_helper.aroonosc_period = 128
@@ -668,7 +669,6 @@ while True:
 
 	except Exception as e:
 		print('Exception caught: read_stream(): ' + str(e) + ': retrying...')
-		time.sleep(2)
 
 
 sys.exit(0)

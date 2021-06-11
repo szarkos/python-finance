@@ -528,7 +528,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 					stocks[ticker]['macd_avg_crossover'] = True
 
 				stocks[ticker]['macd_signal'] = False
-				if ( cur_macd > cur_macd_avg ):
+				if ( cur_macd > cur_macd_avg and cur_macd - cur_macd_avg > macd_offset ):
 					if ( algos['macd_simple'] == True ):
 						stocks[ticker]['macd_signal'] = True
 					elif ( stocks[ticker]['macd_crossover'] == True ):
@@ -936,7 +936,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 					stocks[ticker]['macd_avg_crossover'] = True
 
 				stocks[ticker]['macd_signal'] = False
-				if ( cur_macd < cur_macd_avg ):
+				if ( cur_macd < cur_macd_avg and cur_macd_avg - cur_macd > macd_offset ):
 					if ( algos['macd_simple'] == True ):
 						stocks[ticker]['macd_signal'] = True
 					elif ( stocks[ticker]['macd_avg_crossover'] == True ):

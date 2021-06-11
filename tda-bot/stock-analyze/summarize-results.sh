@@ -1,15 +1,16 @@
 #!/bin/bash
 
-tests="stochrsi \
-stochrsi_rsi \
-stochrsi_adx \
-stochrsi_dmi \
-stochrsi_macd \
-stochrsi_aroonosc \
-stochrsi_rsi_adx \
-stochrsi_rsi_dmi \
-stochrsi_rsi_macd \
-stochrsi_rsi_aroonosc"
+tests=""
+#tests="stochrsi \
+#stochrsi_rsi \
+#stochrsi_adx \
+#stochrsi_dmi \
+#stochrsi_macd \
+#stochrsi_aroonosc \
+#stochrsi_rsi_adx \
+#stochrsi_rsi_dmi \
+#stochrsi_rsi_macd \
+#stochrsi_rsi_aroonosc"
 
 #tests="stochrsi_rsi_adx_vpt \
 #	stochrsi_rsi_macd_vpt \
@@ -93,6 +94,10 @@ stochrsi_rsi_aroonosc"
 #	stochrsi_adx_dmi_aroonosc \
 #	stochrsi_adx_macd_aroonosc \
 #	stochrsi_adx_macd_dmi_aroonosc"
+
+if [ "$tests" == "" ]; then
+	tests=$(../gobot-test.py --print_scenarios)
+fi
 
 cd results
 

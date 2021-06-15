@@ -17,7 +17,10 @@ import tda_gobot_helper
 
 # Parse and check variables
 parser = argparse.ArgumentParser()
-parser.add_argument("stock", help='Stock ticker to purchase')
+group = parser.add_mutually_exclusive_group(required=True)
+group.add_argument("stock", help='Stock ticker to check', nargs='?', default='', type=str)
+group.add_argument("--stocks", help='Stock tickers to check, comma delimited', default='', type=str)
+
 parser.add_argument("-c", "--checkticker", help="Check if ticker is valid", action="store_true")
 parser.add_argument("-p", "--pretty", help="Pretty print the stock data", action="store_true")
 parser.add_argument("-n", "--lines", help="Number of lines to output (relevant for indicators like vwap, rsi, etc.)", default=10, type=int)
@@ -88,19 +91,20 @@ if ( tda_gobot_helper.tdalogin(passcode) != True ):
 	exit(1)
 
 # Fix up and sanity check the stock symbol before proceeding
-stock = tda_gobot_helper.fix_stock_symbol(stock)
-ret = tda_gobot_helper.check_stock_symbol(stock)
-if ( isinstance(ret, bool) and ret == False ):
-	print('Error: check_stock_symbol(' + str(stock) + ') returned False, exiting', file=sys.stderr)
-	exit(1)
+if ( args.stock != '' ):
+	stock = tda_gobot_helper.fix_stock_symbol(stock)
+	ret = tda_gobot_helper.check_stock_symbol(stock)
+	if ( isinstance(ret, bool) and ret == False ):
+		print('Error: check_stock_symbol(' + str(stock) + ') returned False, exiting', file=sys.stderr)
+		exit(1)
 
-if ( args.checkticker == True ): # --checkticker means we only wanted to validate the stock ticker
-	exit(0)
+	if ( args.checkticker == True ): # --checkticker means we only wanted to validate the stock ticker
+		exit(0)
+
+else:
+	stock = args.stocks
 
 ## Get stock quote and print the results
-time.sleep(0.2) # avoid hammering the API
-
-
 if ( args.quote == True ):
 
 	try:
@@ -248,7 +252,12 @@ else:
 
 
 if ( args.rawquote == True ):
-	data,err = tda.stocks.get_quote(stock, True)
+
+	try:
+		data,err = tda.stocks.get_quotes(stock, True)
+	except Exception as e:
+		print('Exception caught: ' + str(e))
+
 	if ( err != None ):
 		print('Error: get_quote(' + str(stock) + '): ' + str(err), file=sys.stderr)
 		exit(1)
@@ -256,15 +265,12 @@ if ( args.rawquote == True ):
 		print('Error: get_quote(' + str(stock) + '): Empty data set', file=sys.stderr)
 		exit(1)
 
-	if ( data[stock]['delayed'] == 'true' ):
-		print('Warning: get_quote(' + str(stock) + '): quote data delayed')
-
 	if ( args.pretty == True ):
 		import pprint
 		pp = pprint.PrettyPrinter(indent=4)
 		pp.pprint(data)
 	else:
-		print(data)
+		print(data, end='')
 
 
 

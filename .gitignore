@@ -134,6 +134,9 @@ results/*
 *.gz
 *.bz2
 
+# ibrokers monitor
+usa-*.txt
+
 # Spyder project settings
 .spyderproject
 .spyproject

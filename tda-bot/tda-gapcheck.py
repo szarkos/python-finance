@@ -84,7 +84,7 @@ for ticker in args.stocks.split(','):
 
 	stocks.update( { ticker: { 'shortable':			True,
 				   'isvalid':			True,
-				   'avg_volume':		0,
+				   'avg_volume':		1,
 				   'process':			None,
 
 				   # Candle data

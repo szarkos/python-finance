@@ -11,8 +11,9 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("stock", help='Stock ticker to purchase', nargs='?', default=None)
-parser.add_argument("-p", "--panic", help="Sell all stocks in portfolio immediately", action="store_true")
-parser.add_argument("-f", "--force", help="Used with --panic to force sell all stocks in portfolio immediately without prompt", action="store_true")
+parser.add_argument("--panic", help="Sell all stocks in portfolio immediately", action="store_true")
+parser.add_argument("--force", help="Used with --panic to force sell all stocks in portfolio immediately without prompt", action="store_true")
+parser.add_argument("--prompt", help="Wait for prompt before selling security", action="store_true")
 parser.add_argument("-d", "--debug", help="Enable debug output", action="store_true")
 args = parser.parse_args()
 
@@ -60,10 +61,17 @@ if ( stock != None ):
 
 			if ( float(asset['shortQuantity']) > 0 ):
 				sell_value = float(last_price) * float(asset['shortQuantity'])
+				if ( args.prompt == True ):
+					input(str(asset['shortQuantity']) + ' shares of ' + str(stock) + ' found, press <ENTER> to sell')
+
 				print('Covering ' + str(asset['shortQuantity']) + ' shares of ' + str(stock) + ' at market price (~$' + str(sell_value) + ")\n")
 				data = tda_gobot_helper.buytocover_stock_marketprice(stock, asset['shortQuantity'], fillwait=wait, debug=True)
+
 			else:
 				sell_value = float(last_price) * float(asset['longQuantity'])
+				if ( args.prompt == True ):
+					input(str(asset['longQuantity']) + ' shares of ' + str(stock) + ' found, press <ENTER> to sell')
+
 				print('Selling ' + str(asset['longQuantity']) + ' shares of ' + str(stock) + ' at market price (~$' + str(sell_value) + ")\n")
 				data = tda_gobot_helper.sell_stock_marketprice(stock, asset['longQuantity'], fillwait=wait, debug=True)
 

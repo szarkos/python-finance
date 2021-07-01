@@ -24,7 +24,7 @@ if ( args.download == True ):
 	mytimezone = pytz.timezone('US/Eastern')
 	today = datetime.datetime.now(mytimezone).strftime('%Y-%m-%d_%H:%M')
 
-	command = 'curl -o usa-' + str(today) + '.txt --silent -u shortstock: ftp://ftp3.interactivebrokers.com/usa.txt'
+	command = 'curl -o ./data/usa-' + str(today) + '.txt --silent -u shortstock: ftp://ftp3.interactivebrokers.com/usa.txt'
 	process = ''
 	try:
 		process = Popen(command, stdin=None, stdout=None, stderr=STDOUT, shell=True)
@@ -173,11 +173,15 @@ output = output.decode()
 p = re.compile('(?<!\\\\)\'')
 output = p.sub('\"', output)
 
+output = re.sub('[a-zA-Z]"s', '\'s', output)
+output = re.sub('[a-zA-Z]s" [a-zA-Z]', 's\'', output)
+
 output = re.sub('True', '"True"',  output)
 output = re.sub('False', '"False"',  output)
 output = re.sub('None', '"None"',  output)
 
 # Import as json
+#print(output)
 quote_data = json.loads(output)
 
 print('Ticker,Current Avail Shorts,Previous Avail Shorts,Total Volume,Last Price,52WkHigh,52WkLow,Exchange')
@@ -185,6 +189,9 @@ for ticker in quote_data.keys():
 
 	# Filter out BATS, Pink Sheet and other non NYSE or Nasdaq exchanges
 	if ( quote_data[ticker]['exchangeName'] != 'NASD' and quote_data[ticker]['exchangeName'] != 'NYSE' ):
+		continue
+
+	if ( float(quote_data[ticker]['totalVolume']) < 1000000 ):
 		continue
 
 	out = 	str(ticker) + ',' + \

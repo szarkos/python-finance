@@ -62,6 +62,7 @@ if ( stock != None ):
 			if ( float(asset['shortQuantity']) > 0 ):
 				sell_value = float(last_price) * float(asset['shortQuantity'])
 				if ( args.prompt == True ):
+					tda_gobot_helper.tdalogin(passcode)
 					input(str(asset['shortQuantity']) + ' shares of ' + str(stock) + ' found, press <ENTER> to sell')
 
 				print('Covering ' + str(asset['shortQuantity']) + ' shares of ' + str(stock) + ' at market price (~$' + str(sell_value) + ")\n")
@@ -70,6 +71,7 @@ if ( stock != None ):
 			else:
 				sell_value = float(last_price) * float(asset['longQuantity'])
 				if ( args.prompt == True ):
+					tda_gobot_helper.tdalogin(passcode)
 					input(str(asset['longQuantity']) + ' shares of ' + str(stock) + ' found, press <ENTER> to sell')
 
 				print('Selling ' + str(asset['longQuantity']) + ' shares of ' + str(stock) + ' at market price (~$' + str(sell_value) + ")\n")

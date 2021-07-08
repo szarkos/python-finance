@@ -21,6 +21,7 @@ parser.add_argument("--ofile", help='Dump the pricehistory data to pickle file',
 parser.add_argument("--ifile", help='Use pickle file for pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--augment_ifile", help='Pull additional history data and append it to candles imported from ifile', action="store_true")
 parser.add_argument("--start_date", help='The day to start trading (i.e. 2021-05-12). Typically useful for verifying history logs.', default=None, type=str)
+parser.add_argument("--hold_overnight", help='Allow stock to be held overnight (Default: False)', action="store_true")
 
 parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal (default=False)', action="store_true")
 parser.add_argument("--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (default=False)', action="store_true")
@@ -44,6 +45,7 @@ parser.add_argument("--stoploss", help='Sell security if price drops below --dec
 parser.add_argument("--exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
 parser.add_argument("--vwap_exit", help='Use vwap exit strategy - sell/close at half way between entry point and vwap', action="store_true")
 parser.add_argument("--quick_exit", help='Exit immediately if an exit strategy was set, do not wait for the next candle', action="store_true")
+parser.add_argument("--price_exit_only", help='Only use price-based exit strategy, not RSI', action="store_true")
 
 parser.add_argument("--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
 parser.add_argument("--stochrsi_period", help='RSI period to use for StochRSI calculation (Default: 128)', default=128, type=int)
@@ -365,8 +367,8 @@ for algo in args.algo.split(','):
 									 stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly, check_ma=args.check_ma,
 									 no_use_resistance=args.no_use_resistance, with_rsi=args.with_rsi, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_macd=args.with_macd, with_vwap=args.with_vwap, with_vpt=args.with_vpt,
 									 with_dmi_simple=args.with_dmi_simple, with_macd_simple=args.with_macd_simple, vpt_sma_period=args.vpt_sma_period, adx_period=args.adx_period,
-									 incr_percent_threshold=args.incr_threshold, decr_percent_threshold=args.decr_threshold,
-									 safe_open=True, exit_percent=args.exit_percent, vwap_exit=args.vwap_exit, quick_exit=args.quick_exit, start_date=args.start_date, debug=True )
+									 incr_percent_threshold=args.incr_threshold, decr_percent_threshold=args.decr_threshold, hold_overnight=args.hold_overnight,
+									 safe_open=True, exit_percent=args.exit_percent, vwap_exit=args.vwap_exit, quick_exit=args.quick_exit, price_exit_only=args.price_exit_only, start_date=args.start_date, debug=True )
 
 		if ( results == False ):
 			print('Error: rsi_analyze() returned false', file=sys.stderr)

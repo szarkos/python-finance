@@ -3202,7 +3202,7 @@ def stochrsi_analyze( pricehistory=None, ticker=None, rsi_period=14, stochrsi_pe
 
 # Like stochrsi_analyze(), but sexier
 def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3,
-			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=1.5, hold_overnight=False, exit_percent=None, vwap_exit=False, quick_exit=False,
+			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=1.5, hold_overnight=False, exit_percent=None, vwap_exit=False, quick_exit=False, price_exit_only=False,
 			  no_use_resistance=False, with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_macd=False, with_vwap=False, with_vpt=False,
 			  with_dmi_simple=False, with_macd_simple=False, vpt_sma_period=72, adx_period=48,
 			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None,
@@ -3341,6 +3341,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 		price_resistance_pct = 1
 		price_support_pct = 1
+
+		# If exit_percent is specified, expand support/resistance lines for wider checks
+		if ( exit_percent != None ):
+			price_resistance_pct = price_resistance_pct + float(exit_percent)
+			price_support_pct = price_support_pct + float(exit_percent)
 
 		# Day stats
 		pdc = OrderedDict()
@@ -3619,6 +3624,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 			# VWAP
 			# This is the most simple/pessimistic approach right now
+			# FIXME: A better approach is to determine if vwap is resistance or support
+			#   like we have below and make a buy decision.
 			if ( with_vwap == True ):
 				cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
 				cur_price = float(pricehistory['candles'][idx]['close'])
@@ -3693,6 +3700,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 #					# Current high is within price_resistance_pct of 20-week high, not a good bet
 #					resistance_signal = False
 
+
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
 			if ( buy_signal == True ):
 				final_buy_signal = True
@@ -3747,8 +3755,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				sell_signal = True
 
 			# Monitor cost basis
+			last_price = float(pricehistory['candles'][idx]['close'])
 			if ( stoploss == True ):
-				last_price = float(pricehistory['candles'][idx]['close'])
 
 				percent_change = 0
 				if ( float(last_price) < float(base_price) ):
@@ -3777,51 +3785,56 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				elif ( float(last_price) > float(base_price) ):
 					percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
-
-					# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
-					if ( vwap_exit == True ):
-						cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
-						cur_vwap_up = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap_up']
-						if ( cur_vwap > purchase_price ):
-							if ( last_price >= ((cur_vwap - purchase_price) / 2) + purchase_price ):
-								sell_signal = True
-
-						elif ( cur_vwap < purchase_price ):
-							if ( last_price >= ((cur_vwap_up - cur_vwap) / 2) + cur_vwap ):
-								sell_signal = True
-
-					# Sell if exit_percent is specified
-					if ( exit_percent != None ):
-
-						# If exit_percent has been hit, we will sell at the first RED candle
-						#  unless --quick_exit was set.
-						if ( exit_signal == True ):
-							if ( float(pricehistory['candles'][idx]['close']) < float(pricehistory['candles'][idx]['open']) ):
-								sell_signal = True
-
-						elif ( percent_change >= float(exit_percent) ):
-							exit_signal = True
-							if ( quick_exit == True ):
-								sell_signal = True
-
 					if ( percent_change >= incr_percent_threshold ):
 						base_price = last_price
 						decr_percent_threshold = incr_percent_threshold / 2
 
 			# End stoploss monitor
 
+			# Price-based exit criteria
+			# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
+			if ( vwap_exit == True ):
+				cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
+				cur_vwap_up = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap_up']
+				if ( cur_vwap > purchase_price ):
+					if ( last_price >= ((cur_vwap - purchase_price) / 2) + purchase_price ):
+						sell_signal = True
+				elif ( cur_vwap < purchase_price ):
+					if ( last_price >= ((cur_vwap_up - cur_vwap) / 2) + cur_vwap ):
+						sell_signal = True
+
+			# Sell if exit_percent is specified
+			if ( exit_percent != None ):
+
+				# If exit_percent has been hit, we will sell at the first RED candle
+				#  unless --quick_exit was set.
+				if ( exit_signal == False and float(last_price) > float(purchase_price) ):
+					percent_change = abs( float(purchase_price) / float(last_price) - 1 ) * 100
+					if ( percent_change >= float(exit_percent) ):
+						exit_signal = True
+						if ( quick_exit == True ):
+							sell_signal = True
+
+				elif ( exit_signal == True ):
+					if ( float(pricehistory['candles'][idx]['close']) < float(pricehistory['candles'][idx]['open']) ):
+						sell_signal = True
+
+			# End price-based exit criteria
+
 
 			# Monitor RSI
-			if ( cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit ):
+			# Use RSI to determine exit unless price_exit_only is True, in which case we only exit when target price or stoploss is reached
+			if ( price_exit_only == False ):
+				if ( cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit ):
 
-				# Monitor if K and D intercect
-				# A sell signal occurs when a decreasing %K line crosses below the %D line in the overbought region
-				if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
-					sell_signal = True
+					# Monitor if K and D intercect
+					# A sell signal occurs when a decreasing %K line crosses below the %D line in the overbought region
+					if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
+						sell_signal = True
 
-			elif ( prev_rsi_k > rsi_high_limit and cur_rsi_k < prev_rsi_k ):
-				if ( cur_rsi_k <= rsi_high_limit ):
-					sell_signal = True
+				elif ( prev_rsi_k > rsi_high_limit and cur_rsi_k < prev_rsi_k ):
+					if ( cur_rsi_k <= rsi_high_limit ):
+						sell_signal = True
 
 			if ( sell_signal == True ):
 
@@ -4069,8 +4082,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				buy_to_cover_signal = True
 
 			# Monitor cost basis
+			last_price = float(pricehistory['candles'][idx]['close'])
 			if ( stoploss == True ):
-				last_price = float(pricehistory['candles'][idx]['close'])
 
 				percent_change = 0
 				if ( float(last_price) > float(base_price) ):
@@ -4101,52 +4114,57 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				elif ( float(last_price) < float(base_price) ):
 					percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
-
-					# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
-					if ( vwap_exit == True ):
-
-						cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
-						cur_vwap_down = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap_down']
-						if ( cur_vwap < short_price ):
-							if ( last_price <= ((short_price - cur_vwap) / 2) + cur_vwap ):
-								buy_to_cover_signal = True
-
-						elif ( cur_vwap > short_price ):
-							if ( last_price <= ((cur_vwap - cur_vwap_down) / 2) + cur_vwap_down ):
-								buy_to_cover_signal = True
-
-					# Sell if exit_percent is specified
-					if ( exit_percent != None ):
-
-						# If exit_percent has been hit, we will sell at the first GREEN candle
-						#  unless quick_exit was set.
-						if ( exit_signal == True ):
-							if ( float(pricehistory['candles'][idx]['close']) > float(pricehistory['candles'][idx]['open']) ):
-								buy_to_cover_signal = True
-
-						elif ( percent_change >= float(exit_percent) ):
-							exit_signal = True
-							if ( quick_exit == True ):
-								sell_signal = True
-
 					if ( percent_change >= incr_percent_threshold ):
 						base_price = last_price
 						decr_percent_threshold = incr_percent_threshold / 2
 
 			# End stoploss monitor
 
+			# Price-based exit criteria
+			# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
+			if ( vwap_exit == True ):
+				cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
+				cur_vwap_down = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap_down']
+				if ( cur_vwap < short_price ):
+					if ( last_price <= ((short_price - cur_vwap) / 2) + cur_vwap ):
+						buy_to_cover_signal = True
+
+				elif ( cur_vwap > short_price ):
+					if ( last_price <= ((cur_vwap - cur_vwap_down) / 2) + cur_vwap_down ):
+						buy_to_cover_signal = True
+
+			# Sell if exit_percent is specified
+			if ( exit_percent != None ):
+
+				# If exit_percent has been hit, we will sell at the first GREEN candle
+				#  unless quick_exit was set.
+				if ( exit_signal == False and float(last_price) < float(short_price) ):
+					percent_change = abs( float(last_price) / float(short_price) - 1 ) * 100
+					if ( percent_change >= float(exit_percent) ):
+						exit_signal = True
+						if ( quick_exit == True ):
+							sell_signal = True
+
+				elif ( exit_signal == True ):
+					if ( float(pricehistory['candles'][idx]['close']) > float(pricehistory['candles'][idx]['open']) ):
+						buy_to_cover_signal = True
+
+			# End price-based exit criteria
+
 
 			# Monitor RSI
-			if ( cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit ):
+			# Use RSI to determine exit unless price_exit_only is True, in which case we only exit when target price or stoploss is reached
+			if ( price_exit_only == False ):
+				if ( cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit ):
 
-				# Monitor if K and D intercect
-				# A buy-to-cover signal occurs when an increasing %K line crosses above the %D line in the oversold region.
-				if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
-					buy_to_cover_signal = True
+					# Monitor if K and D intercect
+					# A buy-to-cover signal occurs when an increasing %K line crosses above the %D line in the oversold region.
+					if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
+						buy_to_cover_signal = True
 
-			elif ( prev_rsi_k < rsi_low_limit and cur_rsi_k > prev_rsi_k ):
-				if ( cur_rsi_k >= rsi_low_limit ):
-					buy_to_cover_signal = True
+				elif ( prev_rsi_k < rsi_low_limit and cur_rsi_k > prev_rsi_k ):
+					if ( cur_rsi_k >= rsi_low_limit ):
+						buy_to_cover_signal = True
 
 			# BUY-TO-COVER
 			if ( buy_to_cover_signal == True ):

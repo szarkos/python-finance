@@ -131,6 +131,7 @@ stocks.txt
 .stock-blacklist
 results/
 results/*
+watchlist.txt
 *.gz
 *.bz2
 

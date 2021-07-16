@@ -175,6 +175,11 @@ output = p.sub('\"', output)
 
 output = re.sub('[a-zA-Z]"s', '\'s', output)
 output = re.sub('[a-zA-Z]s" [a-zA-Z]', 's\'', output)
+output = re.sub('L"Air', 'L\'Air', output)
+
+#output = re.sub('L"[a-zA-Z] ', '', output) # Handle french names like L"Air or L"Oreal
+output = re.sub('L"Air', '', output)
+output = re.sub('L"Oreal ', '', output)
 
 output = re.sub('True', '"True"',  output)
 output = re.sub('False', '"False"',  output)

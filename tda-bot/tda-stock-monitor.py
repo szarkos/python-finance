@@ -38,7 +38,7 @@ parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the
 parser.add_argument("--scalp_mode", help='Enable scalp mode (fixes incr_threshold and decr_threshold to low values)', action="store_true")
 
 parser.add_argument("--gap_threshold", help='Threshold for gap up/down detection (percentage)', default=1, type=float)
-parser.add_argument("--vwap_threshold", help='Threshold for VWAP proximity detection (percentage)', default=1.5, type=float)
+parser.add_argument("--vwap_threshold", help='Threshold for VWAP proximity detection (percentage)', default=1, type=float)
 
 parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
 args = parser.parse_args()
@@ -278,9 +278,6 @@ def stock_monitor(stream=None, debug=False):
 
 		return True
 
-	if ( args.debug == True ):
-		print(time_now)
-
 
 	# Iterate through the stock tickers
 	# We are interested in significant increases or decreases in price, and significant increases in volume
@@ -349,17 +346,39 @@ def stock_monitor(stream=None, debug=False):
 			if ( ((cur_price - vwap) / cur_price) * 100 < args.vwap_threshold and
 				((prev_price - vwap) / prev_price) * 100 > args.vwap_threshold ):
 
-				vwap_event = 	ticker + ',' + \
-						str(round(prev_price, 2)) + ',' + \
-						str(round(cur_price, 2)) + ',' + \
-						str(round(vwap, 2)) + ',' + \
-						str(time_now)
+				# These events can pile up into vwap_list, so check vwap_list[] to see
+				# if this ticker has triggered already within the last ten minutes
+				delta = 99999
+				if ( len(vwap_list) > 0 ):
+					for evnt in reversed( vwap_list ):
+						stock, pprice, cprice, pct_change, time = str(evnt).split(',')
 
-				vwap_list.append(vwap_event)
+						if ( stock == ticker ):
+							cur_time = datetime.datetime.strptime(time_now, '%Y-%m-%d %H:%M:%S.%f')
+							cur_time = mytimezone.localize(cur_time)
 
-				# Make a trade on gapping stock if args.autotrade is set
-				if ( args.autotrade == True ):
-					autotrade(ticker, direction='UP')
+							prev_time = datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
+							prev_time = mytimezone.localize(prev_time)
+
+							delta = cur_time - prev_time
+							delta = delta.total_seconds()
+
+							break
+
+				# Proceed if delta is greater than than 10-minutes
+				if ( delta > 600 ):
+
+					vwap_event = 	ticker + ',' + \
+							str(round(prev_price, 2)) + ',' + \
+							str(round(cur_price, 2)) + ',' + \
+							str(round(vwap, 2)) + ',' + \
+							str(time_now)
+
+					vwap_list.append(vwap_event)
+
+					# Make a trade on gapping stock if args.autotrade is set
+					if ( args.autotrade == True ):
+						autotrade(ticker, direction='UP')
 
 
 	# Print results

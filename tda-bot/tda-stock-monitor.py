@@ -453,7 +453,7 @@ def stock_monitor(stream=None, debug=False):
 	print('{0:10} {1:15} {2:15} {3:10} {4:10}'.format('Ticker', 'Previous_Price', 'Current_Price', '%Change', 'Time'))
 
 	if ( len(gap_up_list) > 0 ):
-		watchlist_name = 'STOCK-MONITOR-GAP_UP'
+		watchlist_name = 'STOCK-MONITOR-GAPUP'
 		watchlist_template = { "name": watchlist_name, "watchlistItems": [] }
 
 		for idx,evnt in enumerate( reversed(gap_up_list) ):
@@ -465,7 +465,8 @@ def stock_monitor(stream=None, debug=False):
 
 			print(color + '{0:10} {1:15} {2:15} {3:10} {4:10}'.format(ticker, prev_price, cur_price, pct_change, time) + reset_color)
 
-			watchlist_template['watchlistItems'].append = { "instrument": { "symbol": ticker, "assetType": "EQUITY" } }
+			instrument = { "instrument": { "symbol": ticker, "assetType": "EQUITY" } }
+			watchlist_template['watchlistItems'].append(instrument)
 
 			if ( idx == args.max_tickers ):
 				break
@@ -490,7 +491,7 @@ def stock_monitor(stream=None, debug=False):
 	print('{0:10} {1:15} {2:15} {3:10} {4:10}'.format('Ticker', 'Previous_Price', 'Current_Price', '%Change', 'Time'))
 
 	if ( len(gap_down_list) > 0 ):
-		watchlist_name = 'STOCK-MONITOR-GAP_DOWN'
+		watchlist_name = 'STOCK-MONITOR-GAPDOWN'
 		watchlist_template = { "name": watchlist_name, "watchlistItems": [] }
 
 		for idx,evnt in enumerate( reversed(gap_down_list) ):
@@ -502,7 +503,8 @@ def stock_monitor(stream=None, debug=False):
 
 			print(color + '{0:10} {1:15} {2:15} {3:10} {4:10}'.format(ticker, prev_price, cur_price, pct_change, time) + reset_color)
 
-			watchlist_template['watchlistItems'].append = { "instrument": { "symbol": ticker, "assetType": "EQUITY" } }
+			instrument = { "instrument": { "symbol": ticker, "assetType": "EQUITY" } }
+			watchlist_template['watchlistItems'].append(instrument)
 
 			if ( idx == args.max_tickers ):
 				break
@@ -539,7 +541,8 @@ def stock_monitor(stream=None, debug=False):
 
 			print(color + '{0:10} {1:15} {2:15} {3:10} {4:10}'.format(ticker, prev_price, cur_price, vwap, time) + reset_color)
 
-			watchlist_template['watchlistItems'].append = { "instrument": { "symbol": ticker, "assetType": "EQUITY" } }
+			instrument = { "instrument": { "symbol": ticker, "assetType": "EQUITY" } }
+			watchlist_template['watchlistItems'].append(instrument)
 
 			if ( idx == args.max_tickers ):
 				break

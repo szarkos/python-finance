@@ -23,6 +23,8 @@ from tda.streaming import StreamClient
 import asyncio
 import json
 
+import tda_api_helper
+
 
 # Parse and check variables
 parser = argparse.ArgumentParser()
@@ -39,6 +41,7 @@ parser.add_argument("--scalp_mode", help='Enable scalp mode (fixes incr_threshol
 
 parser.add_argument("--gap_threshold", help='Threshold for gap up/down detection (percentage)', default=1, type=float)
 parser.add_argument("--vwap_threshold", help='Threshold for VWAP proximity detection (percentage)', default=1, type=float)
+parser.add_argument("--max_tickers", help='Max tickers to print out per category (Default: 20)', default=20, type=int)
 
 parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
 args = parser.parse_args()
@@ -66,6 +69,13 @@ tda_gobot_helper.passcode = passcode
 if ( tda_gobot_helper.tdalogin(passcode) != True ):
 	print('Error: Login failure', file=sys.stderr)
 	sys.exit(1)
+
+# Watchlist params
+watchlists = [ 'STOCK-MONITOR-GAPUP', 'STOCK-MONITOR-GAPDOWN', 'STOCK-MONITOR-VWAP' ]
+watchlist_template = {  "name": "",
+			"watchlistItems": [
+				{ "instrument": { "symbol": "GME", "assetType": "EQUITY" } }
+			] }
 
 # Initialize stocks{}
 print( 'Initializing stock tickers: ' + str(args.stocks.split(',')) )
@@ -212,6 +222,12 @@ def graceful_exit(signum, frame):
 	except:
 		pass
 
+	for wlist in watchlists:
+		try:
+			tda_api_helper.delete_watchlist_byname(tda_client=tda_client, tda_account=tda_account_number, watchlist_name=wlist)
+		except:
+			pass
+
 	sys.exit(0)
 
 # Initialize SIGUSR1 signal handler to dump stocks on signal
@@ -316,19 +332,62 @@ def stock_monitor(stream=None, debug=False):
 					str(time_now)
 
 			if ( cur_price > prev_price ):
-				gap_up_list.append(gap_event)
 
-				# Make a trade on gapping stock if args.autotrade is set
-				if ( args.autotrade == True ):
-					autotrade(ticker, direction='UP')
+				# These events can pile up into gap_up|down_list, so check to see
+				# if this ticker has triggered already within the last ten minutes
+				delta = 99999
+				if ( len(gap_up_list) > 0 ):
+					for evnt in reversed( gap_up_list ):
+						stock, pprice, cprice, pct_change, time = str(evnt).split(',')
+
+						if ( stock == ticker ):
+							cur_time = datetime.datetime.strptime(time_now, '%Y-%m-%d %H:%M:%S.%f')
+							cur_time = mytimezone.localize(cur_time)
+
+							prev_time = datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
+							prev_time = mytimezone.localize(prev_time)
+
+							delta = cur_time - prev_time
+							delta = delta.total_seconds()
+
+							break
+
+				# Proceed if delta is greater than than 10-minutes
+				if ( delta > 600 ):
+					gap_up_list.append(gap_event)
+
+					# Make a trade on gapping stock if args.autotrade is set
+					if ( args.autotrade == True ):
+						autotrade(ticker, direction='UP')
 
 			else:
-				gap_down_list.append(gap_event)
 
-				# Make a trade on gapping stock if args.autotrade is set
-				if ( args.autotrade == True ):
-					autotrade(ticker, direction='DOWN')
+				# These events can pile up into gap_up|down_list, so check to see
+				# if this ticker has triggered already within the last ten minutes
+				delta = 99999
+				if ( len(gap_down_list) > 0 ):
+					for evnt in reversed( gap_down_list ):
+						stock, pprice, cprice, pct_change, time = str(evnt).split(',')
 
+						if ( stock == ticker ):
+							cur_time = datetime.datetime.strptime(time_now, '%Y-%m-%d %H:%M:%S.%f')
+							cur_time = mytimezone.localize(cur_time)
+
+							prev_time = datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
+							prev_time = mytimezone.localize(prev_time)
+
+							delta = cur_time - prev_time
+							delta = delta.total_seconds()
+
+							break
+
+				# Proceed if delta is greater than than 10-minutes
+				if ( delta > 600 ):
+					gap_down_list.append(gap_event)
+
+					# Make a trade on gapping stock if args.autotrade is set
+					if ( args.autotrade == True ):
+						autotrade(ticker, direction='DOWN')
 
 		# VWAP
 		vwap, vwap_up, vwap_down = tda_gobot_helper.get_vwap( stocks[ticker]['pricehistory'] )
@@ -394,7 +453,10 @@ def stock_monitor(stream=None, debug=False):
 	print('{0:10} {1:15} {2:15} {3:10} {4:10}'.format('Ticker', 'Previous_Price', 'Current_Price', '%Change', 'Time'))
 
 	if ( len(gap_up_list) > 0 ):
-		for evnt in reversed( gap_up_list ):
+		watchlist_name = 'STOCK-MONITOR-GAP_UP'
+		watchlist_template = { "name": watchlist_name, "watchlistItems": [] }
+
+		for idx,evnt in enumerate( reversed(gap_up_list) ):
 			ticker, prev_price, cur_price, pct_change, time = str(evnt).split(',')
 
 			color = ''
@@ -402,6 +464,20 @@ def stock_monitor(stream=None, debug=False):
 				color = green
 
 			print(color + '{0:10} {1:15} {2:15} {3:10} {4:10}'.format(ticker, prev_price, cur_price, pct_change, time) + reset_color)
+
+			watchlist_template['watchlistItems'].append = { "instrument": { "symbol": ticker, "assetType": "EQUITY" } }
+
+			if ( idx == args.max_tickers ):
+				break
+
+		# Update the watchlist with the latest tickers
+		try:
+			watchlist_id = tda_api_helper.get_watchlist_id(tda_client=tda_client, tda_account=tda_account_number, watchlist_name=watchlist_name)
+			tda_client.replace_watchlist(tda_account_number, watchlist_id, watchlist_template)
+
+		except Exception as e:
+			print('Error while updating watchlist ' + str(watchlist_name) + ': ' + str(e))
+			pass
 
 	else:
 		print("\n")
@@ -414,7 +490,10 @@ def stock_monitor(stream=None, debug=False):
 	print('{0:10} {1:15} {2:15} {3:10} {4:10}'.format('Ticker', 'Previous_Price', 'Current_Price', '%Change', 'Time'))
 
 	if ( len(gap_down_list) > 0 ):
-		for evnt in reversed( gap_down_list ):
+		watchlist_name = 'STOCK-MONITOR-GAP_DOWN'
+		watchlist_template = { "name": watchlist_name, "watchlistItems": [] }
+
+		for idx,evnt in enumerate( reversed(gap_down_list) ):
 			ticker, prev_price, cur_price, pct_change, time = str(evnt).split(',')
 
 			color = ''
@@ -422,6 +501,20 @@ def stock_monitor(stream=None, debug=False):
 				color = red
 
 			print(color + '{0:10} {1:15} {2:15} {3:10} {4:10}'.format(ticker, prev_price, cur_price, pct_change, time) + reset_color)
+
+			watchlist_template['watchlistItems'].append = { "instrument": { "symbol": ticker, "assetType": "EQUITY" } }
+
+			if ( idx == args.max_tickers ):
+				break
+
+		# Update the watchlist with the latest tickers
+		try:
+			watchlist_id = tda_api_helper.get_watchlist_id(tda_client=tda_client, tda_account=tda_account_number, watchlist_name=watchlist_name)
+			tda_client.replace_watchlist(tda_account_number, watchlist_id, watchlist_template)
+
+		except Exception as e:
+			print('Error while updating watchlist ' + str(watchlist_name) + ': ' + str(e))
+			pass
 
 	else:
 		print("\n")
@@ -434,7 +527,10 @@ def stock_monitor(stream=None, debug=False):
 	print('{0:10} {1:15} {2:15} {3:10} {4:10}'.format('Ticker', 'Previous_Price', 'Current_Price', 'VWAP', 'Time'))
 
 	if ( len(vwap_list) > 0 ):
-		for evnt in reversed( vwap_list ):
+		watchlist_name = 'STOCK-MONITOR-VWAP'
+		watchlist_template = { "name": watchlist_name, "watchlistItems": [] }
+
+		for idx,evnt in enumerate( reversed(vwap_list) ):
 			ticker, prev_price, cur_price, vwap, time = str(evnt).split(',')
 
 			color = ''
@@ -443,6 +539,19 @@ def stock_monitor(stream=None, debug=False):
 
 			print(color + '{0:10} {1:15} {2:15} {3:10} {4:10}'.format(ticker, prev_price, cur_price, vwap, time) + reset_color)
 
+			watchlist_template['watchlistItems'].append = { "instrument": { "symbol": ticker, "assetType": "EQUITY" } }
+
+			if ( idx == args.max_tickers ):
+				break
+
+		# Update the watchlist with the latest tickers
+		try:
+			watchlist_id = tda_api_helper.get_watchlist_id(tda_client=tda_client, tda_account=tda_account_number, watchlist_name=watchlist_name)
+			tda_client.replace_watchlist(tda_account_number, watchlist_id, watchlist_template)
+
+		except Exception as e:
+			print('Error while updating watchlist ' + str(watchlist_name) + ': ' + str(e))
+			pass
 
 	return True
 
@@ -553,6 +662,32 @@ if ( args.autotrade == True ):
 	except Exception as e:
 		print('Unable to open log file ' + str(logfile) + ', exiting.')
 		sys.exit(1)
+
+
+# Initialize the watchlists
+try:
+	tda_client = tda_api.auth.client_from_token_file(tda_pickle, tda_api_key)
+
+except Exception as e:
+	print('Exception caught: client_from_token_file(): unable to log in using tda-client: ' + str(e))
+	sys.exit(0)
+
+for wlist in watchlists:
+	try:
+		tda_api_helper.delete_watchlist_byname(tda_client, tda_account_number, watchlist_name=wlist)
+	except:
+		pass
+
+	time.sleep(1)
+
+	watchlist_template['name'] = wlist
+	try:
+		ret = tda_client.create_watchlist( tda_account_number, watchlist_template )
+		if ( ret.status_code != 201 ):
+			print('Error: tda_client.create_watchlist(' + str(wlist) + '): returned status code ' + str(ret.status_code))
+	except:
+		pass
+
 
 # Main loop
 while True:

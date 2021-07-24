@@ -10,13 +10,13 @@ import os, time
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument("stock", help='Stock ticker to purchase', nargs='?', default=None)
-parser.add_argument("--panic", help="Sell all stocks in portfolio immediately", action="store_true")
-parser.add_argument("--force", help="Used with --panic to force sell all stocks in portfolio immediately without prompt", action="store_true")
-parser.add_argument("--prompt", help="Wait for prompt before selling security", action="store_true")
-parser.add_argument("--decrement", help="Sell the stock in increments (implies --prompt). Default behavior sells 50% at a time in three phases (50%/%50/Remaining)", action="store_true")
-parser.add_argument("--num_decrements", help="Number of decrements when --decrement is enabled (i.e. 3 means sell 50% at a time in three stages)", default=3, type=int)
-parser.add_argument("-d", "--debug", help="Enable debug output", action="store_true")
+parser.add_argument("stock", help='Stock ticker to purchase', nargs='?', default='', type=str)
+parser.add_argument("--panic", help='Sell all stocks in portfolio immediately', action="store_true")
+parser.add_argument("--force", help='Used with --panic to force sell all stocks in portfolio immediately without prompt', action="store_true")
+parser.add_argument("--prompt", help='Wait for prompt before selling security', action="store_true")
+parser.add_argument("--decrement", help='Sell the stock in increments (implies "--prompt"). Default behavior sells 50 percent at a time in three phases (50/50/Remaining)', action="store_true")
+parser.add_argument("--num_decrements", help='Number of decrements when "--decrement" is enabled (i.e. 3 means sell 50 percent at a time in three stages)', default=3, type=int)
+parser.add_argument("--debug", help='Enable debug output', action="store_true")
 args = parser.parse_args()
 
 debug = 1			# Should default to 0 eventually, testing for now
@@ -44,7 +44,7 @@ if ( tda_gobot_helper.tdalogin(passcode) != True ):
 	exit(1)
 
 
-if ( stock != None ):
+if ( stock != '' ):
 
 	# Fix up and sanity check the stock symbol before proceeding
 	stock = tda_gobot_helper.fix_stock_symbol(stock)

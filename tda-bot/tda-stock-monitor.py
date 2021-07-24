@@ -474,7 +474,7 @@ def stock_monitor(stream=None, debug=False):
 		# Update the watchlist with the latest tickers
 		try:
 			watchlist_id = tda_api_helper.get_watchlist_id(tda_client=tda_client, tda_account=tda_account_number, watchlist_name=watchlist_name)
-			tda_client.replace_watchlist(tda_account_number, watchlist_id, watchlist_template)
+			ret = tda_client.replace_watchlist(tda_account_number, watchlist_id, watchlist_template)
 
 		except Exception as e:
 			print('Error while updating watchlist ' + str(watchlist_name) + ': ' + str(e))
@@ -512,7 +512,7 @@ def stock_monitor(stream=None, debug=False):
 		# Update the watchlist with the latest tickers
 		try:
 			watchlist_id = tda_api_helper.get_watchlist_id(tda_client=tda_client, tda_account=tda_account_number, watchlist_name=watchlist_name)
-			tda_client.replace_watchlist(tda_account_number, watchlist_id, watchlist_template)
+			ret = tda_client.replace_watchlist(tda_account_number, watchlist_id, watchlist_template)
 
 		except Exception as e:
 			print('Error while updating watchlist ' + str(watchlist_name) + ': ' + str(e))
@@ -550,7 +550,7 @@ def stock_monitor(stream=None, debug=False):
 		# Update the watchlist with the latest tickers
 		try:
 			watchlist_id = tda_api_helper.get_watchlist_id(tda_client=tda_client, tda_account=tda_account_number, watchlist_name=watchlist_name)
-			tda_client.replace_watchlist(tda_account_number, watchlist_id, watchlist_template)
+			ret = tda_client.replace_watchlist(tda_account_number, watchlist_id, watchlist_template)
 
 		except Exception as e:
 			print('Error while updating watchlist ' + str(watchlist_name) + ': ' + str(e))

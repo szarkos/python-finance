@@ -14,6 +14,8 @@ parser.add_argument("stock", help='Stock ticker to purchase', nargs='?', default
 parser.add_argument("--panic", help="Sell all stocks in portfolio immediately", action="store_true")
 parser.add_argument("--force", help="Used with --panic to force sell all stocks in portfolio immediately without prompt", action="store_true")
 parser.add_argument("--prompt", help="Wait for prompt before selling security", action="store_true")
+parser.add_argument("--decrement", help="Sell the stock in increments (implies --prompt). Default behavior sells 50% at a time in three phases (50%/%50/Remaining)", action="store_true")
+parser.add_argument("--num_decrements", help="Number of decrements when --decrement is enabled (i.e. 3 means sell 50% at a time in three stages)", default=3, type=int)
 parser.add_argument("-d", "--debug", help="Enable debug output", action="store_true")
 args = parser.parse_args()
 
@@ -59,23 +61,75 @@ if ( stock != None ):
 			last_price = tda_gobot_helper.get_lastprice(stock)
 			wait = tda_gobot_helper.ismarketopen_US()
 
+			# BUY_TO_COVER
 			if ( float(asset['shortQuantity']) > 0 ):
-				sell_value = float(last_price) * float(asset['shortQuantity'])
 				if ( args.prompt == True ):
-					tda_gobot_helper.tdalogin(passcode)
-					input(str(asset['shortQuantity']) + ' shares of ' + str(stock) + ' found, press <ENTER> to sell')
 
-				print('Covering ' + str(asset['shortQuantity']) + ' shares of ' + str(stock) + ' at market price (~$' + str(sell_value) + ")\n")
-				data = tda_gobot_helper.buytocover_stock_marketprice(stock, asset['shortQuantity'], fillwait=wait, debug=True)
+					# Cover the stock in multiple stages
+					if ( args.decrement == True and args.num_decrements > 0 ):
 
+						total_shares = int(asset['shortQuantity'])
+						num_decrements = 1
+						while ( num_decrements <= args.num_decrements ):
+							shares = round( total_shares / 2 )
+							if ( num_decrements == args.num_decrements ):
+								shares = total_shares
+
+							input(  'Stock ' + str(stock) + ', Total Shares: ' + str(total_shares) + ', Shares to COVER: ' + str(shares) +
+								'(Stage ' + str(num_decrements) + '/' + str(args.num_decrements) + '). Press <ENTER>')
+
+							tda_gobot_helper.tdalogin(passcode)
+							data = tda_gobot_helper.buytocover_stock_marketprice(stock, shares, fillwait=False, debug=True)
+
+							total_shares -= shares
+							num_decrements += 1
+
+					# Cover all at once
+					else:
+						input(str(asset['shortQuantity']) + ' shares of ' + str(stock) + ' found, press <ENTER> to cover')
+
+						tda_gobot_helper.tdalogin(passcode)
+						data = tda_gobot_helper.buytocover_stock_marketprice(stock, asset['shortQuantity'], fillwait=wait, debug=True)
+
+				else:
+					sell_value = float(last_price) * float(asset['shortQuantity'])
+					print('Covering ' + str(asset['shortQuantity']) + ' shares of ' + str(stock) + ' at market price (~$' + str(sell_value) + ")\n")
+					data = tda_gobot_helper.buytocover_stock_marketprice(stock, asset['shortQuantity'], fillwait=wait, debug=True)
+
+			# SELL
 			else:
-				sell_value = float(last_price) * float(asset['longQuantity'])
 				if ( args.prompt == True ):
-					tda_gobot_helper.tdalogin(passcode)
-					input(str(asset['longQuantity']) + ' shares of ' + str(stock) + ' found, press <ENTER> to sell')
 
-				print('Selling ' + str(asset['longQuantity']) + ' shares of ' + str(stock) + ' at market price (~$' + str(sell_value) + ")\n")
-				data = tda_gobot_helper.sell_stock_marketprice(stock, asset['longQuantity'], fillwait=wait, debug=True)
+					# Sell the stock in multiple stages
+					if ( args.decrement == True and args.num_decrements > 0 ):
+
+						total_shares = int(asset['longQuantity'])
+						num_decrements = 1
+						while ( num_decrements <= args.num_decrements ):
+							shares = round( total_shares / 2 )
+							if ( num_decrements == args.num_decrements ):
+								shares = total_shares
+
+							input(  'Stock ' + str(stock) + ', Total Shares: ' + str(total_shares) + ', Shares to SELL: ' + str(shares) +
+								'(Stage ' + str(num_decrements) + '/' + str(args.num_decrements) + '). Press <ENTER>')
+
+							tda_gobot_helper.tdalogin(passcode)
+							data = tda_gobot_helper.sell_stock_marketprice(stock, asset['longQuantity'], fillwait=False, debug=True)
+
+							total_shares -= shares
+							num_decrements += 1
+
+					# Sell all at once
+					else:
+						input(str(asset['longQuantity']) + ' shares of ' + str(stock) + ' found, press <ENTER> to sell')
+
+						tda_gobot_helper.tdalogin(passcode)
+						data = tda_gobot_helper.sell_stock_marketprice(stock, asset['longQuantity'], fillwait=wait, debug=True)
+
+				else:
+					sell_value = float(last_price) * float(asset['longQuantity'])
+					print('Selling ' + str(asset['longQuantity']) + ' shares of ' + str(stock) + ' at market price (~$' + str(sell_value) + ")\n")
+					data = tda_gobot_helper.sell_stock_marketprice(stock, asset['longQuantity'], fillwait=wait, debug=True)
 
 			found = 1
 			break

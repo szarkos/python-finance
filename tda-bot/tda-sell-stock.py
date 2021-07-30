@@ -97,7 +97,7 @@ if ( stock != '' ):
 					data = tda_gobot_helper.buytocover_stock_marketprice(stock, asset['shortQuantity'], fillwait=wait, debug=True)
 
 			# SELL
-			else:
+			elif ( float(asset['longQuantity']) > 0 ):
 				if ( args.prompt == True ):
 
 					# Sell the stock in multiple stages
@@ -114,7 +114,7 @@ if ( stock != '' ):
 								'(Stage ' + str(num_decrements) + '/' + str(args.num_decrements) + '). Press <ENTER>')
 
 							tda_gobot_helper.tdalogin(passcode)
-							data = tda_gobot_helper.sell_stock_marketprice(stock, asset['longQuantity'], fillwait=False, debug=True)
+							data = tda_gobot_helper.sell_stock_marketprice(stock, shares, fillwait=False, debug=True)
 
 							total_shares -= shares
 							num_decrements += 1

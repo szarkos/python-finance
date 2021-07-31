@@ -16,7 +16,7 @@ import tda_gobot_helper
 parser = argparse.ArgumentParser()
 parser.add_argument("stock", help='Stock ticker to purchase')
 parser.add_argument("stock_usd", help='Amount of money (USD) to invest', nargs='?', default=1000, type=float)
-parser.add_argument("--algo", help='Analyze the most recent 5-day and 10-day history for a stock ticker using this bot\'s algorithim(s) - (rsi|stochrsi)', default='rsi', type=str)
+parser.add_argument("--algo", help='Analyze the most recent 5-day and 10-day history for a stock ticker using this bot\'s algorithim(s) - (Default: stochrsi)', default='stochrsi', type=str)
 parser.add_argument("--ofile", help='Dump the pricehistory data to pickle file', default=None, type=str)
 parser.add_argument("--ifile", help='Use pickle file for pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--augment_ifile", help='Pull additional history data and append it to candles imported from ifile', action="store_true")
@@ -345,21 +345,10 @@ for algo in args.algo.split(','):
 		print('Analyzing ' + str(days) + '-day history for stock ' + str(stock) + ' using the ' + str(algo) + " algorithm:")
 
 		if ( algo == 'rsi' ):
-			print('WARNING: resetting RSI high and low to 70/30')
-			args.rsi_high_limit = rsi_high_limit = 70
-			args.rsi_low_limit = rsi_low_limit = 30
-			results = tda_gobot_helper.rsi_analyze( pricehistory=data, ticker=stock, rsi_period=rsi_period, stochrsi_period=stochrsi_period, rsi_type=rsi_type,
-								rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
-								stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly, no_use_resistance=args.no_use_resistance, debug=True )
+			print('Deprecated: see branch 1.0 for this algorithm')
+			sys.exit(1)
 
-		elif ( algo == 'stochrsi' ):
-			results = tda_gobot_helper.stochrsi_analyze( pricehistory=data, ticker=stock, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type,
-								     rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
-								     stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly,
-								     nocrossover=args.nocrossover, crossover_only=args.crossover_only, no_use_resistance=args.no_use_resistance,
-								     use_candle_monitor=args.use_candle_monitor, debug=True )
-
-		elif ( algo == 'stochrsi-new' ):
+		elif ( algo == 'stochrsi' or algo == 'stochrsi-new' ):
 			results = tda_gobot_helper.stochrsi_analyze_new( pricehistory=data, ticker=stock, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type,
 									 rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
 									 stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly, check_ma=args.check_ma,

@@ -2292,12 +2292,205 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 	return data
 
 
+def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, debug=False):
+
+	if ( pricehistory == None ):
+		return False, []
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	# Determine if level is a support pivot based on five-candle fractal
+	def is_support(df, i):
+		support = False
+		try:
+			support =	df['low'][i] <= df['low'][i-1] and \
+					df['low'][i] <= df['low'][i+1] and \
+					df['low'][i+1] <= df['low'][i+2] and \
+					df['low'][i-1] <= df['low'][i-2]
+
+		except Exception as e:
+			print('Exception caught: get_keylevels(' + str(ticker) + '): is_support(): ' + str(e) + '. Ignoring level (' + str(df['low'][i]) + ').' )
+			return False, []
+
+		return support
+
+	# Determine if level is a resistance pivot based on five-candle fractal
+	def is_resistance(df, i):
+		resistance = False
+		try:
+			resistance =	df['high'][i] >= df['high'][i-1] and \
+					df['high'][i] >= df['high'][i+1] and \
+					df['high'][i+1] >= df['high'][i+2] and \
+					df['high'][i-1] >= df['high'][i-2]
+		except Exception as e:
+			print('Exception caught: get_keylevels(' + str(ticker) + '): is_resistance(): ' + str(e) + '. Ignoring level (' + str(df['high'][i]) + ').' )
+			return False, []
+
+		return resistance
+
+	# Reduce noise by eliminating levels that are close to levels that
+	#   have already been discovered
+	def check_atr_level( lvl=None, atr=1, levels=[] ):
+		return np.sum( [abs(lvl - x) < atr for x in levels] ) == 0
+
+
+	# Need to massage the data to ensure matplotlib works
+	if ( plot == True ):
+		try:
+			assert mytimezone
+		except:
+			mytimezone = timezone("US/Eastern")
+
+		ph = []
+		for key in pricehistory['candles']:
+
+			d = {	'Date':		datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone),
+				'open':		float( key['open'] ),
+				'high':		float( key['high'] ),
+				'low':		float( key['low'] ),
+				'close':	float( key['close'] ),
+				'volume':	float( key['volume'] ) }
+
+			ph.append(d)
+
+		df = pd.DataFrame(data=ph, columns = ['Date', 'open', 'high', 'low', 'close', 'volume'])
+		df = df.loc[:,['Date', 'open', 'high', 'low', 'close', 'volume']]
+
+	else:
+		df = pd.DataFrame(data=pricehistory['candles'], columns = ['open', 'high', 'low', 'close', 'volume', 'datetime'])
+
+	# Process all candles and check for five-candle fractal levels, and append them to long_support[] or long_resistance[]
+	long_support = []
+	long_resistance = []
+	plot_support_levels = []
+	plot_resistance_levels = []
+	for i in range( 2, df.shape[0]-2 ):
+
+		# SUPPORT
+		if ( is_support(df, i) ):
+			lvl = float( df['low'][i] )
+
+			if ( filter == False ):
+				long_support.append(lvl)
+
+				if ( plot == True ):
+					plot_support_levels.append( (i, lvl) )
+
+				continue
+
+			# Find the average true range for this particular time period, which we
+			#  will pass to check_atr_level() to reduce noise
+			#
+			# Alternative solution:
+			#   atr = np.mean( df['high'] - df['low'] )
+			atr = []
+			tmp_ph = { 'candles': [], 'ticker': ticker }
+			if ( i < atr_period + 1 ):
+				for idx in range( 0, atr_period + 1 ):
+					tmp_ph['candles'].append( pricehistory['candles'][idx] )
+
+			else:
+				for idx in range( 0, i ):
+					tmp_ph['candles'].append( pricehistory['candles'][idx] )
+
+			try:
+				atr, natr = get_atr(pricehistory=tmp_ph, period=atr_period)
+
+			except Exception as e:
+				print('Exception caught: get_keylevels(' + str(ticker) + '): get_atr(): ' + str(e) + '. Falling back to np.mean().')
+				atr.append( np.mean(df['high'] - df['low']) )
+
+			# Check if this level is at least one ATR value away from a previously
+			#   discovered level
+			if ( check_atr_level(lvl, atr[-1], long_support) ):
+				long_support.append(lvl)
+
+				if ( plot == True ):
+					plot_support_levels.append( (i, lvl) )
+
+
+		# RESISTANCE
+		elif ( is_resistance(df, i) ):
+			lvl = float( df['high'][i] )
+
+			if ( filter == False ):
+				long_resistance.append(lvl)
+
+				if ( plot == True ):
+					plot_resistance_levels.append( (i, lvl) )
+
+				continue
+
+			# Find the average true range for this particular time period, which we
+			#  will pass to check_atr_level() to reduce noise
+			#
+			# Alternative solution:
+			#   atr = np.mean( df['high'] - df['low'] )
+			atr = []
+			tmp_ph = { 'candles': [], 'ticker': ticker }
+			if ( i < atr_period + 1 ):
+				for idx in range( 0, atr_period + 1 ):
+					tmp_ph['candles'].append( pricehistory['candles'][idx] )
+			else:
+				for idx in range( 0, i ):
+					tmp_ph['candles'].append( pricehistory['candles'][idx] )
+
+			try:
+				atr, natr = get_atr(pricehistory=tmp_ph, period=atr_period)
+
+			except Exception as e:
+				print('Exception caught: get_keylevels(' + str(ticker) + '): get_atr(): ' + str(e) + '. Falling back to np.mean().')
+				atr.append( np.mean(float(df['high']) - float(df['low'])) )
+
+			# Check if this level is at least one ATR value away from a previously
+			#   discovered level
+			if ( check_atr_level(lvl, atr[-1], long_resistance) ):
+				long_resistance.append(lvl)
+
+				if ( plot == True ):
+					plot_resistance_levels.append( (i, lvl) )
+
+
+	if ( plot == True ):
+		from mplfinance.original_flavor import candlestick_ohlc
+		import matplotlib.dates as mpl_dates
+		import matplotlib.pyplot as plt
+
+		plt.rcParams['figure.figsize'] = [12, 7]
+		plt.rc('font', size=14)
+
+		df['Date'] = df['Date'].apply(mpl_dates.date2num)
+
+		fig, ax = plt.subplots()
+		candlestick_ohlc( ax, df.values, width=0.6, colorup='green', colordown='red', alpha=0.8 )
+
+		date_format = mpl_dates.DateFormatter('%d-%m-%Y')
+		ax.xaxis.set_major_formatter(date_format)
+		fig.autofmt_xdate()
+
+		fig.tight_layout()
+
+		for level in plot_support_levels:
+			plt.hlines(level[1], xmin=df['Date'][level[0]], xmax=max(df['Date']), colors='blue')
+		for level in plot_resistance_levels:
+			plt.hlines(level[1], xmin=df['Date'][level[0]], xmax=max(df['Date']), colors='red')
+
+		plt.show()
+
+
+	return long_support, long_resistance
+
+
 # Like stochrsi_analyze(), but sexier
 def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3,
 			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=1.5, hold_overnight=False, exit_percent=None, vwap_exit=False, quick_exit=False,
 			  no_use_resistance=False, with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_macd=False, with_vwap=False, with_vpt=False,
 			  with_dmi_simple=False, with_macd_simple=False, vpt_sma_period=72, adx_period=48,
-			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None,
+			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None, weekly_ph=None, keylevel_strict=False,
 			  debug=False ):
 
 	if ( ticker == None or pricehistory == None ):
@@ -2431,8 +2624,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	# Resistance / Support
 	if ( no_use_resistance == False ):
 
-		price_resistance_pct = 1
-		price_support_pct = 1
+		price_resistance_pct = 1.5
+		price_support_pct = 1.5
 
 		# Day stats
 		pdc = OrderedDict()
@@ -2469,7 +2662,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			elif ( time == '16:00'):
 				pdc[today]['close'] = float(key['close'])
 
+		# Key levels
+		if ( weekly_ph == None ):
 
+			# get_pricehistory() variables
+			p_type = 'year'
+			period = '2'
+			f_type = 'weekly'
+			freq = '1'
+			weekly_ph, ep = get_pricehistory(ticker, p_type, f_type, freq, period, needExtendedHoursData=False)
+
+		long_support, long_resistance = get_keylevels(weekly_ph, filter=False)
+
+		# Three/Twenty week high/low
 #		three_week_high = three_week_low = three_week_avg = -1
 		twenty_week_high = twenty_week_low = twenty_week_avg = -1
 
@@ -2763,7 +2968,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				if ( abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
 
 					# Current price is very close to VWAP
-					# Next check average of last 15 (minute) candles
+					# Next check average of last 15 (1-minute) candles
 					avg = 0
 					for i in range(15, 0, -1):
 						avg += float( pricehistory['candles'][idx-i]['close'] )
@@ -2773,6 +2978,38 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					# If average was above VWAP then VWAP is support
 					if ( avg < cur_vwap ):
 						resistance_signal = False
+
+				# Key Levels
+				# Check if price is near historic key level
+				cur_price = float(pricehistory['candles'][idx]['close'])
+				near_keylevel = False
+				for lvl in long_support + long_resistance:
+					if ( abs((lvl / cur_price - 1) * 100) <= price_support_pct ):
+						near_keylevel = True
+
+						# Current price is very close to a key level
+						# Next check average of last 30 (1-minute) candles
+						#
+						# If last 30 candles average above key level, then key level is support
+						# otherwise it is resistance
+						avg = 0
+						for i in range(30, 0, -1):
+							avg += float( pricehistory['candles'][idx-i]['close'] )
+						avg = avg / 30
+
+						# If average was below key level then key level is resistance
+						# Therefore this is not a great buy
+						if ( avg < lvl ):
+							resistance_signal = False
+							break
+
+				# If keylevel_strict is True then only buy the stock if price is near a key level
+				# Otherwise reject this buy to avoid getting chopped around between levels
+				if ( keylevel_strict == True and near_keylevel == False ):
+					resistance_signal = False
+
+				# End Key Levels
+
 
 				# 20-week high
 #				purchase_price = float(pricehistory['candles'][idx]['close'])
@@ -3084,7 +3321,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				if ( abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
 
 					# Current price is very close to VWAP
-					# Next check average of last 15 (minute) candles
+					# Next check average of last 15 (1-minute) candles
 					avg = 0
 					for i in range(15, 0, -1):
 						avg += float( pricehistory['candles'][idx-i]['close'] )
@@ -3094,6 +3331,40 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					# If average was above VWAP then VWAP is support (bad for short)
 					if ( avg > cur_vwap ):
 						resistance_signal = False
+
+
+
+				# Key Levels
+				# Check if price is near historic key level
+				cur_price = float(pricehistory['candles'][idx]['close'])
+				near_keylevel = False
+				for lvl in long_support + long_resistance:
+					if ( abs((lvl / cur_price - 1) * 100) <= price_resistance_pct ):
+						near_keylevel = True
+
+						# Current price is very close to a key level
+						# Next check average of last 30 (1-minute) candles
+						#
+						# If last 30 candles average below key level, then key level is resistance
+						# otherwise it is support
+						avg = 0
+						for i in range(30, 0, -1):
+							avg += float( pricehistory['candles'][idx-i]['close'] )
+						avg = avg / 30
+
+						# If average was above key level then key level is support
+						# Therefore this is not a good short
+						if ( avg > lvl ):
+							resistance_signal = False
+							break
+
+				# If keylevel_strict is True then only short the stock if price is near a key level
+				# Otherwise reject this short altogether to avoid getting chopped around between levels
+				if ( keylevel_strict == True and near_keylevel == False ):
+					resistance_signal = False
+
+				# End Key Levels
+
 
 				# High / low resistance
 #				short_price = float(pricehistory['candles'][idx]['close'])

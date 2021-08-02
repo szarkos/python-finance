@@ -20,27 +20,29 @@ parser.add_argument("--algo", help='Analyze the most recent 5-day and 10-day his
 parser.add_argument("--ofile", help='Dump the pricehistory data to pickle file', default=None, type=str)
 parser.add_argument("--ifile", help='Use pickle file for pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--augment_ifile", help='Pull additional history data and append it to candles imported from ifile', action="store_true")
+parser.add_argument("--weekly_ifile", help='Use pickle file for weekly pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--start_date", help='The day to start trading (i.e. 2021-05-12). Typically useful for verifying history logs.', default=None, type=str)
 
-parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal (default=False)', action="store_true")
-parser.add_argument("--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (default=False)', action="store_true")
-parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (default=False)', action="store_true")
-parser.add_argument("--use_candle_monitor", help='Enable the trivial candle monitor (default=False)', action="store_true")
+parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal (Default: False)', action="store_true")
+parser.add_argument("--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (Default: False)', action="store_true")
+parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (Default: False)', action="store_true")
+parser.add_argument("--keylevel_strict", help='Use strict key level checks to enter trades (Default: False)', action="store_true")
+parser.add_argument("--use_candle_monitor", help='Enable the trivial candle monitor (Default: False)', action="store_true")
 
 parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
-parser.add_argument("--with_adx", help='Use ADX as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
-parser.add_argument("--with_dmi", help='Use DMI as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
-parser.add_argument("--with_dmi_simple", help='Use DMI as secondary indicator to advise trade entries/exits, but do not wait for crossover (default=False)', action="store_true")
-parser.add_argument("--with_aroonosc", help='Use Aroon Oscillator as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
-parser.add_argument("--with_macd", help='Use MACD as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
+parser.add_argument("--with_adx", help='Use ADX as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
+parser.add_argument("--with_dmi", help='Use DMI as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
+parser.add_argument("--with_dmi_simple", help='Use DMI as secondary indicator to advise trade entries/exits, but do not wait for crossover (Default: False)', action="store_true")
+parser.add_argument("--with_aroonosc", help='Use Aroon Oscillator as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
+parser.add_argument("--with_macd", help='Use MACD as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
 parser.add_argument("--with_macd_simple", help='Use MACD as secondary indicator to advise trade entries/exits, but do not wait for crossover (default=False)', action="store_true")
-parser.add_argument("--with_vwap", help='Use VWAP as secondary indicator to advise trade entries/exits (default=False)', action="store_true")
-parser.add_argument("--with_vpt", help='Use VPT as secondary indicator to advise trade entries (default=False)', action="store_true")
+parser.add_argument("--with_vwap", help='Use VWAP as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
+parser.add_argument("--with_vpt", help='Use VPT as secondary indicator to advise trade entries (Default: False)', action="store_true")
 
 parser.add_argument("--days", help='Number of days to test. Separate with a comma to test multiple days.', default='10', type=str)
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
 parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1.5, type=float)
-parser.add_argument("--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
+parser.add_argument("--stoploss", help='Sell security if price drops below --decr_threshold (Default: False)', action="store_true")
 parser.add_argument("--exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
 parser.add_argument("--vwap_exit", help='Use vwap exit strategy - sell/close at half way between entry point and vwap', action="store_true")
 parser.add_argument("--quick_exit", help='Exit immediately if an exit strategy was set, do not wait for the next candle', action="store_true")
@@ -59,7 +61,7 @@ parser.add_argument("--adx_period", help='ADX period', default=48, type=int)
 parser.add_argument("--noshort", help='Disable short selling of stock', action="store_true")
 parser.add_argument("--shortonly", help='Only short sell the stock', action="store_true")
 parser.add_argument("--check_ma", help='Check SMA and EMA to enable/disable short selling of stock', action="store_true")
-parser.add_argument("--verbose", help='Print additional information about each transaction (default=False)', action="store_true")
+parser.add_argument("--verbose", help='Print additional information about each transaction (Default: False)', action="store_true")
 parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
 args = parser.parse_args()
 
@@ -263,6 +265,18 @@ for algo in args.algo.split(','):
 			data = new_data
 			del(new_data, ph_data)
 
+	# Weekly Candles
+	data_weekly = None
+	if ( args.weekly_ifile != None ):
+		try:
+			with open(args.weekly_ifile, 'rb') as handle:
+				data_weekly = handle.read()
+				data_weekly = pickle.loads(data_weekly)
+
+		except Exception as e:
+			print('Error opening file ' + str(args.weekly_ifile) + ': ' + str(e))
+			exit(1)
+
 
 	# Print results for the most recent 10 and 5 days of data
 	for days in str(args.days).split(','):
@@ -355,7 +369,8 @@ for algo in args.algo.split(','):
 									 no_use_resistance=args.no_use_resistance, with_rsi=args.with_rsi, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_macd=args.with_macd, with_vwap=args.with_vwap, with_vpt=args.with_vpt,
 									 with_dmi_simple=args.with_dmi_simple, with_macd_simple=args.with_macd_simple, vpt_sma_period=args.vpt_sma_period, adx_period=args.adx_period,
 									 incr_percent_threshold=args.incr_threshold, decr_percent_threshold=args.decr_threshold,
-									 safe_open=True, exit_percent=args.exit_percent, vwap_exit=args.vwap_exit, quick_exit=args.quick_exit, start_date=args.start_date, debug=True )
+									 safe_open=True, exit_percent=args.exit_percent, vwap_exit=args.vwap_exit, quick_exit=args.quick_exit, start_date=args.start_date,
+									 weekly_ph=data_weekly, keylevel_strict=args.keylevel_strict, debug=True )
 
 		if ( results == False ):
 			print('Error: rsi_analyze() returned false', file=sys.stderr)

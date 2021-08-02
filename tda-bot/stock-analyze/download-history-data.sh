@@ -61,3 +61,30 @@ for t in $tickers; do
 
 done
 
+
+# WEEKLY CHARTS
+cur_year=$( date +'%Y' )
+prev_year1=$( date +'%Y' --date='-1 year' )
+prev_year2=$( date +'%Y' --date='-2 year' )
+function download_weekly() {
+	ticker=$1
+
+	curl --silent "https://www.alphavantage.co/query?function=TIME_SERIES_WEEKLY&symbol=${ticker}&datatype=csv&apikey=${API_KEY}" | \
+			grep -v timestamp,open | tac | \
+			egrep "(^${prev_year2}\-|^${prev_year1}\-|^${cur_year}\-)" > "weekly-csv/${ticker}-weekly-${prev_year2}-${cur_year}.csv"
+
+}
+
+echo 'Downloading weekly data for the following tickers:'
+echo "$1"
+echo
+
+tickers=$( echo -n $tickers | sed 's/,/ /g' )
+for t in $tickers; do
+
+	echo "$t"
+	download_weekly $t &
+
+	sleep 2
+
+done

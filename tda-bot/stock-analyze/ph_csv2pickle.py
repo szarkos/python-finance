@@ -27,6 +27,10 @@ pricehistory = {'candles':	[],
 		'empty':	'False'
 }
 
+date_fmt = '%Y-%m-%d %H:%M:%S'
+if ( re.search('weekly', args.ifile) != None ):
+	date_fmt = '%Y-%m-%d'
+
 try:
 
 	with open(args.ifile, 'r') as handle:
@@ -36,20 +40,22 @@ try:
 			# Log format:
 			# time,open,high,low,close,volume
 			# 2021-03-12 19:51:00,31.44,31.45,31.44,31.45,350
+			#
+			# Note: weekly data does not include %H:%M:%S
 			time,open,high,low,close,volume = line.split(',')
 
 			if ( time == 'time' ):
 				continue
 
-			time = datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S')
+			time = datetime.datetime.strptime(time, date_fmt)
 			time = mytimezone.localize(time)
 			time = time.timestamp() * 1000
 
-			candle_data = { 'open':		open,
-					'high':		high,
-					'low':		low,
-					'close':	close,
-					'volume':	volume,
+			candle_data = { 'open':		float( open ),
+					'high':		float( high ),
+					'low':		float( low ),
+					'close':	float( close ),
+					'volume':	float( volume ),
 					'datetime':	time }
 
 			pricehistory['candles'].append(candle_data)

@@ -1,7 +1,6 @@
 #!/usr/bin/python3 -u
 
-import os, sys, fcntl, re
-import time
+import os, sys, re, time
 from collections import OrderedDict
 
 from datetime import datetime, timedelta
@@ -207,9 +206,15 @@ def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, ba
 		str(sold)				+ ':' + \
 		str(short)
 
-	fcntl.lockf( fh, fcntl.LOCK_EX )
-	print( msg, file=fh, flush=True )
-	fcntl.lockf( fh, fcntl.LOCK_UN )
+	if ( os.name != 'nt' ):
+		import fcntl
+
+		fcntl.lockf( fh, fcntl.LOCK_EX )
+		print( msg, file=fh, flush=True )
+		fcntl.lockf( fh, fcntl.LOCK_UN )
+
+	else:
+		print( msg, file=fh, flush=True )
 
 	fh.close()
 
@@ -326,6 +331,7 @@ def check_stock_symbol(stock=None):
 
 # Write a stock blacklist that can be used to avoid wash sales
 def write_blacklist(ticker=None, stock_qty=-1, orig_base_price=-1, last_price=-1, net_change=-1, percent_change=-1, permanent=False, debug=False):
+
 	if ( ticker == None ):
 		print('Error: write_blacklist(' + str(ticker) + '): ticker is empty', file=sys.stderr)
 		return False
@@ -361,9 +367,15 @@ def write_blacklist(ticker=None, stock_qty=-1, orig_base_price=-1, last_price=-1
 		str(percent_change)	+ '|' + \
 		str(time_now)
 
-	fcntl.lockf( fh, fcntl.LOCK_EX )
-	print( msg, file=fh, flush=True )
-	fcntl.lockf( fh, fcntl.LOCK_UN )
+	if ( os.name != 'nt' ):
+		import fcntl
+
+		fcntl.lockf( fh, fcntl.LOCK_EX )
+		print( msg, file=fh, flush=True )
+		fcntl.lockf( fh, fcntl.LOCK_UN )
+
+	else:
+		print( msg, file=fh, flush=True )
 
 	fh.close()
 

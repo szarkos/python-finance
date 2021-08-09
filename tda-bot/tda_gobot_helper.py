@@ -25,7 +25,7 @@ def tdalogin(passcode=None):
 		return False
 
 	try:
-		enc = func_timeout(10, tda.login, args=(passcode,))
+		enc = func_timeout(5, tda.login, args=(passcode,))
 
 	except FunctionTimedOut:
 		print('Caught Exception: tdalogin(): timed out after 10 seconds' + str(e))
@@ -1874,7 +1874,7 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 	for attempt in range(num_attempts):
 		try:
 #			data, err = tda.place_order(tda_account_number, order, True)
-			data, err = func_timeout(12, tda.place_order, args=(tda_account_number, order, True))
+			data, err = func_timeout(5, tda.place_order, args=(tda_account_number, order, True))
 			if ( debug == True ):
 				print('DEBUG: sell_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
 				print(order)
@@ -1882,7 +1882,7 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 				print(err)
 
 		except FunctionTimedOut:
-			print('Caught Exception: buy_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 12 seconds' + str(e))
+			print('Caught Exception: buy_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 5 seconds' + str(e))
 
 		except Exception as e:
 			print('Caught Exception: buy_stock_marketprice(' + str(ticker) + '): tda.place_order(): ' + str(e))
@@ -1988,7 +1988,7 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 	for attempt in range(num_attempts):
 		try:
 #			data, err = tda.place_order(tda_account_number, order, True)
-			data, err = func_timeout(12, tda.place_order, args=(tda_account_number, order, True))
+			data, err = func_timeout(5, tda.place_order, args=(tda_account_number, order, True))
 			if ( debug == True ):
 				print('DEBUG: sell_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
 				print(order)
@@ -1996,7 +1996,7 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 				print(err)
 
 		except FunctionTimedOut:
-			print('Caught Exception: sell_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 12 seconds' + str(e))
+			print('Caught Exception: sell_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 5 seconds' + str(e))
 
 		except Exception as e:
 			print('Caught Exception: sell_stock_marketprice(' + str(ticker) + '): tda.place_order(): ' + str(e))
@@ -2098,7 +2098,7 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 	for attempt in range(num_attempts):
 		try:
 #			data, err = tda.place_order(tda_account_number, order, True)
-			data, err = func_timeout(12, tda.place_order, args=(tda_account_number, order, True))
+			data, err = func_timeout(5, tda.place_order, args=(tda_account_number, order, True))
 			if ( debug == True ):
 				print('DEBUG: sell_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
 				print(order)
@@ -2106,7 +2106,7 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 				print(err)
 
 		except FunctionTimedOut:
-			print('Caught Exception: short_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 12 seconds' + str(e))
+			print('Caught Exception: short_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 5 seconds' + str(e))
 
 		except Exception as e:
 			print('Caught Exception: short_stock_marketprice(' + str(ticker) + ': tda.place_order(): ' + str(e))
@@ -2213,7 +2213,7 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 	for attempt in range(num_attempts):
 		try:
 			#data, err = tda.place_order(tda_account_number, order, True)
-			data, err = func_timeout(12, tda.place_order, args=(tda_account_number, order, True))
+			data, err = func_timeout(5, tda.place_order, args=(tda_account_number, order, True))
 			if ( debug == True ):
 				print('DEBUG: buytocover_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
 				print(order)
@@ -2221,7 +2221,7 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 				print(err)
 
 		except FunctionTimedOut:
-			print('Caught Exception: buytocover_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 12 seconds' + str(e))
+			print('Caught Exception: buytocover_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 5 seconds' + str(e))
 
 		except Exception as e:
 			print('Caught Exception: buytocover_stock_marketprice(' + str(ticker) + '): tda.place_order(): ' + str(e))
@@ -2624,8 +2624,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	# Resistance / Support
 	if ( no_use_resistance == False ):
 
-		price_resistance_pct = 1.5
-		price_support_pct = 1.5
+		price_resistance_pct = 1
+		price_support_pct = 1
 
 		# Day stats
 		pdc = OrderedDict()
@@ -2988,14 +2988,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 						near_keylevel = True
 
 						# Current price is very close to a key level
-						# Next check average of last 30 (1-minute) candles
+						# Next check average of last 15 (1-minute) candles
 						#
-						# If last 30 candles average above key level, then key level is support
+						# If last 15 candles average above key level, then key level is support
 						# otherwise it is resistance
 						avg = 0
-						for i in range(30, 0, -1):
+						for i in range(15, 0, -1):
 							avg += float( pricehistory['candles'][idx-i]['close'] )
-						avg = avg / 30
+						avg = avg / 15
 
 						# If average was below key level then key level is resistance
 						# Therefore this is not a great buy
@@ -3332,8 +3332,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					if ( avg > cur_vwap ):
 						resistance_signal = False
 
-
-
 				# Key Levels
 				# Check if price is near historic key level
 				cur_price = float(pricehistory['candles'][idx]['close'])
@@ -3343,14 +3341,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 						near_keylevel = True
 
 						# Current price is very close to a key level
-						# Next check average of last 30 (1-minute) candles
+						# Next check average of last 15 (1-minute) candles
 						#
-						# If last 30 candles average below key level, then key level is resistance
+						# If last 15 candles average below key level, then key level is resistance
 						# otherwise it is support
 						avg = 0
-						for i in range(30, 0, -1):
+						for i in range(15, 0, -1):
 							avg += float( pricehistory['candles'][idx-i]['close'] )
-						avg = avg / 30
+						avg = avg / 15
 
 						# If average was above key level then key level is support
 						# Therefore this is not a good short
@@ -3364,7 +3362,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					resistance_signal = False
 
 				# End Key Levels
-
 
 				# High / low resistance
 #				short_price = float(pricehistory['candles'][idx]['close'])

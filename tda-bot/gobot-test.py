@@ -34,7 +34,8 @@ mytimezone = pytz.timezone("US/Eastern")
 #stochrsi_rsi_adx_macd
 #stochrsi_adx_dmi
 #stochrsi_adx_macd
-scenarios = {	'stochrsi_rsi':				'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi',
+scenarios = {	'stochrsi':				'--rsi_high_limit=95 --rsi_low_limit=5',
+		'stochrsi_rsi':				'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi',
 
 		'stochrsi_macd':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_macd',
 		'stochrsi_rsi_macd':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_macd',
@@ -53,6 +54,11 @@ scenarios = {	'stochrsi_rsi':				'--rsi_high_limit=95 --rsi_low_limit=5 --with_r
 		'stochrsi_rsi_adx_macd':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_macd',
 		'stochrsi_adx_dmi':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_dmi',
 }
+
+scenarios = { 'stochrsi_macd_dmi_simple':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_macd --with_dmi_simple' }
+
+
+
 
 #scenarios = {
 #		'stochrsi_rsi_adx_vpt':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_vpt',

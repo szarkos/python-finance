@@ -132,6 +132,7 @@ stocks.txt
 results/
 results/*
 watchlist.txt
+tickers.conf
 *.gz
 *.bz2
 

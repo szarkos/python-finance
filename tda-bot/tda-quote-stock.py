@@ -32,6 +32,7 @@ parser.add_argument("--vwap", help="Get VWAP values", action="store_true")
 parser.add_argument("--rsi", help="Get RSI values", action="store_true")
 parser.add_argument("--stochrsi", help="Get stochastic RSI values", action="store_true")
 parser.add_argument("--volatility", help="Get the historical volatility for a stock", action="store_true")
+parser.add_argument("--get_instrument", help="Stock ticker to obtain instrument data", action="store_true")
 
 parser.add_argument("--blacklist", help="Blacklist stock ticker for one month", action="store_true")
 parser.add_argument("--permanent", help="Blacklist stock ticker permanently", action="store_true")
@@ -105,7 +106,33 @@ else:
 	stock = args.stocks
 
 ## Get stock quote and print the results
-if ( args.quote == True ):
+if ( args.get_instrument == True ):
+
+	# Get the fundamental data from get_quote API
+	try:
+		data,err = tda.stocks.search_instruments(stock, 'fundamental', True)
+
+	except Exception as e:
+		print('Exception caught: ' + str(e))
+
+	if ( err != None ):
+		print('Error: search_instruments(' + str(stock) + '): ' + str(err), file=sys.stderr)
+		exit(1)
+	elif ( data == {} ):
+		print('Error: search_instruments(' + str(stock) + '): Empty data set', file=sys.stderr)
+		exit(1)
+
+	if ( args.pretty == True ):
+		import pprint
+		pp = pprint.PrettyPrinter(indent=4)
+		pp.pprint(data)
+	else:
+		print(data, end='')
+
+	exit(0)
+
+
+elif ( args.quote == True ):
 
 	try:
 		last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=False)

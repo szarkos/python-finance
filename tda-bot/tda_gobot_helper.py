@@ -6,9 +6,9 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 from pytz import timezone
 
-import tulipy as ti
 import numpy as np
 import pandas as pd
+import tulipy as ti
 
 from func_timeout import func_timeout, FunctionTimedOut
 

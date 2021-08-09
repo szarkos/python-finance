@@ -12,8 +12,6 @@ import pandas as pd
 
 from func_timeout import func_timeout, FunctionTimedOut
 
-import tda_cndl_helper
-
 
 # Login to tda using a passcode
 def tdalogin(passcode=None):

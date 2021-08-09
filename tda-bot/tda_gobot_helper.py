@@ -9,7 +9,6 @@ from pytz import timezone
 import tulipy as ti
 import numpy as np
 import pandas as pd
-from pandas_datareader import data as web
 
 from func_timeout import func_timeout, FunctionTimedOut
 
@@ -753,6 +752,8 @@ def get_pdc(pricehistory=None, debug=False):
 
 	pdc = None
 	try:
+		from pandas_datareader import data as web
+
 		pdc = func_timeout( 10, web.DataReader, args=(ticker,), kwargs={'data_source': 'yahoo', 'start': yesterday, 'end': yesterday} )
 		pdc = pdc['Adj Close']
 		pdc = pdc.values[0]

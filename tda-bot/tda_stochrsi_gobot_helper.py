@@ -588,6 +588,36 @@ def stochrsi_gobot( algos=None, debug=False ):
 					if ( avg < cur_vwap ):
 						stocks[ticker]['resistance_signal'] = False
 
+				# Key Levels
+				# Check if price is near historic key level
+				near_keylevel = False
+				for lvl in stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']:
+					if ( abs((lvl / cur_price - 1) * 100) <= price_support_pct ):
+						near_keylevel = True
+
+						# Current price is very close to a key level
+						# Next check average of last 15 (1-minute) candles
+						#
+						# If last 15 candles average above key level, then key level is support
+						# otherwise it is resistance
+						avg = 0
+						for i in range(15, 0, -1):
+							avg += float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
+						avg = avg / 15
+
+						# If average was below key level then key level is resistance
+						# Therefore this is not a great buy
+						if ( avg < lvl ):
+							stocks[ticker]['resistance_signal'] = False
+							break
+
+				# If keylevel_strict is True then only buy the stock if price is near a key level
+				# Otherwise reject this buy to avoid getting chopped around between levels
+				if ( args.keylevel_strict == True and near_keylevel == False ):
+					stocks[ticker]['resistance_signal'] = False
+
+				# End Key Levels
+
 #				# 20-week high
 #				if ( cur_price >= float(stocks[ticker]['twenty_week_high']) ):
 #					# This is not a good bet
@@ -995,6 +1025,36 @@ def stochrsi_gobot( algos=None, debug=False ):
 					# If average was above VWAP then VWAP is support (bad for short)
 					if ( avg > cur_vwap ):
 						stocks[ticker]['resistance_signal'] = False
+
+				# Key Levels
+				# Check if price is near historic key level
+				near_keylevel = False
+				for lvl in stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']:
+					if ( abs((lvl / cur_price - 1) * 100) <= price_resistance_pct ):
+						near_keylevel = True
+
+						# Current price is very close to a key level
+						# Next check average of last 15 (1-minute) candles
+						#
+						# If last 15 candles average below key level, then key level is resistance
+						# otherwise it is support
+						avg = 0
+						for i in range(15, 0, -1):
+							avg += float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
+						avg = avg / 15
+
+						# If average was above key level then key level is support
+						# Therefore this is not a good short
+						if ( avg > lvl ):
+							stocks[ticker]['resistance_signal'] = False
+							break
+
+				# If keylevel_strict is True then only short the stock if price is near a key level
+				# Otherwise reject this short altogether to avoid getting chopped around between levels
+				if ( args.keylevel_strict == True and near_keylevel == False ):
+					stocks[ticker]['resistance_signal'] = False
+
+				# End Key Levels
 
 #				# 20-week low
 #				if ( cur_price <= float(stocks[ticker]['twenty_week_low']) ):

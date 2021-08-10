@@ -1706,7 +1706,7 @@ def get_vwap(pricehistory=None, day='today', end_timestamp=None, use_bands=True,
 	vwap = vwap['vwap'].to_numpy()
 
 	if ( use_bands == False ):
-		return vwap
+		return vwap, [], []
 
 	# Calculate the standard deviation for each bar and the upper/lower bands
 	vwap_up = []
@@ -2303,6 +2303,10 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 	return data
 
 
+# Return the key levels for a stock
+# Preferably uses weekly candle data for pricehistory
+# If filter=True, we use ATR to help filter the data and remove key levels that are
+#  within one ATR from eachother
 def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, debug=False):
 
 	if ( pricehistory == None ):

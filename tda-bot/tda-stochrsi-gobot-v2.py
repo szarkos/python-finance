@@ -14,8 +14,8 @@
 #	--algos=stochrsi,adx,dmi,support_resistance \
 #	> logs/gobot-v2.log 2>&1
 
-import os, sys, signal
-import time, datetime, pytz, random
+import os, sys, signal, re, random
+import time, datetime, pytz
 from collections import OrderedDict
 import argparse
 
@@ -82,6 +82,9 @@ parser.add_argument("--period_multiplier", help='Period multiplier - set statica
 #parser.add_argument("--with_macd", help='Use the Moving Average Convergence Divergence (MACD) as a secondary indicator', action="store_true")
 #parser.add_argument("--with_aroonosc", help='Use the Aroon Oscillator as a secondary indicator', action="store_true")
 #parser.add_argument("--with_vwap", help='Use VWAP as a secondary indicator', action="store_true")
+
+parser.add_argument("--weekly_ifile", help='Use pickle file for weekly pricehistory data rather than accessing the API', default=None, type=str)
+parser.add_argument("--keylevel_strict", help='Use strict key level checks to enter trades (Default: False)', action="store_true")
 
 parser.add_argument("--short", help='Enable short selling of stock', action="store_true")
 parser.add_argument("--shortonly", help='Only short sell the stock', action="store_true")
@@ -296,6 +299,9 @@ for ticker in args.stocks.split(','):
 				    'twenty_week_avg':		float(0),
 
 				    'previous_day_close':	None,
+
+				    'kl_long_support':		[],
+				    'kl_long_resistance':	[],
 
 				    # SMA200 and EMA50
 				    'cur_sma':			None,
@@ -605,6 +611,50 @@ for ticker in list(stocks.keys()):
 			if ( stocks[ticker]['previous_day_close'] == None ):
 				print('Error: (' + str(ticker) + '): get_pdc() returned None, retrying...')
 				time.sleep(5)
+
+	# Key Levels
+	# Use weekly_ifile or download weekly candle data
+	weekly_ph = False
+	if ( args.weekly_ifile != None ):
+		import pickle
+		weekly_ifile = re.sub('TICKER', ticker, args.weekly_ifile)
+
+		try:
+			with open(weekly_ifile, 'rb') as handle:
+				weekly_ph = handle.read()
+				weekly_ph = pickle.loads(weekly_ph)
+
+		except Exception as e:
+			print('Exception caught, error opening file ' + str(weekly_ifile) + ': ' + str(e) + '. Falling back to get_pricehistory().')
+
+	if ( weekly_ph == False):
+
+		# Use get_pricehistory() to download weekly data
+		p_type = 'year'
+		period = '2'
+		f_type = 'weekly'
+		freq = '1'
+
+		while ( weekly_ph == False ):
+			weekly_ph, ep = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, needExtendedHoursData=False)
+
+			if ( weekly_ph == False ):
+				time.sleep(5)
+				if ( tda_gobot_helper.tdalogin(passcode) != True ):
+					print('Error: (' + str(ticker) + '): Login failure')
+
+	# Calculate the keylevels
+	try:
+		stocks[ticker]['kl_long_support'], stocks[ticker]['kl_long_resistance'] = tda_gobot_helper.get_keylevels(weekly_ph, filter=False)
+
+	except Exception as e:
+		print('Exception caught: get_keylevels(' + str(ticker) + '): ' + str(e) + '. Keylevels will not be used.')
+
+	if ( stocks[ticker]['kl_long_support'] == False ):
+		stocks[ticker]['kl_long_support'] = []
+		stocks[ticker]['kl_long_resistance'] = []
+
+	# End Key Levels
 
 	time.sleep(1)
 

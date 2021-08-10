@@ -2821,10 +2821,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		# Check SMA/EMA to see if stock is bullish or bearish
 		if ( check_ma == True ):
 			cur_day = date.strftime('%Y-%m-%d')
-			cur_sma = sma['moving_avg'][cur_day]
-			cur_ema = ema['moving_avg'][cur_day]
 
-			if ( cur_sma < cur_ema ):
+			try:
+				cur_sma = sma['moving_avg'][cur_day]
+				cur_ema = ema['moving_avg'][cur_day]
+
+			except Exception as e:
+				cur_sma = 0
+				cur_ema = 0
+
+			if ( cur_sma <= cur_ema ):
 				# Stock is bullish, disable shorting for now
 				noshort = True
 				if ( signal_mode == 'short' ):

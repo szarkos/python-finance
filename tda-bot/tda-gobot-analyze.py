@@ -27,7 +27,7 @@ parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and 
 parser.add_argument("--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (Default: False)', action="store_true")
 parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (Default: False)', action="store_true")
 parser.add_argument("--keylevel_strict", help='Use strict key level checks to enter trades (Default: False)', action="store_true")
-parser.add_argument("--use_candle_monitor", help='Enable the trivial candle monitor (Default: False)', action="store_true")
+#parser.add_argument("--use_candle_monitor", help='Enable the trivial candle monitor (Default: False)', action="store_true")
 
 parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
 parser.add_argument("--with_adx", help='Use ADX as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
@@ -391,7 +391,8 @@ for algo in args.algo.split(','):
 
 		rating = 0
 		success = fail = 0
-		net_gain = net_loss = 0
+		net_gain = float(0)
+		net_loss = float(0)
 		counter = 0
 		while ( counter < len(results) - 1 ):
 
@@ -549,6 +550,16 @@ for algo in args.algo.split(','):
 
 		print( 'Average gain: ' + text_color + str(round(average_gain, 2)) + ' / share' + reset_color )
 		print( 'Average loss: ' + text_color + str(round(average_loss, 2)) + ' / share' + reset_color )
+
+		# Compare net gain vs net loss
+		if ( net_gain <= abs(net_loss) ):
+			rating -= 8
+			text_color = red
+		else:
+			text_color = green
+
+		print( 'Net gain: ' + text_color + str(round(net_gain, 2)) + ' / share' + reset_color )
+		print( 'Net loss: ' + text_color + str(round(net_loss, 2)) + ' / share' + reset_color )
 
 		# Calculate the average gain per share price
 		if ( args.ifile != None ):

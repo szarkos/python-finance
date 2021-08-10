@@ -142,13 +142,38 @@ for t in $tickers; do
 	echo
 done
 
+# Net gain and net loss per ticker, per test type
+echo -e "\n\n"
+echo -n "stock,"
+for i in $tests; do
+	echo -n "${i}-NET_GAIN,${i}-NET_LOSS,${i}-TOTAL_GAIN,"
+done
+echo
+
+for t in $tickers; do
+
+	echo -n "$t,"
+
+	for tst in $tests; do
+		gain=$( cat ${t}-${tst} | grep 'Net gain\:' | sed 's/Net gain: //' | sed 's/ \/.*//' | sed -z 's/\n/ + /g' | perl -e '$a=<>; $a =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$a 0\n" ' | bc )
+		loss=$( cat ${t}-${tst} | grep 'Net loss\:' | sed 's/Net loss: //' | sed 's/ \/.*//' | sed -z 's/\n/ + /g' | perl -e '$a=<>; $a =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$a 0\n" ' | bc )
+
+		echo -n "${gain},${loss},"
+
+		gain=$( echo "$gain + ${loss}" | bc ) # We use + here because $loss is almost always preceded by a minus sign
+		echo -n "${gain},"
+
+	done
+	echo
+done
+
 
 # Print average gain/loss for each test type
 echo -e "\n\n"
 echo "Test,Avg Gain,Avg Loss"
 for t in $tests; do
-	gain=$( cat *-${t} | grep 'gain\:' | sed 's/Average gain: //' | sed 's/ \/.*//' | sed -z 's/\n/ + /g' | perl -e '$a=<>; $a =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$a 0\n" ' | bc )
-	loss=$( cat *-${t} | grep 'loss\:' | sed 's/Average loss: //' | sed 's/ \/.*//' | sed -z 's/\n/ + /g' | perl -e '$a=<>; $a =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$a 0\n" ' | bc )
+	gain=$( cat *-${t} | grep 'Average gain\:' | sed 's/Average gain: //' | sed 's/ \/.*//' | sed -z 's/\n/ + /g' | perl -e '$a=<>; $a =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$a 0\n" ' | bc )
+	loss=$( cat *-${t} | grep 'Average loss\:' | sed 's/Average loss: //' | sed 's/ \/.*//' | sed -z 's/\n/ + /g' | perl -e '$a=<>; $a =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$a 0\n" ' | bc )
 	echo "$t,$gain,$loss"
 done
 

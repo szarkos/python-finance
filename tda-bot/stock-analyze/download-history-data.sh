@@ -8,6 +8,7 @@
 #	./download-history-data.sh $SMALL_MID2
 
 tickers=${1-''}
+months=${2-'3'}
 
 if [ "$tickers" == '' ]; then
 	echo "Please provide a list of tickers (comma separated)"
@@ -41,13 +42,22 @@ function download_ticker() {
 
 	ticker=$1
 
-	curl --silent "${BASE_URL}&symbol=${ticker}&slice=year1month3&apikey=${API_KEY}" | grep -v 'time,open' | tac > "monthly-csv/${ticker}-3months-${today}.csv"
-	curl --silent "${BASE_URL}&symbol=${ticker}&slice=year1month2&apikey=${API_KEY}" | grep -v 'time,open' | tac >> "monthly-csv/${ticker}-3months-${today}.csv"
-	curl --silent "${BASE_URL}&symbol=${ticker}&slice=year1month1&apikey=${API_KEY}" | grep -v 'time,open' | tac >> "monthly-csv/${ticker}-3months-${today}.csv"
+	let i=$months
+	if [ "$i" -eq 1 ]; then
+		curl --silent "${BASE_URL}&symbol=${ticker}&slice=year1month1&apikey=${API_KEY}" | grep -v 'time,open' | tac > "monthly-csv/${ticker}-1months-${today}.csv"
 
+	else
+
+		echo -n "" > "monthly-csv/${ticker}-${months}months-${today}.csv"
+		while [ "$i" -gt 0 ]; do
+			curl --silent "${BASE_URL}&symbol=${ticker}&slice=year1month${i}&apikey=${API_KEY}" | grep -v 'time,open' | tac >> "monthly-csv/${ticker}-${months}months-${today}.csv"
+			let i=$i-1
+		done
+
+	fi
 }
 
-echo 'Downloading 3-months of 1-minute data for the following tickers:'
+echo "Downloading ${months}-months of 1-minute data for the following tickers:"
 echo "$1"
 echo
 

@@ -16,6 +16,7 @@ group.add_argument("--print_scenarios", help='Just print the test scenarios and 
 parser.add_argument("--ofile", help='File to output results', type=str, default=None)
 parser.add_argument("--all", help='File to output results', action="store_true")
 parser.add_argument("--opts", help='Add any additional options for tda-gobot-analyze', default=None, type=str)
+parser.add_argument("--debug", help='Enable debug output', action="store_true")
 
 args = parser.parse_args()
 
@@ -55,10 +56,13 @@ scenarios = {	'stochrsi':				'--rsi_high_limit=95 --rsi_low_limit=5',
 		'stochrsi_adx_dmi':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_adx --with_dmi',
 }
 
-scenarios = { 'stochrsi_macd_dmi_simple':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_macd --with_dmi_simple' }
+scenarios = {	'stochrsi':				'--rsi_high_limit=95 --rsi_low_limit=5',
 
+		'stochrsi_dmi_simple':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_dmi_simple',
+		'stochrsi_vpt':				'--rsi_high_limit=95 --rsi_low_limit=5 --with_vpt',
 
-
+		'stochrsi_vpt_dmi_simple':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_vpt --with_dmi_simple'
+}
 
 #scenarios = {
 #		'stochrsi_rsi_adx_vpt':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_rsi --with_adx --with_vpt',
@@ -219,6 +223,9 @@ for key in scenarios:
 			str(opts) + ' --ifile=' + str(args.ifile) + ' ' + str(start_date) + ' ' + str(scenarios[key])
 
 	outfile = str(args.ofile) + '-' + str(key)
+
+	if ( args.debug == True ):
+		print('Command: ' + str(command))
 
 	try:
 		process = Popen( command, stdin=None, stdout=PIPE, stderr=STDOUT, shell=True )

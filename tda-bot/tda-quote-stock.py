@@ -182,7 +182,7 @@ elif ( args.vwap == True ):
 		exit(1)
 
 	try:
-		vwap = tda_gobot_helper.get_vwap(data)
+		vwap, vwap_up, vwap_down = tda_gobot_helper.get_vwap(data)
 
 	except Exception as e:
 		print('Caught Exception: rsi_analyze(' + str(stock) + '): get_vwap(): ' + str(e), file=sys.stderr)

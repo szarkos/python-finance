@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -u
 
-import os, sys
+import os, sys, signal
 import time, datetime, pytz, random
 import pickle
 import tda_gobot_helper
@@ -135,9 +135,8 @@ def export_pricehistory():
 
 		try:
 			fname = './' + str(args.tx_log_dir) + '/' + str(ticker) + '.data'
-			file = open(fname, "wb")
-			pickle.dump(stocks[ticker]['pricehistory'], file)
-			file.close()
+			with open(fname, 'wb') as handle:
+				pickle.dump(stocks[ticker]['pricehistory'], handle)
 
 		except Exception as e:
 			print('Error: Unable to write to file ' + str(fname) + ': ' + str(e))
@@ -163,15 +162,13 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 	if ( valid == 0 ):
 		print("\nNo more valid stock tickers, exiting.")
-		export_pricehistory()
-		sys.exit(0)
+		signal.raise_signal(signal.SIGTERM)
 
 	# Exit if we are not set up to monitor across multiple days
 	if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False ):
 		if ( args.singleday == False and args.multiday == False ):
 			print('Market closed, exiting.')
-			export_pricehistory()
-			sys.exit(0)
+			signal.raise_signal(signal.SIGTERM)
 
 	# Iterate through the stock tickers, calculate the stochRSI, and make buy/sell decisions
 	for ticker in stocks.keys():

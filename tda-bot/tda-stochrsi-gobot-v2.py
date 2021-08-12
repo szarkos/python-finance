@@ -49,7 +49,6 @@ parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX
 parser.add_argument("--multiday", help='Run and monitor stock continuously across multiple days (but will not trade after hours) - see also --hold_overnight', action="store_true")
 parser.add_argument("--singleday", help='Allows bot to start (but not trade) before market opens. Bot will revert to non-multiday behavior after the market opens.', action="store_true")
 parser.add_argument("--unsafe", help='Allow trading between 9:30-10:15AM where volatility is high', action="store_true")
-parser.add_argument("--notmarketclosed", help='Cancel order and exit if US stock market is closed', action="store_true")
 parser.add_argument("--hold_overnight", help='Hold stocks overnight when --multiday is in use (default: False) - Warning: implies --unsafe', action="store_true")
 parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (default=False)', action="store_true")
 
@@ -122,8 +121,8 @@ if ( args.scalp_mode == True ):
 		args.exit_percent = 0.2
 
 # Early exit criteria goes here
-if ( args.notmarketclosed == True and tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False ):
-	print('Market is closed and --notmarketclosed was set, exiting')
+if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False and args.multiday == False ):
+	print('Market is closed and --multiday was not set, exiting')
 	sys.exit(1)
 
 # Initialize and log into TD Ameritrade

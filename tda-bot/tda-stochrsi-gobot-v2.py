@@ -121,8 +121,8 @@ if ( args.scalp_mode == True ):
 		args.exit_percent = 0.2
 
 # Early exit criteria goes here
-if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False and args.multiday == False ):
-	print('Market is closed and --multiday was not set, exiting')
+if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False and args.multiday == False and args.singleday == False ):
+	print('Market is closed and --multiday or --singleday was not set, exiting')
 	sys.exit(1)
 
 # Initialize and log into TD Ameritrade
@@ -574,6 +574,7 @@ for ticker in list(stocks.keys()):
 			stocks[ticker]['pricehistory'] = data
 
 	if ( len(data['candles']) < int(args.stochrsi_period) * 2 ):
+		print(data['candles'])
 		print('Warning: stock(' + str(ticker) + '): len(pricehistory[candles]) is less than stochrsi_period*2 (new stock ticker?), removing from the list')
 		stocks[ticker]['isvalid'] = False
 

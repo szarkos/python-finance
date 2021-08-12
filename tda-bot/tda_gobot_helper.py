@@ -2502,7 +2502,7 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, deb
 
 # Like stochrsi_analyze(), but sexier
 def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3,
-			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=1.5, hold_overnight=False, exit_percent=None, vwap_exit=False, quick_exit=False,
+			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=1.5, hold_overnight=False, exit_percent=None, strict_exit_percent=False, vwap_exit=False, quick_exit=False,
 			  no_use_resistance=False, with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_macd=False, with_vwap=False, with_vpt=False,
 			  with_dmi_simple=False, with_macd_simple=False, vpt_sma_period=72, adx_period=48,
 			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None, weekly_ph=None, keylevel_strict=False,
@@ -3162,16 +3162,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 
 			# Monitor RSI
-			if ( cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit ):
+			if ( strict_exit_percent == False ):
+				if ( cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit ):
 
-				# Monitor if K and D intercect
-				# A sell signal occurs when a decreasing %K line crosses below the %D line in the overbought region
-				if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
-					sell_signal = True
+					# Monitor if K and D intercect
+					# A sell signal occurs when a decreasing %K line crosses below the %D line in the overbought region
+					if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
+						sell_signal = True
 
-			elif ( prev_rsi_k > rsi_high_limit and cur_rsi_k < prev_rsi_k ):
-				if ( cur_rsi_k <= rsi_high_limit ):
-					sell_signal = True
+				elif ( prev_rsi_k > rsi_high_limit and cur_rsi_k < prev_rsi_k ):
+					if ( cur_rsi_k <= rsi_high_limit ):
+						sell_signal = True
 
 			if ( sell_signal == True ):
 
@@ -3518,16 +3519,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 
 			# Monitor RSI
-			if ( cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit ):
+			if ( strict_exit_percent == False ):
+				if ( cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit ):
 
-				# Monitor if K and D intercect
-				# A buy-to-cover signal occurs when an increasing %K line crosses above the %D line in the oversold region.
-				if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
-					buy_to_cover_signal = True
+					# Monitor if K and D intercect
+					# A buy-to-cover signal occurs when an increasing %K line crosses above the %D line in the oversold region.
+					if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
+						buy_to_cover_signal = True
 
-			elif ( prev_rsi_k < rsi_low_limit and cur_rsi_k > prev_rsi_k ):
-				if ( cur_rsi_k >= rsi_low_limit ):
-					buy_to_cover_signal = True
+				elif ( prev_rsi_k < rsi_low_limit and cur_rsi_k > prev_rsi_k ):
+					if ( cur_rsi_k >= rsi_low_limit ):
+						buy_to_cover_signal = True
 
 			# BUY-TO-COVER
 			if ( buy_to_cover_signal == True ):

@@ -44,6 +44,7 @@ parser.add_argument("--incr_threshold", help='Reset base_price if stock increase
 parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1.5, type=float)
 parser.add_argument("--stoploss", help='Sell security if price drops below --decr_threshold (Default: False)', action="store_true")
 parser.add_argument("--exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
+parser.add_argument("--strict_exit_percent", help='Only exit when exit_percent or vwap_exit signals an exit, ignore stochrsi', action="store_true")
 parser.add_argument("--vwap_exit", help='Use vwap exit strategy - sell/close at half way between entry point and vwap', action="store_true")
 parser.add_argument("--quick_exit", help='Exit immediately if an exit strategy was set, do not wait for the next candle', action="store_true")
 
@@ -369,7 +370,7 @@ for algo in args.algo.split(','):
 									 no_use_resistance=args.no_use_resistance, with_rsi=args.with_rsi, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_macd=args.with_macd, with_vwap=args.with_vwap, with_vpt=args.with_vpt,
 									 with_dmi_simple=args.with_dmi_simple, with_macd_simple=args.with_macd_simple, vpt_sma_period=args.vpt_sma_period, adx_period=args.adx_period,
 									 incr_percent_threshold=args.incr_threshold, decr_percent_threshold=args.decr_threshold,
-									 safe_open=True, exit_percent=args.exit_percent, vwap_exit=args.vwap_exit, quick_exit=args.quick_exit, start_date=args.start_date,
+									 safe_open=True, exit_percent=args.exit_percent, strict_exit_percent=args.strict_exit_percent, vwap_exit=args.vwap_exit, quick_exit=args.quick_exit, start_date=args.start_date,
 									 weekly_ph=data_weekly, keylevel_strict=args.keylevel_strict, debug=True )
 
 		if ( results == False ):

@@ -38,6 +38,7 @@ parser.add_argument("--fake", help='Paper trade only - runs tda-gobot with --fak
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=0.5, type=float)
 parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1, type=float)
 parser.add_argument("--scalp_mode", help='Enable scalp mode (fixes incr_threshold and decr_threshold to low values)', action="store_true")
+parser.add_argument("--after_hours", help='Enable running after hours (pre/post market)', action="store_true")
 
 parser.add_argument("--gap_threshold", help='Threshold for gap up/down detection (percentage)', default=1, type=float)
 parser.add_argument("--vwap_threshold", help='Threshold for VWAP proximity detection (percentage)', default=1, type=float)
@@ -70,12 +71,17 @@ if ( tda_gobot_helper.tdalogin(passcode) != True ):
 	print('Error: Login failure', file=sys.stderr)
 	sys.exit(1)
 
-# Watchlist params
+# Global params
 watchlists = [ 'STOCK-MONITOR-GAPUP', 'STOCK-MONITOR-GAPDOWN', 'STOCK-MONITOR-VWAP' ]
 watchlist_template = {  "name": "",
 			"watchlistItems": [
 				{ "instrument": { "symbol": "GME", "assetType": "EQUITY" } }
 			] }
+
+prev_timestamp = 0
+gap_up_list = []
+gap_down_list = []
+vwap_list = []
 
 # Initialize stocks{}
 print( 'Initializing stock tickers: ' + str(args.stocks.split(',')) )
@@ -254,7 +260,10 @@ def stock_monitor(stream=None, debug=False):
 	if ( stream == None ):
 		return False
 
-	time_now = datetime.datetime.now(mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+	global prev_timestamp, gap_up_list, gap_down_list, vwap_list
+
+	time_now = datetime.datetime.now(mytimezone)
+	strtime_now = time_now.strftime('%Y-%m-%d %H:%M:%S.%f')
 
 	# Example stream:
 	#
@@ -273,6 +282,11 @@ def stock_monitor(stream=None, debug=False):
 	#		'CHART_TIME': 1619813220000,
 	#		'CHART_DAY': 18747 }]
 	# }
+	if ( int(stream['timestamp']) == prev_timestamp ):
+		return False
+
+	prev_timestamp = int( stream['timestamp'] )
+
 	for idx in stream['content']:
 		ticker = idx['key']
 
@@ -288,7 +302,7 @@ def stock_monitor(stream=None, debug=False):
 
 		stocks[ticker]['pricehistory']['candles'].append(candle_data)
 
-	if ( tda_gobot_helper.ismarketopen_US() == False ):
+	if ( tda_gobot_helper.ismarketopen_US() == False and args.after_hours == False ):
 		if ( debug == True ):
 			print('Market is closed.')
 
@@ -329,7 +343,7 @@ def stock_monitor(stream=None, debug=False):
 					str(round(prev_price, 2)) + ',' + \
 					str(round(cur_price, 2)) + ',' + \
 					str(round(price_change, 2)) + '%' + ',' + \
-					str(time_now)
+					time_now
 
 			if ( cur_price > prev_price ):
 
@@ -341,7 +355,7 @@ def stock_monitor(stream=None, debug=False):
 						stock, pprice, cprice, pct_change, time = str(evnt).split(',')
 
 						if ( stock == ticker ):
-							cur_time = datetime.datetime.strptime(time_now, '%Y-%m-%d %H:%M:%S.%f')
+							cur_time = time_now
 							cur_time = mytimezone.localize(cur_time)
 
 							prev_time = datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
@@ -370,7 +384,7 @@ def stock_monitor(stream=None, debug=False):
 						stock, pprice, cprice, pct_change, time = str(evnt).split(',')
 
 						if ( stock == ticker ):
-							cur_time = datetime.datetime.strptime(time_now, '%Y-%m-%d %H:%M:%S.%f')
+							cur_time = time_now
 							cur_time = mytimezone.localize(cur_time)
 
 							prev_time = datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
@@ -413,7 +427,7 @@ def stock_monitor(stream=None, debug=False):
 						stock, pprice, cprice, pct_change, time = str(evnt).split(',')
 
 						if ( stock == ticker ):
-							cur_time = datetime.datetime.strptime(time_now, '%Y-%m-%d %H:%M:%S.%f')
+							cur_time = time_now
 							cur_time = mytimezone.localize(cur_time)
 
 							prev_time = datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
@@ -431,7 +445,7 @@ def stock_monitor(stream=None, debug=False):
 							str(round(prev_price, 2)) + ',' + \
 							str(round(cur_price, 2)) + ',' + \
 							str(round(vwap, 2)) + ',' + \
-							str(time_now)
+							time_now
 
 					vwap_list.append(vwap_event)
 
@@ -458,12 +472,13 @@ def stock_monitor(stream=None, debug=False):
 
 		for idx,evnt in enumerate( reversed(gap_up_list) ):
 			ticker, prev_price, cur_price, pct_change, time = str(evnt).split(',')
+			strtime = time.strftime('%Y-%m-%d %H:%M:%S.%f')
 
 			color = ''
-			if ( time == time_now ):
+			if ( time <= time_now - datetime.timedelta(mins=5) ):
 				color = green
 
-			print(color + '{0:10} {1:15} {2:15} {3:10} {4:10}'.format(ticker, prev_price, cur_price, pct_change, time) + reset_color)
+			print(color + '{0:10} {1:15} {2:15} {3:10} {4:10}'.format(ticker, prev_price, cur_price, pct_change, strtime) + reset_color)
 
 			instrument = { "instrument": { "symbol": ticker, "assetType": "EQUITY" } }
 			watchlist_template['watchlistItems'].append(instrument)
@@ -496,12 +511,13 @@ def stock_monitor(stream=None, debug=False):
 
 		for idx,evnt in enumerate( reversed(gap_down_list) ):
 			ticker, prev_price, cur_price, pct_change, time = str(evnt).split(',')
+			strtime = time.strftime('%Y-%m-%d %H:%M:%S.%f')
 
 			color = ''
-			if ( time == time_now ):
+			if ( time <= time_now - datetime.timedelta(mins=5) ):
 				color = red
 
-			print(color + '{0:10} {1:15} {2:15} {3:10} {4:10}'.format(ticker, prev_price, cur_price, pct_change, time) + reset_color)
+			print(color + '{0:10} {1:15} {2:15} {3:10} {4:10}'.format(ticker, prev_price, cur_price, pct_change, strtime) + reset_color)
 
 			instrument = { "instrument": { "symbol": ticker, "assetType": "EQUITY" } }
 			watchlist_template['watchlistItems'].append(instrument)
@@ -534,12 +550,13 @@ def stock_monitor(stream=None, debug=False):
 
 		for idx,evnt in enumerate( reversed(vwap_list) ):
 			ticker, prev_price, cur_price, vwap, time = str(evnt).split(',')
+			strtime = time.strftime('%Y-%m-%d %H:%M:%S.%f')
 
 			color = ''
-			if ( time == time_now ):
+			if ( time <= time_now - datetime.timedelta(mins=5) ):
 				color = green
 
-			print(color + '{0:10} {1:15} {2:15} {3:10} {4:10}'.format(ticker, prev_price, cur_price, vwap, time) + reset_color)
+			print(color + '{0:10} {1:15} {2:15} {3:10} {4:10}'.format(ticker, prev_price, cur_price, vwap, strtime) + reset_color)
 
 			instrument = { "instrument": { "symbol": ticker, "assetType": "EQUITY" } }
 			watchlist_template['watchlistItems'].append(instrument)
@@ -633,7 +650,8 @@ def sell_stocks():
 	return True
 
 
-# MAIN: Log into tda-api and run the stream client
+# MAIN
+# Log into tda-api and run the stream client
 tda_api_key = os.environ['tda_consumer_key']
 tda_pickle = os.environ['HOME'] + '/.tokens/tda2.pickle'
 
@@ -650,11 +668,6 @@ async def read_stream():
 	while True:
 		await asyncio.wait_for( stream_client.handle_message(), 120 )
 
-
-# MAIN
-gap_up_list = []
-gap_down_list = []
-vwap_list = []
 
 # Initialize log file handle
 if ( args.autotrade == True ):

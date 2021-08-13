@@ -736,11 +736,20 @@ def stochrsi_gobot( algos=None, debug=False ):
 					stocks[ticker]['signal_mode'] = 'buy'
 					continue
 
+			# The last trading hour is a bit unpredictable. If --hold_overnight is false we want
+			#  to sell the stock at a more conservative exit percentage.
+			elif ( tda_gobot_helper.isendofday(60) == True and args.hold_overnight == False ):
+				if ( last_price > stocks[ticker]['orig_base_price'] ):
+					percent_change = abs( stocks[ticker]['orig_base_price'] / last_price - 1 ) * 100
+					if ( percent_change >= args.last_hour_threshold ):
+						stocks[ticker]['exit_signal'] = True
+						stocks[ticker]['sell_signal'] = True
+
 
 			# STOPLOSS MONITOR
 			# If price decreases
-			if ( float(last_price) < float(stocks[ticker]['base_price']) ):
-				percent_change = abs( float(last_price) / float(stocks[ticker]['base_price']) - 1 ) * 100
+			if ( last_price < stocks[ticker]['base_price'] ):
+				percent_change = abs( last_price / stocks[ticker]['base_price'] - 1 ) * 100
 				if ( debug == True ):
 					print('Stock "' +  str(ticker) + '" -' + str(round(percent_change, 2)) + '% (' + str(last_price) + ')')
 
@@ -776,8 +785,8 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 
 			# If price increases
-			elif ( float(last_price) > float(stocks[ticker]['base_price']) ):
-				percent_change = abs( float(stocks[ticker]['base_price']) / float(last_price) - 1 ) * 100
+			elif ( last_price > stocks[ticker]['base_price'] ):
+				percent_change = abs( stocks[ticker]['base_price'] / last_price - 1 ) * 100
 				if ( debug == True ):
 					print('Stock "' +  str(ticker) + '" +' + str(round(percent_change,2)) + '% (' + str(last_price) + ')')
 
@@ -823,6 +832,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 			else:
 				tda_gobot_helper.log_monitor(ticker, 0, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
 
+			# END STOPLOSS MONITOR
 
 			# StochRSI MONITOR
 			# Monitor K and D
@@ -1195,11 +1205,21 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 					continue
 
+			# The last trading hour is a bit unpredictable. If --hold_overnight is false we want
+			#  to sell the stock at a more conservative exit percentage.
+			elif ( tda_gobot_helper.isendofday(60) == True and args.hold_overnight == False ):
+				if ( last_price < stocks[ticker]['orig_base_price'] ):
+
+					percent_change = abs( last_price / stocks[ticker]['orig_base_price'] - 1 ) * 100
+					if ( percent_change >= args.last_hour_threshold ):
+						stocks[ticker]['exit_signal'] = True
+						stocks[ticker]['buy_to_cover_signal'] = True
+
 
 			# STOPLOSS MONITOR
 			# If price decreases
-			if ( float(last_price) < float(stocks[ticker]['base_price']) ):
-				percent_change = abs( float(last_price) / float(stocks[ticker]['base_price']) - 1 ) * 100
+			if ( last_price < stocks[ticker]['base_price'] ):
+				percent_change = abs( last_price / stocks[ticker]['base_price'] - 1 ) * 100
 				if ( debug == True ):
 					print('Stock "' +  str(ticker) + '" -' + str(round(percent_change, 2)) + '% (' + str(last_price) + ')')
 
@@ -1242,8 +1262,8 @@ def stochrsi_gobot( algos=None, debug=False ):
 				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], short=True, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
 
 			# If price increases
-			elif ( float(last_price) > float(stocks[ticker]['base_price']) ):
-				percent_change = abs( float(stocks[ticker]['base_price']) / float(last_price) - 1 ) * 100
+			elif ( last_price > stocks[ticker]['base_price'] ):
+				percent_change = abs( stocks[ticker]['base_price'] / last_price - 1 ) * 100
 				if ( debug == True ):
 					print('Stock "' +  str(ticker) + '" -' + str(round(percent_change, 2)) + '% (' + str(last_price) + ')')
 
@@ -1284,6 +1304,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 			else:
 				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=True)
 
+			# END STOPLOSS MONITOR
 
 			# RSI MONITOR
 			# Monitor K and D

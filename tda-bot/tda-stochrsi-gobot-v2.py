@@ -53,7 +53,9 @@ parser.add_argument("--hold_overnight", help='Hold stocks overnight when --multi
 parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (default=False)', action="store_true")
 
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
-parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1.5, type=float)
+parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1, type=float)
+parser.add_argument("--last_hour_threshold", help='Sell the stock if net gain is above this percentage during the final hour. Assumes --hold_overnight is False.', default=0.2, type=float)
+
 parser.add_argument("--num_purchases", help='Number of purchases allowed per day', default=10, type=int)
 parser.add_argument("--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
 parser.add_argument("--max_failed_txs", help='Maximum number of failed transactions allowed for a given stock before stock is blacklisted', default=2, type=int)

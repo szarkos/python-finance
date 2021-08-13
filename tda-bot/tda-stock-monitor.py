@@ -74,7 +74,7 @@ if ( tda_gobot_helper.tdalogin(passcode) != True ):
 	sys.exit(1)
 
 # Global params
-watchlists = [ 'STOCK-MONITOR-GAPUP', 'STOCK-MONITOR-GAPDOWN', 'STOCK-MONITOR-VWAP' ]
+watchlists = [ 'STOCK-MONITOR-GAPUP', 'STOCK-MONITOR-GAPDOWN', 'STOCK-MONITOR-VOLUME', 'STOCK-MONITOR-VWAP' ]
 watchlist_template = {  "name": "",
 			"watchlistItems": [
 				{ "instrument": { "symbol": "GME", "assetType": "EQUITY" } }
@@ -231,6 +231,7 @@ def graceful_exit(signum, frame):
 	except:
 		pass
 
+	global watchlists
 	for wlist in watchlists:
 		try:
 			tda_api_helper.delete_watchlist_byname(tda_client=tda_client, tda_account=tda_account_number, watchlist_name=wlist)
@@ -629,6 +630,46 @@ def stock_monitor(stream=None, debug=False):
 				color = red
 
 			print(color + '{0:10} {1:15} {2:15} {3:10} {4:10}'.format(ticker, prev_price, cur_price, pct_change, strtime) + reset_color)
+
+			instrument = { "instrument": { "symbol": ticker, "assetType": "EQUITY" } }
+			watchlist_template['watchlistItems'].append(instrument)
+
+			if ( idx == args.max_tickers ):
+				break
+
+		# Update the watchlist with the latest tickers
+		try:
+			watchlist_id = tda_api_helper.get_watchlist_id(tda_client=tda_client, tda_account=tda_account_number, watchlist_name=watchlist_name)
+			ret = tda_client.replace_watchlist(tda_account_number, watchlist_id, watchlist_template)
+
+		except Exception as e:
+			print('Error while updating watchlist ' + str(watchlist_name) + ': ' + str(e))
+			pass
+
+	else:
+		print("\n")
+
+
+
+	# UNUSUAL VOLUME
+	print("\n\n")
+	print('Tickers: Unusual Volume')
+	print('------------------------------------------------------------------------------------------')
+	print('{0:10} {1:15} {2:15} {3:10} {4:10} {5:10}'.format('Ticker', 'Previous_Volume', 'Current_Volume', '%Change', 'Hourly_Avg.', 'Time'))
+
+	if ( len(vol_gap_up_list) > 0 ):
+		watchlist_name = 'STOCK-MONITOR-VOLUME'
+		watchlist_template = { "name": watchlist_name, "watchlistItems": [] }
+
+		for idx,evnt in enumerate( reversed(vol_gap_up_list) ):
+			ticker, prev_price, cur_price, pct_change, hrly_avg, time = str(evnt).split(',')
+			strtime = time.strftime('%Y-%m-%d %H:%M:%S.%f')
+
+			color = ''
+			if ( time <= time_now - datetime.timedelta(mins=5) ):
+				color = green
+
+			print(color + '{0:10} {1:15} {2:15} {3:10} {4:10} {5:10}'.format(ticker, prev_price, cur_price, pct_change, hrly_avg, strtime) + reset_color)
 
 			instrument = { "instrument": { "symbol": ticker, "assetType": "EQUITY" } }
 			watchlist_template['watchlistItems'].append(instrument)

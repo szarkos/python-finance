@@ -1209,7 +1209,6 @@ def stochrsi_gobot( algos=None, debug=False ):
 			#  to sell the stock at a more conservative exit percentage.
 			elif ( tda_gobot_helper.isendofday(60) == True and args.hold_overnight == False ):
 				if ( last_price < stocks[ticker]['orig_base_price'] ):
-
 					percent_change = abs( last_price / stocks[ticker]['orig_base_price'] - 1 ) * 100
 					if ( percent_change >= args.last_hour_threshold ):
 						stocks[ticker]['exit_signal'] = True

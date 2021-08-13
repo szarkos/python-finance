@@ -348,7 +348,7 @@ except Exception as e:
 # Initialize additional stocks{} values
 for ticker in list(stocks.keys()):
 	if ( tda_gobot_helper.check_blacklist(ticker) == True and args.force == False ):
-		print('(' + str(ticker) + ') Error: stock ' + str(ticker) + ' found in blacklist file, removing from the list')
+		print('(' + str(ticker) + ') Warning: stock ' + str(ticker) + ' found in blacklist file, removing from the list')
 		stocks[ticker]['isvalid'] = False
 
 		try:
@@ -568,13 +568,13 @@ for ticker in list(stocks.keys()):
 			time.sleep(5)
 			if ( tda_gobot_helper.tdalogin(passcode) != True ):
 				print('Error: (' + str(ticker) + '): Login failure')
+
 			continue
 
 		else:
 			stocks[ticker]['pricehistory'] = data
 
 	if ( len(data['candles']) < int(args.stochrsi_period) * 2 ):
-		print(data['candles'])
 		print('Warning: stock(' + str(ticker) + '): len(pricehistory[candles]) is less than stochrsi_period*2 (new stock ticker?), removing from the list')
 		stocks[ticker]['isvalid'] = False
 
@@ -618,6 +618,7 @@ for ticker in list(stocks.keys()):
 	if ( args.weekly_ifile != None ):
 		import pickle
 		weekly_ifile = re.sub('TICKER', ticker, args.weekly_ifile)
+		print('Using ' + str(weekly_ifile))
 
 		try:
 			with open(weekly_ifile, 'rb') as handle:
@@ -630,18 +631,24 @@ for ticker in list(stocks.keys()):
 	if ( weekly_ph == False):
 
 		# Use get_pricehistory() to download weekly data
-		p_type = 'year'
-		period = '2'
-		f_type = 'weekly'
-		freq = '1'
+		wkly_p_type = 'year'
+		wkly_period = '2'
+		wkly_f_type = 'weekly'
+		wkly_freq = '1'
 
 		while ( weekly_ph == False ):
-			weekly_ph, ep = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, needExtendedHoursData=False)
+			weekly_ph, ep = tda_gobot_helper.get_pricehistory(ticker, wkly_p_type, wkly_f_type, wkly_freq, wkly_period, needExtendedHoursData=False)
 
 			if ( weekly_ph == False ):
 				time.sleep(5)
 				if ( tda_gobot_helper.tdalogin(passcode) != True ):
 					print('Error: (' + str(ticker) + '): Login failure')
+
+				continue
+
+	if ( weekly_ph == False ):
+		print('(' + str(ticker) + '): Warning: unable to retrieve weekly data to calculate key levels, skipping.')
+		continue
 
 	# Calculate the keylevels
 	try:

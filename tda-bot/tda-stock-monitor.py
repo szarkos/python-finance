@@ -40,9 +40,11 @@ parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the
 parser.add_argument("--scalp_mode", help='Enable scalp mode (fixes incr_threshold and decr_threshold to low values)', action="store_true")
 parser.add_argument("--after_hours", help='Enable running after hours (pre/post market)', action="store_true")
 
-parser.add_argument("--gap_threshold", help='Threshold for gap up/down detection (percentage)', default=1, type=float)
+parser.add_argument("--gap_threshold", help='Percent threshold for price gap up/down detection (Default: 1 percent)', default=1, type=float)
+parser.add_argument("--vol_threshold", help='Percent threshold for volume gap up detection (Default: 300 percent)', default=300, type=float)
 parser.add_argument("--vwap_threshold", help='Threshold for VWAP proximity detection (percentage)', default=1, type=float)
 parser.add_argument("--max_tickers", help='Max tickers to print out per category (Default: 20)', default=20, type=int)
+parser.add_argument("--gap_candles", help='Number of candles to count when determining price gap up/down (Default: 4 candles)', default=4, type=int)
 
 parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
 args = parser.parse_args()
@@ -81,6 +83,7 @@ watchlist_template = {  "name": "",
 prev_timestamp = 0
 gap_up_list = []
 gap_down_list = []
+vol_gap_up_list = []
 vwap_list = []
 
 # Initialize stocks{}
@@ -118,7 +121,7 @@ if ( len(stocks) == 0 ):
 
 # Initialize additional stocks{} values
 time_now = datetime.datetime.now( mytimezone )
-time_prev = time_now - datetime.timedelta( days=9 )
+time_prev = time_now - datetime.timedelta( days=10 )
 
 # Make sure start and end dates don't land on a weekend or outside market hours
 time_now = tda_gobot_helper.fix_timestamp(time_now)
@@ -189,10 +192,10 @@ for ticker in list(stocks.keys()):
 			else:
 				stocks[ticker]['pricehistory'] = data
 
-		# Avg Volume
+		# Avg Volume (per minute)
 		for key in data['candles']:
-			avg_vol += float(key['volume'])
-		stocks[ticker]['avg_volume'] = int( round(avg_vol / len(data['candles']), 0) )
+			avg_vol += int( key['volume'] )
+		stocks[ticker]['avg_volume'] = int(avg_vol / len(data['candles']) )
 
 		# PDC
 		yesterday = time_now - datetime.timedelta(days=1)
@@ -253,6 +256,121 @@ signal.signal(signal.SIGTERM, graceful_exit)
 signal.signal(signal.SIGUSR1, siguser1_handler)
 
 
+# Make a trade on gapping stock
+def autotrade(ticker=None, direction=None):
+
+	if ( ticker == None or direction == None ):
+		return False
+
+	# Set incr_threshold and decr_threshold is scalp_mode==True
+	if ( args.scalp_mode == True ):
+		args.incr_threshold = 0.1
+		args.decr_threshold = 0.25
+
+	# Command to run if we need to purchase/short this stock
+	gobot_command = ['./tda-gobot.py', str(ticker), str(args.stock_usd), '--tx_log_dir=TX_LOGS-GAPCHECK',
+			 '--decr_threshold='+str(args.decr_threshold), '--incr_threshold='+str(args.incr_threshold)]
+
+	# Short if stock price is going down
+	if ( direction == 'DOWN' ):
+		gobot_command.append('--short')
+
+	if ( args.fake == True ):
+		gobot_command.append('--fake')
+
+	# Check to see if we have a running process
+	if ( isinstance(stocks[ticker]['process'], Popen) == True ):
+		if ( stocks[ticker]['process'].poll() != None ):
+			# process has exited
+			stocks[ticker]['process'] = None
+
+		else:
+			# Another process is running for this ticker
+			return False
+
+	# If process==None then we should be safe to run a gobot instance for this stock
+	if ( stocks[ticker]['process'] == None and args.autotrade == True ):
+		try:
+			stocks[ticker]['process'] = Popen(gobot_command, stdin=None, stdout=log_fh, stderr=STDOUT, shell=False)
+
+		except Exception as e:
+			print('(' + str(ticker) + '): Exception caught: ' + str(e))
+
+	return True
+
+
+# Sell any open positions. This is usually called via a signal handler.
+def sell_stocks():
+
+	# Make sure we are logged into TDA
+	if ( tda_gobot_helper.tdalogin(passcode) != True ):
+		print('Error: sell_stocks(): tdalogin(): login failure')
+		return False
+
+	# Run through the stocks we are watching and sell/buy-to-cover any open positions
+	data = tda.get_account(tda_account_number, options='positions', jsonify=True)
+	for ticker in stocks.keys():
+
+		if ( stocks[ticker]['isvalid'] == False ):
+			continue
+
+		# Look up the stock in the account and sell
+		for asset in data[0]['securitiesAccount']['positions']:
+			if ( str(asset['instrument']['symbol']).upper() == str(ticker).upper() ):
+
+				if ( float(asset['shortQuantity']) > 0 ):
+					print('Covering ' + str(asset['shortQuantity']) + ' shares of ' + str(ticker))
+					data = tda_gobot_helper.buytocover_stock_marketprice(ticker, asset['shortQuantity'], fillwait=False, debug=False)
+				else:
+					print('Selling ' + str(asset['longQuantity']) + ' shares of ' + str(ticker))
+					data = tda_gobot_helper.sell_stock_marketprice(ticker, asset['longQuantity'], fillwait=False, debug=False)
+
+				break
+
+	return True
+
+
+def gap_filter( ticker=None, gap_list=[], delta=600 ):
+
+	if ( ticker == None ):
+		return False
+
+	if ( len(gap_list) == 0 ):
+		return True
+
+	# These events can pile up into volume gap up list, so check to see
+	# if this ticker has triggered already within the last ten minutes
+	delta = 99999
+	for evnt in reversed( gap_list ):
+
+		# Note: this assumes that the 'stock' and 'time' elements are
+		#  the first and last item in the event log respectively
+		stock = str(evnt).split(',')[0]
+		time = str(evnt).split(',')[-1]
+
+		if ( stock == ticker ):
+			cur_time = datetime.datetime.now(mytimezone)
+			cur_time = mytimezone.localize(cur_time)
+
+			try:
+				prev_time = datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
+				prev_time = mytimezone.localize(prev_time)
+
+			except:
+				continue
+
+			delta = cur_time - prev_time
+			delta = delta.total_seconds()
+
+			break
+
+	# Proceed if delta is greater than 10-minutes
+	if ( delta > 600 ):
+		return True
+
+	return False
+
+
 # Monitor stock for big jumps in price and volume
 # This is the main function called for every stream event that implements all the monitoring logic
 def stock_monitor(stream=None, debug=False):
@@ -260,7 +378,7 @@ def stock_monitor(stream=None, debug=False):
 	if ( stream == None ):
 		return False
 
-	global prev_timestamp, gap_up_list, gap_down_list, vwap_list
+	global prev_timestamp, gap_up_list, gap_down_list, vol_gap_up_list, vwap_list
 
 	time_now = datetime.datetime.now(mytimezone)
 	strtime_now = time_now.strftime('%Y-%m-%d %H:%M:%S.%f')
@@ -321,23 +439,20 @@ def stock_monitor(stream=None, debug=False):
 			continue
 
 		# Get the latest candle open/close prices and volume
-		cur_price = float(stocks[ticker]['pricehistory']['candles'][-1]['close'])
-		prev_price = float(stocks[ticker]['pricehistory']['candles'][-4]['close'])
+		cur_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+		prev_price = float( stocks[ticker]['pricehistory']['candles'][-gap_candles]['close'] )
 
-		cur_vol = float(stocks[ticker]['pricehistory']['candles'][-1]['volume']) + \
-				float(stocks[ticker]['pricehistory']['candles'][-2]['volume']) + \
-				float(stocks[ticker]['pricehistory']['candles'][-3]['volume']) + \
-				float(stocks[ticker]['pricehistory']['candles'][-4]['volume'])
-
-		price_change = ( abs(cur_price - prev_price) / prev_price ) * 100
+		cur_vol = int( stocks[ticker]['pricehistory']['candles'][-1]['volume'] )
+		prev_vol = int( stocks[ticker]['pricehistory']['candles'][-2]['volume'] )
 
 		# Skip if price hasn't changed
 		if ( cur_price == prev_price ):
 			continue
 
-		# Check for gap up/down if price and volume change significantly (>1%)
-		if ( price_change > args.gap_threshold and cur_vol > stocks[ticker]['avg_volume'] ):
-			vol_change = ( (cur_vol - stocks[ticker]['avg_volume']) / stocks[ticker]['avg_volume'] ) * 100
+		# Price Gap Up/Down
+		# Check for gap up/down if price changes significantly (>1%)
+		price_change = ( abs(cur_price - prev_price) / prev_price ) * 100
+		if ( price_change > args.gap_threshold ):
 
 			gap_event =	ticker + ',' + \
 					str(round(prev_price, 2)) + ',' + \
@@ -349,25 +464,7 @@ def stock_monitor(stream=None, debug=False):
 
 				# These events can pile up into gap_up|down_list, so check to see
 				# if this ticker has triggered already within the last ten minutes
-				delta = 99999
-				if ( len(gap_up_list) > 0 ):
-					for evnt in reversed( gap_up_list ):
-						stock, pprice, cprice, pct_change, time = str(evnt).split(',')
-
-						if ( stock == ticker ):
-							cur_time = time_now
-							cur_time = mytimezone.localize(cur_time)
-
-							prev_time = datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
-							prev_time = mytimezone.localize(prev_time)
-
-							delta = cur_time - prev_time
-							delta = delta.total_seconds()
-
-							break
-
-				# Proceed if delta is greater than than 10-minutes
-				if ( delta > 600 ):
+				if ( len(gap_up_list) == 0 or gap_filter(ticker, gap_up_list) == True ):
 					gap_up_list.append(gap_event)
 
 					# Make a trade on gapping stock if args.autotrade is set
@@ -378,30 +475,62 @@ def stock_monitor(stream=None, debug=False):
 
 				# These events can pile up into gap_up|down_list, so check to see
 				# if this ticker has triggered already within the last ten minutes
-				delta = 99999
-				if ( len(gap_down_list) > 0 ):
-					for evnt in reversed( gap_down_list ):
-						stock, pprice, cprice, pct_change, time = str(evnt).split(',')
-
-						if ( stock == ticker ):
-							cur_time = time_now
-							cur_time = mytimezone.localize(cur_time)
-
-							prev_time = datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
-							prev_time = mytimezone.localize(prev_time)
-
-							delta = cur_time - prev_time
-							delta = delta.total_seconds()
-
-							break
-
-				# Proceed if delta is greater than than 10-minutes
-				if ( delta > 600 ):
+				if ( len(gap_down_list) == 0 or gap_filter(ticker, gap_down_list) == True ):
 					gap_down_list.append(gap_event)
 
 					# Make a trade on gapping stock if args.autotrade is set
 					if ( args.autotrade == True ):
 						autotrade(ticker, direction='DOWN')
+
+
+		# Volume Gap Up
+		if ( cur_vol > stocks[ticker]['avg_volume'] ):
+
+			vol_change = ( cur_vol / stocks[ticker]['avg_volume'] ) * 100
+			if ( vol_change > args.vol_threshold ):
+
+				# Find historical average volume for the current hour
+				starttime = int( stocks[ticker]['pricehistory']['candles'][0]['datetime'] )
+				endtime = int( stocks[ticker]['pricehistory']['candles'][-1]['datetime'] )
+
+				starttime = datetime.datetime.fromtimestamp(starttime/1000, tz=mytimezone)
+				endtime = datetime.datetime.fromtimestamp(endtime/1000, tz=mytimezone)
+
+				delta = time_now - starttime
+				delta = delta.days - 1 # Total number of days in pricehistory, but don't count the current day
+
+				last_day = endtime - timedelta( days=1 ) # Don't count beyond this day
+				last_day = last_day.timestamp() * 1000
+
+				cur_hr = time_now.strftime('%-H')
+				vol_hr_avg = 0
+				count = 0
+				for key in stocks[ticker]['pricehistory']['candles']:
+
+					if ( int(key['datetime']) >= last_day ):
+						break
+
+					tmp_hr = datetime.datetime.fromtimestamp(int(key['datetime'])/1000, tz=mytimezone).strftime('%-H')
+					if ( tmp_hr != cur_hr ):
+						continue
+
+					vol_hr_avg += int( key['volume'] )
+					count += 1
+
+				vol_hr_avg = vol_hr_avg / count
+
+				gap_event =	ticker + ',' + \
+						str(round(prev_vol, 2)) + ',' + \
+						str(round(cur_vol, 2)) + ',' + \
+						str(round(vol_change, 2)) + '%' + ',' + \
+						str(round(vol_hr_avg, 2)) + ',' + \
+						time_now
+
+				# These events can pile up into volume gap up list, so check to see
+				# if this ticker has triggered already within the last ten minutes
+				if ( len(vol_gap_up_list) == 0 or gap_filter(ticker, vol_gap_up_list) == True ):
+					vol_gap_up_list.append(gap_event)
+
 
 		# VWAP
 		vwap, vwap_up, vwap_down = tda_gobot_helper.get_vwap( stocks[ticker]['pricehistory'] )
@@ -421,25 +550,7 @@ def stock_monitor(stream=None, debug=False):
 
 				# These events can pile up into vwap_list, so check vwap_list[] to see
 				# if this ticker has triggered already within the last ten minutes
-				delta = 99999
-				if ( len(vwap_list) > 0 ):
-					for evnt in reversed( vwap_list ):
-						stock, pprice, cprice, pct_change, time = str(evnt).split(',')
-
-						if ( stock == ticker ):
-							cur_time = time_now
-							cur_time = mytimezone.localize(cur_time)
-
-							prev_time = datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
-							prev_time = mytimezone.localize(prev_time)
-
-							delta = cur_time - prev_time
-							delta = delta.total_seconds()
-
-							break
-
-				# Proceed if delta is greater than than 10-minutes
-				if ( delta > 600 ):
+				if ( len(vwap_list) == 0 or gap_filter(ticker, vwap_list) == True ):
 
 					vwap_event = 	ticker + ',' + \
 							str(round(prev_price, 2)) + ',' + \
@@ -572,80 +683,6 @@ def stock_monitor(stream=None, debug=False):
 		except Exception as e:
 			print('Error while updating watchlist ' + str(watchlist_name) + ': ' + str(e))
 			pass
-
-	return True
-
-
-# Make a trade on gapping stock
-def autotrade(ticker=None, direction=None):
-
-	if ( ticker == None or direction == None ):
-		return False
-
-	# Set incr_threshold and decr_threshold is scalp_mode==True
-	if ( args.scalp_mode == True ):
-		args.incr_threshold = 0.1
-		args.decr_threshold = 0.25
-
-	# Command to run if we need to purchase/short this stock
-	gobot_command = ['./tda-gobot.py', str(ticker), str(args.stock_usd), '--tx_log_dir=TX_LOGS-GAPCHECK',
-			 '--decr_threshold='+str(args.decr_threshold), '--incr_threshold='+str(args.incr_threshold)]
-
-	# Short if stock price is going down
-	if ( direction == 'DOWN' ):
-		gobot_command.append('--short')
-
-	if ( args.fake == True ):
-		gobot_command.append('--fake')
-
-	# Check to see if we have a running process
-	if ( isinstance(stocks[ticker]['process'], Popen) == True ):
-		if ( stocks[ticker]['process'].poll() != None ):
-			# process has exited
-			stocks[ticker]['process'] = None
-
-		else:
-			# Another process is running for this ticker
-			return False
-
-	# If process==None then we should be safe to run a gobot instance for this stock
-	if ( stocks[ticker]['process'] == None and args.autotrade == True ):
-		try:
-			stocks[ticker]['process'] = Popen(gobot_command, stdin=None, stdout=log_fh, stderr=STDOUT, shell=False)
-
-		except Exception as e:
-			print('(' + str(ticker) + '): Exception caught: ' + str(e))
-
-	return True
-
-
-# Sell any open positions. This is usually called via a signal handler.
-def sell_stocks():
-
-	# Make sure we are logged into TDA
-	if ( tda_gobot_helper.tdalogin(passcode) != True ):
-		print('Error: sell_stocks(): tdalogin(): login failure')
-		return False
-
-	# Run through the stocks we are watching and sell/buy-to-cover any open positions
-	data = tda.get_account(tda_account_number, options='positions', jsonify=True)
-	for ticker in stocks.keys():
-
-		if ( stocks[ticker]['isvalid'] == False ):
-			continue
-
-		# Look up the stock in the account and sell
-		for asset in data[0]['securitiesAccount']['positions']:
-			if ( str(asset['instrument']['symbol']).upper() == str(ticker).upper() ):
-
-				if ( float(asset['shortQuantity']) > 0 ):
-					print('Covering ' + str(asset['shortQuantity']) + ' shares of ' + str(ticker))
-					data = tda_gobot_helper.buytocover_stock_marketprice(ticker, asset['shortQuantity'], fillwait=False, debug=False)
-				else:
-					print('Selling ' + str(asset['longQuantity']) + ' shares of ' + str(ticker))
-					data = tda_gobot_helper.sell_stock_marketprice(ticker, asset['longQuantity'], fillwait=False, debug=False)
-
-				break
 
 	return True
 

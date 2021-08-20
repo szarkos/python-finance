@@ -48,13 +48,14 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 		# This can happen if the websocket is closed by TDA for any reason (happens frequently)
 #		if ( int(stream['timestamp']) == stocks[ticker]['prev_timestamp'] ):
 #			continue
-#		stocks[ticker]['prev_timestamp'] = int( stream['timestamp'] )
-#		stocks[ticker]['prev_seq'] = int( stream['seq'] )
+		stocks[ticker]['prev_timestamp'] = int( stream['timestamp'] )
 
 		# Documentation suggests that equity streams should have unique sequence numbers, but
 		#  other comments are unclear. Adding this log here so we can check with live data, but
 		#  we are not acting on this yet.
-		print( '(' + str(ticker) + '): WARNING: duplicate sequence number detected - seq/timestamp: ' + str(stream['seq']) + ' / ' + str(stream['timestamp']) )
+		if ( int(idx['seq']) == stocks[ticker]['prev_seq'] ):
+			print( '(' + str(ticker) + '): WARNING: duplicate sequence number detected - seq/timestamp: ' + str(idx['seq']) + ' / ' + str(stream['timestamp']) )
+		stocks[ticker]['prev_seq'] = int( idx['seq'] )
 
 		candle_data = {	'open':		idx['OPEN_PRICE'],
 				'high':		idx['HIGH_PRICE'],
@@ -383,7 +384,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 			print('(' + str(ticker) + ') Time now: ' + time_now.strftime('%Y-%m-%d %H:%M:%S') +
 				', timestamp received from API ' +
 				datetime.datetime.fromtimestamp(int(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f') +
-				' (' + str(int(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])) + ') ' +
+				' (' + str(int(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])) + ')' +
 				' (seq: ' + str(stocks[ticker]['prev_seq']) + ')' )
 
 			print()

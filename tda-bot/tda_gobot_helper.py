@@ -415,7 +415,8 @@ def check_blacklist(ticker=None, debug=1):
 
 		if ( str(stock) == str(ticker) ):
 			time_stamp = datetime.fromtimestamp(float(time_stamp), tz=mytimezone)
-			if ( time_stamp + timedelta(days=31) > time_now ):
+			if ( time_stamp + timedelta(days=32) > time_now ):
+
 				# time_stamp is less than 30 days in the past
 				found = True
 				break

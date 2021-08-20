@@ -1887,7 +1887,7 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 		try:
 			data, err = func_timeout(5, tda.place_order, args=(tda_account_number, order, True))
 			if ( debug == True ):
-				print('DEBUG: sell_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
+				print('DEBUG: buy_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
 				print(order)
 				print(data)
 				print(err)

@@ -36,6 +36,7 @@ parser.add_argument("--get_instrument", help="Stock ticker to obtain instrument 
 
 parser.add_argument("--blacklist", help="Blacklist stock ticker for one month", action="store_true")
 parser.add_argument("--permanent", help="Blacklist stock ticker permanently", action="store_true")
+parser.add_argument("--check_blacklist", help="Blacklist stock ticker for one month", action="store_true")
 
 parser.add_argument("--rsi_period", help="RSI period (default: 14)", default=14, type=int)
 parser.add_argument("--stochrsi_period", help="Stoch RSI period (default: 128)", default=128, type=int)
@@ -148,8 +149,16 @@ elif ( args.quote == True ):
 	exit(0)
 
 
-if ( args.blacklist == True ):
+# Blacklist a ticker
+# Use --permanent to permanently blacklist a ticker
+elif ( args.blacklist == True ):
 	tda_gobot_helper.write_blacklist(stock, 0, 0, 0, 0, 0, permanent=args.permanent)
+	exit(0)
+
+
+# Check a ticker to see if it is currently blacklisted
+elif ( args.check_blacklist == True ):
+	print( tda_gobot_helper.check_blacklist(stock) )
 	exit(0)
 
 

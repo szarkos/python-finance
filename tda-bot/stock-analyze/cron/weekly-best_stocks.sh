@@ -1,6 +1,7 @@
 #!/bin/bash
 
-start_date=${1-''}
+# By default, $start_date is two weeks ago from today
+start_date=${1-$(date +'%Y-%m-%d' --date='-2 weeks')}
 
 parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 cd "${parent_path}/.."
@@ -55,9 +56,38 @@ algo2=$( for i in "$data"; do echo "$i" | awk -F ',' '{print $1","$7}'; done )
 algo1=$( echo "$algo1" | sort -bt ',' -k1,2 )
 algo2=$( echo "$algo2" | sort -bt ',' -k1,2 )
 
+
+# Create list of tickers that lost money
+loss_list=""
+algo1_loss=$( for i in "$data"; do echo "$i" | awk -F ',' '{print $1","$3}'; done )
+algo2_loss=$( for i in "$data"; do echo "$i" | awk -F ',' '{print $1","$6}'; done )
+for i in $( echo -e "${algo1_loss}\n${algo2_loss}" ) ; do
+	net_loss=$(echo -n $i | awk -F, '{print $2}' )
+
+	if `echo -n $net_loss | grep --silent 'stochrsi'` ; then
+		continue
+	fi
+
+	if (( $( echo "$net_loss" ' > 0' | bc -l ) )); then
+		loss_list="$loss_list "$(echo $i | awk -F, '{print $1}')
+	fi
+done
+
+
 list=""
-for i in $( echo -e "$algo1\n$algo2" ) ; do
-	if `echo -n $i | grep -q 'stochrsi'` ; then
+for i in $( echo -e "${algo1}\n${algo2}" ) ; do
+	if `echo -n $i | grep --silent 'stochrsi'` ; then
+		continue
+	fi
+
+	ticker=$(echo -n $i | awk -F, '{print $1}' )
+	for t in "$loss_list"; do
+		if [ "$ticker" == "$t" ]; then
+			i=""
+			break
+		fi
+	done
+	if [ "$i" == "" ]; then
 		continue
 	fi
 

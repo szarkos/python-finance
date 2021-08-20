@@ -35,11 +35,26 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 	#		'CHART_TIME': 1619813220000,
 	#		'CHART_DAY': 18747 }]
 	# }
+
+	# Try to avoid reprocessing duplicate streams
+	# This can happen if the websocket is closed by TDA for any reason (happens frequently)
 	for idx in stream['content']:
 		ticker = idx['key']
 
 		if ( stocks[ticker]['isvalid'] == False ):
 			continue
+
+		# Try to avoid reprocessing duplicate streams
+		# This can happen if the websocket is closed by TDA for any reason (happens frequently)
+#		if ( int(stream['timestamp']) == stocks[ticker]['prev_timestamp'] ):
+#			continue
+#		stocks[ticker]['prev_timestamp'] = int( stream['timestamp'] )
+#		stocks[ticker]['prev_seq'] = int( stream['seq'] )
+
+		# Documentation is suggests thatequity streams should have unique sequence numbers, but
+		#  other comments are unclear. Adding this log here so we can check with live data, but
+		#  we are not acting on this yet.
+		print( '(' + str(ticker) + '): WARNING: duplicate sequence number detected - seq/timestamp: ' + str(stream['seq']) + ' / ' + str(stream['timestamp']) )
 
 		candle_data = {	'open':		idx['OPEN_PRICE'],
 				'high':		idx['HIGH_PRICE'],
@@ -52,9 +67,14 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 		stocks[ticker]['period_log'].append( stream['timestamp'] )
 
 		# Look back through period_log to determine average number of candles received
-		#  and set period_multiplier accordingly
+		#  and set period_multiplier accordingly.
 		# But don't muck with this if user explicitely changed the default of 0 via --period_multiplier
-		if ( args.period_multiplier == 0 ):
+		#
+		# SAZ - 2021-08-19 - disable period multiplier. Nice idea but does not function as expected,
+		#  needs more research.
+#		if ( args.period_multiplier == 0 ):
+		stocks[ticker]['period_multiplier'] = 1
+		if ( args.period_multiplier == -999 ):
 
 			num_candles = 0
 			cur_time = float( stream['timestamp'] )
@@ -63,7 +83,7 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 			lookback_time = lookback_time.timestamp() * 1000
 
 			for idx,t_stamp in enumerate( stocks[ticker]['period_log'] ):
-				if ( float(t_stamp) >= lookback_time ):
+				if ( int(t_stamp) >= lookback_time ):
 					num_candles = len(stocks[ticker]['period_log']) - idx
 					break
 
@@ -362,8 +382,9 @@ def stochrsi_gobot( algos=None, debug=False ):
 			# Timestamp check
 			print('(' + str(ticker) + ') Time now: ' + time_now.strftime('%Y-%m-%d %H:%M:%S') +
 				', timestamp received from API ' +
-				datetime.datetime.fromtimestamp(float(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f') +
-				' (' + str(int(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])) + ')' )
+				datetime.datetime.fromtimestamp(int(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f') +
+				' (' + str(int(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])) + ') ' +
+				' (seq: ' + str(stocks[ticker]['prev_seq']) + ')' )
 
 			print()
 

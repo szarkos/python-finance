@@ -326,6 +326,8 @@ for ticker in args.stocks.split(','):
 				    # Period log will log datetime to determine period_multiplier
 				    'period_log':		[],
 				    'period_multiplier':	args.period_multiplier,
+				    'prev_timestamp':		0,
+				    'prev_seq':			0,
 
 				    # Candle data
 				    'pricehistory':		{}
@@ -494,6 +496,7 @@ tda_stochrsi_gobot_helper.tx_log_dir = args.tx_log_dir
 tda_stochrsi_gobot_helper.stocks = stocks
 tda_stochrsi_gobot_helper.incr_threshold = args.incr_threshold
 tda_stochrsi_gobot_helper.stock_usd = args.stock_usd
+tda_stochrsi_gobot_helper.prev_timestamp = 0
 
 # StochRSI
 tda_stochrsi_gobot_helper.rsi_low_limit = args.rsi_low_limit
@@ -680,11 +683,7 @@ async def read_stream():
 	loop.add_signal_handler( signal.SIGUSR1, siguser1_handler )
 
 	await asyncio.wait_for( stream_client.login(), 10 )
-
-	if ( args.scalp_mode == True ):
-		await stream_client.quality_of_service(StreamClient.QOSLevel.EXPRESS)
-	else:
-		await stream_client.quality_of_service(StreamClient.QOSLevel.REAL_TIME)
+	await stream_client.quality_of_service(StreamClient.QOSLevel.REAL_TIME)
 
 	stream_client.add_chart_equity_handler(
 		lambda msg: tda_stochrsi_gobot_helper.stochrsi_gobot_run(msg, algos, args.debug) )

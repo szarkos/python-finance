@@ -51,7 +51,7 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 #		stocks[ticker]['prev_timestamp'] = int( stream['timestamp'] )
 #		stocks[ticker]['prev_seq'] = int( stream['seq'] )
 
-		# Documentation is suggests thatequity streams should have unique sequence numbers, but
+		# Documentation suggests that equity streams should have unique sequence numbers, but
 		#  other comments are unclear. Adding this log here so we can check with live data, but
 		#  we are not acting on this yet.
 		print( '(' + str(ticker) + '): WARNING: duplicate sequence number detected - seq/timestamp: ' + str(stream['seq']) + ' / ' + str(stream['timestamp']) )

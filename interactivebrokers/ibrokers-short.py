@@ -22,7 +22,7 @@ args = parser.parse_args()
 if ( args.download == True ):
 
 	mytimezone = pytz.timezone('US/Eastern')
-	today = datetime.datetime.now(mytimezone).strftime('%Y-%m-%d_%H:%M')
+	today = datetime.datetime.now(mytimezone).strftime('%Y-%m-%d')
 
 	command = 'curl -o ./data/usa-' + str(today) + '.txt --silent -u shortstock: ftp://ftp3.interactivebrokers.com/usa.txt'
 	process = ''

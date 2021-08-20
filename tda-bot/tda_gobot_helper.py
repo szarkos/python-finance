@@ -125,7 +125,7 @@ def ismarketopen_US(date=None, safe_open=False):
 		if ( int(est_time.strftime('%-H')) >= 9 ):
 			if ( int(est_time.strftime('%-H')) == 9 ):
 
-				# Do not return True until after 10AM to void some of the volatility of the open
+				# Do not return True until after 10AM EST to avoid some of the volatility of the open
 				if ( isinstance(safe_open, bool) and safe_open == True ):
 					return False
 
@@ -138,7 +138,7 @@ def ismarketopen_US(date=None, safe_open=False):
 
 				# Do not return True until after 10AM to void some of the volatility of the open
 				if ( isinstance(safe_open, bool) and safe_open == True ):
-					if ( int(est_time.strftime('%-M')) >= 15 ):
+					if ( int(est_time.strftime('%-M')) >= 0 ):
 						return True
 					else:
 						return False
@@ -1884,7 +1884,6 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 	# Try to buy the stock num_attempts tries or return False
 	for attempt in range(num_attempts):
 		try:
-#			data, err = tda.place_order(tda_account_number, order, True)
 			data, err = func_timeout(5, tda.place_order, args=(tda_account_number, order, True))
 			if ( debug == True ):
 				print('DEBUG: sell_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
@@ -2506,7 +2505,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			  no_use_resistance=False, with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_macd=False, with_vwap=False, with_vpt=False,
 			  with_dmi_simple=False, with_macd_simple=False, vpt_sma_period=72, adx_period=48,
 			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None, weekly_ph=None, keylevel_strict=False,
-			  debug=False ):
+			  debug=False, debug_all=False ):
 
 	if ( ticker == None or pricehistory == None ):
 		print('Error: stochrsi_analyze(' + str(ticker) + '): Either pricehistory or ticker is empty', file=sys.stderr)
@@ -3088,6 +3087,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				signal_mode = 'sell'
 
+			# DEBUG
+			if ( debug_all == True ):
+				time = datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S')
+				print('(' + str(ticker) + '): ' + str(signal_mode).upper() + ' / ' + str(time))
+				print('(' + str(ticker) + '): StochRSI: ' + str(round(cur_rsi_k, 3)) + ' / ' + str(round(cur_rsi_d,3)))
+				print('(' + str(ticker) + '): DI+/-: ' + str(round(cur_plus_di, 3)) + ' / ' + str(round(cur_minus_di,3)) + ' signal: ' + str(dmi_signal))
+				print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
+				print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
+				print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
+				print('(' + str(ticker) + '): SHORT signal: ' + str(short_signal) + ', Final SHORT signal: ' + str(final_short_signal))
+				print('------------------------------------------------------')
+			# DEBUG
+
 
 		# SELL mode
 		if ( signal_mode == 'sell' ):
@@ -3441,6 +3453,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 				signal_mode = 'buy_to_cover'
+
+			# DEBUG
+			if ( debug_all == True ):
+				time = datetime.fromtimestamp(int(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S')
+				print('(' + str(ticker) + '): ' + str(signal_mode).upper() + ' / ' + str(time))
+				print('(' + str(ticker) + '): StochRSI: ' + str(round(cur_rsi_k, 3)) + ' / ' + str(round(cur_rsi_d,3)))
+				print('(' + str(ticker) + '): DI+/-: ' + str(round(cur_plus_di, 3)) + ' / ' + str(round(cur_minus_di,3)) + ' signal: ' + str(dmi_signal))
+				print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
+				print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
+				print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
+				print('(' + str(ticker) + '): SHORT signal: ' + str(short_signal) + ', Final SHORT signal: ' + str(final_short_signal))
+				print('------------------------------------------------------')
+			# DEBUG
 
 
 		# BUY-TO-COVER mode

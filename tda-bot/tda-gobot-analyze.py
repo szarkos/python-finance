@@ -64,6 +64,7 @@ parser.add_argument("--shortonly", help='Only short sell the stock', action="sto
 parser.add_argument("--check_ma", help='Check SMA and EMA to enable/disable short selling of stock', action="store_true")
 parser.add_argument("--verbose", help='Print additional information about each transaction (Default: False)', action="store_true")
 parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
+parser.add_argument("--debug_all", help='Enable extra debugging output', action="store_true")
 args = parser.parse_args()
 
 debug = 1			# Should default to 0 eventually, testing for now
@@ -371,7 +372,7 @@ for algo in args.algo.split(','):
 									 with_dmi_simple=args.with_dmi_simple, with_macd_simple=args.with_macd_simple, vpt_sma_period=args.vpt_sma_period, adx_period=args.adx_period,
 									 incr_percent_threshold=args.incr_threshold, decr_percent_threshold=args.decr_threshold,
 									 safe_open=True, exit_percent=args.exit_percent, strict_exit_percent=args.strict_exit_percent, vwap_exit=args.vwap_exit, quick_exit=args.quick_exit, start_date=args.start_date,
-									 weekly_ph=data_weekly, keylevel_strict=args.keylevel_strict, debug=True )
+									 weekly_ph=data_weekly, keylevel_strict=args.keylevel_strict, debug=True, debug_all=args.debug_all )
 
 		if ( results == False ):
 			print('Error: rsi_analyze() returned false', file=sys.stderr)

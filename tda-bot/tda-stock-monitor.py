@@ -7,7 +7,8 @@
 
 import os, sys, signal
 import time, datetime, pytz, random
-from subprocess import Popen, STDOUT
+import re
+from subprocess import Popen, PIPE, STDOUT
 from collections import OrderedDict
 import argparse
 
@@ -45,6 +46,10 @@ parser.add_argument("--vol_threshold", help='Percent threshold for volume gap up
 parser.add_argument("--vwap_threshold", help='Threshold for VWAP proximity detection (percentage)', default=1, type=float)
 parser.add_argument("--max_tickers", help='Max tickers to print out per category (Default: 20)', default=20, type=int)
 parser.add_argument("--gap_candles", help='Number of candles to count when determining price gap up/down (Default: 4 candles)', default=4, type=int)
+
+parser.add_argument("--ib_short", help='Enable Interactive Brokers short watch', action="store_true")
+parser.add_argument("--ib_short_pct", help='Percentage decrease to alert on for shorts available when querying Interactive Brokers (Default:90)', default=90, type=int)
+parser.add_argument("--ib_short_cmd", help='Location of the ibrokers-short.py command (Default: "../interactivebrokers/ibrokers-short.py")', default='../interactivebrokers/ibrokers-short.py', type=str)
 
 parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
 args = parser.parse_args()
@@ -85,6 +90,7 @@ gap_up_list = []
 gap_down_list = []
 vol_gap_up_list = []
 vwap_list = []
+ib_out = ib_err = None
 
 # Initialize stocks{}
 print( 'Initializing stock tickers: ' + str(args.stocks.split(',')) )
@@ -347,18 +353,14 @@ def gap_filter( ticker=None, gap_list=[], delta=600 ):
 		# Note: this assumes that the 'stock' and 'time' elements are
 		#  the first and last item in the event log respectively
 		stock = str(evnt).split(',')[0]
-		time = str(evnt).split(',')[-1]
+		time = str(evnt).split(',')[-1] # This should be a datetime.datetime object
 
 		if ( stock == ticker ):
 			cur_time = datetime.datetime.now(mytimezone)
 			cur_time = mytimezone.localize(cur_time)
 
-			try:
-				prev_time = datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
-				prev_time = mytimezone.localize(prev_time)
-
-			except:
-				continue
+			prev_time = datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
+			prev_time = mytimezone.localize(prev_time)
 
 			delta = cur_time - prev_time
 			delta = delta.total_seconds()
@@ -441,7 +443,7 @@ def stock_monitor(stream=None, debug=False):
 
 		# Get the latest candle open/close prices and volume
 		cur_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
-		prev_price = float( stocks[ticker]['pricehistory']['candles'][-gap_candles]['close'] )
+		prev_price = float( stocks[ticker]['pricehistory']['candles'][-args.gap_candles]['close'] )
 
 		cur_vol = int( stocks[ticker]['pricehistory']['candles'][-1]['volume'] )
 		prev_vol = int( stocks[ticker]['pricehistory']['candles'][-2]['volume'] )
@@ -500,7 +502,7 @@ def stock_monitor(stream=None, debug=False):
 				delta = time_now - starttime
 				delta = delta.days - 1 # Total number of days in pricehistory, but don't count the current day
 
-				last_day = endtime - timedelta( days=1 ) # Don't count beyond this day
+				last_day = endtime - datetime.timedelta( days=1 ) # Don't count beyond this day
 				last_day = last_day.timestamp() * 1000
 
 				cur_hr = time_now.strftime('%-H')
@@ -525,7 +527,7 @@ def stock_monitor(stream=None, debug=False):
 						str(round(cur_vol, 2)) + ',' + \
 						str(round(vol_change, 2)) + '%' + ',' + \
 						str(round(vol_hr_avg, 2)) + ',' + \
-						time_now
+						time_now.strftime('%Y-%m-%d %H:%M:%S.%f')
 
 				# These events can pile up into volume gap up list, so check to see
 				# if this ticker has triggered already within the last ten minutes
@@ -557,7 +559,7 @@ def stock_monitor(stream=None, debug=False):
 							str(round(prev_price, 2)) + ',' + \
 							str(round(cur_price, 2)) + ',' + \
 							str(round(vwap, 2)) + ',' + \
-							time_now
+							time_now.strftime('%Y-%m-%d %H:%M:%S.%f')
 
 					vwap_list.append(vwap_event)
 
@@ -584,10 +586,13 @@ def stock_monitor(stream=None, debug=False):
 
 		for idx,evnt in enumerate( reversed(gap_up_list) ):
 			ticker, prev_price, cur_price, pct_change, time = str(evnt).split(',')
+
+			time = datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
+			time = mytimezone.localize(time)
 			strtime = time.strftime('%Y-%m-%d %H:%M:%S.%f')
 
 			color = ''
-			if ( time <= time_now - datetime.timedelta(mins=5) ):
+			if ( time <= time_now - datetime.timedelta(minutes=5) ):
 				color = green
 
 			print(color + '{0:10} {1:15} {2:15} {3:10} {4:10}'.format(ticker, prev_price, cur_price, pct_change, strtime) + reset_color)
@@ -623,10 +628,13 @@ def stock_monitor(stream=None, debug=False):
 
 		for idx,evnt in enumerate( reversed(gap_down_list) ):
 			ticker, prev_price, cur_price, pct_change, time = str(evnt).split(',')
+
+			time = datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
+			time = mytimezone.localize(time)
 			strtime = time.strftime('%Y-%m-%d %H:%M:%S.%f')
 
 			color = ''
-			if ( time <= time_now - datetime.timedelta(mins=5) ):
+			if ( time <= time_now - datetime.timedelta(minutes=5) ):
 				color = red
 
 			print(color + '{0:10} {1:15} {2:15} {3:10} {4:10}'.format(ticker, prev_price, cur_price, pct_change, strtime) + reset_color)
@@ -663,10 +671,13 @@ def stock_monitor(stream=None, debug=False):
 
 		for idx,evnt in enumerate( reversed(vol_gap_up_list) ):
 			ticker, prev_price, cur_price, pct_change, hrly_avg, time = str(evnt).split(',')
+
+			time = datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
+			time = mytimezone.localize(time)
 			strtime = time.strftime('%Y-%m-%d %H:%M:%S.%f')
 
 			color = ''
-			if ( time <= time_now - datetime.timedelta(mins=5) ):
+			if ( time <= time_now - datetime.timedelta(minutes=5) ):
 				color = green
 
 			print(color + '{0:10} {1:15} {2:15} {3:10} {4:10} {5:10}'.format(ticker, prev_price, cur_price, pct_change, hrly_avg, strtime) + reset_color)
@@ -702,10 +713,13 @@ def stock_monitor(stream=None, debug=False):
 
 		for idx,evnt in enumerate( reversed(vwap_list) ):
 			ticker, prev_price, cur_price, vwap, time = str(evnt).split(',')
+
+			time = datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S.%f')
+			time = mytimezone.localize(time)
 			strtime = time.strftime('%Y-%m-%d %H:%M:%S.%f')
 
 			color = ''
-			if ( time <= time_now - datetime.timedelta(mins=5) ):
+			if ( time <= time_now - datetime.timedelta(minutes=5) ):
 				color = green
 
 			print(color + '{0:10} {1:15} {2:15} {3:10} {4:10}'.format(ticker, prev_price, cur_price, vwap, strtime) + reset_color)
@@ -724,6 +738,63 @@ def stock_monitor(stream=None, debug=False):
 		except Exception as e:
 			print('Error while updating watchlist ' + str(watchlist_name) + ': ' + str(e))
 			pass
+
+
+	# Interactive Brokers Short Interest
+	if ( args.ib_short == True ):
+		time_now = datetime.datetime.now(mytimezone)
+		date_ymd = time_now.strftime('%Y-%m-%d')
+
+		global ib_out, ib_err
+
+		# Only perform this check every 30-mins, don't hammer IB servers
+		if ( (time_now.strftime('%-M') == 0 or time_now.strftime('%-M') == 30) or ib_out == None):
+			ib_command = [str(args.ib_short_cmd), '--short_pct=' + str(args.ib_short_pct), '--ifile=' + str(os.path.dirname(args.ib_short_cmd)) + '/data/usa-' + str(date_ymd) + '.txt'  ]
+
+			try:
+				process = Popen(ib_command, stdin=None, stdout=PIPE, stderr=STDOUT, shell=False, text=True)
+
+			except Exception as e:
+				print('Exception caught: Popen(): ' + str(e))
+				return False
+
+			try:
+				ib_out, ib_err = process.communicate(timeout=10)
+
+			except TimeoutExpired:
+				process.kill()
+				ib_out, ib_err = process.communicate()
+
+			except Exception as e:
+				print('Exception caught: Popen.communicate(): ' + str(e))
+				return False
+
+		# Example output:
+		#  Ticker,Current Avail Shorts,Previous Avail Shorts,Total Volume,Last Price,52WkHigh,52WkLow,Exchange
+		#  SGOC,5000,60000,58610658,6.72,29.0,0.77,NASD
+		print("\n\n")
+		print('Interactive Brokers Short Interest')
+		print('------------------------------------------------------------------------------------------')
+		print('{0:10} {1:15} {2:15} {3:10} {4:10} {5:15}'.format('Ticker', 'Avail_Shorts', 'Prev_Shorts', 'Volume', 'Last_Price', '52Wk High/Low'))
+
+		if ( ib_out != "" ):
+
+			for line in str(ib_out).split("\n"):
+
+				if ( re.search('Ticker', line) != None ):
+					continue
+				if ( line == "" ):
+					continue
+
+				try:
+					ticker, shorts_avail, prev_shorts, volume, last_price, high, low, exchange = line.split(',')
+
+				except Exception as e:
+					print('Exception caught: line.split(): ' + str(e))
+					continue
+
+				print( '{0:10} {1:15} {2:15} {3:10} {4:10} {5:15}'.format(ticker, shorts_avail, prev_shorts, volume, last_price, high+'/'+low) )
+
 
 	return True
 

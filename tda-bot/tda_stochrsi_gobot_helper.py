@@ -35,27 +35,27 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 	#		'CHART_TIME': 1619813220000,
 	#		'CHART_DAY': 18747 }]
 	# }
-
-	# Try to avoid reprocessing duplicate streams
-	# This can happen if the websocket is closed by TDA for any reason (happens frequently)
 	for idx in stream['content']:
 		ticker = idx['key']
 
 		if ( stocks[ticker]['isvalid'] == False ):
 			continue
 
-		# Try to avoid reprocessing duplicate streams
-		# This can happen if the websocket is closed by TDA for any reason (happens frequently)
-#		if ( int(stream['timestamp']) == stocks[ticker]['prev_timestamp'] ):
-#			continue
-		stocks[ticker]['prev_timestamp'] = int( stream['timestamp'] )
-
+		# Try to avoid reprocessing duplicate streams, if there are any
+		#
 		# Documentation suggests that equity streams should have unique sequence numbers, but
-		#  other comments are unclear. Adding this log here so we can check with live data, but
-		#  we are not acting on this yet.
-		if ( int(idx['seq']) == stocks[ticker]['prev_seq'] ):
-			print( '(' + str(ticker) + '): WARNING: duplicate sequence number detected - seq/timestamp: ' + str(idx['seq']) + ' / ' + str(stream['timestamp']) )
-		stocks[ticker]['prev_seq'] = int( idx['seq'] )
+		#   other comments are unclear.
+		#
+		# 'seq' - appears to be an integer that increments by one for each stream update, so it
+		#    is based on when the stream started, it's not a unique identifier for a candle.
+		#    This value increements up to some three-digit number (which varies between stocks)
+		#    and then restarts back at 1.
+		# 'sequence' - appears to be more accurate to identify a particular candle.
+		#
+		# Adding this log here so we can check with live data.
+		if ( int(idx['SEQUENCE']) == stocks[ticker]['prev_seq'] ):
+			print( '(' + str(ticker) + '): WARNING: duplicate sequence number detected - seq/timestamp: ' + str(idx['SEQUENCE']) + ' / ' + str(stream['timestamp']) )
+		stocks[ticker]['prev_seq'] = int( idx['SEQUENCE'] )
 
 		candle_data = {	'open':		idx['OPEN_PRICE'],
 				'high':		idx['HIGH_PRICE'],
@@ -68,13 +68,13 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 		stocks[ticker]['period_log'].append( stream['timestamp'] )
 
 		# Look back through period_log to determine average number of candles received
-		#  and set period_multiplier accordingly.
+		#   and set period_multiplier accordingly.
 		# But don't muck with this if user explicitely changed the default of 0 via --period_multiplier
 		#
 		# SAZ - 2021-08-19 - disable period multiplier. Nice idea but does not function as expected,
 		#  needs more research.
-#		if ( args.period_multiplier == 0 ):
 		stocks[ticker]['period_multiplier'] = 1
+#		if ( args.period_multiplier == 0 ):
 		if ( args.period_multiplier == -999 ):
 
 			num_candles = 0
@@ -155,7 +155,7 @@ def export_pricehistory():
 			continue
 
 		try:
-			fname = './' + str(args.tx_log_dir) + '/' + str(ticker) + '.data'
+			fname = './' + str(args.tx_log_dir) + '/' + str(ticker) + '.pickle'
 			with open(fname, 'wb') as handle:
 				pickle.dump(stocks[ticker]['pricehistory'], handle)
 

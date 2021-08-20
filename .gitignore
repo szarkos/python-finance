@@ -128,7 +128,6 @@ log.txt
 stocks.txt
 *.swp
 *.csv
-.stock-blacklist
 results/
 results/*
 watchlist.txt

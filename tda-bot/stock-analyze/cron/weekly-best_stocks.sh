@@ -25,11 +25,11 @@ fi
 
 start=""
 if [ "$start_date" != "" ]; then
-	start="--start_date=${start_date}"
+	startdate="--start_date=${start_date}"
 fi
 
 end_date=$( echo -n "$tickers" | awk '{print $1}' )
-end_date=$( ls monthly-1min-csv/${end_date}-3months-*.pickle | sed "s/monthly\-csv\/$end_date\-3months\-//" | sed 's/\.pickle//' )
+end_date=$( ls monthly-1min-csv/${end_date}-3months-*.pickle | sed "s/monthly\-1min\-csv\/$end_date\-3months\-//" | sed 's/\.pickle//' )
 
 rm -f ./results/*
 cd ../
@@ -37,7 +37,7 @@ for t in $tickers; do
 
 	echo $t;
 	./gobot-test.py --all --ifile=stock-analyze/monthly-1min-csv/${t}-3months-${end_date}.pickle --ofile=stock-analyze/results/${t} \
-		--opts=" --weekly_ifile=stock-analyze/weekly-csv/${t}-weekly-2019-2021.pickle --exit_percent=1 --start_date=${start} "
+		--opts=" --weekly_ifile=stock-analyze/weekly-csv/${t}-weekly-2019-2021.pickle --exit_percent=1 $startdate "
 
 done
 cd "${parent_path}/.."
@@ -90,9 +90,13 @@ for i in $( echo -e "${algo1}\n${algo2}" ) ; do
 	done
 
 	# Check if ticker is currently blacklisted
-	blacklist=$( ${parent_path}/../../tda-quote-stock.py --check_blacklist $ticker )
-	if [ "$blacklist" == "True" ]; then
-		i=""
+	if [ "$i" != "" ]; then
+		cd ${parent_path}/../../
+		blacklist=$( ./tda-quote-stock.py --check_blacklist $ticker )
+		cd "${parent_path}/.."
+		if [ "$blacklist" == "True" ]; then
+			i=""
+		fi
 	fi
 
 	if [ "$i" == "" ]; then

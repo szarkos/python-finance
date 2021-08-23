@@ -18,7 +18,7 @@ rm -f ./weekly-csv/*.pickle    2>/dev/null
 
 # Create the .pickle files
 for i in monthly-1min-csv/*.csv; do
-	./ph_csv2pickle.py $i
+	./ph_csv2pickle.py $i --augment_today
 done
 
 for i in weekly-csv/*.csv; do

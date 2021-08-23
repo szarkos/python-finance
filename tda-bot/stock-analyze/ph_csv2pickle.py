@@ -4,17 +4,23 @@
 #  TDA dict, and output data as a pickle data file.
 # https://www.alphavantage.co/documentation/#intraday-extended
 
-import sys
+import os, sys, time
 import argparse
-import datetime
-import pytz
-
-import pickle
+import datetime, pytz
 import re
+import pickle
+
+# Some acrobatics to import tda_gobot_helper from the upper-level directory
+parent_path = os.path.dirname( os.path.realpath(__file__) )
+sys.path.append(parent_path + '/../')
+import robin_stocks.tda as tda
+import tda_gobot_helper
 
 parser = argparse.ArgumentParser()
 parser.add_argument("ifile", help='CSV file to read', type=str)
 parser.add_argument("ofile", help='Pickle file to write (default is ifile with .pickle extension', nargs='?', default=None, type=str)
+parser.add_argument("--augment_today", help='Augment Alphavantage history with the most recent day of 1min candles using the TDA API', action="store_true")
+parser.add_argument("--debug", help='Enable debug output (prints entire pricehistory)', action="store_true")
 args = parser.parse_args()
 
 mytimezone = pytz.timezone("US/Eastern")
@@ -67,6 +73,82 @@ except Exception as e:
 	print('Error opening file ' + str(args.ifile) + ': ' + str(e))
 	sys.exit(1)
 
+# Alphavantage 1min history data will typically include only up to the last
+#  trading day of data. Augment Alphavantage's history with the most recent
+#  day of 1min candles using TDA's API.
+if ( args.augment_today == True ):
+
+	# Initialize and log into TD Ameritrade
+	from dotenv import load_dotenv
+
+	parent_path = os.path.dirname( os.path.realpath(__file__) )
+	if ( load_dotenv(dotenv_path=parent_path+'/../.env') != True ):
+		print('Error: unable to load .env file', file=sys.stderr)
+		sys.exit(1)
+
+	tda_account_number = os.environ["tda_account_number"]
+	passcode = os.environ["tda_encryption_passcode"]
+
+	tda_gobot_helper.tda = tda
+	tda_gobot_helper.tda_account_number = tda_account_number
+	tda_gobot_helper.passcode = passcode
+
+	if ( tda_gobot_helper.tdalogin(passcode) != True ):
+		print('Error: Login failure', file=sys.stderr)
+		sys.exit(1)
+
+	# Download the latest candles from TDA's API
+	time_now = datetime.datetime.now( mytimezone )
+
+	today = time_now.strftime('%Y-%m-%d')
+	time_prev = datetime.datetime.strptime(today + ' 04:00:00', '%Y-%m-%d %H:%M:%S')
+	time_prev = mytimezone.localize(time_prev)
+
+	# Make sure start and end dates don't land on a weekend
+	#  or outside market hours
+#	time_now = tda_gobot_helper.fix_timestamp(time_now)
+#	time_prev = tda_gobot_helper.fix_timestamp(time_prev)
+
+	time_now_epoch = int( time_now.timestamp() * 1000 )
+	time_prev_epoch = int( time_prev.timestamp() * 1000 )
+
+	ph_data = epochs = False
+	p_type = 'day'
+	period = None
+	f_type = 'minute'
+	freq = '1'
+
+	tries = 0
+	while ( tries < 3 ):
+		try:
+			ph_data, epochs = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=True)
+
+		except Exception as e:
+			print('Caught Exception: get_pricehistory(' + str(ticker) + ', ' + str(time_prev_epoch) + ', ' + str(time_now_epoch) + '): ' + str(e) + ', exiting.', file=sys.stderr)
+			sys.exit(1)
+
+		if ( ph_data == False ):
+			print('Error: get_pricehistory(' + str(ticker) + ', ' + str(time_prev_epoch) + ', ' + str(time_now_epoch) + '): attempt ' + str(tries) + ' returned False, retrying...', file=sys.stderr)
+			time.sleep(2)
+
+		else:
+			break
+
+		tries += 1
+
+	if ( ph_data == False ):
+		print('Error: get_pricehistory(' + str(ticker) + ', ' + str(time_prev_epoch) + ', ' + str(time_now_epoch) + '): returned False, exiting.', file=sys.stderr)
+		sys.exit(1)
+
+
+	# Append the TDA pricehistory to pricehistory['candles'] obtained from Alphavantage
+	if ( int(ph_data['candles'][0]['datetime']) < int(pricehistory['candles'][-1]['datetime']) ):
+		print('Error: augment_today: first timestamp from TDA is less than the last timestamp from Alphavantage (' + str(ph_data['candles'][0]['datetime']) + ' / ' + str(pricehistory['candles'][-1]['datetime']) + '), exiting.', file=sys.stderr)
+		sys.exit(1)
+
+	pricehistory['candles'] = pricehistory['candles'] + ph_data['candles']
+
+
 # Sanity check that candle entries are properly ordered
 prev_time = 0
 for key in pricehistory['candles']:
@@ -76,6 +158,15 @@ for key in pricehistory['candles']:
 			print('(' + str(ticker) + '): Error: timestamps out of order!')
 
 	prev_time = time
+
+if ( args.debug == True ):
+	import pprint
+
+	pp = pprint.PrettyPrinter(indent=4)
+	for idx,key in enumerate(pricehistory['candles']):
+		data = pricehistory['candles'][idx]
+		data['datetime'] = datetime.datetime.fromtimestamp(data['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S')
+		pp.pprint(data)
 
 if ( args.ofile == None ):
 	args.ofile = re.sub('\.csv', '', args.ifile)

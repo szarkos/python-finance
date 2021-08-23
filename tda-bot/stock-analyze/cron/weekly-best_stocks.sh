@@ -7,7 +7,10 @@ parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 cd "${parent_path}/.."
 
 # Gain threshold - net gain (per share) required to add stock to the final list
-gain_threshold="0.07"
+# Typically algo1 is less restrictive and more risky, so only include tickers
+#  that have a higher gain threshold.
+algo1_gain_threshold="0.2"
+algo2_gain_threshold="0.08"
 
 # First, refresh all the 3-month data
 ./cron/refresh-data.sh
@@ -74,9 +77,18 @@ for i in $( echo -e "${algo1_loss}\n${algo2_loss}" ) ; do
 done
 
 
+# Initialize final list of stock tickers
 list=""
-for i in $( echo -e "${algo1}\n${algo2}" ) ; do
+
+## ALGO1
+for i in $( echo -e "${algo1}" ) ; do
 	if `echo -n $i | grep --silent 'stochrsi'` ; then
+		continue
+	fi
+
+	# Check if it's net gain is below the $gain_threshold
+	gain=$(echo -n $i | awk -F, '{print $2}' )
+	if (( $( echo "$gain" ' < ' "$algo1_gain_threshold" | bc -l ) )); then
 		continue
 	fi
 
@@ -88,29 +100,61 @@ for i in $( echo -e "${algo1}\n${algo2}" ) ; do
 			break
 		fi
 	done
-
-	# Check if ticker is currently blacklisted
-	if [ "$i" != "" ]; then
-		cd ${parent_path}/../../
-		blacklist=$( ./tda-quote-stock.py --check_blacklist $ticker )
-		cd "${parent_path}/.."
-		if [ "$blacklist" == "True" ]; then
-			i=""
-		fi
-	fi
-
 	if [ "$i" == "" ]; then
 		continue
 	fi
 
-	# Finally, add stock to list if it's net gain is above the $gain_threshold
-	gain=$(echo -n $i | awk -F, '{print $2}' )
-	if (( $( echo "$gain" ' >= ' "$gain_threshold" | bc -l ) )); then
-		list="$list "$(echo $i | awk -F, '{print $1}')
+	# Check if ticker is currently blacklisted
+	cd ${parent_path}/../../
+	blacklist=$( ./tda-quote-stock.py --check_blacklist $ticker )
+	cd "${parent_path}/.."
+	if [ "$blacklist" == "True" ]; then
+		continue
 	fi
+
+	# Finally, add stock to the list if it has made it this far
+	list="$list "$(echo $i | awk -F, '{print $1}')
+
 done
 
-list=$( echo "$list" | sed 's/^\s//' | sed 's/ /\n/g' | sort | uniq )
+## ALGO2
+for i in $( echo -e "${algo2}" ) ; do
+	if `echo -n $i | grep --silent 'stochrsi'` ; then
+		continue
+	fi
+
+	# Check if it's net gain is below the $gain_threshold
+	gain=$(echo -n $i | awk -F, '{print $2}' )
+	if (( $( echo "$gain" ' < ' "$algo2_gain_threshold" | bc -l ) )); then
+		continue
+	fi
+
+	# Check if ticker has been listed in $loss_list
+	ticker=$(echo -n $i | awk -F, '{print $1}' )
+	for t in "$loss_list"; do
+		if [ "$ticker" == "$t" ]; then
+			i=""
+			break
+		fi
+	done
+	if [ "$i" == "" ]; then
+		continue
+	fi
+
+	# Check if ticker is currently blacklisted
+	cd ${parent_path}/../../
+	blacklist=$( ./tda-quote-stock.py --check_blacklist $ticker )
+	cd "${parent_path}/.."
+	if [ "$blacklist" == "True" ]; then
+		continue
+	fi
+
+	# Finally, add stock to the list if it has made it this far
+	list="$list "$(echo $i | awk -F, '{print $1}')
+
+done
+
+list=$( echo "$list" | sed 's/^\s//' | sort | uniq )
 
 
 # Write CUR_SET to tickers.conf
@@ -118,4 +162,3 @@ echo -e "\n# "$(date +%Y-%m-%d) >> tickers.conf
 echo -en "CUR_SET='" >> tickers.conf
 echo -n "$list" | tr '\n' ',' | sed 's/^,//' | sed 's/,$//' >> tickers.conf
 echo -e "'\n" >> tickers.conf
-

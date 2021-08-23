@@ -136,9 +136,9 @@ def ismarketopen_US(date=None, safe_open=False):
 
 			if ( int(est_time.strftime('%-H')) == 10 ):
 
-				# Do not return True until after 10AM to void some of the volatility of the open
+				# Do not return True until after 10:15AM to void some of the volatility of the open
 				if ( isinstance(safe_open, bool) and safe_open == True ):
-					if ( int(est_time.strftime('%-M')) >= 0 ):
+					if ( int(est_time.strftime('%-M')) >= 15 ):
 						return True
 					else:
 						return False
@@ -2761,6 +2761,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	start_day = first_day + timedelta( days=1 )
 	start_day_epoch = int( start_day.timestamp() * 1000 )
 
+	last_hour_threshold = 0.2 # Last hour trading threshold
+
 	# Main loop
 	for idx,key in enumerate(pricehistory['candles']):
 
@@ -3108,6 +3110,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			# hold_overnight=False - drop the stock before market close
 			if ( hold_overnight == False and isendofday(5, date) ):
 				sell_signal = True
+
+			# The last trading hour is a bit unpredictable. If --hold_overnight is false we want
+			#  to sell the stock at a more conservative exit percentage.
+			elif ( isendofday(60, date) == True and hold_overnight == False ):
+				last_price = float( pricehistory['candles'][idx]['close'] )
+				if ( last_price > purchase_price ):
+					percent_change = abs( purchase_price / last_price - 1 ) * 100
+					if ( percent_change >= last_hour_threshold ):
+						sell_signal = True
 
 			# Monitor cost basis
 			if ( stoploss == True ):
@@ -3475,6 +3486,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			# hold_overnight=False - drop the stock before market close
 			if ( hold_overnight == False and isendofday(5, date) ):
 				buy_to_cover_signal = True
+
+			# The last trading hour is a bit unpredictable. If --hold_overnight is false we want
+			#  to sell the stock at a more conservative exit percentage.
+			elif ( isendofday(60, date) == True and hold_overnight == False ):
+				last_price = float( pricehistory['candles'][idx]['close'] )
+				if ( last_price < short_price ):
+					percent_change = abs( short_price / last_price - 1 ) * 100
+					if ( percent_change >= last_hour_threshold ):
+						sell_signal = True
 
 			# Monitor cost basis
 			if ( stoploss == True ):

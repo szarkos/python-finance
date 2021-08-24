@@ -333,7 +333,9 @@ def write_blacklist(ticker=None, stock_qty=-1, orig_base_price=-1, last_price=-1
 		print('Error: write_blacklist(' + str(ticker) + '): ticker is empty', file=sys.stderr)
 		return False
 
-	blacklist = '.stock-blacklist'
+	# We're assuming the blacklist file will be in the same path as tda_gobot_helper
+	parent_path = os.path.dirname( os.path.realpath(__file__) )
+	blacklist = str(parent_path) + '/.stock-blacklist'
 	try:
 		fh = open( blacklist, "at" )
 
@@ -388,7 +390,13 @@ def check_blacklist(ticker=None, debug=1):
 
 	found = False
 
-	blacklist = '.stock-blacklist'
+	# We're assuming the blacklist file will be in the same path as tda_gobot_helper
+	parent_path = os.path.dirname( os.path.realpath(__file__) )
+	blacklist = str(parent_path) + '/.stock-blacklist'
+	if ( os.path.exists(blacklist) == False ):
+		print('WARNING: check_blacklist(): File ' + str(blacklist) + ' does not exist', file=sys.stderr)
+		return True
+
 	try:
 		fh = open( blacklist, "rt" )
 	except OSError as e:

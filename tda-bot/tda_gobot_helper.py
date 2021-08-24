@@ -24,7 +24,7 @@ def tdalogin(passcode=None):
 		enc = func_timeout(5, tda.login, args=(passcode,))
 
 	except FunctionTimedOut:
-		print('Caught Exception: tdalogin(): timed out after 10 seconds' + str(e))
+		print('Caught Exception: tdalogin(): timed out after 10 seconds')
 		return False
 
 	except Exception as e:
@@ -450,10 +450,10 @@ def get_lastprice(ticker=None, WarnDelayed=True, debug=False):
 		return False
 
 	try:
-		data,err = func_timeout(10, tda.stocks.get_quote, args=(ticker, True))
+		data,err = func_timeout(4, tda.stocks.get_quote, args=(ticker, True))
 
 	except FunctionTimedOut:
-		print('Caught Exception: get_lastprice(' + str(ticker) + '): tda.stocks.get_quote(): timed out after 10 seconds')
+		print('Caught Exception: get_lastprice(' + str(ticker) + '): tda.stocks.get_quote(): timed out after 4 seconds')
 		return False
 
 	except Exception as e:
@@ -766,7 +766,7 @@ def get_pdc(pricehistory=None, debug=False):
 		pdc = pdc.values[0]
 
 	except FunctionTimedOut:
-		print('(' + str(ticker) + '): Exception caught: ' + str(e))
+		print('(' + str(ticker) + '): Exception caught: get_pdc(): web.DataReader timed out')
 		return None
 
 	except Exception as e:
@@ -1890,6 +1890,10 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 		} ]
 	}
 
+	# Make sure we are logged into TDA
+	if ( tdalogin(passcode) != True ):
+		print('Error: buy_stock_marketprice(' + str(ticker) + '): tdalogin(): login failure', file=sys.stderr)
+
 	# Try to buy the stock num_attempts tries or return False
 	for attempt in range(num_attempts):
 		try:
@@ -1901,7 +1905,8 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 				print(err)
 
 		except FunctionTimedOut:
-			print('Caught Exception: buy_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 5 seconds' + str(e))
+			print('Caught Exception: buy_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 5 seconds')
+			err = 'Timed Out'
 
 		except Exception as e:
 			print('Caught Exception: buy_stock_marketprice(' + str(ticker) + '): tda.place_order(): ' + str(e))
@@ -2002,11 +2007,13 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 		} ]
 	}
 
+	# Make sure we are logged into TDA
+	if ( tdalogin(passcode) != True ):
+		print('Error: sell_stock_marketprice(' + str(ticker) + '): tdalogin(): login failure', file=sys.stderr)
 
 	# Try to sell the stock num_attempts tries or return False
 	for attempt in range(num_attempts):
 		try:
-#			data, err = tda.place_order(tda_account_number, order, True)
 			data, err = func_timeout(5, tda.place_order, args=(tda_account_number, order, True))
 			if ( debug == True ):
 				print('DEBUG: sell_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
@@ -2015,7 +2022,8 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 				print(err)
 
 		except FunctionTimedOut:
-			print('Caught Exception: sell_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 5 seconds' + str(e))
+			print('Caught Exception: sell_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 5 seconds')
+			err = 'Timed Out'
 
 		except Exception as e:
 			print('Caught Exception: sell_stock_marketprice(' + str(ticker) + '): tda.place_order(): ' + str(e))
@@ -2113,10 +2121,13 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 		} ]
 	}
 
+	# Make sure we are logged into TDA
+	if ( tdalogin(passcode) != True ):
+		print('Error: short_stock_marketprice(' + str(ticker) + '): tdalogin(): login failure', file=sys.stderr)
+
 	# Try to buy the stock num_attempts tries or return False
 	for attempt in range(num_attempts):
 		try:
-#			data, err = tda.place_order(tda_account_number, order, True)
 			data, err = func_timeout(5, tda.place_order, args=(tda_account_number, order, True))
 			if ( debug == True ):
 				print('DEBUG: sell_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
@@ -2125,7 +2136,8 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 				print(err)
 
 		except FunctionTimedOut:
-			print('Caught Exception: short_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 5 seconds' + str(e))
+			print('Caught Exception: short_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 5 seconds')
+			err = 'Timed Out'
 
 		except Exception as e:
 			print('Caught Exception: short_stock_marketprice(' + str(ticker) + ': tda.place_order(): ' + str(e))
@@ -2228,6 +2240,10 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 		} ]
 	}
 
+	# Make sure we are logged into TDA
+	if ( tdalogin(passcode) != True ):
+		print('Error: buytocover_stock_marketprice(' + str(ticker) + '): tdalogin(): login failure', file=sys.stderr)
+
 	# Try to sell the stock num_attempts tries or return False
 	for attempt in range(num_attempts):
 		try:
@@ -2240,7 +2256,8 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 				print(err)
 
 		except FunctionTimedOut:
-			print('Caught Exception: buytocover_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 5 seconds' + str(e))
+			print('Caught Exception: buytocover_stock_marketprice(' + str(ticker) + '): tda.place_order(): timed out after 5 seconds')
+			err = 'Timed Out'
 
 		except Exception as e:
 			print('Caught Exception: buytocover_stock_marketprice(' + str(ticker) + '): tda.place_order(): ' + str(e))

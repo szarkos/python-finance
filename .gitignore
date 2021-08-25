@@ -130,6 +130,8 @@ stocks.txt
 *.csv
 results/
 results/*
+results*
+results*/*
 watchlist.txt
 *.gz
 *.bz2

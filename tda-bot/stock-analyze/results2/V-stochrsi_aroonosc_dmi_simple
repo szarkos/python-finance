@@ -1,2 +1,0 @@
-Error: get_lastprice(V): 401 Client Error: Unauthorized for url: https://api.tdameritrade.com/v1/marketdata/V/quotes
-Error: check_stock_symbol(V) returned False, exiting.

@@ -166,11 +166,11 @@ if ( tda_gobot_helper.tdalogin(passcode) != True ):
 #	   'vpt':			False,
 #	   'support_resistance':	False
 #	}, {...} ]
-print('Initializing algorithms... ', end = '')
+print('Initializing algorithms... ')
 
 algos = []
 for algo in args.algos:
-	print(algo, end = '')
+	print(algo)
 	algo = ','.join(algo)
 
 	stochrsi = rsi = adx = dmi = dmi_simple = macd = macd_simple = aroonosc = vwap = vpt = support_resistance = False
@@ -193,6 +193,15 @@ for algo in args.algos:
 		if ( macd == True and macd_simple == True ):
 			macd_simple = False
 
+		# Aroon Oscillator with MACD
+		# aroonosc_with_macd_simple implies that if aroonosc is enabled, then macd_simple will be
+		#   enabled or disabled based on the level of the aroon oscillator.
+		if ( args.aroonosc_with_macd_simple == True and aroonosc == True ):
+			if ( macd == True or macd_simple == True ):
+				print('INFO: Aroonosc enabled with --aroonosc_with_macd_simple, disabling macd and macd_simple')
+				macd = False
+				macd_simple = False
+
 	algo_list = {	'stochrsi':		True,  # For now this cannot be turned off
 			'rsi':			rsi,
 			'adx':			adx,
@@ -209,14 +218,6 @@ for algo in args.algos:
 
 del(stochrsi,rsi,adx,dmi,macd,aroonosc,vwap,vpt,support_resistance)
 print()
-
-# Aroon Oscillator with MACD
-# aroonosc_with_macd_simple implies that aroonosc is enabled, and that macd_simple will be
-#   enabled or disabled based on the level of the aroon oscillator (i.e. <70 then use macd_simple)
-if ( args.aroonosc_with_macd_simple == True ):
-	algos['aroonosc'] = True
-	algos['macd'] = False
-	algos['macd_simple'] = False
 
 
 # Initialize stocks{}

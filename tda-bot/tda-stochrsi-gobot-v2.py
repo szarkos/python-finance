@@ -75,6 +75,7 @@ parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=in
 parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', default=72, type=int)
 parser.add_argument("--adx_period", help='ADX period', default=48, type=int)
 parser.add_argument("--period_multiplier", help='Period multiplier - set statically here, or otherwise gobot will determine based on the number of candles it receives per minute.', default=0, type=int)
+parser.add_argument("--aroonosc_with_macd_simple", help='When using Aroon Oscillator, use macd_simple as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
 
 # Deprecated - use --algos=... instead
 #parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
@@ -208,6 +209,15 @@ for algo in args.algos:
 
 del(stochrsi,rsi,adx,dmi,macd,aroonosc,vwap,vpt,support_resistance)
 print()
+
+# Aroon Oscillator with MACD
+# aroonosc_with_macd_simple implies that aroonosc is enabled, and that macd_simple will be
+#   enabled or disabled based on the level of the aroon oscillator (i.e. <70 then use macd_simple)
+if ( args.aroonosc_with_macd_simple == True ):
+	algos['aroonosc'] = True
+	algos['macd'] = False
+	algos['macd_simple'] = False
+
 
 # Initialize stocks{}
 print( 'Initializing stock tickers: ' + str(args.stocks.split(',')) )
@@ -523,6 +533,7 @@ tda_stochrsi_gobot_helper.macd_offset = 0.006
 
 # Aroonosc
 tda_stochrsi_gobot_helper.aroonosc_period = 128
+tda_stochrsi_gobot_helper.aroonosc_threshold = 60
 
 # VPT
 tda_stochrsi_gobot_helper.vpt_sma_period = args.vpt_sma_period # Typically 72
@@ -543,7 +554,7 @@ else:
 
 # Log in again - avoids failing later and we can call this as often as we want
 if ( tda_gobot_helper.tdalogin(passcode) != True ):
-	print('Error: Login failure')
+	print('Error: tdalogin(): Login failure', file=sys.stderr)
 
 # tda.get_pricehistory() variables
 p_type = 'day'

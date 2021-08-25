@@ -2960,9 +2960,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				aroonosc_signal = True
 
 				# Enable macd_simple if the aroon oscillitor is less than 70
-				with_macd_simple = False
-				if ( aroonosc_with_macd_simple == True and cur_aroonosc <= 70 ):
-					with_macd_simple = True
+				if ( aroonosc_with_macd_simple == True ):
+					with_macd_simple = False
+					if ( cur_aroonosc <= 70 ):
+						with_macd_simple = True
 
 			# MACD crossover signals
 			if ( prev_macd < prev_macd_avg and cur_macd > cur_macd_avg ):
@@ -3343,9 +3344,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				aroonosc_signal = True
 
 				# Enable macd_simple if the aroon oscillitor is greater than -70
-				with_macd_simple = False
-				if ( aroonosc_with_macd_simple == True and cur_aroonosc >= -70 ):
-					with_macd_simple = True
+				if ( aroonosc_with_macd_simple == True ):
+					with_macd_simple = False
+					if ( cur_aroonosc >= -70 ):
+						with_macd_simple = True
 
 			# MACD crossover signals
 			if ( prev_macd < prev_macd_avg and cur_macd > cur_macd_avg ):

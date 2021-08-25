@@ -257,6 +257,21 @@ def stochrsi_gobot( algos=None, debug=False ):
 			stocks[ticker]['prev_plus_di']	= float( plus_di[-2] )
 			stocks[ticker]['prev_minus_di']	= float( minus_di[-2] )
 
+		# Aroon Oscillator
+		if ( algos['aroonosc'] == True ):
+
+			aroonosc = []
+			t_aroonosc_period = aroonosc_period * stocks[ticker]['period_multiplier']
+
+			try:
+				aroonosc = tda_gobot_helper.get_aroon_osc(stocks[ticker]['pricehistory'], period=t_aroonosc_period)
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(): get_aroon_osc(' + str(ticker) + '): ' + str(e))
+				continue
+
+			stocks[ticker]['cur_aroonosc'] = float( aroonosc[-1] )
+
 		# MACD - 48, 104, 36
 		if ( algos['macd'] == True or algos['macd_simple'] == True ):
 			macd = []
@@ -278,20 +293,6 @@ def stochrsi_gobot( algos=None, debug=False ):
 			stocks[ticker]['cur_macd_avg']	= float( macd_avg[-1] )
 			stocks[ticker]['prev_macd']	= float( macd[-2] )
 			stocks[ticker]['prev_macd_avg']	= float( macd_avg[-2] )
-
-		# Aroon Oscillator
-		if ( algos['aroonosc'] == True ):
-			aroonosc = []
-			t_aroonosc_period = aroonosc_period * stocks[ticker]['period_multiplier']
-
-			try:
-				aroonosc = tda_gobot_helper.get_aroon_osc(stocks[ticker]['pricehistory'], period=t_aroonosc_period)
-
-			except Exception as e:
-				print('Error: stochrsi_gobot(): get_aroon_osc(' + str(ticker) + '): ' + str(e))
-				continue
-
-			stocks[ticker]['cur_aroonosc'] = float( aroonosc[-1] )
 
 		# VWAP
 		# Calculate vwap to use as entry or exit algorithm
@@ -533,8 +534,14 @@ def stochrsi_gobot( algos=None, debug=False ):
 			# Values closer to 100 indicate an uptrend
 			if ( algos['aroonosc'] == True ):
 				stocks[ticker]['aroonosc_signal'] = False
-				if ( cur_aroonosc > 60 ):
+				if ( cur_aroonosc > aroonosc_threshold ):
 					stocks[ticker]['aroonosc_signal'] = True
+
+					# Enable macd_simple if the aroon oscillitor is less than 70
+					if ( args.aroonosc_with_macd_simple == True ):
+						algos['macd_simple'] = False
+						if ( cur_aroonosc <= 70 ):
+							algos['macd_simple'] = True
 
 			# MACD crossover signals
 			if ( algos['macd'] == True or algos['macd_simple'] == True ):
@@ -981,8 +988,14 @@ def stochrsi_gobot( algos=None, debug=False ):
 			# Values closer to -100 indicate a downtrend
 			if ( algos['aroonosc'] == True ):
 				stocks[ticker]['aroonosc_signal'] = False
-				if ( cur_aroonosc < -60 ):
+				if ( cur_aroonosc < -aroonosc_threshold ):
 					stocks[ticker]['aroonosc_signal'] = True
+
+					# Enable macd_simple if the aroon oscillitor is less than 70
+					if ( args.aroonosc_with_macd_simple == True ):
+						algos['macd_simple'] = False
+						if ( cur_aroonosc >= -70 ):
+							algos['macd_simple'] = True
 
 			# MACD crossover signals
 			if ( algos['macd'] == True or algos['macd_simple'] == True ):

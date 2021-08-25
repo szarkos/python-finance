@@ -2529,7 +2529,7 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, deb
 def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3,
 			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=1.5, hold_overnight=False, exit_percent=None, strict_exit_percent=False, vwap_exit=False, quick_exit=False,
 			  no_use_resistance=False, with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_macd=False, with_vwap=False, with_vpt=False,
-			  with_dmi_simple=False, with_macd_simple=False, vpt_sma_period=72, adx_period=48,
+			  with_dmi_simple=False, with_macd_simple=False, vpt_sma_period=72, adx_period=48, aroonosc_with_macd_simple=False,
 			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None, weekly_ph=None, keylevel_strict=False,
 			  debug=False, debug_all=False ):
 
@@ -2541,6 +2541,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		assert mytimezone
 	except:
 		mytimezone = timezone("US/Eastern")
+
+	# If set, turn start_date into a datetime object
+	if ( start_date != None ):
+		start_date = datetime.strptime(start_date + ' 00:00:00', '%Y-%m-%d %H:%M:%S')
+		start_date = mytimezone.localize(start_date)
 
 	# Get stochastic RSI
 	try:
@@ -2586,6 +2591,22 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_adx(): ' + str(e))
 		return False
 
+	# Aroon Oscillator
+	# aroonosc_with_macd_simple implies that macd_simple will be enabled or disabled based on the
+	#  level of the aroon oscillator (i.e. <70 then use macd_simple)
+	if ( aroonosc_with_macd_simple == True ):
+		with_aroonosc = True
+		with_macd = False
+		with_macd_simple = False
+
+	aroonosc = []
+	try:
+		aroonosc = get_aroon_osc(pricehistory, period=128)
+
+	except Exception as e:
+		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_aroon_osc(): ' + str(e))
+		return False
+
 	# MACD - 48, 104, 36
 	macd_offset = 0.006
 	if ( with_macd == True and with_macd_simple == True):
@@ -2599,15 +2620,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 	except Exception as e:
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_macd(): ' + str(e))
-		return False
-
-	# Aroon Oscillator
-	aroonosc = []
-	try:
-		aroonosc = get_aroon_osc(pricehistory, period=128)
-
-	except Exception as e:
-		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_aroon_osc(): ' + str(e))
 		return False
 
 	# Calculate vwap and/or vwap_exit
@@ -2838,11 +2850,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 
 		# Ignore pre-post market since we cannot trade during those hours
-		# Also skip to start_date if one is set
+		# Also skip all candles until start_date if it is set
 		date = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone)
 		if ( ismarketopen_US(date, safe_open=safe_open) != True ):
 			continue
-		elif ( start_date != None and date.strftime('%Y-%m-%d') != start_date ):
+		elif ( start_date != None and date < start_date ):
 			continue
 
 		# Check SMA/EMA to see if stock is bullish or bearish
@@ -2941,6 +2953,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				elif ( plus_di_crossover == True ):
 					dmi_signal = True
 
+			# Aroon oscillator signals
+			# Values closer to 100 indicate an uptrend
+			aroonosc_signal = False
+			if ( cur_aroonosc > 60 ):
+				aroonosc_signal = True
+
+				# Enable macd_simple if the aroon oscillitor is less than 70
+				with_macd_simple = False
+				if ( aroonosc_with_macd_simple == True and cur_aroonosc <= 70 ):
+					with_macd_simple = True
+
 			# MACD crossover signals
 			if ( prev_macd < prev_macd_avg and cur_macd > cur_macd_avg ):
 				macd_crossover = True
@@ -2955,12 +2978,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					macd_signal = True
 				elif ( macd_crossover == True ):
 					macd_signal = True
-
-			# Aroon oscillator signals
-			# Values closer to 100 indicate an uptrend
-			aroonosc_signal = False
-			if ( cur_aroonosc > 60 ):
-				aroonosc_signal = True
 
 			# VWAP
 			# This is the most simple/pessimistic approach right now
@@ -3319,6 +3336,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				elif ( minus_di_crossover == True ):
 					dmi_signal = True
 
+			# Aroon oscillator signals
+			# Values closer to -100 indicate a downtrend
+			aroonosc_signal = False
+			if ( cur_aroonosc < -60 ):
+				aroonosc_signal = True
+
+				# Enable macd_simple if the aroon oscillitor is greater than -70
+				with_macd_simple = False
+				if ( aroonosc_with_macd_simple == True and cur_aroonosc >= -70 ):
+					with_macd_simple = True
+
 			# MACD crossover signals
 			if ( prev_macd < prev_macd_avg and cur_macd > cur_macd_avg ):
 				macd_crossover = True
@@ -3333,12 +3361,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					macd_signal = True
 				elif ( macd_avg_crossover == True ):
 					macd_signal = True
-
-			# Aroon oscillator signals
-			# Values closer to -100 indicate a downtrend
-			aroonosc_signal = False
-			if ( cur_aroonosc < -60 ):
-				aroonosc_signal = True
 
 			# VWAP
 			# This is the most simple/pessimistic approach right now

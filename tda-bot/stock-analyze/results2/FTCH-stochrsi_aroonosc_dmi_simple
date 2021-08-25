@@ -1,0 +1,28 @@
+
+Stock summary for "FTCH"
+
+Last Price: $0
+52WkHigh: $0
+52WkLow: $0
+Shortable: [0;32mNone[0m
+Marginable: [0;32mNone[0m
+Delayed: [0;31mTrue[0m
+Volatility: 0
+
+Analyzing 90-day history for stock FTCH using the stochrsi-new algorithm:
+Buy/Sell Price    Net Change        RSI_K/RSI_D       Time
+[0;31m38.55*            [0m[0;31m                  [0m[0;31m98.6/99.5         [0m[0;31m2021-08-19 13:01:00.000000[0m
+[0;31m38.79*            [0m[0;31m0.24              [0m[0;31m98.6/99.0         [0m[0;31m2021-08-19 13:02:00.000000[0m
+[0;32m40.59             [0m[0;32m                  [0m[0;32m12.6/11.9         [0m[0;32m2021-08-23 13:05:00.000000[0m
+[0;32m40.89             [0m[0;32m0.3               [0m[0;32m100.0/97.0        [0m[0;32m2021-08-23 15:00:00.000000[0m
+
+Average txs/day: [0;32m0.02[0m
+Success rate: [0;31m50.0[0m
+Fail rate: [0;31m50.0[0m
+Average gain: [0;32m0.3 / share[0m
+Average loss: [0;32m-0.24 / share[0m
+Net gain: [0;32m0.3 / share[0m
+Net loss: [0;32m-0.24 / share[0m
+Average gain per share: [0;31m0.71%[0m
+Stock rating: [0;31mFAIL[0m
+

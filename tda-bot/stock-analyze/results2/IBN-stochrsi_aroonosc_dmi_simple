@@ -1,0 +1,28 @@
+
+Stock summary for "IBN"
+
+Last Price: $0
+52WkHigh: $0
+52WkLow: $0
+Shortable: [0;32mNone[0m
+Marginable: [0;32mNone[0m
+Delayed: [0;31mTrue[0m
+Volatility: 0
+
+Analyzing 90-day history for stock IBN using the stochrsi-new algorithm:
+Buy/Sell Price    Net Change        RSI_K/RSI_D       Time
+[0;31m18.93*            [0m[0;31m                  [0m[0;31m93.0/95.8         [0m[0;31m2021-08-10 12:05:00.000000[0m
+[0;31m19.01*            [0m[0;31m0.08              [0m[0;31m82.1/74.4         [0m[0;31m2021-08-10 15:55:00.000000[0m
+[0;31m19.07*            [0m[0;31m                  [0m[0;31m99.3/99.8         [0m[0;31m2021-08-16 11:38:00.000000[0m
+[0;31m19.12*            [0m[0;31m0.05              [0m[0;31m97.0/97.6         [0m[0;31m2021-08-16 15:55:00.000000[0m
+
+Average txs/day: [0;32m0.02[0m
+Success rate: [0;31m0[0m
+Fail rate: [0;31m100.0[0m
+Average gain: [0;31m0 / share[0m
+Average loss: [0;31m-0.06 / share[0m
+Net gain: [0;31m0.0 / share[0m
+Net loss: [0;31m-0.12 / share[0m
+Average gain per share: [0;31m0.0%[0m
+Stock rating: [0;31mFAIL[0m
+

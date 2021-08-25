@@ -71,7 +71,7 @@ for i in $( echo -e "${algo1_loss}\n${algo2_loss}" ) ; do
 		continue
 	fi
 
-	if (( $( echo "$net_loss" ' > 0' | bc -l ) )); then
+	if (( $( echo "$net_loss" ' < 0' | bc -l ) )); then  # NET_LOSS is a negative number
 		loss_list="$loss_list "$(echo $i | awk -F, '{print $1}')
 	fi
 done
@@ -154,7 +154,7 @@ for i in $( echo -e "${algo2}" ) ; do
 
 done
 
-list=$( echo "$list" | sed 's/^\s//' | sort | uniq )
+list=$( echo "$list" | sed 's/^\s//' | sed 's/ /\n/g' | sort | uniq )
 
 
 # Write CUR_SET to tickers.conf

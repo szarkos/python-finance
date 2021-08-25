@@ -1,0 +1,32 @@
+
+Stock summary for "TECK"
+
+Last Price: $0
+52WkHigh: $0
+52WkLow: $0
+Shortable: [0;32mNone[0m
+Marginable: [0;32mNone[0m
+Delayed: [0;31mTrue[0m
+Volatility: 0
+
+Analyzing 90-day history for stock TECK using the stochrsi-new algorithm:
+Buy/Sell Price    Net Change        RSI_K/RSI_D       Time
+[0;31m22.6              [0m[0;31m                  [0m[0;31m6.0/5.1           [0m[0;31m2021-08-10 13:37:00.000000[0m
+[0;31m22.49             [0m[0;31m-0.11             [0m[0;31m-0.0/0.0          [0m[0;31m2021-08-10 14:15:00.000000[0m
+[0;32m20.02*            [0m[0;32m                  [0m[0;32m98.4/99.2         [0m[0;32m2021-08-19 11:37:00.000000[0m
+[0;32m19.97*            [0m[0;32m-0.05             [0m[0;32m91.3/89.3         [0m[0;32m2021-08-19 12:53:00.000000[0m
+[0;32m19.93*            [0m[0;32m                  [0m[0;32m90.7/95.1         [0m[0;32m2021-08-19 13:47:00.000000[0m
+[0;32m19.78*            [0m[0;32m-0.15             [0m[0;32m13.5/6.7          [0m[0;32m2021-08-19 14:25:00.000000[0m
+[0;32m20.81             [0m[0;32m                  [0m[0;32m0.9/0.3           [0m[0;32m2021-08-23 13:14:00.000000[0m
+[0;32m20.87             [0m[0;32m0.06              [0m[0;32m36.1/36.4         [0m[0;32m2021-08-23 13:38:00.000000[0m
+
+Average txs/day: [0;32m0.04[0m
+Success rate: [0;32m75.0[0m
+Fail rate: [0;32m25.0[0m
+Average gain: [0;31m0.09 / share[0m
+Average loss: [0;31m-0.11 / share[0m
+Net gain: [0;32m0.27 / share[0m
+Net loss: [0;32m-0.11 / share[0m
+Average gain per share: [0;31m0.417%[0m
+Stock rating: [0;31mBad[0m
+

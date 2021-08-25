@@ -1,0 +1,32 @@
+
+Stock summary for "NVAX"
+
+Last Price: $0
+52WkHigh: $0
+52WkLow: $0
+Shortable: [0;32mNone[0m
+Marginable: [0;32mNone[0m
+Delayed: [0;31mTrue[0m
+Volatility: 0
+
+Analyzing 90-day history for stock NVAX using the stochrsi-new algorithm:
+Buy/Sell Price    Net Change        RSI_K/RSI_D       Time
+[0;32m232.75*           [0m[0;32m                  [0m[0;32m96.7/97.3         [0m[0;32m2021-08-24 11:40:00.000000[0m
+[0;32m232.17*           [0m[0;32m-0.58             [0m[0;32m76.6/80.9         [0m[0;32m2021-08-24 11:44:00.000000[0m
+[0;32m233.28*           [0m[0;32m                  [0m[0;32m100.0/100.0       [0m[0;32m2021-08-24 12:14:00.000000[0m
+[0;32m231.52*           [0m[0;32m-1.76             [0m[0;32m85.2/79.6         [0m[0;32m2021-08-24 13:39:00.000000[0m
+[0;32m231.3*            [0m[0;32m                  [0m[0;32m94.9/97.0         [0m[0;32m2021-08-24 13:43:00.000000[0m
+[0;32m230.07*           [0m[0;32m-1.23             [0m[0;32m36.7/31.2         [0m[0;32m2021-08-24 14:04:00.000000[0m
+[0;32m229.88*           [0m[0;32m                  [0m[0;32m72.1/83.3         [0m[0;32m2021-08-24 14:31:00.000000[0m
+[0;32m228.79*           [0m[0;32m-1.09             [0m[0;32m7.1/2.9           [0m[0;32m2021-08-24 14:49:00.000000[0m
+
+Average txs/day: [0;32m0.04[0m
+Success rate: [0;32m100.0[0m
+Fail rate: [0;32m0[0m
+Average gain: [0;32m1.16 / share[0m
+Average loss: [0;32m0 / share[0m
+Net gain: [0;32m4.66 / share[0m
+Net loss: [0;32m0.0 / share[0m
+Average gain per share: [0;31m0.501%[0m
+Stock rating: [0;31mPoor[0m
+

@@ -1,0 +1,28 @@
+
+Stock summary for "SNOW"
+
+Last Price: $0
+52WkHigh: $0
+52WkLow: $0
+Shortable: [0;32mNone[0m
+Marginable: [0;32mNone[0m
+Delayed: [0;31mTrue[0m
+Volatility: 0
+
+Analyzing 90-day history for stock SNOW using the stochrsi-new algorithm:
+Buy/Sell Price    Net Change        RSI_K/RSI_D       Time
+[0;31m285.34            [0m[0;31m                  [0m[0;31m3.7/2.5           [0m[0;31m2021-08-12 12:24:00.000000[0m
+[0;31m283.88            [0m[0;31m-1.46             [0m[0;31m-0.0/0.1          [0m[0;31m2021-08-12 12:41:00.000000[0m
+[0;32m283.36            [0m[0;32m                  [0m[0;32m5.9/2.9           [0m[0;32m2021-08-18 13:52:00.000000[0m
+[0;32m284.09            [0m[0;32m0.73              [0m[0;32m23.0/28.1         [0m[0;32m2021-08-18 14:17:00.000000[0m
+
+Average txs/day: [0;32m0.02[0m
+Success rate: [0;31m50.0[0m
+Fail rate: [0;31m50.0[0m
+Average gain: [0;31m0.73 / share[0m
+Average loss: [0;31m-1.46 / share[0m
+Net gain: [0;31m0.73 / share[0m
+Net loss: [0;31m-1.46 / share[0m
+Average gain per share: [0;31m0.259%[0m
+Stock rating: [0;31mFAIL[0m
+

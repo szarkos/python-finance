@@ -1,0 +1,28 @@
+
+Stock summary for "Z"
+
+Last Price: $0
+52WkHigh: $0
+52WkLow: $0
+Shortable: [0;32mNone[0m
+Marginable: [0;32mNone[0m
+Delayed: [0;31mTrue[0m
+Volatility: 0
+
+Analyzing 90-day history for stock Z using the stochrsi-new algorithm:
+Buy/Sell Price    Net Change        RSI_K/RSI_D       Time
+[0;31m97.36*            [0m[0;31m                  [0m[0;31m92.8/95.1         [0m[0;31m2021-08-13 11:52:00.000000[0m
+[0;31m97.83*            [0m[0;31m0.47              [0m[0;31m98.8/96.8         [0m[0;31m2021-08-13 13:04:00.000000[0m
+[0;32m95.03             [0m[0;32m                  [0m[0;32m8.6/4.6           [0m[0;32m2021-08-20 14:38:00.000000[0m
+[0;32m95.26             [0m[0;32m0.23              [0m[0;32m33.7/30.1         [0m[0;32m2021-08-20 15:01:00.000000[0m
+
+Average txs/day: [0;32m0.02[0m
+Success rate: [0;31m50.0[0m
+Fail rate: [0;31m50.0[0m
+Average gain: [0;31m0.23 / share[0m
+Average loss: [0;31m-0.47 / share[0m
+Net gain: [0;31m0.23 / share[0m
+Net loss: [0;31m-0.47 / share[0m
+Average gain per share: [0;31m0.236%[0m
+Stock rating: [0;31mFAIL[0m
+

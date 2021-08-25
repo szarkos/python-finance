@@ -1,0 +1,28 @@
+
+Stock summary for "DISCA"
+
+Last Price: $0
+52WkHigh: $0
+52WkLow: $0
+Shortable: [0;32mNone[0m
+Marginable: [0;32mNone[0m
+Delayed: [0;31mTrue[0m
+Volatility: 0
+
+Analyzing 90-day history for stock DISCA using the stochrsi-new algorithm:
+Buy/Sell Price    Net Change        RSI_K/RSI_D       Time
+[0;32m28.72*            [0m[0;32m                  [0m[0;32m91.0/95.3         [0m[0;32m2021-08-13 12:14:00.000000[0m
+[0;32m28.68*            [0m[0;32m-0.04             [0m[0;32m12.6/4.2          [0m[0;32m2021-08-13 12:49:00.000000[0m
+[0;31m28.57             [0m[0;31m                  [0m[0;31m10.8/7.4          [0m[0;31m2021-08-23 14:01:00.000000[0m
+[0;31m28.45             [0m[0;31m-0.12             [0m[0;31m1.8/5.4           [0m[0;31m2021-08-23 15:12:00.000000[0m
+
+Average txs/day: [0;32m0.02[0m
+Success rate: [0;31m50.0[0m
+Fail rate: [0;31m50.0[0m
+Average gain: [0;31m0.04 / share[0m
+Average loss: [0;31m-0.12 / share[0m
+Net gain: [0;31m0.04 / share[0m
+Net loss: [0;31m-0.12 / share[0m
+Average gain per share: [0;31m0.122%[0m
+Stock rating: [0;31mFAIL[0m
+

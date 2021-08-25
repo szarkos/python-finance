@@ -1,0 +1,32 @@
+
+Stock summary for "ARRY"
+
+Last Price: $0
+52WkHigh: $0
+52WkLow: $0
+Shortable: [0;32mNone[0m
+Marginable: [0;32mNone[0m
+Delayed: [0;31mTrue[0m
+Volatility: 0
+
+Analyzing 90-day history for stock ARRY using the stochrsi-new algorithm:
+Buy/Sell Price    Net Change        RSI_K/RSI_D       Time
+[0;31m15.6              [0m[0;31m                  [0m[0;31m2.3/0.8           [0m[0;31m2021-08-10 11:47:00.000000[0m
+[0;31m15.58             [0m[0;31m-0.01             [0m[0;31m21.3/26.2         [0m[0;31m2021-08-10 12:07:00.000000[0m
+[0;31m15.53             [0m[0;31m                  [0m[0;31m4.5/2.3           [0m[0;31m2021-08-10 12:18:00.000000[0m
+[0;31m15.47             [0m[0;31m-0.06             [0m[0;31m3.2/5.5           [0m[0;31m2021-08-10 12:30:00.000000[0m
+[0;31m16.63             [0m[0;31m                  [0m[0;31m7.7/5.7           [0m[0;31m2021-08-12 12:11:00.000000[0m
+[0;31m16.57             [0m[0;31m-0.05             [0m[0;31m24.1/30.6         [0m[0;31m2021-08-12 12:17:00.000000[0m
+[0;31m18.89             [0m[0;31m                  [0m[0;31m14.7/9.7          [0m[0;31m2021-08-20 13:09:00.000000[0m
+[0;31m18.84             [0m[0;31m-0.05             [0m[0;31m6.1/7.1           [0m[0;31m2021-08-20 13:27:00.000000[0m
+
+Average txs/day: [0;32m0.04[0m
+Success rate: [0;31m0[0m
+Fail rate: [0;31m100.0[0m
+Average gain: [0;31m0 / share[0m
+Average loss: [0;31m-0.05 / share[0m
+Net gain: [0;31m0.0 / share[0m
+Net loss: [0;31m-0.18 / share[0m
+Average gain per share: [0;31m0.0%[0m
+Stock rating: [0;31mFAIL[0m
+

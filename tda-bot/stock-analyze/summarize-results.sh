@@ -1,13 +1,14 @@
 #!/bin/bash
 
-command=${1-'all'} # tx-stats, ticker-net-gain
+results_dir=${1-'results'}
+command=${2-'all'} # tx-stats, ticker-net-gain
 
 tests=""
 if [ "$tests" == "" ]; then
 	tests=$(../gobot-test.py --print_scenarios)
 fi
 
-cd results
+cd $results_dir
 
 tickers=''
 for i in *-stochrsi*; do

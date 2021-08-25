@@ -1,0 +1,33 @@
+(SPCE) WARNING: stock SPCE is currently blacklisted
+
+Stock summary for "SPCE"
+
+Last Price: $0
+52WkHigh: $0
+52WkLow: $0
+Shortable: [0;32mNone[0m
+Marginable: [0;32mNone[0m
+Delayed: [0;31mTrue[0m
+Volatility: 0
+
+Analyzing 90-day history for stock SPCE using the stochrsi-new algorithm:
+Buy/Sell Price    Net Change        RSI_K/RSI_D       Time
+[0;32m32.02*            [0m[0;32m                  [0m[0;32m99.6/99.7         [0m[0;32m2021-08-10 12:14:00.000000[0m
+[0;32m31.21*            [0m[0;32m-0.8              [0m[0;32m1.7/1.6           [0m[0;32m2021-08-10 14:08:00.000000[0m
+[0;32m31.43*            [0m[0;32m                  [0m[0;32m99.8/99.9         [0m[0;32m2021-08-10 14:57:00.000000[0m
+[0;32m31.33*            [0m[0;32m-0.1              [0m[0;32m78.4/74.5         [0m[0;32m2021-08-10 15:11:00.000000[0m
+[0;31m26.93*            [0m[0;31m                  [0m[0;31m100.0/100.0       [0m[0;31m2021-08-11 12:10:00.000000[0m
+[0;31m27.06*            [0m[0;31m0.13              [0m[0;31m100.0/98.5        [0m[0;31m2021-08-11 12:18:00.000000[0m
+[0;31m27.07*            [0m[0;31m                  [0m[0;31m98.7/99.6         [0m[0;31m2021-08-11 12:21:00.000000[0m
+[0;31m27.18*            [0m[0;31m0.11              [0m[0;31m99.8/97.9         [0m[0;31m2021-08-11 12:27:00.000000[0m
+
+Average txs/day: [0;32m0.04[0m
+Success rate: [0;31m50.0[0m
+Fail rate: [0;31m50.0[0m
+Average gain: [0;32m0.45 / share[0m
+Average loss: [0;32m-0.12 / share[0m
+Net gain: [0;32m0.91 / share[0m
+Net loss: [0;32m-0.25 / share[0m
+Average gain per share: [0;32m1.688%[0m
+Stock rating: [0;31mFAIL[0m
+

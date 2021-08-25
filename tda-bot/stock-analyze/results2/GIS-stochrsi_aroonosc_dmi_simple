@@ -1,0 +1,26 @@
+
+Stock summary for "GIS"
+
+Last Price: $0
+52WkHigh: $0
+52WkLow: $0
+Shortable: [0;32mNone[0m
+Marginable: [0;32mNone[0m
+Delayed: [0;31mTrue[0m
+Volatility: 0
+
+Analyzing 90-day history for stock GIS using the stochrsi-new algorithm:
+Buy/Sell Price    Net Change        RSI_K/RSI_D       Time
+[0;32m58.45*            [0m[0;32m                  [0m[0;32m96.9/96.9         [0m[0;32m2021-08-24 13:16:00.000000[0m
+[0;32m58.37*            [0m[0;32m-0.09             [0m[0;32m0.3/0.1           [0m[0;32m2021-08-24 15:35:00.000000[0m
+
+Average txs/day: [0;32m0.01[0m
+Success rate: [0;32m100.0[0m
+Fail rate: [0;32m0[0m
+Average gain: [0;32m0.09 / share[0m
+Average loss: [0;32m0 / share[0m
+Net gain: [0;32m0.09 / share[0m
+Net loss: [0;32m0.0 / share[0m
+Average gain per share: [0;31m0.149%[0m
+Stock rating: [0;31mPoor[0m
+

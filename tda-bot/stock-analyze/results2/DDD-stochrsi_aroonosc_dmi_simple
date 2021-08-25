@@ -1,0 +1,33 @@
+(DDD) WARNING: stock DDD is currently blacklisted
+
+Stock summary for "DDD"
+
+Last Price: $0
+52WkHigh: $0
+52WkLow: $0
+Shortable: [0;32mNone[0m
+Marginable: [0;32mNone[0m
+Delayed: [0;31mTrue[0m
+Volatility: 0
+
+Analyzing 90-day history for stock DDD using the stochrsi-new algorithm:
+Buy/Sell Price    Net Change        RSI_K/RSI_D       Time
+[0;31m38.86             [0m[0;31m                  [0m[0;31m1.3/0.7           [0m[0;31m2021-08-10 12:58:00.000000[0m
+[0;31m38.58             [0m[0;31m-0.28             [0m[0;31m1.2/1.8           [0m[0;31m2021-08-10 13:01:00.000000[0m
+[0;32m30.5*             [0m[0;32m                  [0m[0;32m78.7/81.9         [0m[0;32m2021-08-13 14:08:00.000000[0m
+[0;32m30.42*            [0m[0;32m-0.08             [0m[0;32m52.3/48.2         [0m[0;32m2021-08-13 14:25:00.000000[0m
+[0;31m27.63*            [0m[0;31m                  [0m[0;31m96.1/98.3         [0m[0;31m2021-08-17 13:21:00.000000[0m
+[0;31m27.71*            [0m[0;31m0.08              [0m[0;31m94.4/92.8         [0m[0;31m2021-08-17 13:30:00.000000[0m
+[0;31m27.63*            [0m[0;31m                  [0m[0;31m92.7/95.0         [0m[0;31m2021-08-17 13:33:00.000000[0m
+[0;31m27.7*             [0m[0;31m0.07              [0m[0;31m92.0/90.1         [0m[0;31m2021-08-17 13:36:00.000000[0m
+
+Average txs/day: [0;32m0.04[0m
+Success rate: [0;31m25.0[0m
+Fail rate: [0;31m75.0[0m
+Average gain: [0;31m0.08 / share[0m
+Average loss: [0;31m-0.14 / share[0m
+Net gain: [0;31m0.08 / share[0m
+Net loss: [0;31m-0.43 / share[0m
+Average gain per share: [0;31m0.266%[0m
+Stock rating: [0;31mFAIL[0m
+

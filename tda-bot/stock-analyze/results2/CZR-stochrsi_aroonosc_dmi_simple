@@ -1,0 +1,28 @@
+
+Stock summary for "CZR"
+
+Last Price: $0
+52WkHigh: $0
+52WkLow: $0
+Shortable: [0;32mNone[0m
+Marginable: [0;32mNone[0m
+Delayed: [0;31mTrue[0m
+Volatility: 0
+
+Analyzing 90-day history for stock CZR using the stochrsi-new algorithm:
+Buy/Sell Price    Net Change        RSI_K/RSI_D       Time
+[0;31m83.78*            [0m[0;31m                  [0m[0;31m99.0/99.6         [0m[0;31m2021-08-17 14:09:00.000000[0m
+[0;31m84.14*            [0m[0;31m0.36              [0m[0;31m99.5/99.7         [0m[0;31m2021-08-17 14:50:00.000000[0m
+[0;32m93.04             [0m[0;32m                  [0m[0;32m5.6/4.2           [0m[0;32m2021-08-24 12:43:00.000000[0m
+[0;32m93.27             [0m[0;32m0.23              [0m[0;32m0.9/1.0           [0m[0;32m2021-08-24 14:19:00.000000[0m
+
+Average txs/day: [0;32m0.02[0m
+Success rate: [0;31m50.0[0m
+Fail rate: [0;31m50.0[0m
+Average gain: [0;31m0.23 / share[0m
+Average loss: [0;31m-0.36 / share[0m
+Net gain: [0;31m0.23 / share[0m
+Net loss: [0;31m-0.36 / share[0m
+Average gain per share: [0;31m0.247%[0m
+Stock rating: [0;31mFAIL[0m
+

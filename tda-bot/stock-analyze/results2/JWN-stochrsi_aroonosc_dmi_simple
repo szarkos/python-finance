@@ -1,0 +1,30 @@
+
+Stock summary for "JWN"
+
+Last Price: $0
+52WkHigh: $0
+52WkLow: $0
+Shortable: [0;32mNone[0m
+Marginable: [0;32mNone[0m
+Delayed: [0;31mTrue[0m
+Volatility: 0
+
+Analyzing 90-day history for stock JWN using the stochrsi-new algorithm:
+Buy/Sell Price    Net Change        RSI_K/RSI_D       Time
+[0;32m33.06*            [0m[0;32m                  [0m[0;32m98.4/98.5         [0m[0;32m2021-08-17 13:13:00.000000[0m
+[0;32m32.97*            [0m[0;32m-0.09             [0m[0;32m75.9/61.1         [0m[0;32m2021-08-17 13:59:00.000000[0m
+[0;31m32.99*            [0m[0;31m                  [0m[0;31m91.2/96.0         [0m[0;31m2021-08-17 14:09:00.000000[0m
+[0;31m33.16*            [0m[0;31m0.17              [0m[0;31m91.3/88.7         [0m[0;31m2021-08-17 14:17:00.000000[0m
+[0;32m34.78             [0m[0;32m                  [0m[0;32m18.5/13.8         [0m[0;32m2021-08-20 14:03:00.000000[0m
+[0;32m34.95             [0m[0;32m0.16              [0m[0;32m95.1/97.8         [0m[0;32m2021-08-20 14:22:00.000000[0m
+
+Average txs/day: [0;32m0.03[0m
+Success rate: [0;32m66.67[0m
+Fail rate: [0;32m33.33[0m
+Average gain: [0;31m0.13 / share[0m
+Average loss: [0;31m-0.17 / share[0m
+Net gain: [0;32m0.26 / share[0m
+Net loss: [0;32m-0.17 / share[0m
+Average gain per share: [0;31m0.366%[0m
+Stock rating: [0;31mBad[0m
+

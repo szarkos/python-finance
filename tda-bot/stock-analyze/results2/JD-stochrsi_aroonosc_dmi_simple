@@ -1,0 +1,35 @@
+(JD) WARNING: stock JD is currently blacklisted
+
+Stock summary for "JD"
+
+Last Price: $0
+52WkHigh: $0
+52WkLow: $0
+Shortable: [0;32mNone[0m
+Marginable: [0;32mNone[0m
+Delayed: [0;31mTrue[0m
+Volatility: 0
+
+Analyzing 90-day history for stock JD using the stochrsi-new algorithm:
+Buy/Sell Price    Net Change        RSI_K/RSI_D       Time
+[0;32m73.39             [0m[0;32m                  [0m[0;32m12.4/11.5         [0m[0;32m2021-08-24 10:24:00.000000[0m
+[0;32m73.78             [0m[0;32m0.39              [0m[0;32m36.7/42.2         [0m[0;32m2021-08-24 10:36:00.000000[0m
+[0;31m73.93             [0m[0;31m                  [0m[0;31m16.5/14.3         [0m[0;31m2021-08-24 10:45:00.000000[0m
+[0;31m73.68             [0m[0;31m-0.25             [0m[0;31m17.5/19.9         [0m[0;31m2021-08-24 10:48:00.000000[0m
+[0;31m73.8              [0m[0;31m                  [0m[0;31m5.3/4.2           [0m[0;31m2021-08-24 10:56:00.000000[0m
+[0;31m73.58             [0m[0;31m-0.22             [0m[0;31m6.3/7.7           [0m[0;31m2021-08-24 11:00:00.000000[0m
+[0;32m73.97             [0m[0;32m                  [0m[0;32m4.0/3.0           [0m[0;32m2021-08-24 11:03:00.000000[0m
+[0;32m74.17             [0m[0;32m0.2               [0m[0;32m23.0/27.4         [0m[0;32m2021-08-24 11:16:00.000000[0m
+[0;32m73.83             [0m[0;32m                  [0m[0;32m0.2/0.1           [0m[0;32m2021-08-24 11:27:00.000000[0m
+[0;32m74.33             [0m[0;32m0.5               [0m[0;32m29.4/41.9         [0m[0;32m2021-08-24 13:20:00.000000[0m
+
+Average txs/day: [0;32m0.06[0m
+Success rate: [0;32m60.0[0m
+Fail rate: [0;32m40.0[0m
+Average gain: [0;32m0.37 / share[0m
+Average loss: [0;32m-0.24 / share[0m
+Net gain: [0;32m1.1 / share[0m
+Net loss: [0;32m-0.47 / share[0m
+Average gain per share: [0;31m0.483%[0m
+Stock rating: [0;31mPoor[0m
+

@@ -1,0 +1,30 @@
+
+Stock summary for "PFE"
+
+Last Price: $0
+52WkHigh: $0
+52WkLow: $0
+Shortable: [0;32mNone[0m
+Marginable: [0;32mNone[0m
+Delayed: [0;31mTrue[0m
+Volatility: 0
+
+Analyzing 90-day history for stock PFE using the stochrsi-new algorithm:
+Buy/Sell Price    Net Change        RSI_K/RSI_D       Time
+[0;32m48.02             [0m[0;32m                  [0m[0;32m15.1/12.3         [0m[0;32m2021-08-10 12:53:00.000000[0m
+[0;32m48.16             [0m[0;32m0.15              [0m[0;32m57.2/69.9         [0m[0;32m2021-08-10 14:57:00.000000[0m
+[0;31m46.45*            [0m[0;31m                  [0m[0;31m96.8/97.5         [0m[0;31m2021-08-11 13:04:00.000000[0m
+[0;31m46.58*            [0m[0;31m0.12              [0m[0;31m100.0/100.0       [0m[0;31m2021-08-11 13:11:00.000000[0m
+[0;31m47.08             [0m[0;31m                  [0m[0;31m11.6/7.4          [0m[0;31m2021-08-12 12:30:00.000000[0m
+[0;31m46.95             [0m[0;31m-0.13             [0m[0;31m0.1/1.4           [0m[0;31m2021-08-12 12:37:00.000000[0m
+
+Average txs/day: [0;32m0.03[0m
+Success rate: [0;31m33.33[0m
+Fail rate: [0;31m66.67[0m
+Average gain: [0;32m0.15 / share[0m
+Average loss: [0;32m-0.13 / share[0m
+Net gain: [0;31m0.15 / share[0m
+Net loss: [0;31m-0.26 / share[0m
+Average gain per share: [0;31m0.305%[0m
+Stock rating: [0;31mFAIL[0m
+

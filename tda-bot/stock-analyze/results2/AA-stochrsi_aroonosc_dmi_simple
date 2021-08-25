@@ -1,0 +1,35 @@
+(AA) WARNING: stock AA is currently blacklisted
+
+Stock summary for "AA"
+
+Last Price: $0
+52WkHigh: $0
+52WkLow: $0
+Shortable: [0;32mNone[0m
+Marginable: [0;32mNone[0m
+Delayed: [0;31mTrue[0m
+Volatility: 0
+
+Analyzing 90-day history for stock AA using the stochrsi-new algorithm:
+Buy/Sell Price    Net Change        RSI_K/RSI_D       Time
+[0;31m43.62             [0m[0;31m                  [0m[0;31m0.6/0.3           [0m[0;31m2021-08-10 12:18:00.000000[0m
+[0;31m43.42             [0m[0;31m-0.2              [0m[0;31m-0.0/0.5          [0m[0;31m2021-08-10 12:23:00.000000[0m
+[0;32m43.49             [0m[0;32m                  [0m[0;32m0.6/0.2           [0m[0;32m2021-08-10 12:25:00.000000[0m
+[0;32m43.91             [0m[0;32m0.42              [0m[0;32m52.3/49.2         [0m[0;32m2021-08-10 13:46:00.000000[0m
+[0;32m40.61             [0m[0;32m                  [0m[0;32m14.8/13.0         [0m[0;32m2021-08-23 11:43:00.000000[0m
+[0;32m40.92             [0m[0;32m0.31              [0m[0;32m32.2/33.6         [0m[0;32m2021-08-23 12:27:00.000000[0m
+[0;31m41.25             [0m[0;31m                  [0m[0;31m6.1/4.9           [0m[0;31m2021-08-23 13:24:00.000000[0m
+[0;31m41.15             [0m[0;31m-0.1              [0m[0;31m2.9/7.3           [0m[0;31m2021-08-23 13:28:00.000000[0m
+[0;31m41.19             [0m[0;31m                  [0m[0;31m7.1/4.5           [0m[0;31m2021-08-23 13:32:00.000000[0m
+[0;31m41.06             [0m[0;31m-0.13             [0m[0;31m5.3/8.2           [0m[0;31m2021-08-23 13:37:00.000000[0m
+
+Average txs/day: [0;32m0.06[0m
+Success rate: [0;31m40.0[0m
+Fail rate: [0;31m60.0[0m
+Average gain: [0;32m0.36 / share[0m
+Average loss: [0;32m-0.14 / share[0m
+Net gain: [0;32m0.73 / share[0m
+Net loss: [0;32m-0.43 / share[0m
+Average gain per share: [0;31m0.867%[0m
+Stock rating: [0;31mFAIL[0m
+

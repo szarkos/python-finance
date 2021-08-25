@@ -1,0 +1,30 @@
+
+Stock summary for "GILD"
+
+Last Price: $0
+52WkHigh: $0
+52WkLow: $0
+Shortable: [0;32mNone[0m
+Marginable: [0;32mNone[0m
+Delayed: [0;31mTrue[0m
+Volatility: 0
+
+Analyzing 90-day history for stock GILD using the stochrsi-new algorithm:
+Buy/Sell Price    Net Change        RSI_K/RSI_D       Time
+[0;31m70.82             [0m[0;31m                  [0m[0;31m18.3/18.4         [0m[0;31m2021-08-11 11:52:00.000000[0m
+[0;31m70.5              [0m[0;31m-0.32             [0m[0;31m0.0/1.0           [0m[0;31m2021-08-11 12:16:00.000000[0m
+[0;31m71.29             [0m[0;31m                  [0m[0;31m21.3/15.1         [0m[0;31m2021-08-13 12:25:00.000000[0m
+[0;31m71.08             [0m[0;31m-0.21             [0m[0;31m23.9/25.7         [0m[0;31m2021-08-13 15:55:00.000000[0m
+[0;31m72.78             [0m[0;31m                  [0m[0;31m15.3/14.2         [0m[0;31m2021-08-20 12:23:00.000000[0m
+[0;31m72.47             [0m[0;31m-0.31             [0m[0;31m0.0/0.2           [0m[0;31m2021-08-20 15:55:00.000000[0m
+
+Average txs/day: [0;32m0.03[0m
+Success rate: [0;31m0[0m
+Fail rate: [0;31m100.0[0m
+Average gain: [0;31m0 / share[0m
+Average loss: [0;31m-0.28 / share[0m
+Net gain: [0;31m0.0 / share[0m
+Net loss: [0;31m-0.84 / share[0m
+Average gain per share: [0;31m0.0%[0m
+Stock rating: [0;31mFAIL[0m
+

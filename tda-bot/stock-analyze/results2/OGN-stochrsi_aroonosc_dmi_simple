@@ -1,0 +1,32 @@
+
+Stock summary for "OGN"
+
+Last Price: $0
+52WkHigh: $0
+52WkLow: $0
+Shortable: [0;32mNone[0m
+Marginable: [0;32mNone[0m
+Delayed: [0;31mTrue[0m
+Volatility: 0
+
+Analyzing 82-day history for stock OGN using the stochrsi-new algorithm:
+Buy/Sell Price    Net Change        RSI_K/RSI_D       Time
+[0;32m32.99             [0m[0;32m                  [0m[0;32m9.3/6.5           [0m[0;32m2021-08-12 12:39:00.000000[0m
+[0;32m33.3              [0m[0;32m0.31              [0m[0;32m55.6/52.8         [0m[0;32m2021-08-12 12:59:00.000000[0m
+[0;31m33.29*            [0m[0;31m                  [0m[0;31m96.3/98.7         [0m[0;31m2021-08-20 14:35:00.000000[0m
+[0;31m33.38*            [0m[0;31m0.09              [0m[0;31m91.6/89.3         [0m[0;31m2021-08-20 14:38:00.000000[0m
+[0;31m33.09*            [0m[0;31m                  [0m[0;31m97.1/98.1         [0m[0;31m2021-08-23 14:44:00.000000[0m
+[0;31m33.17*            [0m[0;31m0.08              [0m[0;31m98.4/96.6         [0m[0;31m2021-08-23 14:59:00.000000[0m
+[0;31m33.66             [0m[0;31m                  [0m[0;31m16.3/12.9         [0m[0;31m2021-08-24 12:37:00.000000[0m
+[0;31m33.56             [0m[0;31m-0.1              [0m[0;31m-0.0/0.6          [0m[0;31m2021-08-24 12:58:00.000000[0m
+
+Average txs/day: [0;32m0.05[0m
+Success rate: [0;31m25.0[0m
+Fail rate: [0;31m75.0[0m
+Average gain: [0;32m0.31 / share[0m
+Average loss: [0;32m-0.09 / share[0m
+Net gain: [0;32m0.31 / share[0m
+Net loss: [0;32m-0.27 / share[0m
+Average gain per share: [0;31m0.933%[0m
+Stock rating: [0;31mFAIL[0m
+

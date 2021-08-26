@@ -272,6 +272,12 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 			stocks[ticker]['cur_aroonosc'] = float( aroonosc[-1] )
 
+			# Enable macd_simple if --aroonosc_with_macd_simple is True
+			# We do this here just so that the MACD values will be calculated below, but the buy/short logic
+			#  later on will determine if MACD is actually used to make a decision.
+			if ( args.aroonosc_with_macd_simple == True ):
+				algos['macd_simple'] = True
+
 		# MACD - 48, 104, 36
 		if ( algos['macd'] == True or algos['macd_simple'] == True ):
 			macd = []
@@ -537,10 +543,10 @@ def stochrsi_gobot( algos=None, debug=False ):
 				if ( cur_aroonosc > aroonosc_threshold ):
 					stocks[ticker]['aroonosc_signal'] = True
 
-					# Enable macd_simple if the aroon oscillitor is less than 70
+					# Enable macd_simple if the aroon oscillitor is less than aroonosc_macd_threshold
 					if ( args.aroonosc_with_macd_simple == True ):
 						algos['macd_simple'] = False
-						if ( cur_aroonosc <= 70 ):
+						if ( cur_aroonosc <= args.aroonosc_macd_threshold ):
 							algos['macd_simple'] = True
 
 			# MACD crossover signals
@@ -991,10 +997,10 @@ def stochrsi_gobot( algos=None, debug=False ):
 				if ( cur_aroonosc < -aroonosc_threshold ):
 					stocks[ticker]['aroonosc_signal'] = True
 
-					# Enable macd_simple if the aroon oscillitor is less than 70
+					# Enable macd_simple if the aroon oscillitor is less than aroonosc_macd_threshold
 					if ( args.aroonosc_with_macd_simple == True ):
 						algos['macd_simple'] = False
-						if ( cur_aroonosc >= -70 ):
+						if ( cur_aroonosc >= -args.aroonosc_macd_threshold ):
 							algos['macd_simple'] = True
 
 			# MACD crossover signals

@@ -75,7 +75,9 @@ parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=in
 parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', default=72, type=int)
 parser.add_argument("--adx_period", help='ADX period', default=48, type=int)
 parser.add_argument("--period_multiplier", help='Period multiplier - set statically here, or otherwise gobot will determine based on the number of candles it receives per minute.', default=0, type=int)
+
 parser.add_argument("--aroonosc_with_macd_simple", help='When using Aroon Oscillator, use macd_simple as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
+parser.add_argument("--aroonosc_macd_threshold", help='AroonOsc threshold for when to enable macd_simple when --aroonosc_with_macd_simple is enabled (Default: 70)', default=70, type=float)
 
 # Deprecated - use --algos=... instead
 #parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")

@@ -2529,8 +2529,10 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, deb
 def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3,
 			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=1.5, hold_overnight=False, exit_percent=None, strict_exit_percent=False, vwap_exit=False, quick_exit=False,
 			  no_use_resistance=False, with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_macd=False, with_vwap=False, with_vpt=False,
-			  with_dmi_simple=False, with_macd_simple=False, vpt_sma_period=72, adx_period=48, aroonosc_with_macd_simple=False,
+			  with_dmi_simple=False, with_macd_simple=False, vpt_sma_period=72, adx_period=48,
+			  aroonosc_with_macd_simple=False, aroonosc_macd_threshold=70,
 			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None, weekly_ph=None, keylevel_strict=False,
+			  price_resistance_pct = 1, price_support_pct=1,
 			  debug=False, debug_all=False ):
 
 	if ( ticker == None or pricehistory == None ):
@@ -2593,7 +2595,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 	# Aroon Oscillator
 	# aroonosc_with_macd_simple implies that macd_simple will be enabled or disabled based on the
-	#  level of the aroon oscillator (i.e. <70 then use macd_simple)
+	#  level of the aroon oscillator (i.e. < aroonosc_macd_threshold then use macd_simple)
 	if ( aroonosc_with_macd_simple == True ):
 		with_aroonosc = True
 		with_macd = False
@@ -2676,8 +2678,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	# Resistance / Support
 	if ( no_use_resistance == False ):
 
-		price_resistance_pct = 1
-		price_support_pct = 1
+		price_resistance_pct = price_resistance_pct
+		price_support_pct = price_support_pct
 
 		# Day stats
 		pdc = OrderedDict()
@@ -2959,10 +2961,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			if ( cur_aroonosc > 60 ):
 				aroonosc_signal = True
 
-				# Enable macd_simple if the aroon oscillitor is less than 70
+				# Enable macd_simple if the aroon oscillitor is less than aroonosc_macd_threshold
 				if ( aroonosc_with_macd_simple == True ):
 					with_macd_simple = False
-					if ( cur_aroonosc <= 70 ):
+					if ( cur_aroonosc <= aroonosc_macd_threshold ):
 						with_macd_simple = True
 
 			# MACD crossover signals
@@ -3164,68 +3166,66 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 						sell_signal = True
 
 			# Monitor cost basis
-			if ( stoploss == True ):
-				last_price = float(pricehistory['candles'][idx]['close'])
+			last_price = float(pricehistory['candles'][idx]['close'])
+			percent_change = 0
+			if ( float(last_price) < float(base_price) ):
+				percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
 
-				percent_change = 0
-				if ( float(last_price) < float(base_price) ):
-					percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
+				# SELL the security if we are using a trailing stoploss
+				if ( percent_change >= decr_percent_threshold and stoploss == True ):
 
-					# SELL the security if we are using a trailing stoploss
-					if ( percent_change >= decr_percent_threshold ):
+					# Sell
+					sell_price = float(pricehistory['candles'][idx]['close'])
+					sell_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
-						# Sell
-						sell_price = float(pricehistory['candles'][idx]['close'])
-						sell_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+					# sell_price,bool(short),rsi,stochrsi,sell_time
+					results.append( str(sell_price) + ',' + str(short) + ',' +
+							str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' +
+							str(sell_time) )
 
-						# sell_price,bool(short),rsi,stochrsi,sell_time
-						results.append( str(sell_price) + ',' + str(short) + ',' +
-								str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' +
-								str(sell_time) )
+					buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+					final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
 
-						buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
-						final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
+					adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
+					plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
-						adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
-						plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
+					signal_mode = 'short'
+					continue
 
-						signal_mode = 'short'
-						continue
+			elif ( float(last_price) > float(base_price) ):
+				percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
 
-				elif ( float(last_price) > float(base_price) ):
-					percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
+				# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
+				if ( vwap_exit == True ):
+					cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
+					cur_vwap_up = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap_up']
+					if ( cur_vwap > purchase_price ):
+						if ( last_price >= ((cur_vwap - purchase_price) / 2) + purchase_price ):
+							sell_signal = True
 
-					# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
-					if ( vwap_exit == True ):
-						cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
-						cur_vwap_up = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap_up']
-						if ( cur_vwap > purchase_price ):
-							if ( last_price >= ((cur_vwap - purchase_price) / 2) + purchase_price ):
-								sell_signal = True
+					elif ( cur_vwap < purchase_price ):
+						if ( last_price >= ((cur_vwap_up - cur_vwap) / 2) + cur_vwap ):
+							sell_signal = True
 
-						elif ( cur_vwap < purchase_price ):
-							if ( last_price >= ((cur_vwap_up - cur_vwap) / 2) + cur_vwap ):
-								sell_signal = True
+				# Sell if exit_percent is specified
+				if ( exit_percent != None ):
 
-					# Sell if exit_percent is specified
-					if ( exit_percent != None ):
+					# If exit_percent has been hit, we will sell at the first RED candle
+					#  unless --quick_exit was set.
+					if ( exit_signal == True ):
+						if ( float(pricehistory['candles'][idx]['close']) < float(pricehistory['candles'][idx]['open']) ):
+							sell_signal = True
 
-						# If exit_percent has been hit, we will sell at the first RED candle
-						#  unless --quick_exit was set.
-						if ( exit_signal == True ):
-							if ( float(pricehistory['candles'][idx]['close']) < float(pricehistory['candles'][idx]['open']) ):
-								sell_signal = True
+					elif ( percent_change >= float(exit_percent) ):
+						exit_signal = True
+						if ( quick_exit == True ):
+							sell_signal = True
 
-						elif ( percent_change >= float(exit_percent) ):
-							exit_signal = True
-							if ( quick_exit == True ):
-								sell_signal = True
+				if ( percent_change >= incr_percent_threshold ):
+					base_price = last_price
+					decr_percent_threshold = incr_percent_threshold / 2
 
-					if ( percent_change >= incr_percent_threshold ):
-						base_price = last_price
-						decr_percent_threshold = incr_percent_threshold / 2
-
-			# End stoploss monitor
+			# End cost basis / stoploss monitor
 
 
 			# Monitor RSI
@@ -3343,10 +3343,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			if ( cur_aroonosc < -60 ):
 				aroonosc_signal = True
 
-				# Enable macd_simple if the aroon oscillitor is greater than -70
+				# Enable macd_simple if the aroon oscillitor is greater than -aroonosc_macd_threshold
 				if ( aroonosc_with_macd_simple == True ):
 					with_macd_simple = False
-					if ( cur_aroonosc >= -70 ):
+					if ( cur_aroonosc >= -aroonosc_macd_threshold ):
 						with_macd_simple = True
 
 			# MACD crossover signals
@@ -3546,71 +3546,69 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 						sell_signal = True
 
 			# Monitor cost basis
-			if ( stoploss == True ):
-				last_price = float(pricehistory['candles'][idx]['close'])
+			last_price = float(pricehistory['candles'][idx]['close'])
+			percent_change = 0
+			if ( float(last_price) > float(base_price) ):
+				percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
 
-				percent_change = 0
-				if ( float(last_price) > float(base_price) ):
-					percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
+				# Buy-to-cover the security if we are using a trailing stoploss
+				if ( percent_change >= decr_percent_threshold and stoploss == True ):
 
-					# Buy-to-cover the security if we are using a trailing stoploss
-					if ( percent_change >= decr_percent_threshold ):
+					# Buy-to-cover
+					buy_to_cover_price = float(pricehistory['candles'][idx]['close'])
+					buy_to_cover_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
-						# Buy-to-cover
-						buy_to_cover_price = float(pricehistory['candles'][idx]['close'])
-						buy_to_cover_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+					results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
+							str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' +
+							str(buy_to_cover_time) )
 
-						results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
-								str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' +
-								str(buy_to_cover_time) )
+					buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
+					final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
 
-						buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
-						final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
+					adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
+					plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
-						adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
-						plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
+					if ( shortonly == True ):
+						signal_mode = 'short'
+					else:
+						signal_mode = 'buy'
+						continue
 
-						if ( shortonly == True ):
-							signal_mode = 'short'
-						else:
-							signal_mode = 'buy'
-							continue
+			elif ( float(last_price) < float(base_price) ):
+				percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
 
-				elif ( float(last_price) < float(base_price) ):
-					percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
+				# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
+				if ( vwap_exit == True ):
 
-					# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
-					if ( vwap_exit == True ):
+					cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
+					cur_vwap_down = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap_down']
+					if ( cur_vwap < short_price ):
+						if ( last_price <= ((short_price - cur_vwap) / 2) + cur_vwap ):
+							buy_to_cover_signal = True
 
-						cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
-						cur_vwap_down = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap_down']
-						if ( cur_vwap < short_price ):
-							if ( last_price <= ((short_price - cur_vwap) / 2) + cur_vwap ):
-								buy_to_cover_signal = True
+					elif ( cur_vwap > short_price ):
+						if ( last_price <= ((cur_vwap - cur_vwap_down) / 2) + cur_vwap_down ):
+							buy_to_cover_signal = True
 
-						elif ( cur_vwap > short_price ):
-							if ( last_price <= ((cur_vwap - cur_vwap_down) / 2) + cur_vwap_down ):
-								buy_to_cover_signal = True
+				# Sell if exit_percent is specified
+				if ( exit_percent != None ):
 
-					# Sell if exit_percent is specified
-					if ( exit_percent != None ):
+					# If exit_percent has been hit, we will sell at the first GREEN candle
+					#  unless quick_exit was set.
+					if ( exit_signal == True ):
+						if ( float(pricehistory['candles'][idx]['close']) > float(pricehistory['candles'][idx]['open']) ):
+							buy_to_cover_signal = True
 
-						# If exit_percent has been hit, we will sell at the first GREEN candle
-						#  unless quick_exit was set.
-						if ( exit_signal == True ):
-							if ( float(pricehistory['candles'][idx]['close']) > float(pricehistory['candles'][idx]['open']) ):
-								buy_to_cover_signal = True
+					elif ( percent_change >= float(exit_percent) ):
+						exit_signal = True
+						if ( quick_exit == True ):
+							sell_signal = True
 
-						elif ( percent_change >= float(exit_percent) ):
-							exit_signal = True
-							if ( quick_exit == True ):
-								sell_signal = True
+				if ( percent_change >= incr_percent_threshold ):
+					base_price = last_price
+					decr_percent_threshold = incr_percent_threshold / 2
 
-					if ( percent_change >= incr_percent_threshold ):
-						base_price = last_price
-						decr_percent_threshold = incr_percent_threshold / 2
-
-			# End stoploss monitor
+			# End cost basis / stoploss monitor
 
 
 			# Monitor RSI

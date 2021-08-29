@@ -827,6 +827,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 				# Sell if --exit_percent was set and threshold met
 				if ( args.exit_percent != None ):
+					total_percent_change = abs( stocks[ticker]['orig_base_price'] / last_price - 1 ) * 100
 
 					# If exit_percent has been hit, we will sell at the first RED candle
 					if ( stocks[ticker]['exit_signal'] == True ):
@@ -836,7 +837,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 						if ( last_close < last_open ):
 							stocks[ticker]['sell_signal'] = True
 
-					elif ( percent_change >= float(args.exit_percent) ):
+					elif ( total_percent_change >= float(args.exit_percent) ):
 						stocks[ticker]['exit_signal'] = True
 
 				# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
@@ -1263,7 +1264,9 @@ def stochrsi_gobot( algos=None, debug=False ):
 				if ( debug == True ):
 					print('Stock "' +  str(ticker) + '" -' + str(round(percent_change, 2)) + '% (' + str(last_price) + ')')
 
+				# Sell if --exit_percent was set and threshold met
 				if ( args.exit_percent != None ):
+					total_percent_change = abs( stocks[ticker]['orig_base_price'] / last_price - 1 ) * 100
 
 					# If exit_percent has been hit, we will sell at the first GREEN candle
 					if ( stocks[ticker]['exit_signal'] == True ):
@@ -1273,7 +1276,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 						if ( last_close > last_open ):
 							stocks[ticker]['buy_to_cover_signal'] = True
 
-					elif ( percent_change >= float(args.exit_percent) ):
+					elif ( total_percent_change >= float(args.exit_percent) ):
 						stocks[ticker]['exit_signal'] = True
 
 

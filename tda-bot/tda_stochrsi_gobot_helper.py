@@ -67,6 +67,31 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 		stocks[ticker]['pricehistory']['candles'].append( candle_data )
 		stocks[ticker]['period_log'].append( stream['timestamp'] )
 
+		# Add 5min candle
+		if ( len(stocks[ticker]['pricehistory']['candles']) % 5 == 0 ):
+			open = stocks[ticker]['pricehistory']['candles'][-5]['open']
+			close = stocks[ticker]['pricehistory']['candles'][-1]['close']
+
+			high = 0
+			low = 9999
+			volume = 0
+			for i in range(5, 0, -1):
+				volume += stocks[ticker]['pricehistory']['candles'][-i]['volume']
+
+				if ( high < stocks[ticker]['pricehistory']['candles'][-i]['high'] ):
+					high = stocks[ticker]['pricehistory']['candles'][-i]['high']
+				if ( low > stocks[ticker]['pricehistory']['candles'][-i]['low'] ):
+					low = stocks[ticker]['pricehistory']['candles'][-i]['low']
+
+			newcandle = {	'open':		open,
+					'high':		high,
+					'low':		low,
+					'close':	close,
+					'volume':	volume,
+					'datetime':	stocks[ticker]['pricehistory']['candles'][-i]['datetime'] }
+
+			stocks[ticker]['pricehistory_5m']['candles'].append(newcandle)
+
 		# Look back through period_log to determine average number of candles received
 		#   and set period_multiplier accordingly.
 		# But don't muck with this if user explicitely changed the default of 0 via --period_multiplier
@@ -237,13 +262,32 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 			stocks[ticker]['cur_rsi'] = float( rsi[-1] )
 
+		# Average True Range (ATR/NATR)
+		atr = []
+		natr = []
+		try:
+			atr, natr = tda_gobot_helper.get_atr( pricehistory=stocks[ticker]['pricehistory_5m'], period=atr_period )
+
+		except Exception as e:
+			print('Error: stochrsi_gobot(' + str(ticker) + '): get_atr(): ' + str(e))
+			continue
+
+		stocks[ticker]['cur_atr'] = float( atr[-1] )
+		stocks[ticker]['cur_natr'] = float( natr[-1] )
+
 		# ADX, +DI, -DI
 		if ( algos['adx'] == True or algos['dmi'] == True or algos['dmi_simple'] == True ):
+
+			# SAZ - 2021-08-29: Low volatility stocks work better with a longer adx_period
+			stocks[ticker]['adx_period'] = adx_period
+#			if ( stocks[ticker]['cur_natr'] < 0.18 ):
+#				stocks[ticker]['adx_period'] = adx_period * 2
+
+			t_adx_period = stocks[ticker]['adx_period'] * stocks[ticker]['period_multiplier']
+
 			adx = []
 			plus_di = []
 			minus_di = []
-			t_adx_period = adx_period * stocks[ticker]['period_multiplier']
-
 			try:
 				adx, plus_di, minus_di = tda_gobot_helper.get_adx(stocks[ticker]['pricehistory'], period=t_adx_period)
 
@@ -260,9 +304,15 @@ def stochrsi_gobot( algos=None, debug=False ):
 		# Aroon Oscillator
 		if ( algos['aroonosc'] == True ):
 
-			aroonosc = []
-			t_aroonosc_period = aroonosc_period * stocks[ticker]['period_multiplier']
+			# SAZ - 2021-08-29: Higher volatility stocks seem to work better with a
+			#  longer Aroon Oscillator value.
+			stocks[ticker]['aroonosc_period'] = aroonosc_period
+			if ( stocks[ticker]['cur_natr'] > 0.24 ):
+				stocks[ticker]['aroonosc_period'] = 92
 
+			t_aroonosc_period = stocks[ticker]['aroonosc_period'] * stocks[ticker]['period_multiplier']
+
+			aroonosc = []
 			try:
 				aroonosc = tda_gobot_helper.get_aroon_osc(stocks[ticker]['pricehistory'], period=t_aroonosc_period)
 
@@ -413,6 +463,9 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 		cur_rsi		= stocks[ticker]['cur_rsi']
 
+		cur_atr		= stocks[ticker]['cur_atr']
+		cur_natr	= stocks[ticker]['cur_natr']
+
 		cur_adx		= stocks[ticker]['cur_adx']
 
 		cur_plus_di	= stocks[ticker]['cur_plus_di']
@@ -543,10 +596,10 @@ def stochrsi_gobot( algos=None, debug=False ):
 				if ( cur_aroonosc > aroonosc_threshold ):
 					stocks[ticker]['aroonosc_signal'] = True
 
-					# Enable macd_simple if the aroon oscillitor is less than aroonosc_macd_threshold
+					# Enable macd_simple if the aroon oscillator is less than aroonosc_secondary_threshold
 					if ( args.aroonosc_with_macd_simple == True ):
 						algos['macd_simple'] = False
-						if ( cur_aroonosc <= args.aroonosc_macd_threshold ):
+						if ( cur_aroonosc <= aroonosc_secondary_threshold ):
 							algos['macd_simple'] = True
 
 			# MACD crossover signals
@@ -729,6 +782,33 @@ def stochrsi_gobot( algos=None, debug=False ):
 				reset_signals(ticker)
 				stocks[ticker]['signal_mode'] = 'sell' # Switch to 'sell' mode for the next loop
 
+				# VARIABLE EXIT
+				# Build a profile of the stock's price action over the 90 minutes and adjust
+				#  incr_threshold, decr_threshold and exit_percent if needed.
+				if ( args.variable_exit == True ):
+					if ( stocks[ticker]['cur_natr'] < stocks[ticker]['incr_threshold'] ):
+
+						# The normalized ATR is below incr_threshold. This means the stock is less
+						#  likely to get to incr_threshold from our purchase price, and is probably
+						#  even farther away from exit_percent (if it is set). So we adjust these parameters
+						#  to increase the likelihood of a successful trade.
+						#
+						# Note that currently we may reduce these values, but we do not increase them above
+						#  their settings configured by the user.
+						if ( stocks[ticker]['incr_threshold'] > stocks[ticker]['cur_natr'] * 2 ):
+							stocks[ticker]['incr_threshold'] = stocks[ticker]['cur_natr'] * 2
+						else:
+							stocks[ticker]['incr_threshold'] = stocks[ticker]['cur_natr']
+
+						if ( stocks[ticker]['decr_threshold'] > stocks[ticker]['cur_natr'] * 2 ):
+							stocks[ticker]['decr_threshold'] = stocks[ticker]['cur_natr'] * 2
+
+						if ( stocks[ticker]['exit_percent'] != None ):
+							if ( stocks[ticker]['exit_percent'] > stocks[ticker]['cur_natr'] * 4 ):
+								stocks[ticker]['exit_percent'] = stocks[ticker]['cur_natr'] * 2
+
+				# VARIABLE EXIT
+
 
 		# SELL MODE - look for a signal to sell the stock
 		elif ( signal_mode == 'sell' ):
@@ -780,7 +860,6 @@ def stochrsi_gobot( algos=None, debug=False ):
 						stocks[ticker]['exit_signal'] = True
 						stocks[ticker]['sell_signal'] = True
 
-
 			# STOPLOSS MONITOR
 			# If price decreases
 			if ( last_price < stocks[ticker]['base_price'] ):
@@ -809,10 +888,13 @@ def stochrsi_gobot( algos=None, debug=False ):
 								tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 
 					# Change signal to 'buy' and generate new tx_id for next iteration
-					stocks[ticker]['tx_id'] = random.randint(1000, 9999)
-					stocks[ticker]['stock_qty'] = 0
-					stocks[ticker]['base_price'] = 0
-					stocks[ticker]['orig_base_price'] = 0
+					stocks[ticker]['tx_id']			= random.randint(1000, 9999)
+					stocks[ticker]['stock_qty']		= 0
+					stocks[ticker]['base_price']		= 0
+					stocks[ticker]['orig_base_price']	= 0
+					stocks[ticker]['incr_threshold']	= args.incr_threshold
+					stocks[ticker]['decr_threshold']	= args.decr_threshold
+					stocks[ticker]['exit_percent']		= args.exit_percent
 
 					reset_signals(ticker)
 					stocks[ticker]['signal_mode'] = 'buy'
@@ -826,7 +908,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 					print('Stock "' +  str(ticker) + '" +' + str(round(percent_change,2)) + '% (' + str(last_price) + ')')
 
 				# Sell if --exit_percent was set and threshold met
-				if ( args.exit_percent != None ):
+				if ( stocks[ticker]['exit_percent'] != None ):
 					total_percent_change = abs( stocks[ticker]['orig_base_price'] / last_price - 1 ) * 100
 
 					# If exit_percent has been hit, we will sell at the first RED candle
@@ -837,7 +919,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 						if ( last_close < last_open ):
 							stocks[ticker]['sell_signal'] = True
 
-					elif ( total_percent_change >= float(args.exit_percent) ):
+					elif ( total_percent_change >= stocks[ticker]['exit_percent'] ):
 						stocks[ticker]['exit_signal'] = True
 
 				# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
@@ -852,15 +934,15 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 				# Re-set the base_price to the last_price if we increase by incr_threshold or more
 				# This way we can continue to ride a price increase until it starts dropping
-				if ( percent_change >= incr_threshold ):
+				if ( percent_change >= stocks[ticker]['incr_threshold'] ):
 					stocks[ticker]['base_price'] = last_price
-					print('Stock "' + str(ticker) + '" increased above the incr_threshold (' + str(incr_threshold) + '%), resetting base price to '  + str(last_price))
+					print('Stock "' + str(ticker) + '" increased above the incr_threshold (' + str(stocks[ticker]['incr_threshold']) + '%), resetting base price to '  + str(last_price))
 					print('Net change (' + str(ticker) + '): ' + str(net_change) + ' USD')
 
 					if ( args.scalp_mode == True ):
 						stocks[ticker]['decr_threshold'] = 0.1
 					else:
-						stocks[ticker]['decr_threshold'] = incr_threshold / 2
+						stocks[ticker]['decr_threshold'] = stocks[ticker]['incr_threshold'] / 2
 
 				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
 
@@ -906,12 +988,14 @@ def stochrsi_gobot( algos=None, debug=False ):
 						if ( args.fake == False ):
 							tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 
-
 				# Change signal to 'buy' or 'short' and generate new tx_id for next iteration
-				stocks[ticker]['tx_id'] = random.randint(1000, 9999)
-				stocks[ticker]['stock_qty'] = 0
-				stocks[ticker]['base_price'] = 0
-				stocks[ticker]['orig_base_price'] = 0
+				stocks[ticker]['tx_id']			= random.randint(1000, 9999)
+				stocks[ticker]['stock_qty']		= 0
+				stocks[ticker]['base_price']		= 0
+				stocks[ticker]['orig_base_price']	= 0
+				stocks[ticker]['incr_threshold']	= args.incr_threshold
+				stocks[ticker]['decr_threshold']	= args.decr_threshold
+				stocks[ticker]['exit_percent']		= args.exit_percent
 
 				reset_signals(ticker)
 				if ( args.short == True and stocks[ticker]['shortable'] == True ):
@@ -998,10 +1082,10 @@ def stochrsi_gobot( algos=None, debug=False ):
 				if ( cur_aroonosc < -aroonosc_threshold ):
 					stocks[ticker]['aroonosc_signal'] = True
 
-					# Enable macd_simple if the aroon oscillitor is less than aroonosc_macd_threshold
+					# Enable macd_simple if the aroon oscillator is less than aroonosc_secondary_threshold
 					if ( args.aroonosc_with_macd_simple == True ):
 						algos['macd_simple'] = False
-						if ( cur_aroonosc >= -args.aroonosc_macd_threshold ):
+						if ( cur_aroonosc >= -aroonosc_secondary_threshold ):
 							algos['macd_simple'] = True
 
 			# MACD crossover signals
@@ -1200,6 +1284,33 @@ def stochrsi_gobot( algos=None, debug=False ):
 				reset_signals(ticker)
 				stocks[ticker]['signal_mode'] = 'buy_to_cover'
 
+				# VARIABLE EXIT
+				# Build a profile of the stock's price action over the 90 minutes and adjust
+				#  incr_threshold, decr_threshold and exit_percent if needed.
+				if ( args.variable_exit == True ):
+					if ( stocks[ticker]['cur_natr'] < stocks[ticker]['incr_threshold'] ):
+
+						# The normalized ATR is below incr_threshold. This means the stock is less
+						#  likely to get to incr_threshold from our purchase price, and is probably
+						#  even farther away from exit_percent (if it is set). So we adjust these parameters
+						#  to increase the likelihood of a successful trade.
+						#
+						# Note that currently we may reduce these values, but we do not increase them above
+						#  their settings configured by the user.
+						if ( stocks[ticker]['incr_threshold'] > stocks[ticker]['cur_natr'] * 2 ):
+							stocks[ticker]['incr_threshold'] = stocks[ticker]['cur_natr'] * 2
+						else:
+							stocks[ticker]['incr_threshold'] = stocks[ticker]['cur_natr']
+
+						if ( stocks[ticker]['decr_threshold'] > stocks[ticker]['cur_natr'] * 2 ):
+							stocks[ticker]['decr_threshold'] = stocks[ticker]['cur_natr'] * 2
+
+						if ( stocks[ticker]['exit_percent'] != None ):
+							if ( stocks[ticker]['exit_percent'] > stocks[ticker]['cur_natr'] * 4 ):
+								stocks[ticker]['exit_percent'] = stocks[ticker]['cur_natr'] * 2
+
+				# VARIABLE EXIT
+
 
 		# BUY_TO_COVER a previous short sale
 		# This mode must always follow a previous "short" signal. We will monitor the RSI and initiate
@@ -1235,10 +1346,13 @@ def stochrsi_gobot( algos=None, debug=False ):
 						if ( args.fake == False ):
 							tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 
-					stocks[ticker]['tx_id'] = random.randint(1000, 9999)
-					stocks[ticker]['stock_qty'] = 0
-					stocks[ticker]['base_price'] = 0
-					stocks[ticker]['orig_base_price'] = 0
+					stocks[ticker]['tx_id']			= random.randint(1000, 9999)
+					stocks[ticker]['stock_qty']		= 0
+					stocks[ticker]['base_price']		= 0
+					stocks[ticker]['orig_base_price']	= 0
+					stocks[ticker]['incr_threshold']	= args.incr_threshold
+					stocks[ticker]['decr_threshold']	= args.decr_threshold
+					stocks[ticker]['exit_percent']		= args.exit_percent
 
 					reset_signals(ticker)
 					stocks[ticker]['signal_mode'] = 'buy'
@@ -1265,7 +1379,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 					print('Stock "' +  str(ticker) + '" -' + str(round(percent_change, 2)) + '% (' + str(last_price) + ')')
 
 				# Sell if --exit_percent was set and threshold met
-				if ( args.exit_percent != None ):
+				if ( stocks[ticker]['exit_percent'] != None ):
 					total_percent_change = abs( stocks[ticker]['orig_base_price'] / last_price - 1 ) * 100
 
 					# If exit_percent has been hit, we will sell at the first GREEN candle
@@ -1276,7 +1390,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 						if ( last_close > last_open ):
 							stocks[ticker]['buy_to_cover_signal'] = True
 
-					elif ( total_percent_change >= float(args.exit_percent) ):
+					elif ( total_percent_change >= stocks[ticker]['exit_percent'] ):
 						stocks[ticker]['exit_signal'] = True
 
 
@@ -1292,15 +1406,15 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 				# Re-set the base_price to the last_price if we increase by incr_threshold or more
 				# This way we can continue to ride a price increase until it starts dropping
-				if ( percent_change >= incr_threshold ):
+				if ( percent_change >= stocks[ticker]['incr_threshold'] ):
 					stocks[ticker]['base_price'] = last_price
-					print('SHORTED Stock "' + str(ticker) + '" decreased below the incr_threshold (' + str(incr_threshold) + '%), resetting base price to '  + str(last_price))
+					print('SHORTED Stock "' + str(ticker) + '" decreased below the incr_threshold (' + str(stocks[ticker]['incr_threshold']) + '%), resetting base price to '  + str(last_price))
 					print('Net change (' + str(ticker) + '): ' + str(net_change) + ' USD')
 
 					if ( args.scalp_mode == True ):
 						stocks[ticker]['decr_threshold'] = 0.1
 					else:
-						stocks[ticker]['decr_threshold'] = incr_threshold / 2
+						stocks[ticker]['decr_threshold'] = stocks[ticker]['incr_threshold'] / 2
 
 				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], short=True, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
 
@@ -1331,10 +1445,13 @@ def stochrsi_gobot( algos=None, debug=False ):
 								tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 
 					# Change signal to 'buy' and generate new tx_id for next iteration
-					stocks[ticker]['tx_id'] = random.randint(1000, 9999)
-					stocks[ticker]['stock_qty'] = 0
-					stocks[ticker]['base_price'] = 0
-					stocks[ticker]['orig_base_price'] = 0
+					stocks[ticker]['tx_id']			= random.randint(1000, 9999)
+					stocks[ticker]['stock_qty']		= 0
+					stocks[ticker]['base_price']		= 0
+					stocks[ticker]['orig_base_price']	= 0
+					stocks[ticker]['incr_threshold']	= args.incr_threshold
+					stocks[ticker]['decr_threshold']	= args.decr_threshold
+					stocks[ticker]['exit_percent']		= args.exit_percent
 
 					reset_signals(ticker)
 					stocks[ticker]['signal_mode'] = 'buy'

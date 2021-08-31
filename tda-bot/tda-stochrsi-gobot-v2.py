@@ -63,6 +63,7 @@ parser.add_argument("--max_failed_usd", help='Maximum allowed USD for a failed t
 parser.add_argument("--scalp_mode", help='Enable scalp mode (fixes incr_threshold and decr_threshold)', action="store_true")
 parser.add_argument("--exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
 parser.add_argument("--vwap_exit", help='Use vwap exit strategy - sell/close at half way between entry point and vwap', action="store_true")
+parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_threshold and exit_percent based on the price action of the stock over the previous hour',  action="store_true")
 
 parser.add_argument("--rsi_slow", help='Slowing period to use in StochRSI algorithm', default=3, type=int)
 parser.add_argument("--rsi_k_period", help='k period to use in StochRSI algorithm', default=128, type=int)
@@ -74,10 +75,12 @@ parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
 parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', default=72, type=int)
 parser.add_argument("--adx_period", help='ADX period', default=48, type=int)
+parser.add_argument("--aroonosc_period", help='Aroon Oscillator period', default=48, type=int)
+parser.add_argument("--atr_period", help='Average True Range period', default=14, type=int)
 parser.add_argument("--period_multiplier", help='Period multiplier - set statically here, or otherwise gobot will determine based on the number of candles it receives per minute.', default=0, type=int)
 
 parser.add_argument("--aroonosc_with_macd_simple", help='When using Aroon Oscillator, use macd_simple as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
-parser.add_argument("--aroonosc_macd_threshold", help='AroonOsc threshold for when to enable macd_simple when --aroonosc_with_macd_simple is enabled (Default: 70)', default=70, type=float)
+parser.add_argument("--aroonosc_secondary_threshold", help='AroonOsc threshold for when to enable macd_simple when --aroonosc_with_macd_simple is enabled (Default: 70)', default=70, type=float)
 
 # Deprecated - use --algos=... instead
 #parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
@@ -248,7 +251,10 @@ for ticker in args.stocks.split(','):
 				   'failed_txs':		int(args.max_failed_txs),
 				   'orig_base_price':		float(0),
 				   'base_price':		float(0),
-				   'decr_threshold':		float(args.decr_threshold),
+
+				   'incr_threshold':		args.incr_threshold,
+				   'decr_threshold':		args.decr_threshold,
+				   'exit_percent':		args.exit_percent,
 
 				   # Action signals
 				   'buy_signal':		False,
@@ -276,6 +282,7 @@ for ticker in args.stocks.split(','):
 				    'cur_rsi':			float(-1),
 
 				    # ADX
+				    'adx_period':		args.adx_period,
 				    'cur_adx':			float(-1),
 
 				    # DMI
@@ -291,6 +298,7 @@ for ticker in args.stocks.split(','):
 				    'prev_macd_avg':		float(-1),
 
 				    # Aroon Oscillator
+				    'aroonosc_period':		args.aroonosc_period,
 				    'cur_aroonosc':		float(-1),
 
 				    # VWAP
@@ -303,6 +311,10 @@ for ticker in args.stocks.split(','):
 				    'prev_vpt':			float(-1),
 				    'cur_vpt_sma':		float(-1),
 				    'prev_vpt_sma':		float(-1),
+
+				    # ATR
+				    'cur_atr':			float(-1),
+				    'cur_natr':			float(-1),
 
 				    # Support / Resistance
 				    'three_week_high':		float(0),
@@ -343,7 +355,8 @@ for ticker in args.stocks.split(','):
 				    'prev_seq':			0,
 
 				    # Candle data
-				    'pricehistory':		{}
+				    'pricehistory':		{},
+				    'pricehistory_5m':		{ 'candles': [], 'ticker': ticker }
 			}} )
 
 	# Start in 'buy' mode unless we're only shorting
@@ -507,7 +520,6 @@ signal.signal(signal.SIGUSR1, siguser1_handler)
 tda_stochrsi_gobot_helper.args = args
 tda_stochrsi_gobot_helper.tx_log_dir = args.tx_log_dir
 tda_stochrsi_gobot_helper.stocks = stocks
-tda_stochrsi_gobot_helper.incr_threshold = args.incr_threshold
 tda_stochrsi_gobot_helper.stock_usd = args.stock_usd
 tda_stochrsi_gobot_helper.prev_timestamp = 0
 
@@ -535,11 +547,15 @@ tda_stochrsi_gobot_helper.macd_signal_period = 36
 tda_stochrsi_gobot_helper.macd_offset = 0.006
 
 # Aroonosc
-tda_stochrsi_gobot_helper.aroonosc_period = 128
+tda_stochrsi_gobot_helper.aroonosc_period = args.aroonosc_period
 tda_stochrsi_gobot_helper.aroonosc_threshold = 60
+tda_stochrsi_gobot_helper.aroonosc_secondary_threshold = args.aroonosc_secondary_threshold
 
 # VPT
 tda_stochrsi_gobot_helper.vpt_sma_period = args.vpt_sma_period # Typically 72
+
+# ATR
+tda_stochrsi_gobot_helper.atr_period = args.atr_period
 
 # Support / Resistance
 tda_stochrsi_gobot_helper.price_resistance_pct = 1
@@ -587,7 +603,6 @@ for ticker in list(stocks.keys()):
 			time.sleep(5)
 			if ( tda_gobot_helper.tdalogin(passcode) != True ):
 				print('Error: (' + str(ticker) + '): Login failure')
-
 			continue
 
 		else:
@@ -603,6 +618,32 @@ for ticker in list(stocks.keys()):
 			print('Warning: failed to delete key "' + str(ticker) + '" from stocks{}')
 
 		continue
+
+	# 5-minute candles to calculate things like Average True Range
+	for idx,key in enumerate( stocks[ticker]['pricehistory']['candles'] ):
+		if ( idx % 5 == 0 ):
+			open = stocks[ticker]['pricehistory']['candles'][idx - 4]['open']
+			close = stocks[ticker]['pricehistory']['candles'][idx]['close']
+
+			high = 0
+			low = 9999
+			volume = 0
+			for i in range( 4, 0, -1):
+				volume += stocks[ticker]['pricehistory']['candles'][idx-i]['volume']
+
+				if ( high < stocks[ticker]['pricehistory']['candles'][idx-i]['high'] ):
+					high = stocks[ticker]['pricehistory']['candles'][idx-i]['high']
+				if ( low > stocks[ticker]['pricehistory']['candles'][idx-i]['low'] ):
+					low = stocks[ticker]['pricehistory']['candles'][idx-i]['low']
+
+			newcandle = {	'open':		open,
+					'high':		high,
+					'low':		low,
+					'close':	close,
+					'volume':	volume,
+					'datetime':	stocks[ticker]['pricehistory']['candles'][idx]['datetime'] }
+
+			stocks[ticker]['pricehistory_5m']['candles'].append(newcandle)
 
 	# Populate the period_log with history data
 	#  and find PDC

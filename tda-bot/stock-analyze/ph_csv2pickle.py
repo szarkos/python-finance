@@ -18,7 +18,7 @@ import tda_gobot_helper
 
 parser = argparse.ArgumentParser()
 parser.add_argument("ifile", help='CSV file to read', type=str)
-parser.add_argument("ofile", help='Pickle file to write (default is ifile with .pickle extension', nargs='?', default=None, type=str)
+parser.add_argument("ofile", help='Pickle file to write (default is ifile with .pickle extension)', nargs='?', default=None, type=str)
 parser.add_argument("--augment_today", help='Augment Alphavantage history with the most recent day of 1min candles using the TDA API', action="store_true")
 parser.add_argument("--debug", help='Enable debug output (prints entire pricehistory)', action="store_true")
 args = parser.parse_args()

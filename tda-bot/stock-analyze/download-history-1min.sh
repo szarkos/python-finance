@@ -68,7 +68,6 @@ for t in $tickers; do
 
 	echo "$t"
 	download_ticker $t &
-
 	sleep 2
 
 done

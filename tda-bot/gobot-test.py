@@ -24,10 +24,11 @@ mytimezone = pytz.timezone("US/Eastern")
 
 
 # Test Scenarios
-scenarios = {	'stochrsi_aroonosc_dmi_simple':			'--rsi_high_limit=95 --with_dmi_simple --with_aroonosc'
+scenarios = {	'stochrsi_aroonosc_dmi_simple':			'--rsi_high_limit=95 --rsi_low_limit=15 --with_dmi_simple --with_aroonosc --variable_exit',
+		'stochrsi_aroonosc_dmi_simple_macd_simple':	'--rsi_high_limit=95 --rsi_low_limit=15 --with_dmi_simple --with_aroonosc --aroonosc_with_macd_simple --variable_exit ',
 }
-#scenarios = {	'stochrsi_dmi_simple':				'--rsi_high_limit=95 --rsi_low_limit=5 --with_dmi_simple',
-#		'stochrsi_aroonosc_dmi_simple':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_dmi_simple --with_aroonosc'
+#scenarios = {	'stochrsi_dmi_simple':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_dmi_simple',
+#		'stochrsi_aroonosc_dmi_simple':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_dmi_simple --with_aroonosc'
 #}
 
 #scenarios = {	'stochrsi':				'--rsi_high_limit=95 --rsi_low_limit=5',

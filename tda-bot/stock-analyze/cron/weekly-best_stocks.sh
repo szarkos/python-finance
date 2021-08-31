@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # By default, $start_date is two weeks ago from today
-start_date=${1-$(date +'%Y-%m-%d' --date='-2 weeks')}
+start_date=${1-$(date +'%Y-%m-%d' --date='-1 weeks')}
 
 parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 cd "${parent_path}/.."

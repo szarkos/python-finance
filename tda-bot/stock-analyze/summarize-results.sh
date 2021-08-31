@@ -2,8 +2,8 @@
 
 results_dir=${1-'results'}
 command=${2-'all'} # tx-stats, ticker-net-gain
+tests=${3-''}
 
-tests=""
 if [ "$tests" == "" ]; then
 	tests=$(../gobot-test.py --print_scenarios)
 fi
@@ -52,76 +52,94 @@ if [ "$command" == "all" -o "$command" == "tx-stats" ]; then
 		echo
 	done
 
+fi
+
+if [ "$command" == "all" -o "$command" == "gain-loss" ]; then
+
 	# Print average gain/loss for each test type
 	echo -e "\n\n"
 	echo "Test,Avg Gain,Avg Loss"
 	for t in $tests; do
 		gain=$( cat *-${t} | grep 'Average gain\:' | sed 's/Average gain: //' | sed 's/ \/.*//' | sed -z 's/\n/ + /g' | perl -e '$a=<>; $a =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$a 0\n" ' | bc )
 		loss=$( cat *-${t} | grep 'Average loss\:' | sed 's/Average loss: //' | sed 's/ \/.*//' | sed -z 's/\n/ + /g' | perl -e '$a=<>; $a =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$a 0\n" ' | bc )
-		echo "$t,$gain,$loss"
+		echo "${t},${gain},${loss}"
 	done
 
-	# Print the actual gains/losses from all the transactions for each test type
-	echo -e "\n\n"
-	echo "Test,Total Gain,Total Loss"
+	echo
+	echo "Test,Total Gain,Total Loss,Total Return"
 	for t in $tests; do
+		gain=$( cat *-${t} | grep 'Net gain\:' | sed 's/Net gain: //' | sed 's/ \/.*//' | sed -z 's/\n/ + /g' | perl -e '$a=<>; $a =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$a 0\n" ' | bc )
+		loss=$( cat *-${t} | grep 'Net loss\:' | sed 's/Net loss: //' | sed 's/ \/.*//' | sed -z 's/\n/ + /g' | perl -e '$a=<>; $a =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$a 0\n" ' | bc )
+		total_return=$( cat *-${t} | grep 'Total return\:' | sed 's/Total return: //' | sed -z 's/\n/ + /g' | perl -e '$a=<>; $a =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$a 0\n" ' | bc )
 
-		files=''
-		for f in *-${t}; do
-			files="$files,$f"
-		done
-
-		echo -n "$t,"
-
-		echo -n "$files" | perl -e '
-
-			$fnames = <>;
-			@all_txs = ();
-
-			@f = split( /,/, $fnames );
-			for $file (@f)  {
-				open(FH, "<", "$file");
-				@a = <FH>;
-				close(FH);
-
-				push @all_txs, @a;
-			}
-
-			$gain = 0;
-			$loss = 0;
-			foreach $tx ( @all_txs ) {
-				if ( $tx !~ /2021/ )  {
-					next;
-				}
-
-				chomp($tx);
-				$tx =~ s/[\s\t]+/ /g;
-
-				$net = $tx;
-				$net =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g;
-
-				@l = split( /\s+/, $net );
-				$net = $l[1];
-
-				if ( $l[1] =~ /\// )  {
-					next;
-				}
-
-				$net =~ s/\-//;
-				if ( $tx =~ /32m/ )  {
-					$gain += $net;
-				}
-				elsif ( $tx =~ /31m/ )  {
-					$loss += $net;
-				}
-				else {
-					print "Error with tx: $net\n";
-				}
-			}
-
-			printf("%.3f,%.3f\n", $gain, $loss);
-		'
+		echo -n "${t},${gain},${loss},${total_return}"
 	done
+
+	echo -e "\n"
+
+
+#	# Print the actual gains/losses from all the transactions for each test type
+#	echo -e "\n\n"
+#	echo "Test,Total Gain,Total Loss"
+#	for t in $tests; do
+#
+#		files=''
+#		for f in *-${t}; do
+#			files="$files,$f"
+#		done
+#
+#		echo -n "$t,"
+#
+#		echo -n "$files" | perl -e '
+#
+#			$fnames = <>;
+#			@all_txs = ();
+#
+#			@f = split( /,/, $fnames );
+#			for $file (@f)  {
+#				open(FH, "<", "$file");
+#				@a = <FH>;
+#				close(FH);
+#
+#				push @all_txs, @a;
+#			}
+#
+#			$gain = 0;
+#			$loss = 0;
+#			foreach $tx ( @all_txs ) {
+#				if ( $tx !~ /2021/ )  {
+#					next;
+#				}
+#
+#				chomp($tx);
+#				$tx =~ s/[\s\t]+/ /g;
+#
+#				$net = $tx;
+#				$net =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g;
+#
+#				@l = split( /\s+/, $net );
+#				$net = $l[1];
+#
+#				if ( $l[1] =~ /\// )  {
+#					next;
+#				}
+#
+#				$net =~ s/\-//;
+#				if ( $tx =~ /32m/ )  {
+#					$gain += $net;
+#				}
+#				elsif ( $tx =~ /31m/ )  {
+#					$loss += $net;
+#				}
+#				else {
+#					print "Error with tx: $net\n";
+#				}
+#			}
+#
+#			printf("%.3f,%.3f\n", $gain, $loss);
+#		'
+#	done
+
 fi
 
 

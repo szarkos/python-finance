@@ -75,7 +75,7 @@ parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
 parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', default=72, type=int)
 parser.add_argument("--adx_period", help='ADX period', default=48, type=int)
-parser.add_argument("--aroonosc_period", help='Aroon Oscillator period', default=48, type=int)
+parser.add_argument("--aroonosc_period", help='Aroon Oscillator period', default=24, type=int)
 parser.add_argument("--atr_period", help='Average True Range period', default=14, type=int)
 parser.add_argument("--period_multiplier", help='Period multiplier - set statically here, or otherwise gobot will determine based on the number of candles it receives per minute.', default=0, type=int)
 

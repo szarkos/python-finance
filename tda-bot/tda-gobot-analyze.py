@@ -15,8 +15,8 @@ import tda_gobot_helper
 # Parse and check variables
 parser = argparse.ArgumentParser()
 parser.add_argument("stock", help='Stock ticker to purchase')
-parser.add_argument("stock_usd", help='Amount of money (USD) to invest', nargs='?', default=1000, type=float)
-parser.add_argument("--algo", help='Analyze the most recent 5-day and 10-day history for a stock ticker using this bot\'s algorithim(s) - (Default: stochrsi)', default='stochrsi', type=str)
+parser.add_argument("--stock_usd", help='Amount of money (USD) to invest', default=1000, type=float)
+parser.add_argument("--algo", help='Analyze the most recent 5-day and 10-day history for a stock ticker using this bot\'s algorithim(s) - (Default: stochrsi)', default='stochrsi-new', type=str)
 parser.add_argument("--ofile", help='Dump the pricehistory data to pickle file', default=None, type=str)
 parser.add_argument("--ifile", help='Use pickle file for pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--augment_ifile", help='Pull additional history data and append it to candles imported from ifile', action="store_true")
@@ -27,18 +27,22 @@ parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and 
 parser.add_argument("--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (Default: False)', action="store_true")
 parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (Default: False)', action="store_true")
 parser.add_argument("--keylevel_strict", help='Use strict key level checks to enter trades (Default: False)', action="store_true")
-#parser.add_argument("--use_candle_monitor", help='Enable the trivial candle monitor (Default: False)', action="store_true")
+parser.add_argument("--price_resistance_pct", help='Resistance indicators will come into effect if price is within this percentage of a known support/resistance line', default=1, type=float)
+parser.add_argument("--price_support_pct", help='Support indicators will come into effect if price is within this percentage of a known support/resistance line', default=1, type=float)
 
 parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
 parser.add_argument("--with_adx", help='Use ADX as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
 parser.add_argument("--with_dmi", help='Use DMI as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
 parser.add_argument("--with_dmi_simple", help='Use DMI as secondary indicator to advise trade entries/exits, but do not wait for crossover (Default: False)', action="store_true")
 parser.add_argument("--with_aroonosc", help='Use Aroon Oscillator as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
-parser.add_argument("--aroonosc_with_macd_simple", help='When using Aroon Oscillator, use macd_simple as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
 parser.add_argument("--with_macd", help='Use MACD as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
 parser.add_argument("--with_macd_simple", help='Use MACD as secondary indicator to advise trade entries/exits, but do not wait for crossover (default=False)', action="store_true")
 parser.add_argument("--with_vwap", help='Use VWAP as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
 parser.add_argument("--with_vpt", help='Use VPT as secondary indicator to advise trade entries (Default: False)', action="store_true")
+
+parser.add_argument("--aroonosc_with_macd_simple", help='When using Aroon Oscillator, use macd_simple as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
+parser.add_argument("--aroonosc_with_vpt", help='When using Aroon Oscillator, use vpt as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
+parser.add_argument("--aroonosc_secondary_threshold", help='AroonOsc threshold for when to enable macd_simple when --aroonosc_with_macd_simple is enabled (Default: 70)', default=72, type=float)
 
 parser.add_argument("--days", help='Number of days to test. Separate with a comma to test multiple days.', default='10', type=str)
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
@@ -47,7 +51,8 @@ parser.add_argument("--stoploss", help='Sell security if price drops below --dec
 parser.add_argument("--exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
 parser.add_argument("--strict_exit_percent", help='Only exit when exit_percent or vwap_exit signals an exit, ignore stochrsi', action="store_true")
 parser.add_argument("--vwap_exit", help='Use vwap exit strategy - sell/close at half way between entry point and vwap', action="store_true")
-parser.add_argument("--quick_exit", help='Exit immediately if an exit strategy was set, do not wait for the next candle', action="store_true")
+parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent strategy was set, do not wait for the next candle', action="store_true")
+parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_threshold and exit_percent based on the price action of the stock over the previous hour', action="store_true")
 
 parser.add_argument("--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
 parser.add_argument("--stochrsi_period", help='RSI period to use for StochRSI calculation (Default: 128)', default=128, type=int)
@@ -59,6 +64,8 @@ parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
 parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', default=72, type=int)
 parser.add_argument("--adx_period", help='ADX period', default=48, type=int)
+parser.add_argument("--aroonosc_period", help='Aroon Oscillator period', default=128, type=int)
+parser.add_argument("--atr_period", help='Average True Range period', default=14, type=int)
 
 parser.add_argument("--noshort", help='Disable short selling of stock', action="store_true")
 parser.add_argument("--shortonly", help='Only short sell the stock', action="store_true")
@@ -66,14 +73,18 @@ parser.add_argument("--check_ma", help='Check SMA and EMA to enable/disable shor
 parser.add_argument("--verbose", help='Print additional information about each transaction (Default: False)', action="store_true")
 parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
 parser.add_argument("--debug_all", help='Enable extra debugging output', action="store_true")
+
+# Obsolete, but it would have been cool if it worked...
+#parser.add_argument("--use_candle_monitor", help='Enable the trivial candle monitor (Default: False)', action="store_true")
+
 args = parser.parse_args()
 
 debug = 1			# Should default to 0 eventually, testing for now
 if args.debug:
 	debug = 1
 
-decr_percent_threshold = args.decr_threshold
-incr_percent_threshold = args.incr_threshold
+decr_threshold = args.decr_threshold
+incr_threshold = args.incr_threshold
 
 stock = args.stock
 stock_usd = args.stock_usd
@@ -163,6 +174,7 @@ lastprice = 0
 high = low = 0
 
 if ( args.ifile == None ):
+
 	try:
 		data,err = tda.stocks.get_quote(stock, True)
 		if ( err == None and data != {} ):
@@ -185,6 +197,7 @@ if ( args.ifile == None ):
 print()
 print( 'Stock summary for "' + str(stock) + "\"\n" )
 print( 'Last Price: $' + str(lastprice) )
+print( 'Amount Per Trade: $' + str(stock_usd) )
 print( '52WkHigh: $' + str(high) )
 print( '52WkLow: $' + str(low) )
 
@@ -368,13 +381,17 @@ for algo in args.algo.split(','):
 		elif ( algo == 'stochrsi' or algo == 'stochrsi-new' ):
 			results = tda_gobot_helper.stochrsi_analyze_new( pricehistory=data, ticker=stock, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type,
 									 rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
+									 vpt_sma_period=args.vpt_sma_period, adx_period=args.adx_period, atr_period=args.atr_period,
+									 no_use_resistance=args.no_use_resistance, with_vwap=args.with_vwap, with_vpt=args.with_vpt,
+									 with_rsi=args.with_rsi, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_macd=args.with_macd,
+									 with_dmi_simple=args.with_dmi_simple, with_macd_simple=args.with_macd_simple,
+									 aroonosc_period=args.aroonosc_period, aroonosc_with_macd_simple=args.aroonosc_with_macd_simple, aroonosc_secondary_threshold=args.aroonosc_secondary_threshold, aroonosc_with_vpt=args.aroonosc_with_vpt,
 									 stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly, check_ma=args.check_ma,
-									 no_use_resistance=args.no_use_resistance, with_rsi=args.with_rsi, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc,
-									 with_macd=args.with_macd, with_vwap=args.with_vwap, with_vpt=args.with_vpt, aroonosc_with_macd_simple=args.aroonosc_with_macd_simple,
-									 with_dmi_simple=args.with_dmi_simple, with_macd_simple=args.with_macd_simple, vpt_sma_period=args.vpt_sma_period, adx_period=args.adx_period,
-									 incr_percent_threshold=args.incr_threshold, decr_percent_threshold=args.decr_threshold,
-									 safe_open=True, exit_percent=args.exit_percent, strict_exit_percent=args.strict_exit_percent, vwap_exit=args.vwap_exit, quick_exit=args.quick_exit, start_date=args.start_date,
-									 weekly_ph=data_weekly, keylevel_strict=args.keylevel_strict, debug=True, debug_all=args.debug_all )
+									 incr_threshold=args.incr_threshold, decr_threshold=args.decr_threshold,
+									 safe_open=True, exit_percent=args.exit_percent, strict_exit_percent=args.strict_exit_percent, vwap_exit=args.vwap_exit, quick_exit=args.quick_exit, variable_exit=args.variable_exit,
+									 start_date=args.start_date, weekly_ph=data_weekly, keylevel_strict=args.keylevel_strict,
+									 price_resistance_pct=args.price_resistance_pct, price_support_pct=args.price_support_pct,
+									 debug=True, debug_all=args.debug_all )
 
 		if ( results == False ):
 			print('Error: rsi_analyze() returned false', file=sys.stderr)
@@ -384,31 +401,22 @@ for algo in args.algo.split(','):
 			continue
 
 		# Print the returned results
-		if ( algo == 'rsi' and args.verbose ):
-			print("Buy/Sell Price    Net Change        VWAP              PREV_RSI/CUR_RSI  StochRSI          Time")
-
-		elif ( algo == 'stochrsi' and args.verbose ):
-			print("Buy/Sell Price    Net Change        VWAP              RSI_K/RSI_D       StochRSI          Time")
-
-		elif ( algo == 'stochrsi-new' and args.verbose ):
-			print("Buy/Sell Price    Net Change        RSI_K/RSI_D       Time")
+		elif ( (algo == 'stochrsi' or algo == 'stochrsi-new') and args.verbose ):
+			print('{0:18} {1:15} {2:15} {3:10} {4:10}'.format('Buy/Sell Price', 'Net Change', 'RSI_K/RSI_D', 'NATR', 'Time'))
 
 		rating = 0
 		success = fail = 0
 		net_gain = float(0)
 		net_loss = float(0)
+		total_return = float(0)
 		counter = 0
 		while ( counter < len(results) - 1 ):
 
-			if ( algo == 'rsi' or algo == 'stochrsi' ):
-				price_tx, short, vwap_tx, rsi_tx, stochrsi_tx, time_tx = results[counter].split( ',', 6 )
-				price_rx, short, vwap_rx, rsi_rx, stochrsi_rx, time_rx = results[counter+1].split( ',', 6 )
-			else:
-				price_tx, short, rsi_tx, time_tx = results[counter].split( ',', 6 )
-				price_rx, short, rsi_rx, time_rx = results[counter+1].split( ',', 6 )
+			price_tx, short, rsi_tx, natr, time_tx = results[counter].split( ',', 5 )
+			price_rx, short, rsi_rx, natr, time_rx = results[counter+1].split( ',', 5 )
 
-				vwap_tx = vwap_rx = 0
-				stochrsi_tx = stochrsi_rx = 0
+			vwap_tx = vwap_rx = 0
+			stochrsi_tx = stochrsi_rx = 0
 
 			# Returned RSI format is "prev_rsi/cur_rsi"
 			rsi_prev_tx,rsi_cur_tx = rsi_tx.split( '/', 2 )
@@ -434,6 +442,17 @@ for algo in args.algo.split(','):
 			price_rx = round( float(price_rx), 2 )
 
 			net_change = round(net_change, 2)
+
+			num_shares = int(stock_usd / price_tx)
+
+			if ( short == str(False) ):
+				total_return += num_shares * net_change
+
+			else:
+				if ( net_change <= 0 ):
+					total_return += abs(num_shares * net_change)
+				else:
+					total_return += num_shares * -net_change
 
 			vwap_tx = round( float(vwap_tx), 2 )
 			vwap_rx = round( float(vwap_rx), 2 )
@@ -466,21 +485,15 @@ for algo in args.algo.split(','):
 				rsi_tx = str(rsi_prev_tx) + '/' + str(rsi_cur_tx)
 				rsi_rx = str(rsi_prev_rx) + '/' + str(rsi_cur_rx)
 
-				if ( algo == 'rsi' or algo == 'stochrsi' ):
-					for i in [str(price_tx), ' ', str(vwap_tx), str(rsi_tx), str(stochrsi_tx), time_tx]:
-						print(text_color + '{0:<18}'.format(i) + reset_color, end='')
+				print(text_color, end='')
+				print('{0:18} {1:15} {2:15} {3:10} {4:10}'.format(str(price_tx), ' ', str(rsi_tx), str(natr), time_tx), end='')
+				print(reset_color, end='')
 
-					print()
-					for i in [str(price_rx), str(net_change), str(vwap_rx), str(rsi_rx), str(stochrsi_rx), time_rx]:
-						print(text_color + '{0:<18}'.format(i) + reset_color, end='')
+				print()
 
-				else:
-					for i in [str(price_tx), ' ', str(rsi_tx), time_tx]:
-						print(text_color + '{0:<18}'.format(i) + reset_color, end='')
-
-					print()
-					for i in [str(price_rx), str(net_change), str(rsi_rx), time_rx]:
-						print(text_color + '{0:<18}'.format(i) + reset_color, end='')
+				print(text_color, end='')
+				print('{0:18} {1:15} {2:15} {3:10} {4:10}'.format(str(price_rx), str(net_change), str(rsi_rx), ' ', time_tx), end='')
+				print(reset_color, end='')
 
 				print()
 
@@ -504,7 +517,7 @@ for algo in args.algo.split(','):
 		#   <-3			 = Bad
 		#   Success % <= Fail %  = FAIL
 		#   Avg Gain <= Avg Loss = FAIL
-		txs = int(len(results) / 2) / int(days)				# Average buy or sell triggers per day
+		txs = int(len(results) / 2) / int(days)					# Average buy or sell triggers per day
 		if ( success == 0 ):
 			success_pct = 0
 		else:
@@ -518,9 +531,9 @@ for algo in args.algo.split(','):
 		average_gain = 0
 		average_loss = 0
 		if ( success != 0 ):
-			average_gain = net_gain / success			# Average improvement in price using algorithm
+			average_gain = net_gain / success				# Average improvement in price using algorithm
 		if ( fail != 0 ):
-			average_loss = net_loss / fail				# Average regression in price using algorithm
+			average_loss = net_loss / fail					# Average regression in price using algorithm
 
 		print()
 
@@ -580,6 +593,13 @@ for algo in args.algo.split(','):
 				text_color = green
 
 			print( 'Average gain per share: ' + text_color + str(round(avg_gain_per_share, 3)) + '%' + reset_color )
+
+		# Total return
+		text_color = green
+		if ( total_return < 0 ):
+			text_color = red
+
+		print( 'Total return: ' + text_color + str(round(total_return, 2)) + reset_color )
 
 		# Shortable / marginable / delayed / etc.
 		if ( shortable == False ):

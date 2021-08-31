@@ -2527,12 +2527,12 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, deb
 
 # Like stochrsi_analyze(), but sexier
 def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3,
-			  stoploss=False, incr_percent_threshold=1, decr_percent_threshold=1.5, hold_overnight=False, exit_percent=None, strict_exit_percent=False, vwap_exit=False, quick_exit=False,
+			  stoploss=False, incr_threshold=1, decr_threshold=1.5, hold_overnight=False, exit_percent=None, strict_exit_percent=False, vwap_exit=False, quick_exit=False,
 			  no_use_resistance=False, with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_macd=False, with_vwap=False, with_vpt=False,
-			  with_dmi_simple=False, with_macd_simple=False, vpt_sma_period=72, adx_period=48,
-			  aroonosc_with_macd_simple=False, aroonosc_macd_threshold=70,
+			  with_dmi_simple=False, with_macd_simple=False, vpt_sma_period=72, adx_period=48, atr_period=14,
+			  aroonosc_period=48, aroonosc_with_macd_simple=False, aroonosc_with_vpt=False, aroonosc_secondary_threshold=70,
 			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None, weekly_ph=None, keylevel_strict=False,
-			  price_resistance_pct = 1, price_support_pct=1,
+			  price_resistance_pct=1, price_support_pct=1, variable_exit=False,
 			  debug=False, debug_all=False ):
 
 	if ( ticker == None or pricehistory == None ):
@@ -2579,6 +2579,44 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_rsi(): ' + str(e))
 		return False
 
+	# Average True Range (ATR)
+	# We use 5-minute candles to calculate the ATR
+	pricehistory_5m = { 'candles': [], 'ticker': ticker }
+	for idx,key in enumerate(pricehistory['candles']):
+		if ( idx % 5 == 0 ):
+			open = pricehistory['candles'][idx - 4]['open']
+			close = pricehistory['candles'][idx]['close']
+
+			high = 0
+			low = 9999
+			volume = 0
+			for i in range(4,0,-1):
+				volume += pricehistory['candles'][idx-i]['volume']
+
+				if ( high < pricehistory['candles'][idx-i]['high'] ):
+					high = pricehistory['candles'][idx-i]['high']
+				if ( low > pricehistory['candles'][idx-i]['low'] ):
+					low = pricehistory['candles'][idx-i]['low']
+
+			newcandle = {	'open':		open,
+					'high':		high,
+					'low':		low,
+					'close':	close,
+					'volume':	volume,
+					'datetime':	pricehistory['candles'][idx]['datetime'] }
+
+			pricehistory_5m['candles'].append(newcandle)
+
+	# Calculate the ATR
+	atr = []
+	natr = []
+	try:
+		atr, natr = get_atr( pricehistory=pricehistory_5m, period=atr_period )
+
+	except Exception as e:
+		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_atr(): ' + str(e))
+		return False
+
 	# ADX, +DI, -DI
 	if ( with_dmi == True and with_dmi_simple == True ):
 		with_dmi_simple = False
@@ -2586,8 +2624,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	adx = []
 	plus_di = []
 	minus_di = []
+
+	adx_2x = []
+	plus_di_2x = []
+	minus_di_2x = []
 	try:
 		adx, plus_di, minus_di = get_adx(pricehistory, period=adx_period)
+		adx_2x, plus_di_2x, minus_di_2x = get_adx(pricehistory, period=adx_period*2)
 
 	except Exception as e:
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_adx(): ' + str(e))
@@ -2595,15 +2638,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 	# Aroon Oscillator
 	# aroonosc_with_macd_simple implies that macd_simple will be enabled or disabled based on the
-	#  level of the aroon oscillator (i.e. < aroonosc_macd_threshold then use macd_simple)
+	#  level of the aroon oscillator (i.e. < aroonosc_secondary_threshold then use macd_simple)
 	if ( aroonosc_with_macd_simple == True ):
 		with_aroonosc = True
 		with_macd = False
 		with_macd_simple = False
 
 	aroonosc = []
+	aroonosc_92 = []
 	try:
-		aroonosc = get_aroon_osc(pricehistory, period=128)
+		aroonosc = get_aroon_osc(pricehistory, period=aroonosc_period)
+		aroonosc_92 = get_aroon_osc(pricehistory, period=92)
 
 	except Exception as e:
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_aroon_osc(): ' + str(e))
@@ -2756,51 +2801,59 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 
 	# Run through the RSI values and log the results
-	results = []
+	results				= []
 
-	rsi_idx = len(pricehistory['candles']) - len(rsi_k)
-	adx_idx = len(pricehistory['candles']) - len(adx)
-	di_idx = len(pricehistory['candles']) - len(plus_di)
-	aroonosc_idx = len(pricehistory['candles']) - len(aroonosc)
-	macd_idx = len(pricehistory['candles']) - len(macd)
+	rsi_idx				= len(pricehistory['candles']) - len(rsi_k)
+	r_idx				= len(pricehistory['candles']) - len(rsi)
 
-	r_idx = len(pricehistory['candles']) - len(rsi)
+	adx_idx				= len(pricehistory['candles']) - len(adx)
+	adx_2x_idx			= len(pricehistory['candles']) - len(adx_2x)
+	di_idx				= len(pricehistory['candles']) - len(plus_di)
+	di_2x_idx			= len(pricehistory['candles']) - len(plus_di_2x)
 
-	buy_signal = False
-	sell_signal = False
-	short_signal = False
-	buy_to_cover_signal = False
+	aroonosc_idx			= len(pricehistory['candles']) - len(aroonosc)
+	aroonosc_92_idx			= len(pricehistory['candles']) - len(aroonosc_92)
+	macd_idx			= len(pricehistory['candles']) - len(macd)
 
-	final_buy_signal = False
-	final_sell_signal = False
-	final_short_signal = False
-	final_buy_to_cover_signal = False
+	buy_signal			= False
+	sell_signal			= False
+	short_signal			= False
+	buy_to_cover_signal		= False
 
-	exit_signal = False
+	final_buy_signal		= False
+	final_sell_signal		= False
+	final_short_signal		= False
+	final_buy_to_cover_signal	= False
 
-	rsi_signal = False
-	adx_signal = False
-	dmi_signal = False
-	macd_signal = False
-	aroonosc_signal = False
-	vwap_signal = False
-	vpt_signal = False
-	resistance_signal = False
+	exit_signal			= False
 
-	plus_di_crossover = False
-	minus_di_crossover = False
-	macd_crossover = False
-	macd_avg_crossover = False
+	rsi_signal			= False
+	adx_signal			= False
+	dmi_signal			= False
+	macd_signal			= False
+	aroonosc_signal			= False
+	vwap_signal			= False
+	vpt_signal			= False
+	resistance_signal		= False
+
+	plus_di_crossover		= False
+	minus_di_crossover		= False
+	macd_crossover			= False
+	macd_avg_crossover		= False
+
+	orig_incr_threshold		= incr_threshold
+	orig_decr_threshold		= decr_threshold
+	orig_exit_percent		= exit_percent
+
+	first_day			= datetime.fromtimestamp(float(pricehistory['candles'][0]['datetime'])/1000, tz=mytimezone)
+	start_day			= first_day + timedelta( days=1 )
+	start_day_epoch			= int( start_day.timestamp() * 1000 )
+
+	last_hour_threshold		= 0.2 # Last hour trading threshold
 
 	signal_mode = 'buy'
 	if ( shortonly == True ):
 		signal_mode = 'short'
-
-	first_day = datetime.fromtimestamp(float(pricehistory['candles'][0]['datetime'])/1000, tz=mytimezone)
-	start_day = first_day + timedelta( days=1 )
-	start_day_epoch = int( start_day.timestamp() * 1000 )
-
-	last_hour_threshold = 0.2 # Last hour trading threshold
 
 	# Main loop
 	for idx,key in enumerate(pricehistory['candles']):
@@ -2829,12 +2882,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 		# Additional indicators
 		cur_adx = adx[idx - adx_idx]
-
 		cur_plus_di = plus_di[idx - di_idx]
 		prev_plus_di = plus_di[(idx - di_idx) - 1]
-
 		cur_minus_di = minus_di[idx - di_idx]
 		prev_minus_di = minus_di[(idx - di_idx) - 1]
+
+		cur_adx_2x = adx_2x[idx - adx_2x_idx]
+		cur_plus_di_2x = plus_di_2x[idx - di_2x_idx]
+		prev_plus_di_2x = plus_di_2x[(idx - di_2x_idx) - 1]
+		cur_minus_di_2x = minus_di_2x[idx - di_2x_idx]
+		prev_minus_di_2x = minus_di_2x[(idx - di_2x_idx) - 1]
 
 		cur_macd = macd[idx - macd_idx]
 		prev_macd = macd[(idx - macd_idx) - 1]
@@ -2843,6 +2900,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		prev_macd_avg = macd_avg[(idx - macd_idx) - 1]
 
 		cur_aroonosc = aroonosc[idx - aroonosc_idx]
+		cur_aroonosc_92 = aroonosc_92[idx - aroonosc_92_idx]
 
 		cur_vpt = vpt[idx]
 		prev_vpt = vpt[idx-1]
@@ -2850,6 +2908,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		cur_vpt_sma = vpt_sma[idx-vpt_sma_period]
 		prev_vpt_sma = vpt_sma[idx-vpt_sma_period]
 
+		cur_atr = atr[int(idx / 5) - atr_period + 1]
+		cur_natr = natr[int(idx / 5) - atr_period + 1]
 
 		# Ignore pre-post market since we cannot trade during those hours
 		# Also skip all candles until start_date if it is set
@@ -2941,6 +3001,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 			# DMI signals
 			# DI+ cross above DI- indicates uptrend
+			# SAZ - 2021-08-29: Low volatility stocks work better with a longer adx_period
+#			if ( cur_natr < 0.18 ):
+#				cur_plus_di = cur_plus_di_2x
+#				cur_minus_di = cur_minus_di_2x
+#				prev_plus_di = prev_plus_di_2x
+#				prev_minus_di = prev_minus_di_2x
+
 			if ( prev_plus_di < prev_minus_di and cur_plus_di > cur_minus_di ):
 				plus_di_crossover = True
 				minus_di_crossover = False
@@ -2957,14 +3024,26 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 			# Aroon oscillator signals
 			# Values closer to 100 indicate an uptrend
+			#
+			# SAZ - 2021-08-29: Higher volatility stocks seem to work better with a longer
+			# Aroon Oscillator period value.
 			aroonosc_signal = False
+			if ( cur_natr > 0.24 ):
+				cur_aroonosc = cur_aroonosc_92
+
 			if ( cur_aroonosc > 60 ):
 				aroonosc_signal = True
 
-				# Enable macd_simple if the aroon oscillitor is less than aroonosc_macd_threshold
+				if ( aroonosc_with_vpt == True ):
+					if ( cur_aroonosc <= aroonosc_secondary_threshold ):
+						with_vpt = True
+					else:
+						with_vpt = False
+
+				# Enable macd_simple if the aroon oscillator is less than aroonosc_secondary_threshold
 				if ( aroonosc_with_macd_simple == True ):
 					with_macd_simple = False
-					if ( cur_aroonosc <= aroonosc_macd_threshold ):
+					if ( cur_aroonosc <= aroonosc_secondary_threshold ):
 						with_macd_simple = True
 
 			# MACD crossover signals
@@ -2993,14 +3072,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					vwap_signal = True
 
 			# VPT
-			if ( with_vpt == True ):
-				# Buy signal - VPT crosses above vpt_sma
-				if ( prev_vpt < prev_vpt_sma and cur_vpt > cur_vpt_sma ):
-					vpt_signal = True
+			# Buy signal - VPT crosses above vpt_sma
+			if ( prev_vpt < prev_vpt_sma and cur_vpt > cur_vpt_sma ):
+				vpt_signal = True
 
-				# Cancel signal if VPT cross back over
-				elif ( cur_vpt < cur_vpt_sma ):
-					vpt_signal = False
+			# Cancel signal if VPT crosses back over
+			elif ( cur_vpt < cur_vpt_sma ):
+				vpt_signal = False
 
 			# Resistance
 			if ( no_use_resistance == False ):
@@ -3125,7 +3203,21 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				results.append( str(purchase_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
-						str(purchase_time) )
+						str(round(cur_natr,3)) + ',' + str(purchase_time) )
+
+				# DEBUG
+				if ( debug_all == True ):
+					print('(' + str(ticker) + '): ' + str(signal_mode).upper() + ' / ' + str(purchase_time) + ' (' + str(pricehistory['candles'][idx]['datetime']) + ')')
+					print('(' + str(ticker) + '): StochRSI K/D: ' + str(round(cur_rsi_k, 3)) + ' / ' + str(round(cur_rsi_d,3)))
+					print('(' + str(ticker) + '): DI+/-: ' + str(round(cur_plus_di, 3)) + ' / ' + str(round(cur_minus_di,3)) + ' signal: ' + str(dmi_signal))
+					print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
+					print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
+					print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
+					print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
+					print('(' + str(ticker) + '): Incr_Threshold: ' + str(incr_threshold) + ', Decr_Threshold: ' + str(decr_threshold) + ', Exit Percent: ' + str(exit_percent))
+					print('(' + str(ticker) + '): BUY signal: ' + str(buy_signal) + ', Final BUY signal: ' + str(final_buy_signal))
+					print('------------------------------------------------------')
+				# DEBUG
 
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_sell_signal = final_buy_signal = False
@@ -3135,18 +3227,29 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				signal_mode = 'sell'
 
-			# DEBUG
-			if ( debug_all == True ):
-				time = datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S')
-				print('(' + str(ticker) + '): ' + str(signal_mode).upper() + ' / ' + str(time))
-				print('(' + str(ticker) + '): StochRSI: ' + str(round(cur_rsi_k, 3)) + ' / ' + str(round(cur_rsi_d,3)))
-				print('(' + str(ticker) + '): DI+/-: ' + str(round(cur_plus_di, 3)) + ' / ' + str(round(cur_minus_di,3)) + ' signal: ' + str(dmi_signal))
-				print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
-				print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
-				print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
-				print('(' + str(ticker) + '): SHORT signal: ' + str(short_signal) + ', Final SHORT signal: ' + str(final_short_signal))
-				print('------------------------------------------------------')
-			# DEBUG
+				# Build a profile of the stock's price action over the 90 minutes and adjust
+				#  incr_threshold, decr_threshold and exit_percent if needed.
+				if ( variable_exit == True ):
+					if ( cur_natr < incr_threshold ):
+
+						# The normalized ATR is below incr_threshold. This means the stock is less
+						#  likely to get to incr_threshold from our purchase price, and is probably
+						#  even farther away from exit_percent (if it is set). So we adjust these parameters
+						#  to increase the likelihood of a successful trade.
+						#
+						# Note that currently we may reduce these values, but we do not increase them above
+						#  their settings configured by the user.
+						if ( incr_threshold > cur_natr * 2 ):
+							incr_threshold = cur_natr * 2
+						else:
+							incr_threshold = cur_natr
+
+						if ( decr_threshold > cur_natr * 2 ):
+							decr_threshold = cur_natr * 2
+
+						if ( exit_percent != None ):
+							if ( exit_percent > cur_natr * 4 ):
+								exit_percent = cur_natr * 2
 
 
 		# SELL mode
@@ -3172,7 +3275,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
 
 				# SELL the security if we are using a trailing stoploss
-				if ( percent_change >= decr_percent_threshold and stoploss == True ):
+				if ( percent_change >= decr_threshold and stoploss == True ):
 
 					# Sell
 					sell_price = float(pricehistory['candles'][idx]['close'])
@@ -3180,14 +3283,20 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 					# sell_price,bool(short),rsi,stochrsi,sell_time
 					results.append( str(sell_price) + ',' + str(short) + ',' +
-							str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' +
-							str(sell_time) )
+							str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
+							str(round(cur_natr,3)) + ',' + str(sell_time) )
 
 					buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 					final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
 
 					adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 					plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
+
+					purchase_price	= 0
+					base_price	= 0
+					incr_threshold	= orig_incr_threshold
+					decr_threshold	= orig_decr_threshold
+					exit_percent	= orig_exit_percent
 
 					signal_mode = 'short'
 					continue
@@ -3208,6 +3317,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 							sell_signal = True
 
 				# Sell if exit_percent is specified
+				total_percent_change = abs( float(purchase_price) / float(last_price) - 1 ) * 100
 				if ( exit_percent != None ):
 
 					# If exit_percent has been hit, we will sell at the first RED candle
@@ -3216,14 +3326,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 						if ( float(pricehistory['candles'][idx]['close']) < float(pricehistory['candles'][idx]['open']) ):
 							sell_signal = True
 
-					elif ( percent_change >= float(exit_percent) ):
+					elif ( total_percent_change >= exit_percent ):
 						exit_signal = True
 						if ( quick_exit == True ):
 							sell_signal = True
 
-				if ( percent_change >= incr_percent_threshold ):
+				if ( percent_change >= incr_threshold ):
 					base_price = last_price
-					decr_percent_threshold = incr_percent_threshold / 2
+					decr_threshold = incr_threshold / 2
 
 			# End cost basis / stoploss monitor
 
@@ -3249,8 +3359,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				# sell_price,bool(short),rsi,stochrsi,sell_time
 				results.append( str(sell_price) + ',' + str(short) + ',' +
-						str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' +
-						str(sell_time) )
+						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
+						str(round(cur_natr,3)) + ',' + str(sell_time) )
 
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
@@ -3258,6 +3368,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
+
+				purchase_price	= 0
+				base_price	= 0
+				incr_threshold	= orig_incr_threshold
+				decr_threshold	= orig_decr_threshold
+				exit_percent	= orig_exit_percent
 
 				if ( noshort == False ):
 					short_signal = True
@@ -3323,6 +3439,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 			# DMI signals
 			# DI+ cross above DI- indicates uptrend
+#			if ( cur_natr < 0.18 ):
+#				cur_plus_di = cur_plus_di_2x
+#				cur_minus_di = cur_minus_di_2x
+#				prev_plus_di = prev_plus_di_2x
+#				prev_minus_di = prev_minus_di_2x
+
 			if ( prev_plus_di < prev_minus_di and cur_plus_di > cur_minus_di ):
 				plus_di_crossover = True
 				minus_di_crossover = False
@@ -3340,13 +3462,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			# Aroon oscillator signals
 			# Values closer to -100 indicate a downtrend
 			aroonosc_signal = False
+			if ( cur_natr > 0.24 ):
+				cur_aroonosc = cur_aroonosc_92
+
 			if ( cur_aroonosc < -60 ):
 				aroonosc_signal = True
 
-				# Enable macd_simple if the aroon oscillitor is greater than -aroonosc_macd_threshold
+				# Enable macd_simple if the aroon oscillitor is greater than -aroonosc_secondary_threshold
 				if ( aroonosc_with_macd_simple == True ):
 					with_macd_simple = False
-					if ( cur_aroonosc >= -aroonosc_macd_threshold ):
+					if ( cur_aroonosc >= -aroonosc_secondary_threshold ):
 						with_macd_simple = True
 
 			# MACD crossover signals
@@ -3496,7 +3621,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				if ( no_use_resistance == False and resistance_signal != True ):
 					final_short_signal = False
 
-
 			# SHORT SIGNAL
 			if ( short_signal == True and final_short_signal == True ):
 				short_price = float(pricehistory['candles'][idx]['close'])
@@ -3504,8 +3628,22 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				short_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 				results.append( str(short_price) + ',' + str(short) + ',' +
-						str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' +
-						str(short_time) )
+						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
+						str(round(cur_natr,3)) + ',' + str(short_time) )
+
+				# DEBUG
+				if ( debug_all == True ):
+					print('(' + str(ticker) + '): ' + str(signal_mode).upper() + ' / ' + str(short_time) + ' (' + str(pricehistory['candles'][idx]['datetime']) + ')')
+					print('(' + str(ticker) + '): StochRSI K/D: ' + str(round(cur_rsi_k, 3)) + ' / ' + str(round(cur_rsi_d,3)))
+					print('(' + str(ticker) + '): DI+/-: ' + str(round(cur_plus_di, 3)) + ' / ' + str(round(cur_minus_di,3)) + ' signal: ' + str(dmi_signal))
+					print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
+					print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
+					print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
+					print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
+					print('(' + str(ticker) + '): Incr_Threshold: ' + str(incr_threshold) + ', Decr_Threshold: ' + str(decr_threshold) + ', Exit Percent: ' + str(exit_percent))
+					print('(' + str(ticker) + '): SHORT signal: ' + str(short_signal) + ', Final SHORT signal: ' + str(final_short_signal))
+					print('------------------------------------------------------')
+				# DEBUG
 
 				sell_signal = buy_signal = short_signal = buy_to_cover_signal = False
 				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
@@ -3515,18 +3653,29 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				signal_mode = 'buy_to_cover'
 
-			# DEBUG
-			if ( debug_all == True ):
-				time = datetime.fromtimestamp(int(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S')
-				print('(' + str(ticker) + '): ' + str(signal_mode).upper() + ' / ' + str(time))
-				print('(' + str(ticker) + '): StochRSI: ' + str(round(cur_rsi_k, 3)) + ' / ' + str(round(cur_rsi_d,3)))
-				print('(' + str(ticker) + '): DI+/-: ' + str(round(cur_plus_di, 3)) + ' / ' + str(round(cur_minus_di,3)) + ' signal: ' + str(dmi_signal))
-				print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
-				print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
-				print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
-				print('(' + str(ticker) + '): SHORT signal: ' + str(short_signal) + ', Final SHORT signal: ' + str(final_short_signal))
-				print('------------------------------------------------------')
-			# DEBUG
+				# Build a profile of the stock's price action over the 90 minutes and adjust
+				#  incr_threshold, decr_threshold and exit_percent if needed.
+				if ( variable_exit == True ):
+					if ( cur_natr < incr_threshold ):
+
+						# The normalized ATR is below incr_threshold. This means the stock is less
+						#  likely to get to incr_threshold from our purchase price, and is probably
+						#  even farther away from exit_percent (if it is set). So we adjust these parameters
+						#  to increase the likelihood of a successful trade.
+						#
+						# Note that currently we may reduce these values, but we do not increase them above
+						#  their settings configured by the user.
+						if ( incr_threshold > cur_natr * 2 ):
+							incr_threshold = cur_natr * 2
+						else:
+							incr_threshold = cur_natr
+
+						if ( decr_threshold > cur_natr * 2 ):
+							decr_threshold = cur_natr * 2
+
+						if ( exit_percent != None ):
+							if ( exit_percent > cur_natr * 4 ):
+								exit_percent = cur_natr * 2
 
 
 		# BUY-TO-COVER mode
@@ -3552,21 +3701,27 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
 
 				# Buy-to-cover the security if we are using a trailing stoploss
-				if ( percent_change >= decr_percent_threshold and stoploss == True ):
+				if ( percent_change >= decr_threshold and stoploss == True ):
 
 					# Buy-to-cover
 					buy_to_cover_price = float(pricehistory['candles'][idx]['close'])
 					buy_to_cover_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 					results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
-							str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' +
-							str(buy_to_cover_time) )
+							str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
+							str(round(cur_natr,3)) + ',' + str(buy_to_cover_time) )
 
 					buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 					final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
 
 					adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 					plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
+
+					short_price	= 0
+					base_price	= 0
+					incr_threshold	= orig_incr_threshold
+					decr_threshold	= orig_decr_threshold
+					exit_percent	= orig_exit_percent
 
 					if ( shortonly == True ):
 						signal_mode = 'short'
@@ -3593,20 +3748,22 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				# Sell if exit_percent is specified
 				if ( exit_percent != None ):
 
+					total_percent_change = abs( float(short_price) / float(last_price) - 1 ) * 100
+
 					# If exit_percent has been hit, we will sell at the first GREEN candle
 					#  unless quick_exit was set.
 					if ( exit_signal == True ):
 						if ( float(pricehistory['candles'][idx]['close']) > float(pricehistory['candles'][idx]['open']) ):
 							buy_to_cover_signal = True
 
-					elif ( percent_change >= float(exit_percent) ):
+					elif ( total_percent_change >= float(exit_percent) ):
 						exit_signal = True
 						if ( quick_exit == True ):
 							sell_signal = True
 
-				if ( percent_change >= incr_percent_threshold ):
+				if ( percent_change >= incr_threshold ):
 					base_price = last_price
-					decr_percent_threshold = incr_percent_threshold / 2
+					decr_threshold = incr_threshold / 2
 
 			# End cost basis / stoploss monitor
 
@@ -3631,16 +3788,21 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				buy_to_cover_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 				results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
-						str(cur_rsi_k)+'/'+str(cur_rsi_d) + ',' +
-						str(buy_to_cover_time) )
+						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
+						str(round(cur_natr,3)) + ',' + str(buy_to_cover_time) )
 
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
-
 				exit_signal = False
 
 				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
+
+				short_price	= 0
+				base_price	= 0
+				incr_threshold	= orig_incr_threshold
+				decr_threshold	= orig_decr_threshold
+				exit_percent	= orig_exit_percent
 
 				if ( shortonly == True ):
 					signal_mode = 'short'

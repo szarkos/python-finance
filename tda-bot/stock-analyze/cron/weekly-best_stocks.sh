@@ -40,7 +40,7 @@ for t in $tickers; do
 
 	echo $t;
 	./gobot-test.py --all --ifile=stock-analyze/monthly-1min-csv/${t}-3months-${end_date}.pickle --ofile=stock-analyze/results/${t} \
-		--opts=" --weekly_ifile=stock-analyze/weekly-csv/${t}-weekly-2019-2021.pickle --exit_percent=1 $startdate "
+		--opts=" --weekly_ifile=stock-analyze/weekly-csv/${t}-weekly-2019-2021.pickle --exit_percent=1 $startdate --skip_blacklist "
 
 done
 cd "${parent_path}/.."

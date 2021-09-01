@@ -278,18 +278,15 @@ def stochrsi_gobot( algos=None, debug=False ):
 		# ADX, +DI, -DI
 		if ( algos['adx'] == True or algos['dmi'] == True or algos['dmi_simple'] == True ):
 
-			# SAZ - 2021-08-29: Low volatility stocks work better with a longer adx_period
-			stocks[ticker]['adx_period'] = adx_period
-#			if ( stocks[ticker]['cur_natr'] < 0.18 ):
-#				stocks[ticker]['adx_period'] = adx_period * 2
-
 			t_adx_period = stocks[ticker]['adx_period'] * stocks[ticker]['period_multiplier']
+			t_di_period = stocks[ticker]['di_period'] * stocks[ticker]['period_multiplier']
 
 			adx = []
 			plus_di = []
 			minus_di = []
 			try:
-				adx, plus_di, minus_di = tda_gobot_helper.get_adx(stocks[ticker]['pricehistory'], period=t_adx_period)
+				adx, plus_di, minus_di = tda_gobot_helper.get_adx(stocks[ticker]['pricehistory'], period=t_di_period)
+				adx, plus_di_adx, minus_di_adx = tda_gobot_helper.get_adx(stocks[ticker]['pricehistory'], period=t_adx_period)
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(' + str(ticker) + '): get_adx(): ' + str(e))
@@ -568,7 +565,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 			# ADX signal
 			if ( algos['adx'] == True ):
 				stocks[ticker]['adx_signal'] = False
-				if ( cur_adx > 25 ):
+				if ( cur_adx > stocks[ticker]['adx_threshold'] ):
 					stocks[ticker]['adx_signal'] = True
 
 			# DMI signals
@@ -1054,7 +1051,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 			# ADX signal
 			if ( algos['adx'] == True ):
 				stocks[ticker]['adx_signal'] = False
-				if ( cur_adx > 25 ):
+				if ( cur_adx > stocks[ticker]['adx_threshold'] ):
 					stocks[ticker]['adx_signal'] = True
 
 			# DMI signals

@@ -1,18 +1,16 @@
 #!/usr/bin/python3 -u
 
-# Monitor a stock's Stochastic RSI and other indicator values and make purchase decisions based off those values.
+# Monitor a stock's Stochastic RSI and other indicator values and make entry/exit decisions based off those values.
 # Example:
 
 # $ source stock-analyze/tickers.conf
-# $ ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=1000 --stocks=$SMALL_LARGE2 --short \
-#	--decr_threshold=0.4 --incr_threshold=0.5 --max_failed_txs=1 --exit_percent=0.25 --tx_log_dir=TX_LOGS_v2 \
-#	--rsi_high_limit=95 --rsi_low_limit=5 \
-#	--algos=stochrsi,rsi,adx,support_resistance \
-#	--algos=stochrsi,rsi,macd,support_resistance \
-#	--algos=stochrsi,adx,macd,support_resistance \
-#	--algos=stochrsi,rsi,adx,vpt,support_resistance \
-#	--algos=stochrsi,adx,dmi,support_resistance \
-#	> logs/gobot-v2.log 2>&1
+# $ ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=5000 --stocks=${tickers} --short --singleday \
+#	--decr_threshold=0.4 --incr_threshold=0.5 --max_failed_txs=2 --exit_percent=1 \
+#	--tx_log_dir=TX_LOGS_v2 --weekly_ifile=stock-analyze/weekly-csv/TICKER-weekly-2019-2021.pickle \
+#	--rsi_high_limit=95 --rsi_low_limit=15 \
+#	--algos=stochrsi,dmi_simple,aroonosc,support_resistance --aroonosc_with_macd_simple \
+#	--variable_exit --aroonosc_period=24 --adx_period=92 --adx_threshold=4.25 \
+#	1> logs/gobot-v2.log 2>&1
 
 import os, sys, signal, re, random
 import time, datetime, pytz
@@ -74,13 +72,15 @@ parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/l
 parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=int)
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
 parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', default=72, type=int)
-parser.add_argument("--adx_period", help='ADX period', default=48, type=int)
+parser.add_argument("--adx_period", help='ADX period', default=92, type=int)
+parser.add_argument("--di_period", help='Plus/Minus DI period', default=48, type=int)
 parser.add_argument("--aroonosc_period", help='Aroon Oscillator period', default=24, type=int)
 parser.add_argument("--atr_period", help='Average True Range period', default=14, type=int)
 parser.add_argument("--period_multiplier", help='Period multiplier - set statically here, or otherwise gobot will determine based on the number of candles it receives per minute.', default=0, type=int)
 
 parser.add_argument("--aroonosc_with_macd_simple", help='When using Aroon Oscillator, use macd_simple as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
 parser.add_argument("--aroonosc_secondary_threshold", help='AroonOsc threshold for when to enable macd_simple when --aroonosc_with_macd_simple is enabled (Default: 70)', default=70, type=float)
+parser.add_argument("--adx_threshold", help='ADX threshold for when to trigger the ADX signal (Default: 25)', default=25, type=float)
 
 # Deprecated - use --algos=... instead
 #parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
@@ -163,7 +163,7 @@ if ( tda_gobot_helper.tdalogin(passcode) != True ):
 #	   'rsi':			False,
 #	   'adx':			False,
 #	   'dmi':			False,
-#	   'dmi_simple':			False,
+#	   'dmi_simple':		False,
 #	   'macd':			False,
 #	   'macd_simple':		False,
 #	   'aroonosc':			False,
@@ -283,6 +283,8 @@ for ticker in args.stocks.split(','):
 
 				    # ADX
 				    'adx_period':		args.adx_period,
+				    'di_period':		args.di_period,
+				    'adx_threshold':		args.adx_threshold,
 				    'cur_adx':			float(-1),
 
 				    # DMI
@@ -538,7 +540,8 @@ tda_stochrsi_gobot_helper.rsi_d_period = args.rsi_d_period
 tda_stochrsi_gobot_helper.rsi_type = args.rsi_type
 
 # ADX / DMI
-tda_stochrsi_gobot_helper.adx_period = args.adx_period # Usually 48-64
+tda_stochrsi_gobot_helper.adx_period = args.adx_period
+tda_stochrsi_gobot_helper.di_period = args.di_period
 
 # MACD
 tda_stochrsi_gobot_helper.macd_short_period = 48

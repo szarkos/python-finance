@@ -1282,12 +1282,15 @@ def get_vpt(pricehistory=None, period=128, debug=False):
 			vpt.append(0)
 			continue
 
+		cur_volume = float( pricehistory['candles'][idx]['volume'] )
 		cur_close = float( pricehistory['candles'][idx]['close'] )
 		prev_close = float( pricehistory['candles'][idx-1]['close'] )
-		cur_volume = float( pricehistory['candles'][idx]['volume'] )
+
+		# Avoid division by 0 errors
+		if ( prev_close == 0 ):
+			prev_close = cur_close
 
 		vpt_sum = vpt_sum + ( cur_volume * ((cur_close - prev_close) / prev_close) )
-
 		vpt.append(vpt_sum)
 
 	# Get the vpt signal line
@@ -1710,10 +1713,23 @@ def get_vwap(pricehistory=None, day='today', end_timestamp=None, use_bands=True,
 	q = df.Volume.values
 	p = df.AvgPrice.values
 
-	# vwap = Cumulative(Typical Price x Volume) / Cumulative(Volume)
-	vwap = df.assign(vwap=(p * q).cumsum() / q.cumsum())
-	vwap = vwap['vwap'].to_numpy()
+	# Check for 0 values in q (volume), which would mess up our vwap calculation below
+	for idx,val in enumerate(q):
+		if ( val == 0 ):
+			q[idx] = 1
+	for idx,val in enumerate(p):
+		if ( val == 0 or str(val) == '.0' ):
+			p[idx] = p[-5] # arbitrary price value
 
+	# vwap = Cumulative(Typical Price x Volume) / Cumulative(Volume)
+	try:
+		vwap = df.assign(vwap=(p * q).cumsum() / q.cumsum())
+
+	except Exception as e:
+		print('Caught exception: get_vwap(' + str(pricehistory['symbol']) + '): ' + str(e), file=sys.stderr)
+		return False, [], []
+
+	vwap = vwap['vwap'].to_numpy()
 	if ( use_bands == False ):
 		return vwap, [], []
 
@@ -2529,7 +2545,7 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, deb
 def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3,
 			  stoploss=False, incr_threshold=1, decr_threshold=1.5, hold_overnight=False, exit_percent=None, strict_exit_percent=False, vwap_exit=False, quick_exit=False,
 			  no_use_resistance=False, with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_macd=False, with_vwap=False, with_vpt=False,
-			  with_dmi_simple=False, with_macd_simple=False, vpt_sma_period=72, adx_period=48, atr_period=14,
+			  with_dmi_simple=False, with_macd_simple=False, vpt_sma_period=72, adx_period=92, di_period=48, atr_period=14, adx_threshold=25,
 			  aroonosc_period=48, aroonosc_with_macd_simple=False, aroonosc_with_vpt=False, aroonosc_secondary_threshold=70,
 			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None, weekly_ph=None, keylevel_strict=False,
 			  price_resistance_pct=1, price_support_pct=1, variable_exit=False,
@@ -2618,19 +2634,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		return False
 
 	# ADX, +DI, -DI
+	# We now use different periods for adx and plus/minus_di
 	if ( with_dmi == True and with_dmi_simple == True ):
 		with_dmi_simple = False
 
 	adx = []
 	plus_di = []
 	minus_di = []
-
-	adx_2x = []
-	plus_di_2x = []
-	minus_di_2x = []
 	try:
-		adx, plus_di, minus_di = get_adx(pricehistory, period=adx_period)
-		adx_2x, plus_di_2x, minus_di_2x = get_adx(pricehistory, period=adx_period*2)
+		adx, plus_di, minus_di = get_adx(pricehistory, period=di_period)
+		adx, plus_di_adx, minus_di_adx = get_adx(pricehistory, period=adx_period)
 
 	except Exception as e:
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_adx(): ' + str(e))
@@ -2697,7 +2710,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				vwap, vwap_up, vwap_down = get_vwap(pricehistory, day=key, end_timestamp=days[key]['end'], num_stddev=2)
 
 			except Exception as e:
-				print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_vwap(): ' + str(e))
+				print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_vwap(): ' + str(e), file=sys.stderr)
 				return False
 
 			if ( len(vwap) != len(days[key]['timestamps']) ):
@@ -2807,9 +2820,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	r_idx				= len(pricehistory['candles']) - len(rsi)
 
 	adx_idx				= len(pricehistory['candles']) - len(adx)
-	adx_2x_idx			= len(pricehistory['candles']) - len(adx_2x)
 	di_idx				= len(pricehistory['candles']) - len(plus_di)
-	di_2x_idx			= len(pricehistory['candles']) - len(plus_di_2x)
 
 	aroonosc_idx			= len(pricehistory['candles']) - len(aroonosc)
 	aroonosc_92_idx			= len(pricehistory['candles']) - len(aroonosc_92)
@@ -2886,12 +2897,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		prev_plus_di = plus_di[(idx - di_idx) - 1]
 		cur_minus_di = minus_di[idx - di_idx]
 		prev_minus_di = minus_di[(idx - di_idx) - 1]
-
-		cur_adx_2x = adx_2x[idx - adx_2x_idx]
-		cur_plus_di_2x = plus_di_2x[idx - di_2x_idx]
-		prev_plus_di_2x = plus_di_2x[(idx - di_2x_idx) - 1]
-		cur_minus_di_2x = minus_di_2x[idx - di_2x_idx]
-		prev_minus_di_2x = minus_di_2x[(idx - di_2x_idx) - 1]
 
 		cur_macd = macd[idx - macd_idx]
 		prev_macd = macd[(idx - macd_idx) - 1]
@@ -2996,18 +3001,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 			# ADX signal
 			adx_signal = False
-			if ( cur_adx > 25 ):
+			if ( cur_adx >= adx_threshold ):
 				adx_signal = True
 
 			# DMI signals
 			# DI+ cross above DI- indicates uptrend
-			# SAZ - 2021-08-29: Low volatility stocks work better with a longer adx_period
-#			if ( cur_natr < 0.18 ):
-#				cur_plus_di = cur_plus_di_2x
-#				cur_minus_di = cur_minus_di_2x
-#				prev_plus_di = prev_plus_di_2x
-#				prev_minus_di = prev_minus_di_2x
-
 			if ( prev_plus_di < prev_minus_di and cur_plus_di > cur_minus_di ):
 				plus_di_crossover = True
 				minus_di_crossover = False
@@ -3203,7 +3201,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				results.append( str(purchase_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
-						str(round(cur_natr,3)) + ',' + str(purchase_time) )
+						str(round(cur_natr,3)) + ',' + str(round(cur_adx,2)) + ',' + str(purchase_time) )
 
 				# DEBUG
 				if ( debug_all == True ):
@@ -3284,7 +3282,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					# sell_price,bool(short),rsi,stochrsi,sell_time
 					results.append( str(sell_price) + ',' + str(short) + ',' +
 							str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
-							str(round(cur_natr,3)) + ',' + str(sell_time) )
+							str(round(cur_natr,3)) + ',' + str(round(cur_adx,2)) + ',' + str(sell_time) )
 
 					buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 					final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
@@ -3360,7 +3358,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				# sell_price,bool(short),rsi,stochrsi,sell_time
 				results.append( str(sell_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
-						str(round(cur_natr,3)) + ',' + str(sell_time) )
+						str(round(cur_natr,3)) + ',' + str(round(cur_adx,2)) + ',' + str(sell_time) )
 
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
@@ -3434,17 +3432,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 			# ADX signal
 			adx_signal = False
-			if ( cur_adx > 25 ):
+			if ( cur_adx > adx_threshold ):
 				adx_signal = True
 
 			# DMI signals
 			# DI+ cross above DI- indicates uptrend
-#			if ( cur_natr < 0.18 ):
-#				cur_plus_di = cur_plus_di_2x
-#				cur_minus_di = cur_minus_di_2x
-#				prev_plus_di = prev_plus_di_2x
-#				prev_minus_di = prev_minus_di_2x
-
 			if ( prev_plus_di < prev_minus_di and cur_plus_di > cur_minus_di ):
 				plus_di_crossover = True
 				minus_di_crossover = False
@@ -3629,7 +3621,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				results.append( str(short_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
-						str(round(cur_natr,3)) + ',' + str(short_time) )
+						str(round(cur_natr,3)) + ',' + str(round(cur_adx,2)) + ',' + str(short_time) )
 
 				# DEBUG
 				if ( debug_all == True ):
@@ -3709,7 +3701,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 					results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
 							str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
-							str(round(cur_natr,3)) + ',' + str(buy_to_cover_time) )
+							str(round(cur_natr,3)) + ',' + str(round(cur_adx,2)) + ',' + str(buy_to_cover_time) )
 
 					buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 					final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
@@ -3789,7 +3781,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
-						str(round(cur_natr,3)) + ',' + str(buy_to_cover_time) )
+						str(round(cur_natr,3)) + ',' + str(round(cur_adx,2)) + ',' + str(buy_to_cover_time) )
 
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False

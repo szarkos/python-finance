@@ -22,6 +22,7 @@ parser.add_argument("--ifile", help='Use pickle file for pricehistory data rathe
 parser.add_argument("--augment_ifile", help='Pull additional history data and append it to candles imported from ifile', action="store_true")
 parser.add_argument("--weekly_ifile", help='Use pickle file for weekly pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--start_date", help='The day to start trading (i.e. 2021-05-12). Typically useful for verifying history logs.', default=None, type=str)
+parser.add_argument("--skip_blacklist", help='Do not process blacklisted tickers.', action="store_true")
 
 parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal (Default: False)', action="store_true")
 parser.add_argument("--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (Default: False)', action="store_true")
@@ -43,6 +44,7 @@ parser.add_argument("--with_vpt", help='Use VPT as secondary indicator to advise
 parser.add_argument("--aroonosc_with_macd_simple", help='When using Aroon Oscillator, use macd_simple as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
 parser.add_argument("--aroonosc_with_vpt", help='When using Aroon Oscillator, use vpt as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
 parser.add_argument("--aroonosc_secondary_threshold", help='AroonOsc threshold for when to enable macd_simple when --aroonosc_with_macd_simple is enabled (Default: 70)', default=72, type=float)
+parser.add_argument("--adx_threshold", help='ADX threshold for when to trigger the ADX signal (Default: 25)', default=25, type=float)
 
 parser.add_argument("--days", help='Number of days to test. Separate with a comma to test multiple days.', default='10', type=str)
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
@@ -63,7 +65,8 @@ parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/l
 parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=int)
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
 parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', default=72, type=int)
-parser.add_argument("--adx_period", help='ADX period', default=48, type=int)
+parser.add_argument("--adx_period", help='ADX period', default=92, type=int)
+parser.add_argument("--di_period", help='Plus/Minus DI period', default=48, type=int)
 parser.add_argument("--aroonosc_period", help='Aroon Oscillator period', default=24, type=int)
 parser.add_argument("--atr_period", help='Average True Range period', default=14, type=int)
 
@@ -116,7 +119,11 @@ if ( isinstance(ret, bool) and ret == False ):
 
 # Check if stock is in the blacklist
 if ( tda_gobot_helper.check_blacklist(stock) == True ):
-	print('(' + str(stock) + ') WARNING: stock ' + str(stock) + ' is currently blacklisted')
+	if ( args.skip_blacklist == True ):
+		print('(' + str(stock) + ') WARNING: skipping ' + str(stock) + ' because it is currently blacklisted and --skip_blacklist is set.', file=sys.stderr)
+		exit(1)
+	else:
+		print('(' + str(stock) + ') WARNING: stock ' + str(stock) + ' is currently blacklisted')
 
 # Confirm that we can short this stock
 if ( args.ifile == None ):
@@ -381,10 +388,10 @@ for algo in args.algo.split(','):
 		elif ( algo == 'stochrsi' or algo == 'stochrsi-new' ):
 			results = tda_gobot_helper.stochrsi_analyze_new( pricehistory=data, ticker=stock, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type,
 									 rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
-									 vpt_sma_period=args.vpt_sma_period, adx_period=args.adx_period, atr_period=args.atr_period,
+									 vpt_sma_period=args.vpt_sma_period, adx_period=args.adx_period, di_period=args.di_period, atr_period=args.atr_period,
 									 no_use_resistance=args.no_use_resistance, with_vwap=args.with_vwap, with_vpt=args.with_vpt,
 									 with_rsi=args.with_rsi, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_macd=args.with_macd,
-									 with_dmi_simple=args.with_dmi_simple, with_macd_simple=args.with_macd_simple,
+									 with_dmi_simple=args.with_dmi_simple, with_macd_simple=args.with_macd_simple, adx_threshold=args.adx_threshold,
 									 aroonosc_period=args.aroonosc_period, aroonosc_with_macd_simple=args.aroonosc_with_macd_simple, aroonosc_secondary_threshold=args.aroonosc_secondary_threshold, aroonosc_with_vpt=args.aroonosc_with_vpt,
 									 stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly, check_ma=args.check_ma,
 									 incr_threshold=args.incr_threshold, decr_threshold=args.decr_threshold,
@@ -394,7 +401,7 @@ for algo in args.algo.split(','):
 									 debug=True, debug_all=args.debug_all )
 
 		if ( results == False ):
-			print('Error: rsi_analyze() returned false', file=sys.stderr)
+			print('Error: rsi_analyze(' + str(stock) + ') returned false', file=sys.stderr)
 			continue
 		if ( int(len(results)) == 0 ):
 			print('There were no possible trades for requested time period, exiting.')
@@ -402,7 +409,7 @@ for algo in args.algo.split(','):
 
 		# Print the returned results
 		elif ( (algo == 'stochrsi' or algo == 'stochrsi-new') and args.verbose ):
-			print('{0:18} {1:15} {2:15} {3:10} {4:10}'.format('Buy/Sell Price', 'Net Change', 'RSI_K/RSI_D', 'NATR', 'Time'))
+			print('{0:18} {1:15} {2:15} {3:10} {4:10} {5:10}'.format('Buy/Sell Price', 'Net Change', 'RSI_K/RSI_D', 'NATR', 'ADX', 'Time'))
 
 		rating = 0
 		success = fail = 0
@@ -412,8 +419,8 @@ for algo in args.algo.split(','):
 		counter = 0
 		while ( counter < len(results) - 1 ):
 
-			price_tx, short, rsi_tx, natr, time_tx = results[counter].split( ',', 5 )
-			price_rx, short, rsi_rx, natr, time_rx = results[counter+1].split( ',', 5 )
+			price_tx, short, rsi_tx, natr_rx, adx_tx, time_tx = results[counter].split( ',', 6 )
+			price_rx, short, rsi_rx, natr_tx, adx_rx, time_rx = results[counter+1].split( ',', 6 )
 
 			vwap_tx = vwap_rx = 0
 			stochrsi_tx = stochrsi_rx = 0
@@ -486,13 +493,13 @@ for algo in args.algo.split(','):
 				rsi_rx = str(rsi_prev_rx) + '/' + str(rsi_cur_rx)
 
 				print(text_color, end='')
-				print('{0:18} {1:15} {2:15} {3:10} {4:10}'.format(str(price_tx), ' ', str(rsi_tx), str(natr), time_tx), end='')
+				print('{0:18} {1:15} {2:15} {3:10} {4:10} {5:10}'.format(str(price_tx), ' ', str(rsi_tx), str(natr_tx), str(adx_tx), time_tx), end='')
 				print(reset_color, end='')
 
 				print()
 
 				print(text_color, end='')
-				print('{0:18} {1:15} {2:15} {3:10} {4:10}'.format(str(price_rx), str(net_change), str(rsi_rx), ' ', time_tx), end='')
+				print('{0:18} {1:15} {2:15} {3:10} {4:10} {5:10}'.format(str(price_rx), str(net_change), str(rsi_rx), ' ', str(adx_tx), time_rx), end='')
 				print(reset_color, end='')
 
 				print()

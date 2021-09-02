@@ -2599,22 +2599,27 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	# We use 5-minute candles to calculate the ATR
 	pricehistory_5m = { 'candles': [], 'ticker': ticker }
 	for idx,key in enumerate(pricehistory['candles']):
-		if ( idx % 5 == 0 ):
-			open = pricehistory['candles'][idx - 4]['open']
-			close = pricehistory['candles'][idx]['close']
+		if ( idx == 0 ):
+			continue
 
-			high = 0
-			low = 9999
-			volume = 0
+		cndl_num = idx + 1
+		if ( cndl_num % 5 == 0 ):
+			open_p	= float( pricehistory['candles'][idx - 4]['open'] )
+			close	= float( pricehistory['candles'][idx]['close'] )
+			high	= 0
+			low	= 9999
+			volume	= 0
+
 			for i in range(4,0,-1):
-				volume += pricehistory['candles'][idx-i]['volume']
+				volume += int( pricehistory['candles'][idx-i]['volume'] )
 
-				if ( high < pricehistory['candles'][idx-i]['high'] ):
-					high = pricehistory['candles'][idx-i]['high']
-				if ( low > pricehistory['candles'][idx-i]['low'] ):
-					low = pricehistory['candles'][idx-i]['low']
+				if ( high < float(pricehistory['candles'][idx-i]['high']) ):
+					high = float( pricehistory['candles'][idx-i]['high'] )
 
-			newcandle = {	'open':		open,
+				if ( low > float(pricehistory['candles'][idx-i]['low']) ):
+					low = float( pricehistory['candles'][idx-i]['low'] )
+
+			newcandle = {	'open':		open_p,
 					'high':		high,
 					'low':		low,
 					'close':	close,
@@ -2622,6 +2627,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					'datetime':	pricehistory['candles'][idx]['datetime'] }
 
 			pricehistory_5m['candles'].append(newcandle)
+
+	del(open_p, high, low, close, volume, newcandle)
 
 	# Calculate the ATR
 	atr = []
@@ -2632,6 +2639,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	except Exception as e:
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_atr(): ' + str(e))
 		return False
+
 
 	# ADX, +DI, -DI
 	# We now use different periods for adx and plus/minus_di

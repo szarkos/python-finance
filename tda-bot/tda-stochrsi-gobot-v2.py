@@ -78,8 +78,8 @@ parser.add_argument("--aroonosc_period", help='Aroon Oscillator period', default
 parser.add_argument("--atr_period", help='Average True Range period', default=14, type=int)
 parser.add_argument("--period_multiplier", help='Period multiplier - set statically here, or otherwise gobot will determine based on the number of candles it receives per minute.', default=0, type=int)
 
-parser.add_argument("--aroonosc_with_macd_simple", help='When using Aroon Oscillator, use macd_simple as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
-parser.add_argument("--aroonosc_secondary_threshold", help='AroonOsc threshold for when to enable macd_simple when --aroonosc_with_macd_simple is enabled (Default: 70)', default=70, type=float)
+parser.add_argument("--aroonosc_with_macd_simple", help='When using Aroon Oscillator, use macd_simple as tertiary indicator if AroonOsc is less than +/- 72 (Default: False)', action="store_true")
+parser.add_argument("--aroonosc_secondary_threshold", help='AroonOsc threshold for when to enable macd_simple when --aroonosc_with_macd_simple is enabled (Default: 72)', default=72, type=float)
 parser.add_argument("--adx_threshold", help='ADX threshold for when to trigger the ADX signal (Default: 25)', default=25, type=float)
 
 # Deprecated - use --algos=... instead
@@ -624,13 +624,17 @@ for ticker in list(stocks.keys()):
 
 	# 5-minute candles to calculate things like Average True Range
 	for idx,key in enumerate( stocks[ticker]['pricehistory']['candles'] ):
-		if ( idx % 5 == 0 ):
-			open_p = stocks[ticker]['pricehistory']['candles'][idx - 4]['open']
-			close = stocks[ticker]['pricehistory']['candles'][idx]['close']
+		if ( idx == 0 ):
+			continue
 
-			high = 0
-			low = 9999
-			volume = 0
+		cndl_num = idx + 1
+		if ( cndl_num % 5 == 0 ):
+			open_p	= float( stocks[ticker]['pricehistory']['candles'][idx - 4]['open'] )
+			close	= float( stocks[ticker]['pricehistory']['candles'][idx]['close'] )
+			high	= 0
+			low	= 9999
+			volume	= 0
+
 			for i in range( 4, 0, -1):
 				volume += stocks[ticker]['pricehistory']['candles'][idx-i]['volume']
 

@@ -55,13 +55,14 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 		# Adding this log here so we can check with live data.
 		if ( int(idx['SEQUENCE']) == stocks[ticker]['prev_seq'] ):
 			print( '(' + str(ticker) + '): WARNING: duplicate sequence number detected - seq/timestamp: ' + str(idx['SEQUENCE']) + ' / ' + str(stream['timestamp']) )
+
 		stocks[ticker]['prev_seq'] = int( idx['SEQUENCE'] )
 
-		candle_data = {	'open':		idx['OPEN_PRICE'],
-				'high':		idx['HIGH_PRICE'],
-				'low':		idx['LOW_PRICE'],
-				'close':	idx['CLOSE_PRICE'],
-				'volume':	idx['VOLUME'],
+		candle_data = {	'open':		float( idx['OPEN_PRICE'] ),
+				'high':		float( idx['HIGH_PRICE'] ),
+				'low':		float( idx['LOW_PRICE'] ),
+				'close':	float( idx['CLOSE_PRICE'] ),
+				'volume':	int( idx['VOLUME'] ),
 				'datetime':	stream['timestamp'] }
 
 		stocks[ticker]['pricehistory']['candles'].append( candle_data )
@@ -69,21 +70,22 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 
 		# Add 5min candle
 		if ( len(stocks[ticker]['pricehistory']['candles']) % 5 == 0 ):
-			open = stocks[ticker]['pricehistory']['candles'][-5]['open']
-			close = stocks[ticker]['pricehistory']['candles'][-1]['close']
+			open_p	= stocks[ticker]['pricehistory']['candles'][-5]['open']
+			close	= stocks[ticker]['pricehistory']['candles'][-1]['close']
+			high	= 0
+			low	= 9999
+			volume	= 0
 
-			high = 0
-			low = 9999
-			volume = 0
 			for i in range(5, 0, -1):
 				volume += stocks[ticker]['pricehistory']['candles'][-i]['volume']
 
 				if ( high < stocks[ticker]['pricehistory']['candles'][-i]['high'] ):
 					high = stocks[ticker]['pricehistory']['candles'][-i]['high']
+
 				if ( low > stocks[ticker]['pricehistory']['candles'][-i]['low'] ):
 					low = stocks[ticker]['pricehistory']['candles'][-i]['low']
 
-			newcandle = {	'open':		open,
+			newcandle = {	'open':		open_p,
 					'high':		high,
 					'low':		low,
 					'close':	close,
@@ -179,10 +181,21 @@ def export_pricehistory():
 		if ( len(stocks[ticker]['pricehistory']) == 0 ):
 			continue
 
+		# Export pricehistory
 		try:
 			fname = './' + str(args.tx_log_dir) + '/' + str(ticker) + '.pickle'
 			with open(fname, 'wb') as handle:
 				pickle.dump(stocks[ticker]['pricehistory'], handle)
+
+		except Exception as e:
+			print('Error: Unable to write to file ' + str(fname) + ': ' + str(e))
+			pass
+
+		# Export 5-minute pricehistory
+		try:
+			fname = './' + str(args.tx_log_dir) + '/' + str(ticker) + '_5m.pickle'
+			with open(fname, 'wb') as handle:
+				pickle.dump(stocks[ticker]['pricehistory_5m'], handle)
 
 		except Exception as e:
 			print('Error: Unable to write to file ' + str(fname) + ': ' + str(e))
@@ -396,6 +409,9 @@ def stochrsi_gobot( algos=None, debug=False ):
 			# RSI
 			if ( algos['rsi'] == True ):
 				print('(' + str(ticker) + ') Current RSI: ' + str(round(stocks[ticker]['cur_rsi'], 2)))
+
+			# ATR/NATR
+			print('(' + str(ticker) + ') Current ATR/NATR: ' + str(round(stocks[ticker]['cur_atr'], 3)) + ' / ' + str(round(stocks[ticker]['cur_natr'], 3)))
 
 			# ADX
 			if ( algos['adx'] == True ):

@@ -829,11 +829,14 @@ def stochrsi_gobot( algos=None, debug=False ):
 			# In 'sell' mode we want to monitor the stock price along with RSI
 			last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
 			if ( isinstance(last_price, bool) and last_price == False ):
-				print('Error: get_lastprice(' + str(ticker) + ') returned False, falling back to latest candle')
-				last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 
+				# This happens often enough that it's worth just trying again before falling back
+				#  to the latest candle
 				tda_gobot_helper.tdalogin(passcode)
-				time.sleep(0.5)
+				last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
+				if ( isinstance(last_price, bool) and last_price == False ):
+					print('Error: get_lastprice(' + str(ticker) + ') returned False, falling back to latest candle')
+					last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 
 			net_change = round( (last_price - stocks[ticker]['orig_base_price']) * stocks[ticker]['stock_qty'], 3 )
 
@@ -1339,11 +1342,14 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 			last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
 			if ( isinstance(last_price, bool) and last_price == False ):
-				print('Error: get_lastprice(' + str(ticker) + ') returned False, falling back to latest candle')
-				last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 
+				# This happens often enough that it's worth just trying again before falling back
+				#  to the latest candle
 				tda_gobot_helper.tdalogin(passcode)
-				time.sleep(0.5)
+				last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
+				if ( isinstance(last_price, bool) and last_price == False ):
+					print('Error: get_lastprice(' + str(ticker) + ') returned False, falling back to latest candle')
+					last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 
 			net_change = round( (last_price - stocks[ticker]['orig_base_price']) * stocks[ticker]['stock_qty'], 3 )
 

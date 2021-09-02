@@ -24,6 +24,7 @@ group.add_argument("--stocks", help='Stock tickers to check, comma delimited', d
 parser.add_argument("-c", "--checkticker", help="Check if ticker is valid", action="store_true")
 parser.add_argument("-p", "--pretty", help="Pretty print the stock data", action="store_true")
 parser.add_argument("-n", "--lines", help="Number of lines to output (relevant for indicators like vwap, rsi, etc.)", default=10, type=int)
+parser.add_argument("--skip_check", help="Skip fixup and check of stock ticker", action="store_true")
 
 parser.add_argument("--rawquote", help="Get the raw quote info from the API", action="store_true")
 parser.add_argument("--quote", help="Get the latest price quote", action="store_true")
@@ -61,7 +62,6 @@ debug = 0			# Should default to 0 eventually, testing for now
 if args.debug:
 	debug = 1
 
-stock = args.stock
 mytimezone = pytz.timezone("US/Eastern")
 
 if ( args.end_date == -1 ):
@@ -75,33 +75,43 @@ if ( args.start_date != None ):
 if ( args.start_date == None and args.end_date == None and args.period == None ):
 	args.period = 1
 
+
+# No need to log into TDA just to write to or check the blacklist, unless we need to verify
+#  the ticker.
+skip_login = False
+if ( (args.blacklist == True or args.check_blacklist == True) and args.skip_check == True ):
+	skip_login = True
+
 # Initialize and log into TD Ameritrade
-from dotenv import load_dotenv
-if ( load_dotenv() != True ):
-	print('Error: unable to load .env file')
-	exit(1)
-
-tda_account_number = os.environ["tda_account_number"]
-passcode = os.environ["tda_encryption_passcode"]
-
-tda_gobot_helper.tda = tda
-tda_gobot_helper.tda_account_number = tda_account_number
-tda_gobot_helper.passcode = passcode
-
-if ( tda_gobot_helper.tdalogin(passcode) != True ):
-	print('Error: Login failure')
-	exit(1)
-
-# Fix up and sanity check the stock symbol before proceeding
-if ( args.stock != '' ):
-	stock = tda_gobot_helper.fix_stock_symbol(stock)
-	ret = tda_gobot_helper.check_stock_symbol(stock)
-	if ( isinstance(ret, bool) and ret == False ):
-		print('Error: check_stock_symbol(' + str(stock) + ') returned False, exiting', file=sys.stderr)
+if ( skip_login == False ):
+	from dotenv import load_dotenv
+	if ( load_dotenv() != True ):
+		print('Error: unable to load .env file')
 		exit(1)
 
-	if ( args.checkticker == True ): # --checkticker means we only wanted to validate the stock ticker
-		exit(0)
+	tda_account_number = os.environ["tda_account_number"]
+	passcode = os.environ["tda_encryption_passcode"]
+
+	tda_gobot_helper.tda = tda
+	tda_gobot_helper.tda_account_number = tda_account_number
+	tda_gobot_helper.passcode = passcode
+
+	if ( tda_gobot_helper.tdalogin(passcode) != True ):
+		print('Error: Login failure')
+		exit(1)
+
+# Fix up and sanity check the stock symbol before proceeding
+stock = args.stock
+if ( args.stock != '' ):
+	if ( args.skip_check == False ):
+		stock = tda_gobot_helper.fix_stock_symbol(stock)
+		ret = tda_gobot_helper.check_stock_symbol(stock)
+		if ( isinstance(ret, bool) and ret == False ):
+			print('Error: check_stock_symbol(' + str(stock) + ') returned False, exiting', file=sys.stderr)
+			exit(1)
+
+		if ( args.checkticker == True ): # --checkticker means we only wanted to validate the stock ticker
+			exit(0)
 
 else:
 	stock = args.stocks

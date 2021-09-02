@@ -15,7 +15,7 @@ import tda_gobot_helper
 # Parse and check variables
 parser = argparse.ArgumentParser()
 parser.add_argument("stock", help='Stock ticker to check')
-parser.add_argument("--no_use_filter", help='Do not use ATR to filter and reduce noise in the results', action="store_true")
+parser.add_argument("--no_filter", help='Do not use ATR to filter and reduce noise in the results', action="store_true")
 parser.add_argument("--plot", help='Plot the result', action="store_true")
 parser.add_argument("--atr_period", help='Plot the result', default=14, type=int)
 args = parser.parse_args()
@@ -39,7 +39,7 @@ if ( tda_gobot_helper.tdalogin(passcode) != True ):
 	sys.exit(1)
 
 filter = True
-if ( args.no_use_filter == True ):
+if ( args.no_filter == True ):
 	filter = False
 
 # get_pricehistory() variables

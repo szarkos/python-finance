@@ -61,7 +61,7 @@ try:
 					'high':		float( high ),
 					'low':		float( low ),
 					'close':	float( close ),
-					'volume':	float( volume ),
+					'volume':	int( volume ),
 					'datetime':	time }
 
 			pricehistory['candles'].append(candle_data)
@@ -155,7 +155,8 @@ for key in pricehistory['candles']:
 	time = int( key['datetime'] )
 	if ( prev_time != 0 ):
 		if ( time < prev_time ):
-			print('(' + str(ticker) + '): Error: timestamps out of order!')
+			print('(' + str(ticker) + '): Error: timestamps out of order! Exiting.', file=sys.stderr)
+			sys.exit(1)
 
 	prev_time = time
 

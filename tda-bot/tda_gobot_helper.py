@@ -2836,7 +2836,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	final_short_signal		= False
 	final_buy_to_cover_signal	= False
 
-	exit_signal			= False
+	exit_percent_signal		= False
 
 	rsi_signal			= False
 	adx_signal			= False
@@ -3212,13 +3212,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
 					print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
 					print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
-					print('(' + str(ticker) + '): Incr_Threshold: ' + str(incr_threshold) + ', Decr_Threshold: ' + str(decr_threshold) + ', Exit Percent: ' + str(exit_percent))
 					print('(' + str(ticker) + '): BUY signal: ' + str(buy_signal) + ', Final BUY signal: ' + str(final_buy_signal))
-					print('------------------------------------------------------')
 				# DEBUG
 
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_sell_signal = final_buy_signal = False
+				exit_percent_signal = False
 
 				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
@@ -3248,6 +3247,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 						if ( exit_percent != None ):
 							if ( exit_percent > cur_natr * 4 ):
 								exit_percent = cur_natr * 2
+
+				# DEBUG
+				if ( debug_all == True ):
+					print('(' + str(ticker) + '): Incr_Threshold: ' + str(incr_threshold) + ', Decr_Threshold: ' + str(decr_threshold) + ', Exit Percent: ' + str(exit_percent))
+					print('------------------------------------------------------')
+				# DEBUG
 
 
 		# SELL mode
@@ -3286,6 +3291,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 					buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 					final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
+					exit_percent_signal = False
 
 					adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 					plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
@@ -3301,43 +3307,46 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 			elif ( float(last_price) > float(base_price) ):
 				percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
-
-				# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
-				if ( vwap_exit == True ):
-					cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
-					cur_vwap_up = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap_up']
-					if ( cur_vwap > purchase_price ):
-						if ( last_price >= ((cur_vwap - purchase_price) / 2) + purchase_price ):
-							sell_signal = True
-
-					elif ( cur_vwap < purchase_price ):
-						if ( last_price >= ((cur_vwap_up - cur_vwap) / 2) + cur_vwap ):
-							sell_signal = True
-
-				# Sell if exit_percent is specified
-				total_percent_change = abs( float(purchase_price) / float(last_price) - 1 ) * 100
-				if ( exit_percent != None ):
-
-					# If exit_percent has been hit, we will sell at the first RED candle
-					#  unless --quick_exit was set.
-					if ( exit_signal == True ):
-						if ( float(pricehistory['candles'][idx]['close']) < float(pricehistory['candles'][idx]['open']) ):
-							sell_signal = True
-
-					elif ( total_percent_change >= exit_percent ):
-						exit_signal = True
-						if ( quick_exit == True ):
-							sell_signal = True
-
 				if ( percent_change >= incr_threshold ):
 					base_price = last_price
 					decr_threshold = incr_threshold / 2
 
 			# End cost basis / stoploss monitor
 
+			# Additional exit strategies
+			# Sell if exit_percent is specified
+			if ( exit_percent != None and float(last_price) > float(purchase_price) ):
+				total_percent_change = abs( float(purchase_price) / float(last_price) - 1 ) * 100
 
-			# Monitor RSI
-			if ( strict_exit_percent == False ):
+				# If exit_percent has been hit, we will sell at the first RED candle
+				#  unless --quick_exit was set.
+				if ( exit_percent_signal == True ):
+					if ( float(pricehistory['candles'][idx]['close']) < float(pricehistory['candles'][idx]['open']) ):
+						sell_signal = True
+
+				elif ( total_percent_change >= exit_percent ):
+					exit_percent_signal = True
+					if ( quick_exit == True ):
+						sell_signal = True
+
+			# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
+			if ( vwap_exit == True ):
+				cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
+				cur_vwap_up = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap_up']
+				if ( cur_vwap > purchase_price ):
+					if ( last_price >= ((cur_vwap - purchase_price) / 2) + purchase_price ):
+						sell_signal = True
+
+				elif ( cur_vwap < purchase_price ):
+					if ( last_price >= ((cur_vwap_up - cur_vwap) / 2) + cur_vwap ):
+						sell_signal = True
+
+
+			# Monitor RSI for SELL signal
+			# Do not use stochrsi as an exit signal if strict_exit_percent is set to True
+			# Also, if exit_percent_signal is triggered that means we've surpassed the exit_percent threshold and
+			#   should wait for either a red candle or for decr_threshold to be hit.
+			if ( strict_exit_percent == False and exit_percent_signal == False ):
 				if ( cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit ):
 
 					# Monitor if K and D intercect
@@ -3362,7 +3371,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
-				exit_signal = False
+				exit_percent_signal = False
 
 				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
@@ -3632,13 +3641,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
 					print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
 					print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
-					print('(' + str(ticker) + '): Incr_Threshold: ' + str(incr_threshold) + ', Decr_Threshold: ' + str(decr_threshold) + ', Exit Percent: ' + str(exit_percent))
 					print('(' + str(ticker) + '): SHORT signal: ' + str(short_signal) + ', Final SHORT signal: ' + str(final_short_signal))
-					print('------------------------------------------------------')
 				# DEBUG
 
 				sell_signal = buy_signal = short_signal = buy_to_cover_signal = False
 				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
+				exit_percent_signal = False
 
 				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
@@ -3668,6 +3676,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 						if ( exit_percent != None ):
 							if ( exit_percent > cur_natr * 4 ):
 								exit_percent = cur_natr * 2
+
+				# DEBUG
+				if ( debug_all == True ):
+					print('(' + str(ticker) + '): Incr_Threshold: ' + str(incr_threshold) + ', Decr_Threshold: ' + str(decr_threshold) + ', Exit Percent: ' + str(exit_percent))
+					print('------------------------------------------------------')
+				# DEBUG
 
 
 		# BUY-TO-COVER mode
@@ -3705,6 +3719,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 					buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 					final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
+					exit_percent_signal = False
 
 					adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 					plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
@@ -3723,36 +3738,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 			elif ( float(last_price) < float(base_price) ):
 				percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
-
-				# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
-				if ( vwap_exit == True ):
-
-					cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
-					cur_vwap_down = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap_down']
-					if ( cur_vwap < short_price ):
-						if ( last_price <= ((short_price - cur_vwap) / 2) + cur_vwap ):
-							buy_to_cover_signal = True
-
-					elif ( cur_vwap > short_price ):
-						if ( last_price <= ((cur_vwap - cur_vwap_down) / 2) + cur_vwap_down ):
-							buy_to_cover_signal = True
-
-				# Sell if exit_percent is specified
-				if ( exit_percent != None ):
-
-					total_percent_change = abs( float(short_price) / float(last_price) - 1 ) * 100
-
-					# If exit_percent has been hit, we will sell at the first GREEN candle
-					#  unless quick_exit was set.
-					if ( exit_signal == True ):
-						if ( float(pricehistory['candles'][idx]['close']) > float(pricehistory['candles'][idx]['open']) ):
-							buy_to_cover_signal = True
-
-					elif ( total_percent_change >= float(exit_percent) ):
-						exit_signal = True
-						if ( quick_exit == True ):
-							sell_signal = True
-
 				if ( percent_change >= incr_threshold ):
 					base_price = last_price
 					decr_threshold = incr_threshold / 2
@@ -3760,8 +3745,42 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			# End cost basis / stoploss monitor
 
 
-			# Monitor RSI
-			if ( strict_exit_percent == False ):
+			# Additional exit strategies
+			# Sell if exit_percent is specified
+			if ( exit_percent != None and float(last_price) < float(short_price) ):
+
+				total_percent_change = abs( float(last_price) / float(short_price) - 1 ) * 100
+
+				# If exit_percent has been hit, we will sell at the first GREEN candle
+				#  unless quick_exit was set.
+				if ( exit_percent_signal == True ):
+					if ( float(pricehistory['candles'][idx]['close']) > float(pricehistory['candles'][idx]['open']) ):
+						buy_to_cover_signal = True
+
+				elif ( total_percent_change >= float(exit_percent) ):
+					exit_percent_signal = True
+					if ( quick_exit == True ):
+						buy_to_cover_signal = True
+
+			# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
+			if ( vwap_exit == True ):
+
+				cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
+				cur_vwap_down = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap_down']
+				if ( cur_vwap < short_price ):
+					if ( last_price <= ((short_price - cur_vwap) / 2) + cur_vwap ):
+						buy_to_cover_signal = True
+
+				elif ( cur_vwap > short_price ):
+					if ( last_price <= ((cur_vwap - cur_vwap_down) / 2) + cur_vwap_down ):
+						buy_to_cover_signal = True
+
+
+			# Monitor RSI for BUY_TO_COVER signal
+			# Do not use stochrsi as an exit signal if strict_exit_percent is set to True
+			# Also, if exit_percent_signal is triggered that means we've surpassed the exit_percent threshold and
+			#   should wait for either a red candle or for decr_threshold to be hit.
+			if ( strict_exit_percent == False and exit_percent_signal == False ):
 				if ( cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit ):
 
 					# Monitor if K and D intercect
@@ -3785,7 +3804,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
-				exit_signal = False
+				exit_percent_signal = False
 
 				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False

@@ -144,7 +144,7 @@ def reset_signals(ticker=None):
 	stocks[ticker]['final_short_signal']		= False
 	stocks[ticker]['final_buy_to_cover_signal']	= False		# Currently unused
 
-	stocks[ticker]['exit_signal']			= False
+	stocks[ticker]['exit_percent_signal']		= False
 
 	stocks[ticker]['rsi_signal']			= False
 	stocks[ticker]['adx_signal']			= False
@@ -854,7 +854,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 				if ( last_price > stocks[ticker]['orig_base_price'] ):
 					percent_change = abs( stocks[ticker]['orig_base_price'] / last_price - 1 ) * 100
 					if ( percent_change >= args.last_hour_threshold ):
-						stocks[ticker]['exit_signal'] = True
+						stocks[ticker]['exit_percent_signal'] = True
 						stocks[ticker]['sell_signal'] = True
 
 			# STOPLOSS MONITOR
@@ -904,31 +904,6 @@ def stochrsi_gobot( algos=None, debug=False ):
 				if ( debug == True ):
 					print('Stock "' +  str(ticker) + '" +' + str(round(percent_change,2)) + '% (' + str(last_price) + ')')
 
-				# Sell if --exit_percent was set and threshold met
-				if ( stocks[ticker]['exit_percent'] != None ):
-					total_percent_change = abs( stocks[ticker]['orig_base_price'] / last_price - 1 ) * 100
-
-					# If exit_percent has been hit, we will sell at the first RED candle
-					if ( stocks[ticker]['exit_signal'] == True ):
-
-						last_close = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
-						last_open = float( stocks[ticker]['pricehistory']['candles'][-1]['open'] )
-						if ( last_close < last_open ):
-							stocks[ticker]['sell_signal'] = True
-
-					elif ( total_percent_change >= stocks[ticker]['exit_percent'] ):
-						stocks[ticker]['exit_signal'] = True
-
-				# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
-				if ( args.vwap_exit == True ):
-					if ( cur_vwap > stocks[ticker]['orig_base_price'] ):
-						if ( last_price >= ((cur_vwap - stocks[ticker]['orig_base_price']) / 2) + stocks[ticker]['orig_base_price'] ):
-							stocks[ticker]['sell_signal'] = True
-
-					elif ( cur_vwap < stocks[ticker]['orig_base_price'] ):
-						if ( last_price >= ((cur_vwap_up - cur_vwap) / 2) + cur_vwap ):
-							stocks[ticker]['sell_signal'] = True
-
 				# Re-set the base_price to the last_price if we increase by incr_threshold or more
 				# This way we can continue to ride a price increase until it starts dropping
 				if ( percent_change >= stocks[ticker]['incr_threshold'] ):
@@ -949,23 +924,54 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 			# END STOPLOSS MONITOR
 
+
+			# ADDITIONAL EXIT STRATEGIES (exit_percent / vwap_exit)
+			# Sell if --exit_percent was set and threshold met
+			if ( stocks[ticker]['exit_percent'] != None and last_price > stocks[ticker]['orig_base_price'] ):
+				total_percent_change = abs( stocks[ticker]['orig_base_price'] / last_price - 1 ) * 100
+
+				# If exit_percent has been hit, we will sell at the first RED candle
+				if ( stocks[ticker]['exit_percent_signal'] == True ):
+					last_close = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+					last_open = float( stocks[ticker]['pricehistory']['candles'][-1]['open'] )
+					if ( last_close < last_open ):
+						stocks[ticker]['sell_signal'] = True
+
+				elif ( total_percent_change >= stocks[ticker]['exit_percent'] ):
+					stocks[ticker]['exit_percent_signal'] = True
+
+			# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
+			if ( args.vwap_exit == True ):
+				if ( cur_vwap > stocks[ticker]['orig_base_price'] ):
+					if ( last_price >= ((cur_vwap - stocks[ticker]['orig_base_price']) / 2) + stocks[ticker]['orig_base_price'] ):
+						stocks[ticker]['sell_signal'] = True
+
+				elif ( cur_vwap < stocks[ticker]['orig_base_price'] ):
+					if ( last_price >= ((cur_vwap_up - cur_vwap) / 2) + cur_vwap ):
+						stocks[ticker]['sell_signal'] = True
+
+
 			# StochRSI MONITOR
-			# Monitor K and D
-			# A sell signal occurs when a decreasing %K line crosses below the %D line in the overbought region,
-			#  or if the %K line crosses below the RSI limit
-			if ( (cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit) ):
-				if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
-					print(  '(' + str(ticker) + ') SELL SIGNAL: StochRSI K value passed below the D value in the high_limit region (' +
-						str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
+			# Do not use stochrsi as an exit signal if exit_percent_signal is triggered. That means we've surpassed the
+			# exit_percent threshold and should wait for either a red candle or for decr_threshold to be hit.
+			if ( stocks[ticker]['exit_percent_signal'] == False ):
 
-					stocks[ticker]['sell_signal'] = True
+				# Monitor K and D
+				# A sell signal occurs when a decreasing %K line crosses below the %D line in the overbought region,
+				#  or if the %K line crosses below the RSI limit
+				if ( (cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit) ):
+					if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
+						print(  '(' + str(ticker) + ') SELL SIGNAL: StochRSI K value passed below the D value in the high_limit region (' +
+							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 
-			elif ( prev_rsi_k > rsi_high_limit and cur_rsi_k < prev_rsi_k ):
-				if ( cur_rsi_k <= rsi_high_limit ):
-					print(  '(' + str(ticker) + ') SELL SIGNAL: StochRSI K value passed below the high_limit threshold (' +
-						str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
+						stocks[ticker]['sell_signal'] = True
 
-					stocks[ticker]['sell_signal'] = True
+				elif ( prev_rsi_k > rsi_high_limit and cur_rsi_k < prev_rsi_k ):
+					if ( cur_rsi_k <= rsi_high_limit ):
+						print(  '(' + str(ticker) + ') SELL SIGNAL: StochRSI K value passed below the high_limit threshold (' +
+							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
+
+						stocks[ticker]['sell_signal'] = True
 
 
 			# SELL THE STOCK
@@ -1364,7 +1370,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 				if ( last_price < stocks[ticker]['orig_base_price'] ):
 					percent_change = abs( last_price / stocks[ticker]['orig_base_price'] - 1 ) * 100
 					if ( percent_change >= args.last_hour_threshold ):
-						stocks[ticker]['exit_signal'] = True
+						stocks[ticker]['exit_percent_signal'] = True
 						stocks[ticker]['buy_to_cover_signal'] = True
 
 
@@ -1374,32 +1380,6 @@ def stochrsi_gobot( algos=None, debug=False ):
 				percent_change = abs( last_price / stocks[ticker]['base_price'] - 1 ) * 100
 				if ( debug == True ):
 					print('Stock "' +  str(ticker) + '" -' + str(round(percent_change, 2)) + '% (' + str(last_price) + ')')
-
-				# Sell if --exit_percent was set and threshold met
-				if ( stocks[ticker]['exit_percent'] != None ):
-					total_percent_change = abs( stocks[ticker]['orig_base_price'] / last_price - 1 ) * 100
-
-					# If exit_percent has been hit, we will sell at the first GREEN candle
-					if ( stocks[ticker]['exit_signal'] == True ):
-
-						last_close = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
-						last_open = float( stocks[ticker]['pricehistory']['candles'][-1]['open'] )
-						if ( last_close > last_open ):
-							stocks[ticker]['buy_to_cover_signal'] = True
-
-					elif ( total_percent_change >= stocks[ticker]['exit_percent'] ):
-						stocks[ticker]['exit_signal'] = True
-
-
-				# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
-				if ( args.vwap_exit == True ):
-					if ( cur_vwap < stocks[ticker]['orig_base_price'] ):
-						if ( last_price <= ((stocks[ticker]['orig_base_price'] - cur_vwap) / 2) + cur_vwap ):
-							stocks[ticker]['buy_to_cover_signal'] = True
-
-					elif ( cur_vwap > stocks[ticker]['orig_base_price'] ):
-						if ( last_price <= ((cur_vwap - cur_vwap_down) / 2) + cur_vwap_down ):
-							stocks[ticker]['buy_to_cover_signal'] = True
 
 				# Re-set the base_price to the last_price if we increase by incr_threshold or more
 				# This way we can continue to ride a price increase until it starts dropping
@@ -1463,21 +1443,52 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 			# END STOPLOSS MONITOR
 
+
+			# ADDITIONAL EXIT STRATEGIES (exit_percent / vwap_exit)
+			# Sell if --exit_percent was set and threshold met
+			if ( stocks[ticker]['exit_percent'] != None and last_price < stocks[ticker]['orig_base_price'] ):
+				total_percent_change = abs( last_price / stocks[ticker]['orig_base_price'] - 1 ) * 100
+
+				# If exit_percent has been hit, we will sell at the first GREEN candle
+				if ( stocks[ticker]['exit_percent_signal'] == True ):
+					last_close = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+					last_open = float( stocks[ticker]['pricehistory']['candles'][-1]['open'] )
+					if ( last_close > last_open ):
+						stocks[ticker]['buy_to_cover_signal'] = True
+
+				elif ( total_percent_change >= stocks[ticker]['exit_percent'] ):
+					stocks[ticker]['exit_percent_signal'] = True
+
+			# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
+			if ( args.vwap_exit == True ):
+				if ( cur_vwap < stocks[ticker]['orig_base_price'] ):
+					if ( last_price <= ((stocks[ticker]['orig_base_price'] - cur_vwap) / 2) + cur_vwap ):
+						stocks[ticker]['buy_to_cover_signal'] = True
+
+				elif ( cur_vwap > stocks[ticker]['orig_base_price'] ):
+					if ( last_price <= ((cur_vwap - cur_vwap_down) / 2) + cur_vwap_down ):
+						stocks[ticker]['buy_to_cover_signal'] = True
+
+
 			# RSI MONITOR
-			# Monitor K and D
-			if ( (cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit) ):
-				if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
-					print(  '(' + str(ticker) + ') BUY_TO_COVER SIGNAL: StochRSI K value passed above the D value in the low_limit region (' +
-						str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
+			# Do not use stochrsi as an exit signal if exit_percent_signal is triggered. That means we've surpassed the
+			# exit_percent threshold and should wait for either a red candle or for decr_threshold to be hit.
+			if ( stocks[ticker]['exit_percent_signal'] == False ):
 
-					stocks[ticker]['buy_to_cover_signal'] = True
+				# Monitor K and D
+				if ( (cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit) ):
+					if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
+						print(  '(' + str(ticker) + ') BUY_TO_COVER SIGNAL: StochRSI K value passed above the D value in the low_limit region (' +
+							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 
-			elif ( prev_rsi_k < rsi_low_limit and cur_rsi_k > prev_rsi_k ):
-				if ( cur_rsi_k >= rsi_low_limit ):
-					print(  '(' + str(ticker) + ') BUY_TO_COVER SIGNAL: StochRSI K value passed above the low_limit threshold (' +
-						str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
+						stocks[ticker]['buy_to_cover_signal'] = True
 
-					stocks[ticker]['buy_to_cover_signal'] = True
+				elif ( prev_rsi_k < rsi_low_limit and cur_rsi_k > prev_rsi_k ):
+					if ( cur_rsi_k >= rsi_low_limit ):
+						print(  '(' + str(ticker) + ') BUY_TO_COVER SIGNAL: StochRSI K value passed above the low_limit threshold (' +
+							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
+
+						stocks[ticker]['buy_to_cover_signal'] = True
 
 
 			# BUY-TO-COVER THE STOCK

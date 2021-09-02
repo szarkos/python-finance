@@ -267,7 +267,7 @@ for ticker in args.stocks.split(','):
 				   'final_short_signal':	False,
 				   'final_buy_to_cover_signal':	False,		# Currently unused
 
-				   'exit_signal':		False,
+				   'exit_percent_signal':	False,
 
 				   'signal_mode':		'buy',
 
@@ -625,7 +625,7 @@ for ticker in list(stocks.keys()):
 	# 5-minute candles to calculate things like Average True Range
 	for idx,key in enumerate( stocks[ticker]['pricehistory']['candles'] ):
 		if ( idx % 5 == 0 ):
-			open = stocks[ticker]['pricehistory']['candles'][idx - 4]['open']
+			open_p = stocks[ticker]['pricehistory']['candles'][idx - 4]['open']
 			close = stocks[ticker]['pricehistory']['candles'][idx]['close']
 
 			high = 0
@@ -639,7 +639,7 @@ for ticker in list(stocks.keys()):
 				if ( low > stocks[ticker]['pricehistory']['candles'][idx-i]['low'] ):
 					low = stocks[ticker]['pricehistory']['candles'][idx-i]['low']
 
-			newcandle = {	'open':		open,
+			newcandle = {	'open':		open_p,
 					'high':		high,
 					'low':		low,
 					'close':	close,
@@ -647,6 +647,8 @@ for ticker in list(stocks.keys()):
 					'datetime':	stocks[ticker]['pricehistory']['candles'][idx]['datetime'] }
 
 			stocks[ticker]['pricehistory_5m']['candles'].append(newcandle)
+
+	del(open_p, high, low, close, volume, newcandle)
 
 	# Populate the period_log with history data
 	#  and find PDC
@@ -680,7 +682,9 @@ for ticker in list(stocks.keys()):
 	weekly_ph = False
 	if ( args.weekly_ifile != None ):
 		import pickle
-		weekly_ifile = re.sub('TICKER', ticker, args.weekly_ifile)
+
+		parent_path = os.path.dirname( os.path.realpath(__file__) )
+		weekly_ifile = str(parent_path) + '/' + re.sub('TICKER', ticker, args.weekly_ifile)
 		print('Using ' + str(weekly_ifile))
 
 		try:

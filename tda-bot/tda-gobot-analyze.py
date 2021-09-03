@@ -23,6 +23,7 @@ parser.add_argument("--augment_ifile", help='Pull additional history data and ap
 parser.add_argument("--weekly_ifile", help='Use pickle file for weekly pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--start_date", help='The day to start trading (i.e. 2021-05-12). Typically useful for verifying history logs.', default=None, type=str)
 parser.add_argument("--skip_blacklist", help='Do not process blacklisted tickers.', action="store_true")
+parser.add_argument("--skip_check", help="Skip fixup and check of stock ticker", action="store_true")
 
 parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal (Default: False)', action="store_true")
 parser.add_argument("--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (Default: False)', action="store_true")
@@ -32,6 +33,7 @@ parser.add_argument("--price_resistance_pct", help='Resistance indicators will c
 parser.add_argument("--price_support_pct", help='Support indicators will come into effect if price is within this percentage of a known support/resistance line', default=1, type=float)
 
 parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
+parser.add_argument("--with_mfi", help='Use MFI (Money Flow Index) as a secondary indicator', action="store_true")
 parser.add_argument("--with_adx", help='Use ADX as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
 parser.add_argument("--with_dmi", help='Use DMI as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
 parser.add_argument("--with_dmi_simple", help='Use DMI as secondary indicator to advise trade entries/exits, but do not wait for crossover (Default: False)', action="store_true")
@@ -69,6 +71,9 @@ parser.add_argument("--adx_period", help='ADX period', default=92, type=int)
 parser.add_argument("--di_period", help='Plus/Minus DI period', default=48, type=int)
 parser.add_argument("--aroonosc_period", help='Aroon Oscillator period', default=24, type=int)
 parser.add_argument("--atr_period", help='Average True Range period', default=14, type=int)
+parser.add_argument("--mfi_period", help='Money Flow Index (MFI) period', default=14, type=int)
+parser.add_argument("--mfi_high_limit", help='MFI high limit', default=80, type=int)
+parser.add_argument("--mfi_low_limit", help='MFI low limit', default=20, type=int)
 
 parser.add_argument("--noshort", help='Disable short selling of stock', action="store_true")
 parser.add_argument("--shortonly", help='Only short sell the stock', action="store_true")
@@ -111,11 +116,12 @@ if ( tda_gobot_helper.tdalogin(passcode) != True ):
 	exit(1)
 
 # Fix up and sanity check the stock symbol before proceeding
-stock = tda_gobot_helper.fix_stock_symbol(stock)
-ret = tda_gobot_helper.check_stock_symbol(stock)
-if ( isinstance(ret, bool) and ret == False ):
-	print('Error: check_stock_symbol(' + str(stock) + ') returned False, exiting.')
-	exit(1)
+if ( args.skip_check == False ):
+	stock = tda_gobot_helper.fix_stock_symbol(stock)
+	ret = tda_gobot_helper.check_stock_symbol(stock)
+	if ( isinstance(ret, bool) and ret == False ):
+		print('Error: check_stock_symbol(' + str(stock) + ') returned False, exiting.')
+		exit(1)
 
 # Check if stock is in the blacklist
 if ( tda_gobot_helper.check_blacklist(stock) == True ):
@@ -388,16 +394,16 @@ for algo in args.algo.split(','):
 		elif ( algo == 'stochrsi' or algo == 'stochrsi-new' ):
 			results = tda_gobot_helper.stochrsi_analyze_new( pricehistory=data, ticker=stock, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type,
 									 rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
-									 vpt_sma_period=args.vpt_sma_period, adx_period=args.adx_period, di_period=args.di_period, atr_period=args.atr_period,
-									 no_use_resistance=args.no_use_resistance, with_vwap=args.with_vwap, with_vpt=args.with_vpt,
-									 with_rsi=args.with_rsi, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_macd=args.with_macd,
-									 with_dmi_simple=args.with_dmi_simple, with_macd_simple=args.with_macd_simple, adx_threshold=args.adx_threshold,
-									 aroonosc_period=args.aroonosc_period, aroonosc_with_macd_simple=args.aroonosc_with_macd_simple, aroonosc_secondary_threshold=args.aroonosc_secondary_threshold, aroonosc_with_vpt=args.aroonosc_with_vpt,
+									 with_vpt=args.with_vpt, with_rsi=args.with_rsi, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_macd=args.with_macd,
+									 with_mfi=args.with_mfi, with_vwap=args.with_vwap, with_dmi_simple=args.with_dmi_simple, with_macd_simple=args.with_macd_simple,
+									 vpt_sma_period=args.vpt_sma_period, adx_period=args.adx_period, di_period=args.di_period, atr_period=args.atr_period, aroonosc_period=args.aroonosc_period,
+									 mfi_period=args.mfi_period, mfi_high_limit=args.mfi_high_limit, mfi_low_limit=args.mfi_low_limit, adx_threshold=args.adx_threshold,
+									 aroonosc_with_macd_simple=args.aroonosc_with_macd_simple, aroonosc_secondary_threshold=args.aroonosc_secondary_threshold, aroonosc_with_vpt=args.aroonosc_with_vpt,
 									 stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly, check_ma=args.check_ma,
 									 incr_threshold=args.incr_threshold, decr_threshold=args.decr_threshold,
-									 safe_open=True, exit_percent=args.exit_percent, strict_exit_percent=args.strict_exit_percent, vwap_exit=args.vwap_exit, quick_exit=args.quick_exit, variable_exit=args.variable_exit,
-									 start_date=args.start_date, weekly_ph=data_weekly, keylevel_strict=args.keylevel_strict,
-									 price_resistance_pct=args.price_resistance_pct, price_support_pct=args.price_support_pct,
+									 exit_percent=args.exit_percent, strict_exit_percent=args.strict_exit_percent, vwap_exit=args.vwap_exit, quick_exit=args.quick_exit, variable_exit=args.variable_exit,
+									 safe_open=True, start_date=args.start_date, weekly_ph=data_weekly, keylevel_strict=args.keylevel_strict,
+									 no_use_resistance=args.no_use_resistance, price_resistance_pct=args.price_resistance_pct, price_support_pct=args.price_support_pct,
 									 debug=True, debug_all=args.debug_all )
 
 		if ( results == False ):

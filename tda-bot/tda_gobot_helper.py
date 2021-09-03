@@ -581,7 +581,6 @@ def fix_timestamp(date=None, debug=False):
 
 
 # Return a list with the price history of a given stock
-# Useful for calculating various indicators such as RSI
 def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=None, start_date=None, end_date=None, needExtendedHoursData=False, debug=False):
 
 	if ( ticker == None ):
@@ -1438,8 +1437,15 @@ def get_rsi(pricehistory=None, rsi_period=14, type='close', debug=False):
 	return rsi
 
 
-# Wilder RSI
-def get_wilders_rsi(pricehistory=None, rsi_period=14, round_rsi=True, type='close', debug=False):
+# Return array of MFI (Money Flow Index) values for a given price/volume history.
+# Reference: https://tulipindicators.org/mfi
+# 'pricehistory' should be a data list obtained from get_pricehistory()
+# By default MFI takes as input the high, low, close and volume of each candle
+def get_mfi(pricehistory=None, period=14, debug=False):
+
+	if ( pricehistory == None ):
+		print('Error: get_mfi(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False
 
 	ticker = ''
 	try:
@@ -1447,68 +1453,40 @@ def get_wilders_rsi(pricehistory=None, rsi_period=14, round_rsi=True, type='clos
 	except:
 		pass
 
-	if ( pricehistory == None ):
-		print('Error: get_wilders_rsi(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
-		return False, [], []
+	high	= []
+	low	= []
+	close	= []
+	volume	= []
+	for key in pricehistory['candles']:
+		high.append(	float(key['high'])	)
+		low.append(	float(key['low'])	)
+		close.append(	float(key['close'])	)
+		volume.append(	float(key['volume'])	)
 
-	prices = []
-	if ( type == 'close' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['close']))
-
-	elif ( type == 'high' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['high']))
-
-	elif ( type == 'low' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['low']))
-
-	elif ( type == 'open' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['open']))
-
-	elif ( type == 'volume' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['volume']))
-
-	elif ( type == 'hl2' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['high']) + float(key['low'])) / 2 )
-
-	elif ( type == 'hlc3' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
-
-	elif ( type == 'ohlc4' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
-
-	else:
-		# Undefined type
-		print('Error: get_rsi(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
+	if ( len(high) < period ):
+		# Something is wrong with the data we got back from tda.get_price_history()
+		print('Error: get_mfi(' + str(ticker) + '): len(prices) is less than period - is this a new stock ticker?', file=sys.stderr)
 		return False
 
-	prices = np.array( prices )
-	columns = ['close']
-	prices = pd.DataFrame(data=prices, columns=columns)
+	try:
+		high	= np.array( high )
+		low	= np.array( low )
+		close	= np.array( close )
+		volume	= np.array( volume )
 
-	delta = prices['close'].diff()
+	except Exception as e:
+		print('Caught Exception: get_mfi(' + str(ticker) + ') while generating numpy arrays: ' + str(e))
+		return False
 
-	up = delta.copy()
-	up[up < 0] = 0
-	up = pd.Series.ewm(up, alpha=1/rsi_period).mean()
+	# Calculate the MFI
+	try:
+		mfi = ti.mfi( high, low, close, volume, period=period )
 
-	down = delta.copy()
-	down[down > 0] = 0
-	down *= -1
-	down = pd.Series.ewm(down, alpha=1/rsi_period).mean()
+	except Exception as e:
+		print('Caught Exception: get_mfi(' + str(ticker) + '): ' + str(e))
+		return False
 
-	rsi = np.where(up == 0, 0, np.where(down == 0, 100, 100 - (100 / (1 + up / down))))
-	if ( round_rsi == True ):
-		return np.round(rsi, 2)
-	else:
-		return rsi
+	return mfi
 
 
 # Return numpy array of Stochastic RSI values for a given price history.
@@ -2544,11 +2522,12 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, deb
 # Like stochrsi_analyze(), but sexier
 def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3,
 			  stoploss=False, incr_threshold=1, decr_threshold=1.5, hold_overnight=False, exit_percent=None, strict_exit_percent=False, vwap_exit=False, quick_exit=False,
-			  no_use_resistance=False, with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_macd=False, with_vwap=False, with_vpt=False,
-			  with_dmi_simple=False, with_macd_simple=False, vpt_sma_period=72, adx_period=92, di_period=48, atr_period=14, adx_threshold=25,
-			  aroonosc_period=48, aroonosc_with_macd_simple=False, aroonosc_with_vpt=False, aroonosc_secondary_threshold=70,
+			  variable_exit=False, no_use_resistance=False, price_resistance_pct=1, price_support_pct=1,
+			  with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_macd=False, with_vwap=False, with_vpt=False, with_mfi=False,
+			  with_dmi_simple=False, with_macd_simple=False, aroonosc_with_macd_simple=False, aroonosc_with_vpt=False, aroonosc_secondary_threshold=70,
+			  vpt_sma_period=72, adx_period=92, di_period=48, atr_period=14, adx_threshold=25, mfi_period=14, aroonosc_period=48,
+			  mfi_low_limit=20, mfi_high_limit=80,
 			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None, weekly_ph=None, keylevel_strict=False,
-			  price_resistance_pct=1, price_support_pct=1, variable_exit=False,
 			  debug=False, debug_all=False ):
 
 	if ( ticker == None or pricehistory == None ):
@@ -2591,9 +2570,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	# Get RSI
 	try:
 		rsi = get_rsi(pricehistory, rsi_period, rsi_type, debug=False)
-	except:
+	except Exception as e:
 		print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_rsi(): ' + str(e))
 		return False
+
+	# Get MFI
+	try:
+		mfi = get_mfi(pricehistory, period=mfi_period)
+		mfi_2x = get_mfi(pricehistory, period=24)
+
+	except Exception as e:
+		print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_mfi(): ' + str(e))
 
 	# Average True Range (ATR)
 	# We use 5-minute candles to calculate the ATR
@@ -2827,6 +2814,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	rsi_idx				= len(pricehistory['candles']) - len(rsi_k)
 	r_idx				= len(pricehistory['candles']) - len(rsi)
 
+	mfi_idx				= len(pricehistory['candles']) - len(mfi)
+	mfi_2x_idx			= len(pricehistory['candles']) - len(mfi_2x)
+
 	adx_idx				= len(pricehistory['candles']) - len(adx)
 	di_idx				= len(pricehistory['candles']) - len(plus_di)
 
@@ -2853,6 +2843,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	aroonosc_signal			= False
 	vwap_signal			= False
 	vpt_signal			= False
+	mfi_signal			= False
 	resistance_signal		= False
 
 	plus_di_crossover		= False
@@ -2883,6 +2874,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 		try:
 			assert idx - rsi_idx >= 1
+			assert idx - mfi_idx >= 1
 			assert idx - adx_idx >= 0
 			assert idx - di_idx >= 1
 			assert idx - macd_idx >= 1
@@ -2891,6 +2883,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		except:
 			continue
 
+		# Indicators current values
 		cur_rsi_k = rsi_k[idx - rsi_idx]
 		prev_rsi_k = rsi_k[(idx - rsi_idx) - 1]
 
@@ -2898,6 +2891,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		prev_rsi_d = rsi_d[(idx - rsi_idx) - 1]
 
 		cur_r = rsi[idx - r_idx]
+
+		cur_mfi = mfi[idx - mfi_idx]
+		prev_mfi = mfi[(idx - mfi_idx) - 1]
+		cur_mfi_2x = mfi_2x[idx - mfi_2x_idx]
+		prev_mfi_2x = mfi_2x[(idx - mfi_2x_idx) - 1]
 
 		# Additional indicators
 		cur_adx = adx[idx - adx_idx]
@@ -2918,11 +2916,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		cur_vpt = vpt[idx]
 		prev_vpt = vpt[idx-1]
 
-		cur_vpt_sma = vpt_sma[idx-vpt_sma_period]
-		prev_vpt_sma = vpt_sma[idx-vpt_sma_period]
+		cur_vpt_sma = vpt_sma[idx - vpt_sma_period]
+		prev_vpt_sma = vpt_sma[idx - vpt_sma_period]
 
-		cur_atr = atr[int(idx / 5) - atr_period + 1]
-		cur_natr = natr[int(idx / 5) - atr_period + 1]
+		cur_atr = atr[int(idx / 5) - atr_period]
+		cur_natr = natr[int(idx / 5) - atr_period]
 
 		# Ignore pre-post market since we cannot trade during those hours
 		# Also skip all candles until start_date if it is set
@@ -2964,7 +2962,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_sell_signal = final_buy_signal = False
 
-				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
+				rsi_signal = mfi_signal = adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 				continue
@@ -2976,13 +2974,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_sell_signal = final_buy_signal = False
 
-				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
+				rsi_signal = mfi_signal = adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 				signal_mode = 'short'
 				continue
 
-			# Check RSI
+			# Check StochRSI
 			if ( cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit ):
 
 				# Monitor if K and D intersect
@@ -3051,6 +3049,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					with_macd_simple = False
 					if ( cur_aroonosc <= aroonosc_secondary_threshold ):
 						with_macd_simple = True
+
+			# MFI signal
+#			if ( cur_mfi > 60 ):
+#				mfi_signal = False
+			if ( prev_mfi > mfi_low_limit and cur_mfi < mfi_low_limit ):
+				mfi_signal = False
+			elif ( prev_mfi < mfi_low_limit and cur_mfi >= mfi_low_limit ):
+				mfi_signal = True
 
 			# MACD crossover signals
 			if ( prev_macd < prev_macd_avg and cur_macd > cur_macd_avg ):
@@ -3180,6 +3186,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				if ( with_rsi == True and rsi_signal != True ):
 					final_buy_signal = False
 
+				if ( with_mfi == True and mfi_signal != True ):
+					final_buy_signal = False
+
 				if ( with_adx == True and adx_signal != True ):
 					final_buy_signal = False
 
@@ -3215,6 +3224,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				if ( debug_all == True ):
 					print('(' + str(ticker) + '): ' + str(signal_mode).upper() + ' / ' + str(purchase_time) + ' (' + str(pricehistory['candles'][idx]['datetime']) + ')')
 					print('(' + str(ticker) + '): StochRSI K/D: ' + str(round(cur_rsi_k, 3)) + ' / ' + str(round(cur_rsi_d,3)))
+					print('(' + str(ticker) + '): MFI: ' + str(round(cur_mfi, 2)) + ' signal: ' + str(mfi_signal))
 					print('(' + str(ticker) + '): DI+/-: ' + str(round(cur_plus_di, 3)) + ' / ' + str(round(cur_minus_di,3)) + ' signal: ' + str(dmi_signal))
 					print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
 					print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
@@ -3227,7 +3237,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				final_sell_signal = final_buy_signal = False
 				exit_percent_signal = False
 
-				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
+				rsi_signal = mfi_signal = adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 				signal_mode = 'sell'
@@ -3301,7 +3311,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
 					exit_percent_signal = False
 
-					adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
+					rsi_signal = mfi_signal = adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 					plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 					purchase_price	= 0
@@ -3381,7 +3391,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
 				exit_percent_signal = False
 
-				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
+				rsi_signal = mfi_signal = adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 				purchase_price	= 0
@@ -3417,7 +3427,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
 
-				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
+				rsi_signal = mfi_signal = adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 				signal_mode = 'buy'
@@ -3436,7 +3446,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					short_signal = True
 
 			elif ( cur_rsi_k < rsi_signal_cancel_high_limit and cur_rsi_d < rsi_signal_cancel_high_limit ):
-				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
+				rsi_signal = mfi_signal = adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 				short_signal = False
 
@@ -3482,6 +3492,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					with_macd_simple = False
 					if ( cur_aroonosc >= -aroonosc_secondary_threshold ):
 						with_macd_simple = True
+
+			# MFI signal
+#			if ( cur_mfi < 60 ):
+#				mfi_signal = False
+			elif ( prev_mfi < mfi_high_limit and cur_mfi > mfi_high_limit ):
+				mfi_signal = False
+			elif ( prev_mfi > mfi_high_limit and cur_mfi <= mfi_high_limit ):
+				mfi_signal = True
 
 			# MACD crossover signals
 			if ( prev_macd < prev_macd_avg and cur_macd > cur_macd_avg ):
@@ -3609,6 +3627,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				if ( with_rsi == True and rsi_signal != True ):
 					final_short_signal = False
 
+				if ( with_mfi == True and mfi_signal != True ):
+					final_short_signal = False
+
 				if ( with_adx == True and adx_signal != True ):
 					final_short_signal = False
 
@@ -3644,6 +3665,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				if ( debug_all == True ):
 					print('(' + str(ticker) + '): ' + str(signal_mode).upper() + ' / ' + str(short_time) + ' (' + str(pricehistory['candles'][idx]['datetime']) + ')')
 					print('(' + str(ticker) + '): StochRSI K/D: ' + str(round(cur_rsi_k, 3)) + ' / ' + str(round(cur_rsi_d,3)))
+					print('(' + str(ticker) + '): MFI: ' + str(round(cur_mfi, 2)) + ' signal: ' + str(mfi_signal))
 					print('(' + str(ticker) + '): DI+/-: ' + str(round(cur_plus_di, 3)) + ' / ' + str(round(cur_minus_di,3)) + ' signal: ' + str(dmi_signal))
 					print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
 					print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
@@ -3656,7 +3678,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
 				exit_percent_signal = False
 
-				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
+				rsi_signal = mfi_signal = adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 				signal_mode = 'buy_to_cover'
@@ -3729,7 +3751,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
 					exit_percent_signal = False
 
-					adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
+					rsi_signal = mfi_signal = adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 					plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 					short_price	= 0
@@ -3814,7 +3836,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
 				exit_percent_signal = False
 
-				adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
+				rsi_signal = mfi_signal = adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
 				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
 
 				short_price	= 0

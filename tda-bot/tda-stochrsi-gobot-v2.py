@@ -76,6 +76,9 @@ parser.add_argument("--adx_period", help='ADX period', default=92, type=int)
 parser.add_argument("--di_period", help='Plus/Minus DI period', default=48, type=int)
 parser.add_argument("--aroonosc_period", help='Aroon Oscillator period', default=24, type=int)
 parser.add_argument("--atr_period", help='Average True Range period', default=14, type=int)
+parser.add_argument("--mfi_period", help='Money Flow Index (MFI) period', default=14, type=int)
+parser.add_argument("--mfi_high_limit", help='MFI high limit', default=80, type=int)
+parser.add_argument("--mfi_low_limit", help='MFI low limit', default=20, type=int)
 parser.add_argument("--period_multiplier", help='Period multiplier - set statically here, or otherwise gobot will determine based on the number of candles it receives per minute.', default=0, type=int)
 
 parser.add_argument("--aroonosc_with_macd_simple", help='When using Aroon Oscillator, use macd_simple as tertiary indicator if AroonOsc is less than +/- 72 (Default: False)', action="store_true")
@@ -161,6 +164,7 @@ if ( tda_gobot_helper.tdalogin(passcode) != True ):
 #
 # algos = [ {'stochrsi':		True,  # For now this cannot be turned off
 #	   'rsi':			False,
+#	   'mfi':			False,
 #	   'adx':			False,
 #	   'dmi':			False,
 #	   'dmi_simple':		False,
@@ -183,6 +187,7 @@ for algo in args.algos:
 
 		if ( a == 'stochrsi' ):		stochrsi	= True
 		if ( a == 'rsi' ):		rsi		= True
+		if ( a == 'mfi' ):		mfi		= True
 		if ( a == 'adx' ):		adx		= True
 		if ( a == 'dmi' ):		dmi		= True
 		if ( a == 'dmi_simple' ):	dmi_simple	= True
@@ -209,6 +214,7 @@ for algo in args.algos:
 
 	algo_list = {	'stochrsi':		True,  # For now this cannot be turned off
 			'rsi':			rsi,
+			'mfi':			mfi,
 			'adx':			adx,
 			'dmi':			dmi,
 			'dmi_simple':		dmi_simple,
@@ -281,6 +287,11 @@ for ticker in args.stocks.split(','):
 				    # RSI
 				    'cur_rsi':			float(-1),
 
+				    # MFI
+				    'mfi_period':		args.mfi_period,
+				    'cur_mfi':			float(-1),
+				    'prev_mfi':			float(-1),
+
 				    # ADX
 				    'adx_period':		args.adx_period,
 				    'di_period':		args.di_period,
@@ -337,6 +348,7 @@ for ticker in args.stocks.split(','):
 
 				    # Indicator Signals
 				    'rsi_signal':		False,
+				    'mfi_signal':		False,
 				    'adx_signal':		False,
 				    'dmi_signal':		False,
 				    'macd_signal':		False,
@@ -538,6 +550,10 @@ tda_stochrsi_gobot_helper.rsi_slow = args.rsi_slow
 tda_stochrsi_gobot_helper.rsi_k_period = args.rsi_k_period
 tda_stochrsi_gobot_helper.rsi_d_period = args.rsi_d_period
 tda_stochrsi_gobot_helper.rsi_type = args.rsi_type
+
+# MFI
+tda_stochrsi_gobot_helper.mfi_low_limit = args.mfi_low_limit
+tda_stochrsi_gobot_helper.mfi_high_limit = args.mfi_high_limit
 
 # ADX / DMI
 tda_stochrsi_gobot_helper.adx_period = args.adx_period

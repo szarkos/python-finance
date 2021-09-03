@@ -149,6 +149,7 @@ def reset_signals(ticker=None):
 	stocks[ticker]['exit_percent_signal']		= False
 
 	stocks[ticker]['rsi_signal']			= False
+	stocks[ticker]['mfi_signal']			= False
 	stocks[ticker]['adx_signal']			= False
 	stocks[ticker]['dmi_signal']			= False
 	stocks[ticker]['macd_signal']			= False
@@ -285,8 +286,25 @@ def stochrsi_gobot( algos=None, debug=False ):
 			print('Error: stochrsi_gobot(' + str(ticker) + '): get_atr(): ' + str(e))
 			continue
 
-		stocks[ticker]['cur_atr'] = float( atr[-1] )
+		stocks[ticker]['cur_atr']  = float( atr[-1] )
 		stocks[ticker]['cur_natr'] = float( natr[-1] )
+
+		# MFI
+		if ( algos['mfi'] == True ):
+
+			t_mfi_period = stocks[ticker]['mfi_period'] * stocks[ticker]['period_multiplier']
+
+			mfi = []
+			try:
+				mfi = tda_gobot_helper.get_mfi(pricehistory, period=t_mfi_period)
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(' + str(ticker) + '): get_mfi(): ' + str(e))
+				continue
+
+			stocks[ticker]['cur_mfi']  = float( mfi[-1] )
+			stocks[ticker]['prev_mfi'] = float( mfi[-2] )
+
 
 		# ADX, +DI, -DI
 		if ( algos['adx'] == True or algos['dmi'] == True or algos['dmi_simple'] == True ):
@@ -479,6 +497,9 @@ def stochrsi_gobot( algos=None, debug=False ):
 		cur_atr		= stocks[ticker]['cur_atr']
 		cur_natr	= stocks[ticker]['cur_natr']
 
+		cur_mfi		= stocks[ticker]['cur_mfi']
+		prev_mfi	= stocks[ticker]['prev_mfi']
+
 		cur_adx		= stocks[ticker]['cur_adx']
 
 		cur_plus_di	= stocks[ticker]['cur_plus_di']
@@ -577,6 +598,12 @@ def stochrsi_gobot( algos=None, debug=False ):
 				stocks[ticker]['rsi_signal'] = False
 				if ( cur_rsi < 20 ):
 					stocks[ticker]['rsi_signal'] = True
+
+			# MFI signal
+			elif ( prev_mfi > mfi_low_limit and cur_mfi < mfi_low_limit ):
+				stocks[ticker]['mfi_signal'] = False
+			elif ( prev_mfi < mfi_low_limit and cur_mfi >= mfi_low_limit ):
+				stocks[ticker]['mfi_signal'] = True
 
 			# ADX signal
 			if ( algos['adx'] == True ):
@@ -1072,6 +1099,12 @@ def stochrsi_gobot( algos=None, debug=False ):
 				stocks[ticker]['rsi_signal'] = False
 				if ( cur_rsi > 75 ):
 					stocks[ticker]['rsi_signal'] = True
+
+			# MFI signal
+			elif ( prev_mfi < mfi_high_limit and cur_mfi > mfi_high_limit ):
+				stocks[ticker]['mfi_signal'] = False
+			elif ( prev_mfi > mfi_high_limit and cur_mfi <= mfi_high_limit ):
+				stocks[ticker]['mfi_signal'] = True
 
 			# ADX signal
 			if ( algos['adx'] == True ):

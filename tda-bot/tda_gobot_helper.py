@@ -2527,7 +2527,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			  with_dmi_simple=False, with_macd_simple=False, aroonosc_with_macd_simple=False, aroonosc_with_vpt=False, aroonosc_secondary_threshold=70,
 			  vpt_sma_period=72, adx_period=92, di_period=48, atr_period=14, adx_threshold=25, mfi_period=14, aroonosc_period=48,
 			  mfi_low_limit=20, mfi_high_limit=80,
-			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None, weekly_ph=None, keylevel_strict=False,
+			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None, stop_date=None, weekly_ph=None, keylevel_strict=False,
 			  debug=False, debug_all=False ):
 
 	if ( ticker == None or pricehistory == None ):
@@ -2539,10 +2539,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	except:
 		mytimezone = timezone("US/Eastern")
 
-	# If set, turn start_date into a datetime object
+	# If set, turn start_date and/or stop_date into a datetime object
 	if ( start_date != None ):
 		start_date = datetime.strptime(start_date + ' 00:00:00', '%Y-%m-%d %H:%M:%S')
 		start_date = mytimezone.localize(start_date)
+	if ( stop_date != None ):
+		stop_date = datetime.strptime(stop_date + ' 00:00:00', '%Y-%m-%d %H:%M:%S')
+		stop_date = mytimezone.localize(stop_date)
 
 	# Get stochastic RSI
 	try:
@@ -2730,9 +2733,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 	# Resistance / Support
 	if ( no_use_resistance == False ):
-
-		price_resistance_pct = price_resistance_pct
-		price_support_pct = price_support_pct
 
 		# Day stats
 		pdc = OrderedDict()
@@ -2925,9 +2925,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		# Ignore pre-post market since we cannot trade during those hours
 		# Also skip all candles until start_date if it is set
 		date = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone)
-		if ( ismarketopen_US(date, safe_open=safe_open) != True ):
+		if ( start_date != None and date < start_date ):
 			continue
-		elif ( start_date != None and date < start_date ):
+		elif ( stop_date != None and date >= stop_date ):
+			return results
+
+		if ( ismarketopen_US(date, safe_open=safe_open) != True ):
 			continue
 
 		# Check SMA/EMA to see if stock is bullish or bearish
@@ -3091,19 +3094,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				vpt_signal = False
 
 			# Resistance
-			if ( no_use_resistance == False ):
+			if ( no_use_resistance == False and buy_signal == True ):
 
-				resistance_signal = True
+				today			= datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d')
+				cur_price		= float( pricehistory['candles'][idx]['close'] )
+				resistance_signal	= True
 
 				# PDC
-				today = datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d')
 				prev_day_close = 0
 				if ( today in pdc ):
 					prev_day_close = pdc[today]['pdc']
 
 				if ( prev_day_close != 0 ):
 
-					cur_price = float(pricehistory['candles'][idx]['close'])
 					if ( abs((prev_day_close / cur_price - 1) * 100) <= price_resistance_pct ):
 
 						# Current price is very close to PDC
@@ -3119,52 +3122,81 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 							resistance_signal = False
 
 				# VWAP
-				cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
-				cur_price = float(pricehistory['candles'][idx]['close'])
-				if ( abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
+				if ( resistance_signal == True ):
+					cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
+					if ( abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
 
-					# Current price is very close to VWAP
-					# Next check average of last 15 (1-minute) candles
-					avg = 0
-					for i in range(15, 0, -1):
-						avg += float( pricehistory['candles'][idx-i]['close'] )
-					avg = avg / 15
-
-					# If average was below VWAP then VWAP is resistance
-					# If average was above VWAP then VWAP is support
-					if ( avg < cur_vwap ):
-						resistance_signal = False
-
-				# Key Levels
-				# Check if price is near historic key level
-				cur_price = float(pricehistory['candles'][idx]['close'])
-				near_keylevel = False
-				for lvl in long_support + long_resistance:
-					if ( abs((lvl / cur_price - 1) * 100) <= price_support_pct ):
-						near_keylevel = True
-
-						# Current price is very close to a key level
+						# Current price is very close to VWAP
 						# Next check average of last 15 (1-minute) candles
-						#
-						# If last 15 candles average above key level, then key level is support
-						# otherwise it is resistance
 						avg = 0
 						for i in range(15, 0, -1):
 							avg += float( pricehistory['candles'][idx-i]['close'] )
 						avg = avg / 15
 
-						# If average was below key level then key level is resistance
-						# Therefore this is not a great buy
-						if ( avg < lvl ):
+						# If average was below VWAP then VWAP is resistance
+						# If average was above VWAP then VWAP is support
+						if ( avg < cur_vwap ):
 							resistance_signal = False
-							break
 
-				# If keylevel_strict is True then only buy the stock if price is near a key level
-				# Otherwise reject this buy to avoid getting chopped around between levels
-				if ( keylevel_strict == True and near_keylevel == False ):
-					resistance_signal = False
+				# High of the day (HOD)
+				# Skip this check for the first 1.5 hours of the day. The reason for this is
+				#  the first 1-1.5 hours or so of trading can create small hod/lods, but they
+				#  often won't persist. Also, we are more concerned about the slow, low volume
+				#  creeps toward HOD/LOD that are often permanent for the day.
+				cur_hour = int( datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%-H') )
+				if ( resistance_signal == True and cur_hour > 11 ):
+					cur_day_start	= datetime.strptime(today + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
+					cur_day_start	= mytimezone.localize(cur_day_start)
+					cur_time	= datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone)
 
-				# End Key Levels
+					delta = cur_time - cur_day_start
+					delta = int( delta.total_seconds() / 60 )
+
+					# Find HOD
+					hod = 0
+					for i in range (delta, 0, -1):
+						if ( float(pricehistory['candles'][idx-i]['close']) > hod ):
+							hod = float( pricehistory['candles'][idx-i]['close'] )
+
+					# If the stock has already hit a high of the day, the next rise will likely be
+					#  below HOD. If we are below HOD and less than price_resistance_pct from it
+					#  then we should not enter the trade.
+					if ( cur_price < hod ):
+						if ( abs((cur_price / hod - 1) * 100) <= price_resistance_pct ):
+							resistance_signal = False
+
+					# END HOD Check
+
+				# Key Levels
+				# Check if price is near historic key level
+				if ( resistance_signal == True ):
+					near_keylevel = False
+					for lvl in long_support + long_resistance:
+						if ( abs((lvl / cur_price - 1) * 100) <= price_support_pct ):
+							near_keylevel = True
+
+							# Current price is very close to a key level
+							# Next check average of last 15 (1-minute) candles
+							#
+							# If last 15 candles average above key level, then key level is support
+							# otherwise it is resistance
+							avg = 0
+							for i in range(15, 0, -1):
+								avg += float( pricehistory['candles'][idx-i]['close'] )
+							avg = avg / 15
+
+							# If average was below key level then key level is resistance
+							# Therefore this is not a great buy
+							if ( avg < lvl ):
+								resistance_signal = False
+								break
+
+					# If keylevel_strict is True then only buy the stock if price is near a key level
+					# Otherwise reject this buy to avoid getting chopped around between levels
+					if ( keylevel_strict == True and near_keylevel == False ):
+						resistance_signal = False
+
+					# End Key Levels
 
 
 				# 20-week high
@@ -3305,6 +3337,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 							str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
 							str(round(cur_natr,3)) + ',' + str(round(cur_adx,2)) + ',' + str(sell_time) )
 
+					# DEBUG
+					if ( debug_all == True ):
+						print('(' + str(ticker) + '): ' + str(signal_mode).upper() + ' / ' + str(sell_time) + ' (' + str(pricehistory['candles'][idx]['datetime']) + ')')
+						print('(' + str(ticker) + '): StochRSI K/D: ' + str(round(cur_rsi_k, 3)) + ' / ' + str(round(cur_rsi_d,3)))
+						print('(' + str(ticker) + '): Incr_Threshold: ' + str(incr_threshold) + ', Decr_Threshold: ' + str(decr_threshold) + ', Exit Percent: ' + str(exit_percent))
+						print('------------------------------------------------------')
+					# DEBUG
+
 					buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 					final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
 					exit_percent_signal = False
@@ -3325,7 +3365,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
 				if ( percent_change >= incr_threshold ):
 					base_price = last_price
-					decr_threshold = incr_threshold / 2
+
+					# Adapt decr_threshold based on changes made by --variable_exit
+					if ( incr_threshold < orig_incr_threshold ):
+						decr_threshold = incr_threshold
+					else:
+						decr_threshold = incr_threshold / 2
 
 			# End cost basis / stoploss monitor
 
@@ -3384,6 +3429,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				results.append( str(sell_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
 						str(round(cur_natr,3)) + ',' + str(round(cur_adx,2)) + ',' + str(sell_time) )
+
+				# DEBUG
+				if ( debug_all == True ):
+					print('(' + str(ticker) + '): ' + str(signal_mode).upper() + ' / ' + str(sell_time) + ' (' + str(pricehistory['candles'][idx]['datetime']) + ')')
+					print('(' + str(ticker) + '): StochRSI K/D: ' + str(round(cur_rsi_k, 3)) + ' / ' + str(round(cur_rsi_d,3)))
+					print('(' + str(ticker) + '): Incr_Threshold: ' + str(incr_threshold) + ', Decr_Threshold: ' + str(decr_threshold) + ', Exit Percent: ' + str(exit_percent))
+					print('------------------------------------------------------')
+				# DEBUG
 
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
@@ -3531,19 +3584,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					vpt_signal = False
 
 			# Resistance
-			if ( no_use_resistance == False ):
+			if ( no_use_resistance == False and short_signal == True ):
 
-				resistance_signal = True
+				today			= datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d')
+				cur_price		= float( pricehistory['candles'][idx]['close'] )
+				resistance_signal	= True
 
 				# PDC
-				today = datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d')
 				prev_day_close = 0
 				if ( today in pdc ):
 					prev_day_close = pdc[today]['pdc']
 
 				if ( prev_day_close != 0 ):
 
-					cur_price = float(pricehistory['candles'][idx]['close'])
 					if ( abs((prev_day_close / cur_price - 1) * 100) <= price_resistance_pct ):
 
 						# Current price is very close to PDC
@@ -3559,52 +3612,81 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 							resistance_signal = False
 
 				# VWAP
-				cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
-				cur_price = float(pricehistory['candles'][idx]['close'])
-				if ( abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
+				if ( resistance_signal == True ):
+					cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
+					if ( abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
 
-					# Current price is very close to VWAP
-					# Next check average of last 15 (1-minute) candles
-					avg = 0
-					for i in range(15, 0, -1):
-						avg += float( pricehistory['candles'][idx-i]['close'] )
-					avg = avg / 15
-
-					# If average was below VWAP then VWAP is resistance (good for short)
-					# If average was above VWAP then VWAP is support (bad for short)
-					if ( avg > cur_vwap ):
-						resistance_signal = False
-
-				# Key Levels
-				# Check if price is near historic key level
-				cur_price = float(pricehistory['candles'][idx]['close'])
-				near_keylevel = False
-				for lvl in long_support + long_resistance:
-					if ( abs((lvl / cur_price - 1) * 100) <= price_resistance_pct ):
-						near_keylevel = True
-
-						# Current price is very close to a key level
+						# Current price is very close to VWAP
 						# Next check average of last 15 (1-minute) candles
-						#
-						# If last 15 candles average below key level, then key level is resistance
-						# otherwise it is support
 						avg = 0
 						for i in range(15, 0, -1):
 							avg += float( pricehistory['candles'][idx-i]['close'] )
 						avg = avg / 15
 
-						# If average was above key level then key level is support
-						# Therefore this is not a good short
-						if ( avg > lvl ):
+						# If average was below VWAP then VWAP is resistance (good for short)
+						# If average was above VWAP then VWAP is support (bad for short)
+						if ( avg > cur_vwap ):
 							resistance_signal = False
-							break
 
-				# If keylevel_strict is True then only short the stock if price is near a key level
-				# Otherwise reject this short altogether to avoid getting chopped around between levels
-				if ( keylevel_strict == True and near_keylevel == False ):
-					resistance_signal = False
+				# Low of the day (LOD)
+				# Skip this check for the first 1.5 hours of the day. The reason for this is
+				#  the first 1-1.5 hours or so of trading can create small hod/lods, but they
+				#  often won't persist. Also, we are more concerned about the slow, low volume
+				#  creeps toward HOD/LOD that are often permanent for the day.
+				cur_hour = int( datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%-H') )
+				if ( resistance_signal == True and cur_hour > 11 ):
+					cur_day_start	= datetime.strptime(today + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
+					cur_day_start	= mytimezone.localize(cur_day_start)
+					cur_time	= datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone)
 
-				# End Key Levels
+					delta = cur_time - cur_day_start
+					delta = int( delta.total_seconds() / 60 )
+
+					# Find LOD
+					lod = 9999
+					for i in range (delta, 0, -1):
+						if ( float(pricehistory['candles'][idx-i]['close']) < lod ):
+							lod = float( pricehistory['candles'][idx-i]['close'] )
+
+					# If the stock has already hit a low of the day, the next decrease will likely be
+					#  above LOD. If we are above LOD and less than price_resistance_pct from it
+					#  then we should not enter the trade.
+					if ( cur_price > lod ):
+						if ( abs((cur_price / lod - 1) * 100) <= price_resistance_pct ):
+							resistance_signal = False
+
+					# END LOD Check
+
+				# Key Levels
+				# Check if price is near historic key level
+				if ( resistance_signal == True ):
+					near_keylevel = False
+					for lvl in long_support + long_resistance:
+						if ( abs((lvl / cur_price - 1) * 100) <= price_resistance_pct ):
+							near_keylevel = True
+
+							# Current price is very close to a key level
+							# Next check average of last 15 (1-minute) candles
+							#
+							# If last 15 candles average below key level, then key level is resistance
+							# otherwise it is support
+							avg = 0
+							for i in range(15, 0, -1):
+								avg += float( pricehistory['candles'][idx-i]['close'] )
+							avg = avg / 15
+
+							# If average was above key level then key level is support
+							# Therefore this is not a good short
+							if ( avg > lvl ):
+								resistance_signal = False
+								break
+
+					# If keylevel_strict is True then only short the stock if price is near a key level
+					# Otherwise reject this short altogether to avoid getting chopped around between levels
+					if ( keylevel_strict == True and near_keylevel == False ):
+						resistance_signal = False
+
+					# End Key Levels
 
 				# High / low resistance
 #				short_price = float(pricehistory['candles'][idx]['close'])
@@ -3655,7 +3737,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				results.append( str(short_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
-						str(round(cur_natr,3)) + ',' + str(round(cur_adx,2)) + ',' + str(short_time) )
+						str(round(cur_natr, 3)) + ',' + str(round(cur_adx, 2)) + ',' + str(short_time) )
 
 				# DEBUG
 				if ( debug_all == True ):
@@ -3743,6 +3825,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 							str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
 							str(round(cur_natr,3)) + ',' + str(round(cur_adx,2)) + ',' + str(buy_to_cover_time) )
 
+					# DEBUG
+					if ( debug_all == True ):
+						print('(' + str(ticker) + '): ' + str(signal_mode).upper() + ' / ' + str(buy_to_cover_time) + ' (' + str(pricehistory['candles'][idx]['datetime']) + ')')
+						print('(' + str(ticker) + '): StochRSI K/D: ' + str(round(cur_rsi_k, 3)) + ' / ' + str(round(cur_rsi_d,3)))
+						print('(' + str(ticker) + '): Incr_Threshold: ' + str(incr_threshold) + ', Decr_Threshold: ' + str(decr_threshold) + ', Exit Percent: ' + str(exit_percent))
+						print('------------------------------------------------------')
+					# DEBUG
+
 					buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 					final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False
 					exit_percent_signal = False
@@ -3766,7 +3856,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
 				if ( percent_change >= incr_threshold ):
 					base_price = last_price
-					decr_threshold = incr_threshold / 2
+
+					# Adapt decr_threshold based on changes made by --variable_exit
+					if ( incr_threshold < orig_incr_threshold ):
+						decr_threshold = incr_threshold
+					else:
+						decr_threshold = incr_threshold / 2
 
 			# End cost basis / stoploss monitor
 
@@ -3827,6 +3922,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
 						str(round(cur_natr,3)) + ',' + str(round(cur_adx,2)) + ',' + str(buy_to_cover_time) )
+
+				# DEBUG
+				if ( debug_all == True ):
+					print('(' + str(ticker) + '): ' + str(signal_mode).upper() + ' / ' + str(buy_to_cover_time) + ' (' + str(pricehistory['candles'][idx]['datetime']) + ')')
+					print('(' + str(ticker) + '): StochRSI K/D: ' + str(round(cur_rsi_k, 3)) + ' / ' + str(round(cur_rsi_d,3)))
+					print('(' + str(ticker) + '): Incr_Threshold: ' + str(incr_threshold) + ', Decr_Threshold: ' + str(decr_threshold) + ', Exit Percent: ' + str(exit_percent))
+					print('------------------------------------------------------')
+				# DEBUG
 
 				buy_signal = sell_signal = short_signal = buy_to_cover_signal = False
 				final_buy_signal = final_sell_signal = final_short_signal = final_buy_to_cover_signal = False

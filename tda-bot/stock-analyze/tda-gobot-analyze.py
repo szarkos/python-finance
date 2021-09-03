@@ -9,8 +9,11 @@ import pickle
 
 import robin_stocks.tda as tda
 import tulipy as ti
-import tda_gobot_helper
 
+parent_path = os.path.dirname( os.path.realpath(__file__) )
+sys.path.append(parent_path + '/../')
+import tda_gobot_helper
+import tda_gobot_analyze_helper
 
 # Parse and check variables
 parser = argparse.ArgumentParser()
@@ -22,6 +25,7 @@ parser.add_argument("--ifile", help='Use pickle file for pricehistory data rathe
 parser.add_argument("--augment_ifile", help='Pull additional history data and append it to candles imported from ifile', action="store_true")
 parser.add_argument("--weekly_ifile", help='Use pickle file for weekly pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--start_date", help='The day to start trading (i.e. 2021-05-12). Typically useful for verifying history logs.', default=None, type=str)
+parser.add_argument("--stop_date", help='The day to stop trading (i.e. 2021-05-12)', default=None, type=str)
 parser.add_argument("--skip_blacklist", help='Do not process blacklisted tickers.', action="store_true")
 parser.add_argument("--skip_check", help="Skip fixup and check of stock ticker", action="store_true")
 
@@ -100,7 +104,7 @@ args.nocrossover
 
 # Initialize and log into TD Ameritrade
 from dotenv import load_dotenv
-if ( load_dotenv() != True ):
+if ( load_dotenv(dotenv_path=parent_path+'/../.env') != True ):
         print('Error: unable to load .env file', file=sys.stderr)
         exit(1)
 
@@ -108,8 +112,12 @@ tda_account_number = os.environ["tda_account_number"]
 passcode = os.environ["tda_encryption_passcode"]
 
 tda_gobot_helper.tda = tda
-tda_gobot_helper.tda_account_number = tda_account_number
+tda_gobot_analyze_helper.tda = tda
+
 tda_gobot_helper.passcode = passcode
+tda_gobot_analyze_helper.passcode = passcode
+
+tda_gobot_helper.tda_account_number = tda_account_number
 
 if ( tda_gobot_helper.tdalogin(passcode) != True ):
 	print('Error: Login failure', file=sys.stderr)
@@ -151,6 +159,8 @@ if ( args.ifile == None ):
 # tda.get_price_history() variables
 mytimezone = pytz.timezone("US/Eastern")
 tda_gobot_helper.mytimezone = mytimezone
+tda_gobot_analyze_helper.mytimezone = mytimezone
+
 p_type = 'day'
 period = None
 f_type = 'minute'
@@ -169,8 +179,8 @@ rsi_high_limit = args.rsi_high_limit
 # RSI limits for signal cancellation
 rsi_signal_cancel_low_limit = 20
 rsi_signal_cancel_high_limit = 80
-tda_gobot_helper.rsi_signal_cancel_low_limit = rsi_signal_cancel_low_limit
-tda_gobot_helper.rsi_signal_cancel_high_limit = rsi_signal_cancel_high_limit
+tda_gobot_analyze_helper.rsi_signal_cancel_low_limit = rsi_signal_cancel_low_limit
+tda_gobot_analyze_helper.rsi_signal_cancel_high_limit = rsi_signal_cancel_high_limit
 
 # Report colors
 red = '\033[0;31m'
@@ -392,7 +402,7 @@ for algo in args.algo.split(','):
 			sys.exit(1)
 
 		elif ( algo == 'stochrsi' or algo == 'stochrsi-new' ):
-			results = tda_gobot_helper.stochrsi_analyze_new( pricehistory=data, ticker=stock, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type,
+			results = tda_gobot_analyze_helper.stochrsi_analyze_new( pricehistory=data, ticker=stock, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type,
 									 rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
 									 with_vpt=args.with_vpt, with_rsi=args.with_rsi, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_macd=args.with_macd,
 									 with_mfi=args.with_mfi, with_vwap=args.with_vwap, with_dmi_simple=args.with_dmi_simple, with_macd_simple=args.with_macd_simple,
@@ -402,7 +412,7 @@ for algo in args.algo.split(','):
 									 stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly, check_ma=args.check_ma,
 									 incr_threshold=args.incr_threshold, decr_threshold=args.decr_threshold,
 									 exit_percent=args.exit_percent, strict_exit_percent=args.strict_exit_percent, vwap_exit=args.vwap_exit, quick_exit=args.quick_exit, variable_exit=args.variable_exit,
-									 safe_open=True, start_date=args.start_date, weekly_ph=data_weekly, keylevel_strict=args.keylevel_strict,
+									 safe_open=True, start_date=args.start_date, stop_date=args.stop_date, weekly_ph=data_weekly, keylevel_strict=args.keylevel_strict,
 									 no_use_resistance=args.no_use_resistance, price_resistance_pct=args.price_resistance_pct, price_support_pct=args.price_support_pct,
 									 debug=True, debug_all=args.debug_all )
 
@@ -425,8 +435,8 @@ for algo in args.algo.split(','):
 		counter = 0
 		while ( counter < len(results) - 1 ):
 
-			price_tx, short, rsi_tx, natr_rx, adx_tx, time_tx = results[counter].split( ',', 6 )
-			price_rx, short, rsi_rx, natr_tx, adx_rx, time_rx = results[counter+1].split( ',', 6 )
+			price_tx, short, rsi_tx, natr_tx, adx_tx, time_tx = results[counter].split( ',', 6 )
+			price_rx, short, rsi_rx, natr_rx, adx_rx, time_rx = results[counter+1].split( ',', 6 )
 
 			vwap_tx = vwap_rx = 0
 			stochrsi_tx = stochrsi_rx = 0

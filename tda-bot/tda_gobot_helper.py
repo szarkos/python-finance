@@ -3051,8 +3051,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 						with_macd_simple = True
 
 			# MFI signal
-#			if ( cur_mfi > 60 ):
-#				mfi_signal = False
 			if ( prev_mfi > mfi_low_limit and cur_mfi < mfi_low_limit ):
 				mfi_signal = False
 			elif ( prev_mfi < mfi_low_limit and cur_mfi >= mfi_low_limit ):
@@ -3494,9 +3492,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 						with_macd_simple = True
 
 			# MFI signal
-#			if ( cur_mfi < 60 ):
-#				mfi_signal = False
-			elif ( prev_mfi < mfi_high_limit and cur_mfi > mfi_high_limit ):
+			if ( prev_mfi < mfi_high_limit and cur_mfi > mfi_high_limit ):
 				mfi_signal = False
 			elif ( prev_mfi > mfi_high_limit and cur_mfi <= mfi_high_limit ):
 				mfi_signal = True

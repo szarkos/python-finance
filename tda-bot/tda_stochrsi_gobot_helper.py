@@ -696,10 +696,13 @@ def stochrsi_gobot( algos=None, debug=False ):
 						# If average was below PDC then PDC is resistance
 						# If average was above PDC then PDC is support
 						if ( avg < stocks[ticker]['previous_day_close'] ):
+							if ( debug == True and stocks[ticker]['buy_signal'] == True ):
+								print( '(' + str(ticker) + ') BUY SIGNAL stalled due to PDC resistance - PDC: ' + str(round(stocks[ticker]['previous_day_close'], 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
+
 							stocks[ticker]['resistance_signal'] = False
 
 				# VWAP
-				if ( abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
+				if ( stocks[ticker]['resistance_signal'] == True and abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
 
 					# Current price is very close to VWAP
 					# Next check average of last 15 (minute) candles
@@ -711,35 +714,45 @@ def stochrsi_gobot( algos=None, debug=False ):
 					# If average was below VWAP then VWAP is resistance
 					# If average was above VWAP then VWAP is support
 					if ( avg < cur_vwap ):
+						if ( debug == True and stocks[ticker]['buy_signal'] == True ):
+							print( '(' + str(ticker) + ') BUY SIGNAL stalled due to VWAP resistance - Current VWAP: ' + str(round(cur_vwap, 5)) + ' / 15-min Avg: ' + str(round(avg, 5)) )
+
 						stocks[ticker]['resistance_signal'] = False
 
 				# Key Levels
 				# Check if price is near historic key level
-				near_keylevel = False
-				for lvl in stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']:
-					if ( abs((lvl / cur_price - 1) * 100) <= price_support_pct ):
-						near_keylevel = True
+				if ( stocks[ticker]['resistance_signal'] == True ):
+					near_keylevel = False
+					for lvl in stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']:
+						if ( abs((lvl / cur_price - 1) * 100) <= price_support_pct ):
+							near_keylevel = True
 
-						# Current price is very close to a key level
-						# Next check average of last 15 (1-minute) candles
-						#
-						# If last 15 candles average above key level, then key level is support
-						# otherwise it is resistance
-						avg = 0
-						for i in range(15, 0, -1):
-							avg += float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
-						avg = avg / 15
+							# Current price is very close to a key level
+							# Next check average of last 15 (1-minute) candles
+							#
+							# If last 15 candles average above key level, then key level is support
+							# otherwise it is resistance
+							avg = 0
+							for i in range(15, 0, -1):
+								avg += float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
+							avg = avg / 15
 
-						# If average was below key level then key level is resistance
-						# Therefore this is not a great buy
-						if ( avg < lvl ):
-							stocks[ticker]['resistance_signal'] = False
-							break
+							# If average was below key level then key level is resistance
+							# Therefore this is not a great buy
+							if ( avg < lvl ):
+								if ( debug == True and stocks[ticker]['buy_signal'] == True ):
+									print( '(' + str(ticker) + ') BUY SIGNAL stalled due to Key Level resistance - KL: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
 
-				# If keylevel_strict is True then only buy the stock if price is near a key level
-				# Otherwise reject this buy to avoid getting chopped around between levels
-				if ( args.keylevel_strict == True and near_keylevel == False ):
-					stocks[ticker]['resistance_signal'] = False
+								stocks[ticker]['resistance_signal'] = False
+								break
+
+					# If keylevel_strict is True then only buy the stock if price is near a key level
+					# Otherwise reject this buy to avoid getting chopped around between levels
+					if ( args.keylevel_strict == True and near_keylevel == False ):
+						if ( debug == True and stocks[ticker]['buy_signal'] == True ):
+							print( '(' + str(ticker) + ') BUY SIGNAL stalled due to keylevel_strict - Current price: ' + str(round(cur_price, 2)) )
+
+						stocks[ticker]['resistance_signal'] = False
 
 				# End Key Levels
 
@@ -1197,10 +1210,13 @@ def stochrsi_gobot( algos=None, debug=False ):
 						# If average was below PDC then PDC is resistance (good for short)
 						# If average was above PDC then PDC is support (bad for short)
 						if ( avg > stocks[ticker]['previous_day_close'] ):
+							if ( stocks[ticker]['short_signal'] == True and debug == True ):
+								print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to PDC resistance - PDC: ' + str(round(stocks[ticker]['previous_day_close'], 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
+
 							stocks[ticker]['resistance_signal'] = False
 
 				# VWAP
-				if ( abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
+				if ( stocks[ticker]['resistance_signal'] == True and abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
 
 					# Current price is very close to VWAP
 					# Next check average of last 15 (minute) candles
@@ -1212,35 +1228,46 @@ def stochrsi_gobot( algos=None, debug=False ):
 					# If average was below VWAP then VWAP is resistance (good for short)
 					# If average was above VWAP then VWAP is support (bad for short)
 					if ( avg > cur_vwap ):
+						if ( stocks[ticker]['short_signal'] == True and debug == True ):
+							print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to VWAP resistance - Current VWAP: ' + str(round(cur_vwap, 5)) + ' / 15-min Avg: ' + str(round(avg, 5)) )
+
 						stocks[ticker]['resistance_signal'] = False
+
 
 				# Key Levels
 				# Check if price is near historic key level
-				near_keylevel = False
-				for lvl in stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']:
-					if ( abs((lvl / cur_price - 1) * 100) <= price_resistance_pct ):
-						near_keylevel = True
+				if ( stocks[ticker]['resistance_signal'] == True ):
+					near_keylevel = False
+					for lvl in stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']:
+						if ( abs((lvl / cur_price - 1) * 100) <= price_resistance_pct ):
+							near_keylevel = True
 
-						# Current price is very close to a key level
-						# Next check average of last 15 (1-minute) candles
-						#
-						# If last 15 candles average below key level, then key level is resistance
-						# otherwise it is support
-						avg = 0
-						for i in range(15, 0, -1):
-							avg += float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
-						avg = avg / 15
+							# Current price is very close to a key level
+							# Next check average of last 15 (1-minute) candles
+							#
+							# If last 15 candles average below key level, then key level is resistance
+							# otherwise it is support
+							avg = 0
+							for i in range(15, 0, -1):
+								avg += float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
+							avg = avg / 15
 
-						# If average was above key level then key level is support
-						# Therefore this is not a good short
-						if ( avg > lvl ):
-							stocks[ticker]['resistance_signal'] = False
-							break
+							# If average was above key level then key level is support
+							# Therefore this is not a good short
+							if ( avg > lvl ):
+								if ( stocks[ticker]['short_signal'] == True and debug == True ):
+									print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to Key Level resistance - KL: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
 
-				# If keylevel_strict is True then only short the stock if price is near a key level
-				# Otherwise reject this short altogether to avoid getting chopped around between levels
-				if ( args.keylevel_strict == True and near_keylevel == False ):
-					stocks[ticker]['resistance_signal'] = False
+								stocks[ticker]['resistance_signal'] = False
+								break
+
+					# If keylevel_strict is True then only short the stock if price is near a key level
+					# Otherwise reject this short altogether to avoid getting chopped around between levels
+					if ( args.keylevel_strict == True and near_keylevel == False ):
+						if ( stocks[ticker]['short_signal'] == True and debug == True ):
+							print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to keylevel_strict - Current price: ' + str(round(cur_price, 2)) )
+
+						stocks[ticker]['resistance_signal'] = False
 
 				# End Key Levels
 

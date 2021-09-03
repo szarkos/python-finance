@@ -182,7 +182,7 @@ for algo in args.algos:
 	print(algo)
 	algo = ','.join(algo)
 
-	stochrsi = rsi = adx = dmi = dmi_simple = macd = macd_simple = aroonosc = vwap = vpt = support_resistance = False
+	stochrsi = rsi = mfi = adx = dmi = dmi_simple = macd = macd_simple = aroonosc = vwap = vpt = support_resistance = False
 	for a in algo.split(','):
 
 		if ( a == 'stochrsi' ):		stochrsi	= True

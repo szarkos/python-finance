@@ -296,7 +296,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 			mfi = []
 			try:
-				mfi = tda_gobot_helper.get_mfi(pricehistory, period=t_mfi_period)
+				mfi = tda_gobot_helper.get_mfi(stocks[ticker]['pricehistory'], period=t_mfi_period)
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(' + str(ticker) + '): get_mfi(): ' + str(e))

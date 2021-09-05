@@ -1,11 +1,11 @@
 #!/bin/bash
 
 results_dir=${1-'results'}
-command=${2-'all'} # tx-stats, ticker-net-gain
+command=${2-'all'} # tx-stats, gain-loss, ticker-net-gain, daily
 tests=${3-''}
 
 if [ "$tests" == "" ]; then
-	tests=$(../gobot-test.py --print_scenarios)
+	tests=$(./gobot-test.py --print_scenarios)
 fi
 
 cd $results_dir
@@ -56,7 +56,7 @@ fi
 
 if [ "$command" == "all" -o "$command" == "gain-loss" ]; then
 
-	# Print average gain/loss for each test type
+	# Average gain/loss for each test type
 	echo -e "\n\n"
 	echo "Test,Avg Gain,Avg Loss"
 	for t in $tests; do
@@ -65,6 +65,7 @@ if [ "$command" == "all" -o "$command" == "gain-loss" ]; then
 		echo "${t},${gain},${loss}"
 	done
 
+	# Total gain/loss for each test type
 	echo
 	echo "Test,Total Gain,Total Loss,Total Return"
 	for t in $tests; do
@@ -72,7 +73,7 @@ if [ "$command" == "all" -o "$command" == "gain-loss" ]; then
 		loss=$( cat *-${t} | grep 'Net loss\:' | sed 's/Net loss: //' | sed 's/ \/.*//' | sed -z 's/\n/ + /g' | perl -e '$a=<>; $a =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$a 0\n" ' | bc )
 		total_return=$( cat *-${t} | grep 'Total return\:' | sed 's/Total return: //' | sed -z 's/\n/ + /g' | perl -e '$a=<>; $a =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$a 0\n" ' | bc )
 
-		echo -n "${t},${gain},${loss},${total_return}"
+		echo "${t},${gain},${loss},${total_return}"
 	done
 
 	echo -e "\n"
@@ -175,3 +176,8 @@ if [ "$command" == "all" -o "$command" == "ticker-net-gain" ]; then
 
 fi
 
+
+# Daily test results
+if [ "$command" == "all" -o "$command" == "daily" ]; then
+	./daily_results.sh
+fi

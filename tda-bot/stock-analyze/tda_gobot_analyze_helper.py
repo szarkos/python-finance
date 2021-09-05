@@ -18,7 +18,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			  with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_macd=False, with_vwap=False, with_vpt=False, with_mfi=False,
 			  with_dmi_simple=False, with_macd_simple=False, aroonosc_with_macd_simple=False, aroonosc_with_vpt=False, aroonosc_secondary_threshold=70,
 			  vpt_sma_period=72, adx_period=92, di_period=48, atr_period=14, adx_threshold=25, mfi_period=14, aroonosc_period=48,
-			  mfi_low_limit=20, mfi_high_limit=80,
+			  mfi_low_limit=20, mfi_high_limit=80, lod_hod_check=False,
 			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None, stop_date=None, weekly_ph=None, keylevel_strict=False,
 			  debug=False, debug_all=False ):
 
@@ -652,11 +652,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				# High of the day (HOD)
 				# Skip this check for the first 1.5 hours of the day. The reason for this is
-				#  the first 1-1.5 hours or so of trading can create small hod/lods, but they
+				#  the first 2 hours or so of trading can create small hod/lods, but they
 				#  often won't persist. Also, we are more concerned about the slow, low volume
 				#  creeps toward HOD/LOD that are often permanent for the day.
 				cur_hour = int( datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%-H') )
-				if ( resistance_signal == True and cur_hour > 11 ):
+				if ( resistance_signal == True and lod_hod_check == True and cur_hour > 12 ):
 					cur_day_start	= datetime.strptime(today + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
 					cur_day_start	= mytimezone.localize(cur_day_start)
 					cur_time	= datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone)
@@ -1120,7 +1120,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				#  often won't persist. Also, we are more concerned about the slow, low volume
 				#  creeps toward HOD/LOD that are often permanent for the day.
 				cur_hour = int( datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%-H') )
-				if ( resistance_signal == True and cur_hour > 11 ):
+				if ( resistance_signal == True and lod_hod_check == True and cur_hour > 12 ):
 					cur_day_start	= datetime.strptime(today + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
 					cur_day_start	= mytimezone.localize(cur_day_start)
 					cur_time	= datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone)

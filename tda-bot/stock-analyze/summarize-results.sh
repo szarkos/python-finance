@@ -179,5 +179,9 @@ fi
 
 # Daily test results
 if [ "$command" == "all" -o "$command" == "daily" ]; then
+	echo
+
+#	source_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+	cd ..
 	./daily_results.sh
 fi

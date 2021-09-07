@@ -543,13 +543,13 @@ def stochrsi_gobot( algos=None, debug=False ):
 			# If --multiday isn't set then we do not want to start trading if the market is closed.
 			# Also if --multiday isn't set we should avoid buying any securities if it's within
 			#  1-hour from market close. Otherwise we may be forced to sell too early.
-			if ( (tda_gobot_helper.isendofday(60) == True or tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False) and args.multiday == False ):
+			if ( (tda_gobot_helper.isendofday(75) == True or tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False) and args.multiday == False ):
 				print('(' + str(ticker) + ') Market is closed or near closing.')
 				reset_signals(ticker)
 				continue
 
 			# If args.hold_overnight=False and args.multiday==True, we won't enter any new trades 1-hour before market close
-			if ( args.multiday == True and args.hold_overnight == False and tda_gobot_helper.isendofday(60) ):
+			if ( args.multiday == True and args.hold_overnight == False and tda_gobot_helper.isendofday(75) ):
 				reset_signals(ticker)
 				continue
 
@@ -718,6 +718,36 @@ def stochrsi_gobot( algos=None, debug=False ):
 							print( '(' + str(ticker) + ') BUY SIGNAL stalled due to VWAP resistance - Current VWAP: ' + str(round(cur_vwap, 5)) + ' / 15-min Avg: ' + str(round(avg, 5)) )
 
 						stocks[ticker]['resistance_signal'] = False
+
+				# High of the day (HOD)
+				# Skip this check for the first 2.5 hours of the day. The reason for this is
+				#  the first 2 hours or so of trading can create small hod/lods, but they
+				#  often won't persist. Also, we are more concerned about the slow, low volume
+				#  creeps toward HOD/LOD that are often permanent for the day.
+				cur_time	= datetime.fromtimestamp(float(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone)
+				cur_day		= cur_time.strftime('%Y-%m-%d')
+				cur_hour	= cur_time.strftime('%-H')
+				if ( stocks[ticker]['resistance_signal'] == True and args.lod_hod_check == True and cur_hour >= 13 ):
+					cur_day_start = datetime.strptime(cur_day + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
+					cur_day_start = mytimezone.localize(cur_day_start)
+
+					delta = cur_time - cur_day_start
+					delta = int( delta.total_seconds() / 60 )
+
+					# Find HOD
+					hod = 0
+					for i in range (delta, 0, -1):
+						if ( float(stocks[ticker]['pricehistory']['candles'][-i]['close']) > hod ):
+							hod = float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
+
+					# If the stock has already hit a high of the day, the next rise will likely be
+					#  below HOD. If we are below HOD and less than price_resistance_pct from it
+					#  then we should not enter the trade.
+					if ( cur_price < hod ):
+						if ( abs((cur_price / hod - 1) * 100) <= price_resistance_pct ):
+							stocks[ticker]['resistance_signal'] = False
+
+				# END HOD Check
 
 				# Key Levels
 				# Check if price is near historic key level
@@ -970,8 +1000,9 @@ def stochrsi_gobot( algos=None, debug=False ):
 					print('Stock "' + str(ticker) + '" increased above the incr_threshold (' + str(stocks[ticker]['incr_threshold']) + '%), resetting base price to '  + str(last_price))
 					print('Net change (' + str(ticker) + '): ' + str(net_change) + ' USD')
 
-					if ( args.scalp_mode == True ):
-						stocks[ticker]['decr_threshold'] = 0.1
+					# Adapt decr_threshold based on changes made by --variable_exit
+					if ( stocks[ticker]['incr_threshold'] < args.incr_threshold ):
+						stocks[ticker]['decr_threshold'] = stocks[ticker]['incr_threshold']
 					else:
 						stocks[ticker]['decr_threshold'] = stocks[ticker]['incr_threshold'] / 2
 
@@ -1233,7 +1264,35 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 						stocks[ticker]['resistance_signal'] = False
 
+				# Low of the day (LOD)
+				# Skip this check for the first 1.5 hours of the day. The reason for this is
+				#  the first 1-2.5 hours or so of trading can create small hod/lods, but they
+				#  often won't persist. Also, we are more concerned about the slow, low volume
+				#  creeps toward HOD/LOD that are often permanent for the day.
+				cur_time	= datetime.fromtimestamp(float(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone)
+				cur_day		= cur_time.strftime('%Y-%m-%d')
+				cur_hour	= cur_time.strftime('%-H')
+				if ( stocks[ticker]['resistance_signal'] == True and args.lod_hod_check == True and cur_hour >= 13 ):
+					cur_day_start = datetime.strptime(cur_day + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
+					cur_day_start = mytimezone.localize(cur_day_start)
 
+					delta = cur_time - cur_day_start
+					delta = int( delta.total_seconds() / 60 )
+
+					# Find LOD
+					lod = 9999
+					for i in range (delta, 0, -1):
+						if ( float(stocks[ticker]['pricehistory']['candles'][-i]['close']) < lod ):
+							lod = float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
+
+					# If the stock has already hit a low of the day, the next decrease will likely be
+					#  above LOD. If we are above LOD and less than price_resistance_pct from it
+					#  then we should not enter the trade.
+					if ( cur_price > lod ):
+						if ( abs((lod / cur_price - 1) * 100) <= price_resistance_pct ):
+							stocks[ticker]['resistance_signal'] = False
+
+				# END HOD Check
 				# Key Levels
 				# Check if price is near historic key level
 				if ( stocks[ticker]['resistance_signal'] == True ):
@@ -1470,8 +1529,9 @@ def stochrsi_gobot( algos=None, debug=False ):
 					print('SHORTED Stock "' + str(ticker) + '" decreased below the incr_threshold (' + str(stocks[ticker]['incr_threshold']) + '%), resetting base price to '  + str(last_price))
 					print('Net change (' + str(ticker) + '): ' + str(net_change) + ' USD')
 
-					if ( args.scalp_mode == True ):
-						stocks[ticker]['decr_threshold'] = 0.1
+					# Adapt decr_threshold based on changes made by --variable_exit
+					if ( stocks[ticker]['incr_threshold'] < args.incr_threshold ):
+						stocks[ticker]['decr_threshold'] = stocks[ticker]['incr_threshold']
 					else:
 						stocks[ticker]['decr_threshold'] = stocks[ticker]['incr_threshold'] / 2
 

@@ -24,9 +24,9 @@ mytimezone = pytz.timezone("US/Eastern")
 
 
 # Test Scenarios
-scenarios = {	'stochrsi_aroonosc_dmi_simple_with_macd_adx':	'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --with_dmi_simple --with_aroonosc --aroonosc_with_macd_simple --with_adx --adx_threshold=6 ',
-		'stochrsi_mfi_aroonosc_dmi_simple_with_macd':	'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --with_mfi --with_dmi_simple --with_aroonosc --aroonosc_with_macd_simple --with_adx --adx_threshold=6 ',
-		'stochrsi_mfi_aroonosc_with_macd_adx':		'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --with_mfi --with_aroonosc --aroonosc_with_macd_simple --with_adx --adx_threshold=6 ',
+scenarios = {	'stochrsi_aroonosc_dmi_simple_with_macd_adx_lodhod':	'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --with_dmi_simple --with_aroonosc --aroonosc_with_macd_simple --with_adx --adx_threshold=6 --lod_hod_check ',
+		'stochrsi_mfi_aroonosc_dmi_simple_with_macd_lodhod':	'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --with_mfi --with_dmi_simple --with_aroonosc --aroonosc_with_macd_simple --with_adx --adx_threshold=6 --lod_hod_check ',
+		'stochrsi_rsi_aroonosc_dmi_simple_with_macd_lodhod':	'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --with_rsi --with_dmi_simple --with_aroonosc --aroonosc_with_macd_simple --with_adx --adx_threshold=6 --lod_hod_check ',
 }
 #scenarios = {	'stochrsi_dmi_simple':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_dmi_simple',
 #		'stochrsi_aroonosc_dmi_simple':		'--rsi_high_limit=95 --rsi_low_limit=5 --with_dmi_simple --with_aroonosc'

@@ -49,6 +49,7 @@ parser.add_argument("--singleday", help='Allows bot to start (but not trade) bef
 parser.add_argument("--unsafe", help='Allow trading between 9:30-10:15AM where volatility is high', action="store_true")
 parser.add_argument("--hold_overnight", help='Hold stocks overnight when --multiday is in use (default: False) - Warning: implies --unsafe', action="store_true")
 parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (default=False)', action="store_true")
+parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
 
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
 parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1, type=float)
@@ -58,7 +59,6 @@ parser.add_argument("--num_purchases", help='Number of purchases allowed per day
 parser.add_argument("--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
 parser.add_argument("--max_failed_txs", help='Maximum number of failed transactions allowed for a given stock before stock is blacklisted', default=2, type=int)
 parser.add_argument("--max_failed_usd", help='Maximum allowed USD for a failed transaction before the stock is blacklisted', default=100, type=int)
-parser.add_argument("--scalp_mode", help='Enable scalp mode (fixes incr_threshold and decr_threshold)', action="store_true")
 parser.add_argument("--exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
 parser.add_argument("--vwap_exit", help='Use vwap exit strategy - sell/close at half way between entry point and vwap', action="store_true")
 parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_threshold and exit_percent based on the price action of the stock over the previous hour',  action="store_true")
@@ -123,13 +123,6 @@ safe_open = True
 if ( args.unsafe == True ):
 	safe_open = False
 tda_stochrsi_gobot_helper.safe_open = safe_open
-
-# Set incr_threshold and decr_threshold is scalp_mode==True
-if ( args.scalp_mode == True ):
-	args.incr_threshold = 0.1
-	args.decr_threshold = 0.25
-	if ( args.exit_percent == None ):
-		args.exit_percent = 0.2
 
 # Early exit criteria goes here
 if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False and args.multiday == False and args.singleday == False ):

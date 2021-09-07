@@ -484,7 +484,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			short = False
 
 			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
-			if ( hold_overnight == False and tda_gobot_helper.isendofday(60, date) ):
+			if ( hold_overnight == False and tda_gobot_helper.isendofday(75, date) ):
 				reset_signals()
 				continue
 
@@ -516,8 +516,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 			# Secondary Indicators
 			# RSI signal
-			rsi_signal = False
-			if ( cur_r < 25 ):
+			if ( prev_rsi > 25 and cur_rsi < 25 ):
+				rsi_signal = False
+			elif ( prev_rsi < 25 and cur_rsi >= 25 ):
 				rsi_signal = True
 
 			# ADX signal
@@ -655,11 +656,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				#  the first 2 hours or so of trading can create small hod/lods, but they
 				#  often won't persist. Also, we are more concerned about the slow, low volume
 				#  creeps toward HOD/LOD that are often permanent for the day.
-				cur_hour = int( datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%-H') )
-				if ( resistance_signal == True and lod_hod_check == True and cur_hour > 12 ):
+				cur_time = datetime.fromtimestamp( float(key['datetime'])/1000, tz=mytimezone )
+				cur_hour = cur_time.strftime('%-H')
+				if ( resistance_signal == True and lod_hod_check == True and cur_hour >= 13 ):
 					cur_day_start	= datetime.strptime(today + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
 					cur_day_start	= mytimezone.localize(cur_day_start)
-					cur_time	= datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone)
 
 					delta = cur_time - cur_day_start
 					delta = int( delta.total_seconds() / 60 )
@@ -960,7 +961,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			short = True
 
 			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
-			if ( hold_overnight == False and tda_gobot_helper.isendofday(60, date) ):
+			if ( hold_overnight == False and tda_gobot_helper.isendofday(75, date) ):
 				reset_signals()
 				continue
 
@@ -990,6 +991,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 			# Secondary Indicators
 			# RSI signal
+			if ( prev_rsi < 85 and cur_rsi > 85 ):
+				rsi_signal = False
+			elif ( prev_rsi > 85 and cur_rsi <= 85 ):
+				rsi_signal = True
+
 			rsi_signal = False
 			if ( cur_r > 75 ):
 				rsi_signal = True
@@ -1120,7 +1126,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				#  often won't persist. Also, we are more concerned about the slow, low volume
 				#  creeps toward HOD/LOD that are often permanent for the day.
 				cur_hour = int( datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%-H') )
-				if ( resistance_signal == True and lod_hod_check == True and cur_hour > 12 ):
+				if ( resistance_signal == True and lod_hod_check == True and cur_hour >= 13 ):
 					cur_day_start	= datetime.strptime(today + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
 					cur_day_start	= mytimezone.localize(cur_day_start)
 					cur_time	= datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone)
@@ -1138,7 +1144,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					#  above LOD. If we are above LOD and less than price_resistance_pct from it
 					#  then we should not enter the trade.
 					if ( cur_price > lod ):
-						if ( abs((cur_price / lod - 1) * 100) <= price_resistance_pct ):
+						if ( abs((lod / cur_price - 1) * 100) <= price_resistance_pct ):
 							resistance_signal = False
 
 					# END LOD Check

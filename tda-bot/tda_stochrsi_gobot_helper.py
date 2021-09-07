@@ -728,7 +728,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 				cur_day		= cur_time.strftime('%Y-%m-%d')
 				cur_hour	= int( cur_time.strftime('%-H') )
 				if ( stocks[ticker]['resistance_signal'] == True and args.lod_hod_check == True and cur_hour >= 13 ):
-					cur_day_start = datetime.strptime(cur_day + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
+					cur_day_start = datetime.datetime.strptime(cur_day + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
 					cur_day_start = mytimezone.localize(cur_day_start)
 
 					delta = cur_time - cur_day_start
@@ -1273,7 +1273,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 				cur_day		= cur_time.strftime('%Y-%m-%d')
 				cur_hour	= int( cur_time.strftime('%-H') )
 				if ( stocks[ticker]['resistance_signal'] == True and args.lod_hod_check == True and cur_hour >= 13 ):
-					cur_day_start = datetime.strptime(cur_day + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
+					cur_day_start = datetime.datetime.strptime(cur_day + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
 					cur_day_start = mytimezone.localize(cur_day_start)
 
 					delta = cur_time - cur_day_start

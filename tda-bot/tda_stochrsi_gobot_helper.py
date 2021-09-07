@@ -724,7 +724,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 				#  the first 2 hours or so of trading can create small hod/lods, but they
 				#  often won't persist. Also, we are more concerned about the slow, low volume
 				#  creeps toward HOD/LOD that are often permanent for the day.
-				cur_time	= datetime.fromtimestamp(float(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone)
+				cur_time	= datetime.datetime.fromtimestamp(float(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone)
 				cur_day		= cur_time.strftime('%Y-%m-%d')
 				cur_hour	= cur_time.strftime('%-H')
 				if ( stocks[ticker]['resistance_signal'] == True and args.lod_hod_check == True and cur_hour >= 13 ):
@@ -1269,7 +1269,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 				#  the first 1-2.5 hours or so of trading can create small hod/lods, but they
 				#  often won't persist. Also, we are more concerned about the slow, low volume
 				#  creeps toward HOD/LOD that are often permanent for the day.
-				cur_time	= datetime.fromtimestamp(float(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone)
+				cur_time	= datetime.datetime.fromtimestamp(float(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone)
 				cur_day		= cur_time.strftime('%Y-%m-%d')
 				cur_hour	= cur_time.strftime('%-H')
 				if ( stocks[ticker]['resistance_signal'] == True and args.lod_hod_check == True and cur_hour >= 13 ):

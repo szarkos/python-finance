@@ -262,108 +262,108 @@ for ticker in args.stocks.split(','):
 				   'buy_to_cover_signal':	False,
 
 				   'final_buy_signal':		False,
-				   'final_sell_signal':		False,		# Currently unused
+				   'final_sell_signal':		False,	# Currently unused
 				   'final_short_signal':	False,
-				   'final_buy_to_cover_signal':	False,		# Currently unused
+				   'final_buy_to_cover_signal':	False,	# Currently unused
 
 				   'exit_percent_signal':	False,
 
 				   'signal_mode':		'buy',
 
 				   # Indicator variables
-				    # StochRSI
-				    'cur_rsi_k':		float(-1),
-				    'prev_rsi_k':		float(-1),
-				    'cur_rsi_d':		float(-1),
-				    'prev_rsi_d':		float(-1),
+				   # StochRSI
+				   'cur_rsi_k':			float(-1),
+				   'prev_rsi_k':		float(-1),
+				   'cur_rsi_d':			float(-1),
+				   'prev_rsi_d':		float(-1),
 
-				    # RSI
-				    'cur_rsi':			float(-1),
+				   # RSI
+				   'cur_rsi':			float(-1),
 
-				    # MFI
-				    'mfi_period':		args.mfi_period,
-				    'cur_mfi':			float(-1),
-				    'prev_mfi':			float(-1),
+				   # MFI
+				   'mfi_period':		args.mfi_period,
+				   'cur_mfi':			float(-1),
+				   'prev_mfi':			float(-1),
 
-				    # ADX
-				    'adx_period':		args.adx_period,
-				    'di_period':		args.di_period,
-				    'adx_threshold':		args.adx_threshold,
-				    'cur_adx':			float(-1),
+				   # ADX
+				   'adx_period':		args.adx_period,
+				   'di_period':			args.di_period,
+				   'adx_threshold':		args.adx_threshold,
+				   'cur_adx':			float(-1),
 
-				    # DMI
-				    'cur_plus_di':		float(-1),
-				    'prev_plus_di':		float(-1),
-				    'cur_minus_di':		float(-1),
-				    'prev_minus_di':		float(-1),
+				   # DMI
+				   'cur_plus_di':		float(-1),
+				   'prev_plus_di':		float(-1),
+				   'cur_minus_di':		float(-1),
+				   'prev_minus_di':		float(-1),
 
-				    # MACD
-				    'cur_macd':			float(-1),
-				    'prev_macd':		float(-1),
-				    'cur_macd_avg':		float(-1),
-				    'prev_macd_avg':		float(-1),
+				   # MACD
+				   'cur_macd':			float(-1),
+				   'prev_macd':			float(-1),
+				   'cur_macd_avg':		float(-1),
+				   'prev_macd_avg':		float(-1),
 
-				    # Aroon Oscillator
-				    'aroonosc_period':		args.aroonosc_period,
-				    'cur_aroonosc':		float(-1),
+				   # Aroon Oscillator
+				   'aroonosc_period':		args.aroonosc_period,
+				   'cur_aroonosc':		float(-1),
 
-				    # VWAP
-				    'cur_vwap':			float(-1),
-				    'cur_vwap_up':		float(-1),
-				    'cur_vwap_down':		float(-1),
+				   # VWAP
+				   'cur_vwap':			float(-1),
+				   'cur_vwap_up':		float(-1),
+				   'cur_vwap_down':		float(-1),
 
-				    # VPT
-				    'cur_vpt':			float(-1),
-				    'prev_vpt':			float(-1),
-				    'cur_vpt_sma':		float(-1),
-				    'prev_vpt_sma':		float(-1),
+				   # VPT
+				   'cur_vpt':			float(-1),
+				   'prev_vpt':			float(-1),
+				   'cur_vpt_sma':		float(-1),
+				   'prev_vpt_sma':		float(-1),
 
-				    # ATR
-				    'cur_atr':			float(-1),
-				    'cur_natr':			float(-1),
+				   # ATR
+				   'cur_atr':			float(-1),
+				   'cur_natr':			float(-1),
 
-				    # Support / Resistance
-				    'three_week_high':		float(0),
-				    'three_week_low':		float(0),
-				    'three_week_avg':		float(0),
-				    'twenty_week_high':		float(0),
-				    'twenty_week_low':		float(0),
-				    'twenty_week_avg':		float(0),
+				   # Support / Resistance
+				   'three_week_high':		float(0),
+				   'three_week_low':		float(0),
+				   'three_week_avg':		float(0),
+				   'twenty_week_high':		float(0),
+				   'twenty_week_low':		float(0),
+				   'twenty_week_avg':		float(0),
 
-				    'previous_day_close':	None,
+				   'previous_day_close':	None,
 
-				    'kl_long_support':		[],
-				    'kl_long_resistance':	[],
+				   'kl_long_support':		[],
+				   'kl_long_resistance':	[],
 
-				    # SMA200 and EMA50
-				    'cur_sma':			None,
-				    'cur_ema':			None,
+				   # SMA200 and EMA50
+				   'cur_sma':			None,
+				   'cur_ema':			None,
 
-				    # Indicator Signals
-				    'rsi_signal':		False,
-				    'mfi_signal':		False,
-				    'adx_signal':		False,
-				    'dmi_signal':		False,
-				    'macd_signal':		False,
-				    'aroonosc_signal':		False,
-				    'vwap_signal':		False,
-				    'vpt_signal':		False,
-				    'resistance_signal':	False,
+				   # Indicator Signals
+				   'rsi_signal':		False,
+				   'mfi_signal':		False,
+				   'adx_signal':		False,
+				   'dmi_signal':		False,
+				   'macd_signal':		False,
+				   'aroonosc_signal':		False,
+				   'vwap_signal':		False,
+				   'vpt_signal':		False,
+				   'resistance_signal':		False,
 
-				    'plus_di_crossover':	False,
-				    'minus_di_crossover':	False,
-				    'macd_crossover':		False,
-				    'macd_avg_crossover':	False,
+				   'plus_di_crossover':		False,
+				   'minus_di_crossover':	False,
+				   'macd_crossover':		False,
+				   'macd_avg_crossover':	False,
 
-				    # Period log will log datetime to determine period_multiplier
-				    'period_log':		[],
-				    'period_multiplier':	args.period_multiplier,
-				    'prev_timestamp':		0,
-				    'prev_seq':			0,
+				   # Period log will log datetime to determine period_multiplier
+				   'period_log':		[],
+				   'period_multiplier':		args.period_multiplier,
+				   'prev_timestamp':		0,
+				   'prev_seq':			0,
 
-				    # Candle data
-				    'pricehistory':		{},
-				    'pricehistory_5m':		{ 'candles': [], 'ticker': ticker }
+				   # Candle data
+				   'pricehistory':		{},
+				   'pricehistory_5m':		{ 'candles': [], 'ticker': ticker }
 			}} )
 
 	# Start in 'buy' mode unless we're only shorting
@@ -684,11 +684,17 @@ for ticker in list(stocks.keys()):
 	if ( stocks[ticker]['previous_day_close'] == None ):
 		print('Warning: (' + str(ticker) + '): failed to find PDC from pricehistory, falling back to get_pdc()')
 
-		while ( stocks[ticker]['previous_day_close'] == None ):
+		tries = 0
+		while ( tries < 3 ):
 			stocks[ticker]['previous_day_close'] = tda_gobot_helper.get_pdc(data)
 			if ( stocks[ticker]['previous_day_close'] == None ):
 				print('Error: (' + str(ticker) + '): get_pdc() returned None, retrying...')
+				stocks[ticker]['previous_day_close'] = 0
+				tries += 1
+
 				time.sleep(5)
+				continue
+			break
 
 	# Key Levels
 	# Use weekly_ifile or download weekly candle data

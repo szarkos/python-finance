@@ -15,6 +15,7 @@ sys.path.append(parent_path + '/../')
 import tda_gobot_helper
 import tda_gobot_analyze_helper
 
+
 # Parse and check variables
 parser = argparse.ArgumentParser()
 parser.add_argument("stock", help='Stock ticker to purchase')

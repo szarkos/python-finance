@@ -726,7 +726,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 				#  creeps toward HOD/LOD that are often permanent for the day.
 				cur_time	= datetime.datetime.fromtimestamp(float(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone)
 				cur_day		= cur_time.strftime('%Y-%m-%d')
-				cur_hour	= cur_time.strftime('%-H')
+				cur_hour	= int( cur_time.strftime('%-H') )
 				if ( stocks[ticker]['resistance_signal'] == True and args.lod_hod_check == True and cur_hour >= 13 ):
 					cur_day_start = datetime.strptime(cur_day + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
 					cur_day_start = mytimezone.localize(cur_day_start)
@@ -1271,7 +1271,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 				#  creeps toward HOD/LOD that are often permanent for the day.
 				cur_time	= datetime.datetime.fromtimestamp(float(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone)
 				cur_day		= cur_time.strftime('%Y-%m-%d')
-				cur_hour	= cur_time.strftime('%-H')
+				cur_hour	= int( cur_time.strftime('%-H') )
 				if ( stocks[ticker]['resistance_signal'] == True and args.lod_hod_check == True and cur_hour >= 13 ):
 					cur_day_start = datetime.strptime(cur_day + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
 					cur_day_start = mytimezone.localize(cur_day_start)

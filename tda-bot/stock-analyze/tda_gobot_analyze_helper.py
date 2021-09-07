@@ -657,7 +657,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				#  often won't persist. Also, we are more concerned about the slow, low volume
 				#  creeps toward HOD/LOD that are often permanent for the day.
 				cur_time = datetime.fromtimestamp( float(key['datetime'])/1000, tz=mytimezone )
-				cur_hour = cur_time.strftime('%-H')
+				cur_hour = int( cur_time.strftime('%-H') )
 				if ( resistance_signal == True and lod_hod_check == True and cur_hour >= 13 ):
 					cur_day_start	= datetime.strptime(today + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
 					cur_day_start	= mytimezone.localize(cur_day_start)
@@ -1125,11 +1125,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				#  the first 1-1.5 hours or so of trading can create small hod/lods, but they
 				#  often won't persist. Also, we are more concerned about the slow, low volume
 				#  creeps toward HOD/LOD that are often permanent for the day.
-				cur_hour = int( datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%-H') )
+				cur_time = datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone)
+				cur_hour = int( cur_time.strftime('%-H') )
 				if ( resistance_signal == True and lod_hod_check == True and cur_hour >= 13 ):
 					cur_day_start	= datetime.strptime(today + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
 					cur_day_start	= mytimezone.localize(cur_day_start)
-					cur_time	= datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone)
 
 					delta = cur_time - cur_day_start
 					delta = int( delta.total_seconds() / 60 )

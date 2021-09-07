@@ -1,7 +1,6 @@
 #!/usr/bin/python3 -u
 
 import os, sys, re, time
-from collections import OrderedDict
 
 from datetime import datetime, timedelta
 from pytz import timezone
@@ -333,6 +332,11 @@ def write_blacklist(ticker=None, stock_qty=-1, orig_base_price=-1, last_price=-1
 		print('Error: write_blacklist(' + str(ticker) + '): ticker is empty', file=sys.stderr)
 		return False
 
+	try:
+		mytimezone
+	except:
+		mytimezone = timezone("US/Eastern")
+
 	# We're assuming the blacklist file will be in the same path as tda_gobot_helper
 	parent_path = os.path.dirname( os.path.realpath(__file__) )
 	blacklist = str(parent_path) + '/.stock-blacklist'
@@ -340,13 +344,8 @@ def write_blacklist(ticker=None, stock_qty=-1, orig_base_price=-1, last_price=-1
 		fh = open( blacklist, "at" )
 
 	except OSError as e:
-		print('Error: write_blacklist(): Unable to open file ' + str(blacklist) + ': ' + e, file=sys.stderr)
+		print('Error: write_blacklist(): Unable to open file ' + str(blacklist) + ': ' + str(e), file=sys.stderr)
 		return False
-
-	try:
-		mytimezone
-	except:
-		mytimezone = timezone("US/Eastern")
 
 	time_now = 9999999999
 	if ( permanent == False ):
@@ -382,25 +381,10 @@ def write_blacklist(ticker=None, stock_qty=-1, orig_base_price=-1, last_price=-1
 
 
 # Check stock blacklist to avoid wash sales
-# Returns True if ticker is in the file and time_stamp is < 30 days ago
-def check_blacklist(ticker=None, debug=1):
+# Returns True if ticker is in the file and time_stamp is < 32 days ago
+def check_blacklist(ticker=None, debug=False):
 	if ( ticker == None ):
 		print('Error: check_blacklist(' + str(ticker) + '): ticker is empty', file=sys.stderr)
-		return False
-
-	found = False
-
-	# We're assuming the blacklist file will be in the same path as tda_gobot_helper
-	parent_path = os.path.dirname( os.path.realpath(__file__) )
-	blacklist = str(parent_path) + '/.stock-blacklist'
-	if ( os.path.exists(blacklist) == False ):
-		print('WARNING: check_blacklist(): File ' + str(blacklist) + ' does not exist', file=sys.stderr)
-		return True
-
-	try:
-		fh = open( blacklist, "rt" )
-	except OSError as e:
-		print('Error: check_blacklist(): Unable to open file ' + str(blacklist) + ': ' + e, file=sys.stderr)
 		return False
 
 	try:
@@ -408,6 +392,23 @@ def check_blacklist(ticker=None, debug=1):
 	except:
 		mytimezone = timezone("US/Eastern")
 
+	# We're assuming the blacklist file will be in the same path as tda_gobot_helper
+	parent_path = os.path.dirname( os.path.realpath(__file__) )
+	blacklist = str(parent_path) + '/.stock-blacklist'
+	if ( os.path.exists(blacklist) == False ):
+		if ( debug == True ):
+			print('WARNING: check_blacklist(): File ' + str(blacklist) + ' does not exist', file=sys.stderr)
+
+		return True
+
+	try:
+		fh = open( blacklist, "rt" )
+
+	except OSError as e:
+		print('Error: check_blacklist(): Unable to open file ' + str(blacklist) + ': ' + str(e), file=sys.stderr)
+		return False
+
+	found = False
 	time_now = datetime.now(mytimezone)
 	for line in fh:
 		if ( re.match(r'[\s\t]*#', line) ):
@@ -436,6 +437,117 @@ def check_blacklist(ticker=None, debug=1):
 	fh.close()
 
 	return found
+
+
+# Check stock blacklist to avoid wash sales
+# Returns True if ticker is in the file and time_stamp is < 32 days ago
+def clean_blacklist(debug=False):
+
+	try:
+		mytimezone
+	except:
+		mytimezone = timezone("US/Eastern")
+
+	# We're assuming the blacklist file will be in the same path as tda_gobot_helper
+	parent_path = os.path.dirname( os.path.realpath(__file__) )
+	blacklist = str(parent_path) + '/.stock-blacklist'
+	if ( os.path.exists(blacklist) == False ):
+		if ( debug == True ):
+			print('WARNING: check_blacklist(): File ' + str(blacklist) + ' does not exist', file=sys.stderr)
+
+		return True
+
+	try:
+		fh = open( blacklist, "rt" )
+
+	except OSError as e:
+		print('Error: check_blacklist(): Unable to open file ' + str(blacklist) + ': ' + e, file=sys.stderr)
+		return False
+
+
+	cur_blacklist = []
+	time_now = datetime.now(mytimezone)
+	for line in fh:
+		line = line.rstrip()
+		line = re.sub('[\r\n]', "", line)
+
+		if ( re.match('^[\s\t]*#', line) ):
+			# For now we're keeping all comments intact
+			# Stale comments must be cleaned manually
+			cur_blacklist.append(line)
+			continue
+
+		else:
+			# Comments at the end of each line cannot be supported, strip them
+			line = re.sub('[\s\t]*#.*', "", line)
+			line = line.replace(" ", "")
+			cur_blacklist.append(line)
+
+	fh.close()
+
+	# Process the blacklist, remove any stale entries
+	red		= '\033[0;31m'
+	green		= '\033[0;32m'
+	reset_color	= '\033[0m'
+	text_color	= ''
+
+	if ( debug == True ):
+		print( '{0:10} {1:15} {2:15}'.format('Ticker', 'Entry Date', 'Expiration Date') )
+
+	for idx,line in enumerate(cur_blacklist):
+		if ( re.match('^[\s\t]*#', line) or line == "" ): # Skip comments or blank lines
+			continue
+
+		try:
+			stock, stock_qty, orig_base_price, last_price, net_change, percent_change, time_stamp = line.split('|', 7)
+
+		except:
+			continue
+
+		text_color = green
+		time_stamp = datetime.fromtimestamp( int(time_stamp), tz=mytimezone )
+		if ( time_stamp + timedelta(days=32) > time_now ):
+			# time_stamp is still less than 32 days in the past
+			text_color = red
+
+		else:
+			# time_stamp is more than 32 days in the past, so we can purge it
+			cur_blacklist[idx] = 'DELETED'
+
+		if ( debug == True ):
+			expiration = time_stamp + timedelta(days=32)
+			print(text_color, end='')
+
+			if ( int(expiration.strftime('%-Y')) > 2200 ):
+				# This is a permanently blacklisted ticker
+				print( '{0:10} {1:15} {2:15}'.format(stock, '----------', 'permanent'), end='' )
+			else:
+				print( '{0:10} {1:15} {2:15}'.format(stock, time_stamp.strftime('%Y-%m-%d'), expiration.strftime('%Y-%m-%d')), end='' )
+
+			print(reset_color)
+
+
+	# Print out the blacklist file with the remaining valid entries
+	try:
+		fh = open( blacklist, "wt" )
+
+	except OSError as e:
+		print('Error: write_blacklist(): Unable to open file ' + str(blacklist) + ': ' + str(e), file=sys.stderr)
+		return False
+
+	if ( os.name != 'nt' ):
+		import fcntl
+		fcntl.lockf( fh, fcntl.LOCK_EX )
+
+	for line in cur_blacklist:
+		if ( line == 'DELETED' ):
+			continue
+
+		print( line, file=fh, flush=True )
+
+	fh.close()
+
+	return True
 
 
 # Get the lastPrice for a stock ticker
@@ -567,6 +679,10 @@ def fix_timestamp(date=None, debug=False):
 		date = date - timedelta( days=2 )
 	elif ( day == 6 ):
 		date = date - timedelta( days=1 )
+	elif ( day == 1 and ismarketopen_US(date) == False ):
+		# It Monday, but market is closed (i.e. Labor Day),
+		#  move timestamp back to previous Friday
+		date = date - timedelta( days=3 )
 
 	# Make sure start_end dates aren't outside regular hours
 	# We could use extended hours here, but we assume regular hours

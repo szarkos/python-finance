@@ -17,7 +17,7 @@ import tda_gobot_helper
 
 # Parse and check variables
 parser = argparse.ArgumentParser()
-group = parser.add_mutually_exclusive_group(required=True)
+group = parser.add_mutually_exclusive_group(required=False)
 group.add_argument("stock", help='Stock ticker to check', nargs='?', default='', type=str)
 group.add_argument("--stocks", help='Stock tickers to check, comma delimited', default='', type=str)
 
@@ -38,6 +38,7 @@ parser.add_argument("--get_instrument", help="Stock ticker to obtain instrument 
 parser.add_argument("--blacklist", help="Blacklist stock ticker for one month", action="store_true")
 parser.add_argument("--permanent", help="Blacklist stock ticker permanently", action="store_true")
 parser.add_argument("--check_blacklist", help="Blacklist stock ticker for one month", action="store_true")
+parser.add_argument("--clean_blacklist", help="Clean blacklist file, remove stale entries", action="store_true")
 
 parser.add_argument("--rsi_period", help="RSI period (default: 14)", default=14, type=int)
 parser.add_argument("--stochrsi_period", help="Stoch RSI period (default: 128)", default=128, type=int)
@@ -75,12 +76,15 @@ if ( args.start_date != None ):
 if ( args.start_date == None and args.end_date == None and args.period == None ):
 	args.period = 1
 
-
 # No need to log into TDA just to write to or check the blacklist, unless we need to verify
 #  the ticker.
 skip_login = False
-if ( (args.blacklist == True or args.check_blacklist == True) and args.skip_check == True ):
+if ( (args.blacklist == True or args.check_blacklist == True or args.clean_blacklist == True) and args.skip_check == True ):
 	skip_login = True
+
+if ( args.clean_blacklist == False and args.stock == '' and args.stocks == '' ):
+	print('tda-quote-stock.py: error: one of the arguments stock --stocks is required')
+	sys.exit(0)
 
 # Initialize and log into TD Ameritrade
 if ( skip_login == False ):
@@ -165,10 +169,14 @@ elif ( args.blacklist == True ):
 	tda_gobot_helper.write_blacklist(stock, 0, 0, 0, 0, 0, permanent=args.permanent)
 	exit(0)
 
-
 # Check a ticker to see if it is currently blacklisted
 elif ( args.check_blacklist == True ):
 	print( tda_gobot_helper.check_blacklist(stock) )
+	exit(0)
+
+# Check a ticker to see if it is currently blacklisted
+elif ( args.clean_blacklist == True ):
+	tda_gobot_helper.clean_blacklist(debug=True)
 	exit(0)
 
 

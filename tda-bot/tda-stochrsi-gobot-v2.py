@@ -279,6 +279,7 @@ for ticker in args.stocks.split(','):
 
 				   # RSI
 				   'cur_rsi':			float(-1),
+				   'prev_rsi':			float(-1),
 
 				   # MFI
 				   'mfi_period':		args.mfi_period,

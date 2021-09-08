@@ -48,13 +48,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		nonlocal exit_percent_signal		; exit_percent_signal		= False
 
 		nonlocal rsi_signal			; rsi_signal			= False
+		nonlocal mfi_signal			; mfi_signal			= False
 		nonlocal adx_signal			; adx_signal			= False
 		nonlocal dmi_signal			; dmi_signal			= False
 		nonlocal macd_signal			; macd_signal			= False
 		nonlocal aroonosc_signal		; aroonosc_signal		= False
 		nonlocal vwap_signal			; vwap_signal			= False
 		nonlocal vpt_signal			; vpt_signal			= False
-		nonlocal mfi_signal			; mfi_signal			= False
 		nonlocal resistance_signal		; resistance_signal		= False
 
 		nonlocal plus_di_crossover		; plus_di_crossover		= False
@@ -75,6 +75,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		stop_date = mytimezone.localize(stop_date)
 
 	# Get stochastic RSI
+	stochrsi_signal_cancel_low_limit = 20
+	stochrsi_signal_cancel_high_limit = 80
+
 	try:
 		stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(pricehistory, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
 
@@ -98,6 +101,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			', len(rsi_k)=' + str(len(stochrsi)) + '), len(rsi_d)=' + str(len(rsi_d)) + ')' )
 
 	# Get RSI
+	rsi_signal_cancel_low_limit = 30
+	rsi_signal_cancel_high_limit = 70
+
 	try:
 		rsi = tda_gobot_helper.get_rsi(pricehistory, rsi_period, rsi_type, debug=False)
 	except Exception as e:
@@ -105,6 +111,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		return False
 
 	# Get MFI
+	mfi_signal_cancel_low_limit = 30
+	mfi_signal_cancel_high_limit = 70
+
 	try:
 		mfi = tda_gobot_helper.get_mfi(pricehistory, period=mfi_period)
 
@@ -337,8 +346,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	# Run through the RSI values and log the results
 	results				= []
 
-	rsi_idx				= len(pricehistory['candles']) - len(rsi_k)
-	r_idx				= len(pricehistory['candles']) - len(rsi)
+	stochrsi_idx			= len(pricehistory['candles']) - len(rsi_k)
+	rsi_idx				= len(pricehistory['candles']) - len(rsi)
 
 	mfi_idx				= len(pricehistory['candles']) - len(mfi)
 
@@ -362,13 +371,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	exit_percent_signal		= False
 
 	rsi_signal			= False
+	mfi_signal			= False
 	adx_signal			= False
 	dmi_signal			= False
 	macd_signal			= False
 	aroonosc_signal			= False
 	vwap_signal			= False
 	vpt_signal			= False
-	mfi_signal			= False
 	resistance_signal		= False
 
 	plus_di_crossover		= False
@@ -398,7 +407,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			continue
 
 		try:
-			assert idx - rsi_idx >= 1
+			assert idx - stochrsi_idx >= 1
 			assert idx - mfi_idx >= 1
 			assert idx - adx_idx >= 0
 			assert idx - di_idx >= 1
@@ -409,13 +418,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			continue
 
 		# Indicators current values
-		cur_rsi_k = rsi_k[idx - rsi_idx]
-		prev_rsi_k = rsi_k[(idx - rsi_idx) - 1]
+		cur_rsi_k = rsi_k[idx - stochrsi_idx]
+		prev_rsi_k = rsi_k[(idx - stochrsi_idx) - 1]
 
-		cur_rsi_d = rsi_d[idx - rsi_idx]
-		prev_rsi_d = rsi_d[(idx - rsi_idx) - 1]
+		cur_rsi_d = rsi_d[idx - stochrsi_idx]
+		prev_rsi_d = rsi_d[(idx - stochrsi_idx) - 1]
 
-		cur_r = rsi[idx - r_idx]
+		cur_rsi = rsi[idx - rsi_idx]
+		prev_rsi = rsi[(idx - rsi_idx) - 1]
 
 		cur_mfi = mfi[idx - mfi_idx]
 		prev_mfi = mfi[(idx - mfi_idx) - 1]
@@ -509,14 +519,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				if ( cur_rsi_k >= rsi_low_limit ):
 					buy_signal = True
 
-			elif ( cur_rsi_k > rsi_signal_cancel_low_limit and cur_rsi_d > rsi_signal_cancel_low_limit ):
+			elif ( cur_rsi_k > stochrsi_signal_cancel_low_limit and cur_rsi_d > stochrsi_signal_cancel_low_limit ):
 				reset_signals()
 				buy_signal = False
 
-
 			# Secondary Indicators
 			# RSI signal
-			if ( prev_rsi > 25 and cur_rsi < 25 ):
+			if ( cur_rsi >= rsi_signal_cancel_high_limit ):
+				rsi_signal = False
+			elif ( prev_rsi > 25 and cur_rsi < 25 ):
 				rsi_signal = False
 			elif ( prev_rsi < 25 and cur_rsi >= 25 ):
 				rsi_signal = True
@@ -567,7 +578,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 						with_macd_simple = True
 
 			# MFI signal
-			if ( prev_mfi > mfi_low_limit and cur_mfi < mfi_low_limit ):
+			if ( cur_mfi >= mfi_signal_cancel_high_limit ):
+				mfi_signal = False
+			elif ( prev_mfi > mfi_low_limit and cur_mfi < mfi_low_limit ):
 				mfi_signal = False
 			elif ( prev_mfi < mfi_low_limit and cur_mfi >= mfi_low_limit ):
 				mfi_signal = True
@@ -983,21 +996,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				if ( cur_rsi_k <= rsi_high_limit ):
 					short_signal = True
 
-			elif ( cur_rsi_k < rsi_signal_cancel_high_limit and cur_rsi_d < rsi_signal_cancel_high_limit ):
-				rsi_signal = mfi_signal = adx_signal = dmi_signal = aroonosc_signal = macd_signal = vwap_signal = vpt_signal = resistance_signal = False
-				plus_di_crossover = minus_di_crossover = macd_crossover = macd_avg_crossover = False
+			elif ( cur_rsi_k < stochrsi_signal_cancel_high_limit and cur_rsi_d < stochrsi_signal_cancel_high_limit ):
+				reset_signals()
 				short_signal = False
 
 
 			# Secondary Indicators
 			# RSI signal
-			if ( prev_rsi < 85 and cur_rsi > 85 ):
+			if ( cur_rsi <= rsi_signal_cancel_low_limit ):
 				rsi_signal = False
-			elif ( prev_rsi > 85 and cur_rsi <= 85 ):
-				rsi_signal = True
-
-			rsi_signal = False
-			if ( cur_r > 75 ):
+			elif ( prev_rsi < 75 and cur_rsi > 75 ):
+				rsi_signal = False
+			elif ( prev_rsi > 75 and cur_rsi <= 75 ):
 				rsi_signal = True
 
 			# ADX signal
@@ -1037,7 +1047,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 						with_macd_simple = True
 
 			# MFI signal
-			if ( prev_mfi < mfi_high_limit and cur_mfi > mfi_high_limit ):
+			if ( cur_mfi <= mfi_signal_cancel_low_limit ):
+				mfi_signal = False
+			elif ( prev_mfi < mfi_high_limit and cur_mfi > mfi_high_limit ):
 				mfi_signal = False
 			elif ( prev_mfi > mfi_high_limit and cur_mfi <= mfi_high_limit ):
 				mfi_signal = True

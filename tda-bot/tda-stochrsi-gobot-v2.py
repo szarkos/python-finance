@@ -68,7 +68,7 @@ parser.add_argument("--rsi_k_period", help='k period to use in StochRSI algorith
 parser.add_argument("--rsi_d_period", help='D period to use in StochRSI algorithm', default=3, type=int)
 parser.add_argument("--stochrsi_period", help='RSI period to use for stochastic RSI calculation (Default: 128)', default=128, type=int)
 parser.add_argument("--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
-parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='ohlc4', type=str)
+parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='hlc3', type=str)
 parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=int)
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
 parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', default=72, type=int)
@@ -383,6 +383,8 @@ except Exception as e:
 	sys.exit(1)
 
 # Initialize additional stocks{} values
+# First purge the blacklist of stale entries
+tda_gobot_helper.clean_blacklist(debug=False)
 for ticker in list(stocks.keys()):
 	if ( tda_gobot_helper.check_blacklist(ticker) == True and args.force == False ):
 		print('(' + str(ticker) + ') Warning: stock ' + str(ticker) + ' found in blacklist file, removing from the list')
@@ -530,12 +532,15 @@ tda_stochrsi_gobot_helper.stocks = stocks
 tda_stochrsi_gobot_helper.stock_usd = args.stock_usd
 tda_stochrsi_gobot_helper.prev_timestamp = 0
 
-# StochRSI
-tda_stochrsi_gobot_helper.rsi_low_limit = args.rsi_low_limit
-tda_stochrsi_gobot_helper.rsi_high_limit = args.rsi_high_limit
+# StochRSI / RSI
+tda_stochrsi_gobot_helper.stochrsi_low_limit = args.rsi_low_limit
+tda_stochrsi_gobot_helper.stochrsi_high_limit = args.rsi_high_limit
 
-tda_stochrsi_gobot_helper.rsi_signal_cancel_low_limit = 20
-tda_stochrsi_gobot_helper.rsi_signal_cancel_high_limit = 80
+tda_stochrsi_gobot_helper.stochrsi_signal_cancel_low_limit = 20
+tda_stochrsi_gobot_helper.stochrsi_signal_cancel_high_limit = 80
+
+tda_stochrsi_gobot_helper.rsi_signal_cancel_low_limit = 30
+tda_stochrsi_gobot_helper.rsi_signal_cancel_high_limit = 70
 
 tda_stochrsi_gobot_helper.rsi_period = args.rsi_period
 tda_stochrsi_gobot_helper.stochrsi_period = args.stochrsi_period
@@ -547,6 +552,8 @@ tda_stochrsi_gobot_helper.rsi_type = args.rsi_type
 # MFI
 tda_stochrsi_gobot_helper.mfi_low_limit = args.mfi_low_limit
 tda_stochrsi_gobot_helper.mfi_high_limit = args.mfi_high_limit
+tda_stochrsi_gobot_helper.mfi_signal_cancel_low_limit = 30
+tda_stochrsi_gobot_helper.mfi_signal_cancel_high_limit = 70
 
 # ADX / DMI
 tda_stochrsi_gobot_helper.adx_period = args.adx_period

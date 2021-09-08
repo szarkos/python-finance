@@ -69,7 +69,7 @@ parser.add_argument("--stochrsi_period", help='RSI period to use for StochRSI ca
 parser.add_argument("--rsi_slow", help='Slowing period to use in StochRSI algorithm', default=3, type=int)
 parser.add_argument("--rsi_k_period", help='k period to use in StochRSI algorithm', default=128, type=int)
 parser.add_argument("--rsi_d_period", help='D period to use in StochRSI algorithm', default=3, type=int)
-parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='ohlc4', type=str)
+parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='hlc3', type=str)
 parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=int)
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
 parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', default=72, type=int)
@@ -177,12 +177,6 @@ cur_rsi = 0
 prev_rsi = 0
 rsi_low_limit = args.rsi_low_limit
 rsi_high_limit = args.rsi_high_limit
-
-# RSI limits for signal cancellation
-rsi_signal_cancel_low_limit = 20
-rsi_signal_cancel_high_limit = 80
-tda_gobot_analyze_helper.rsi_signal_cancel_low_limit = rsi_signal_cancel_low_limit
-tda_gobot_analyze_helper.rsi_signal_cancel_high_limit = rsi_signal_cancel_high_limit
 
 # Report colors
 red = '\033[0;31m'

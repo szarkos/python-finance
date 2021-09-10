@@ -134,6 +134,9 @@ for tst in $tests; do
 
 	# Print the results
 	echo "$tst"
+
+	let wins=0
+	let loss=0
 	all_dates=$( echo -n "${!total_usd_gain[@]} ${!total_usd_loss[@]}" | sed 's/ /\n/g' | sort | uniq | tr '\n' ' ' )
 
 	echo "Date,Total_Gain,Total_Loss,Net_Gain,Success_TX,Failed_TX,Total_TX"
@@ -148,7 +151,15 @@ for tst in $tests; do
 
 		echo -n "${total_usd_gain[${key}]},"
 		echo -n "${total_usd_loss[${key}]}," | sed 's/\-//'
-		echo "${total_usd_gain[${key}]} + ${total_usd_loss[${key}]}" | bc | tr '\n' ','
+
+		net_gain=$( echo "${total_usd_gain[${key}]} + ${total_usd_loss[${key}]}" | bc )
+		echo -n "${net_gain},"
+
+		if [ $(echo "$net_gain > 0" | bc) == "1"  ]; then
+			wins=$((wins+1))
+		elif [ $(echo "$net_gain < 0" | bc) == "1" ]; then
+			loss=$((loss+1))
+		fi
 
 		# Number of transactions
 		if [[ ! -v success_tx_num["$key"] ]]; then
@@ -161,6 +172,8 @@ for tst in $tests; do
 		echo "${success_tx_num["$key"]} + ${fail_tx_num["$key"]}" | bc
 	done
 
+	echo
+	echo "Daily win/loss ratio: $wins / $loss"
 	echo -e "\n"
 
 	unset single_share_gain

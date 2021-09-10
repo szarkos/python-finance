@@ -30,8 +30,8 @@ for tst in $tests; do
 	for i in $tickers; do
 
 		# Failed transactions
-		failed_txs=$( grep 2021 ${i}-${tst} | grep 31m | perl -e '@a=<>; foreach (@a) { chomp($_); $_ =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$_\n" } ' )
-		success_txs=$( grep 2021 ${i}-${tst} | grep 32m | perl -e '@a=<>; foreach (@a) { chomp($_); $_ =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$_\n" } ' )
+		failed_txs=$( egrep '(2020|2021|2022)' ${i}-${tst} | grep 31m | perl -e '@a=<>; foreach (@a) { chomp($_); $_ =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$_\n" } ' )
+		success_txs=$( egrep '(2020|2021|2022)' ${i}-${tst} | grep 32m | perl -e '@a=<>; foreach (@a) { chomp($_); $_ =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$_\n" } ' )
 
 		if [ "$failed_txs" != "" ]; then
 

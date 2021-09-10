@@ -59,6 +59,25 @@ function download_ticker() {
 	fi
 }
 
+if [ "$tickers" == 'CHECK_TICKERS' ]; then
+
+	echo "Checking CSV files for errors..."
+
+	for i in monthly-${interval}-csv/*.csv; do
+		errors=$( egrep --ignore-case --count '(thank|error)' $i )
+		if [ "$errors" != "0" ]; then
+
+			ticker=$( echo -n $i | sed 's/monthly-[0-9]*min-csv\///' | sed 's/-.*//' | tr '\n' '' )
+
+			echo "$ticker"
+			download_ticker "$ticker"
+		fi
+	done
+
+	exit
+fi
+
+
 echo "Downloading ${months}-months of 1-minute data for the following tickers:"
 echo "$1"
 echo

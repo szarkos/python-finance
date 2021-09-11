@@ -69,10 +69,10 @@ elif ( args.high_volatility == True ):
 		print('Exception caught: ' + str(e))
 
 	if ( err != None ):
-		print('Error: get_quote(' + str(stock) + '): ' + str(err), file=sys.stderr)
+		print('Error: get_quotes(' + str(args.stocks) + '): ' + str(err), file=sys.stderr)
 		sys.exit(1)
 	elif ( data == {} ):
-		print('Error: get_quote(' + str(stock) + '): Empty data set', file=sys.stderr)
+		print('Error: get_quotes(' + str(args.stocks) + '): Empty data set', file=sys.stderr)
 		sys.exit(1)
 
 	list = ''

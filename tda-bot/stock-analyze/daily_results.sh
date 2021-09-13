@@ -173,7 +173,9 @@ for tst in $tests; do
 	done
 
 	echo
-	echo "Daily win/loss ratio: $wins / $loss"
+
+	win_pct=$(echo "scale=2; ($wins / ( $wins + $loss )) * 100" | bc)
+	echo "Daily win/loss ratio: $wins / $loss (${win_pct}%)"
 	echo -e "\n"
 
 	unset single_share_gain

@@ -583,9 +583,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			#
 			# SAZ - 2021-08-29: Higher volatility stocks seem to work better with a longer
 			# Aroon Oscillator period value.
-#			if ( cur_natr > 0.24 and with_aroonosc_simple == True ):
-#				cur_aroonosc = cur_aroonosc_92
-#				prev_aroonosc = prev_aroonosc_92
+			if ( cur_natr > 0.24 and with_aroonosc_simple == True ):
+				cur_aroonosc = cur_aroonosc_92
+				prev_aroonosc = prev_aroonosc_92
 
 			if ( cur_aroonosc < 60 ):
 				aroonosc_signal = False
@@ -1067,9 +1067,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 			# Aroon oscillator signals
 			# Values closer to -100 indicate a downtrend
-#			if ( cur_natr > 0.24 and with_aroonosc_simple == True ):
-#				cur_aroonosc = cur_aroonosc_92
-#				prev_aroonosc = prev_aroonosc_92
+			if ( cur_natr > 0.24 and with_aroonosc_simple == True ):
+				cur_aroonosc = cur_aroonosc_92
+				prev_aroonosc = prev_aroonosc_92
 
 			if ( cur_aroonosc > -60 ):
 				aroonosc_signal = False

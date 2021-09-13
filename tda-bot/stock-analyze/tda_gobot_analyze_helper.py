@@ -12,7 +12,7 @@ import tda_gobot_helper
 
 
 # Like stochrsi_analyze(), but sexier
-def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3,
+def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3, stochrsi_5m=False,
 			  stoploss=False, incr_threshold=1, decr_threshold=1.5, hold_overnight=False, exit_percent=None, strict_exit_percent=False, vwap_exit=False, quick_exit=False,
 			  variable_exit=False, no_use_resistance=False, price_resistance_pct=1, price_support_pct=1,
 			  with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_macd=False, with_vwap=False, with_vpt=False, with_mfi=False,
@@ -74,12 +74,55 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		stop_date = datetime.strptime(stop_date + ' 00:00:00', '%Y-%m-%d %H:%M:%S')
 		stop_date = mytimezone.localize(stop_date)
 
+	# We use 5-minute candles to calculate the ATR
+	pricehistory_5m = { 'candles': [], 'ticker': ticker }
+	for idx,key in enumerate(pricehistory['candles']):
+		if ( idx == 0 ):
+			continue
+
+		cndl_num = idx + 1
+		if ( cndl_num % 5 == 0 ):
+			open_p	= float( pricehistory['candles'][idx - 4]['open'] )
+			close	= float( pricehistory['candles'][idx]['close'] )
+			high	= 0
+			low	= 9999
+			volume	= 0
+
+			for i in range(4,0,-1):
+				volume += int( pricehistory['candles'][idx-i]['volume'] )
+
+				if ( high < float(pricehistory['candles'][idx-i]['high']) ):
+					high = float( pricehistory['candles'][idx-i]['high'] )
+
+				if ( low > float(pricehistory['candles'][idx-i]['low']) ):
+					low = float( pricehistory['candles'][idx-i]['low'] )
+
+			newcandle = {	'open':		open_p,
+					'high':		high,
+					'low':		low,
+					'close':	close,
+					'volume':	volume,
+					'datetime':	pricehistory['candles'][idx]['datetime'] }
+
+			pricehistory_5m['candles'].append(newcandle)
+
+	del(open_p, high, low, close, volume, newcandle)
+
+
 	# Get stochastic RSI
 	stochrsi_signal_cancel_low_limit = 20
 	stochrsi_signal_cancel_high_limit = 80
 
 	try:
-		stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(pricehistory, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+#		import tulipy as ti
+#		mfi = tda_gobot_helper.get_mfi(pricehistory, period=mfi_period)
+#		rsi_k, rsi_d = ti.stoch( mfi, mfi, mfi, rsi_k_period, rsi_slow, rsi_d_period )
+#		stochrsi = rsi_k
+
+		if ( stochrsi_5m == True ):
+			stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(pricehistory_5m, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+		else:
+			stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(pricehistory, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
 
 	except Exception as e:
 		print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_stochrsi(): ' + str(e))
@@ -121,41 +164,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_mfi(): ' + str(e))
 
 	# Average True Range (ATR)
-	# We use 5-minute candles to calculate the ATR
-	pricehistory_5m = { 'candles': [], 'ticker': ticker }
-	for idx,key in enumerate(pricehistory['candles']):
-		if ( idx == 0 ):
-			continue
-
-		cndl_num = idx + 1
-		if ( cndl_num % 5 == 0 ):
-			open_p	= float( pricehistory['candles'][idx - 4]['open'] )
-			close	= float( pricehistory['candles'][idx]['close'] )
-			high	= 0
-			low	= 9999
-			volume	= 0
-
-			for i in range(4,0,-1):
-				volume += int( pricehistory['candles'][idx-i]['volume'] )
-
-				if ( high < float(pricehistory['candles'][idx-i]['high']) ):
-					high = float( pricehistory['candles'][idx-i]['high'] )
-
-				if ( low > float(pricehistory['candles'][idx-i]['low']) ):
-					low = float( pricehistory['candles'][idx-i]['low'] )
-
-			newcandle = {	'open':		open_p,
-					'high':		high,
-					'low':		low,
-					'close':	close,
-					'volume':	volume,
-					'datetime':	pricehistory['candles'][idx]['datetime'] }
-
-			pricehistory_5m['candles'].append(newcandle)
-
-	del(open_p, high, low, close, volume, newcandle)
-
-	# Calculate the ATR
 	atr = []
 	natr = []
 	try:
@@ -346,7 +354,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	# Run through the RSI values and log the results
 	results				= []
 
-	stochrsi_idx			= len(pricehistory['candles']) - len(rsi_k)
+	if ( stochrsi_5m == True ):
+		stochrsi_idx		= len(pricehistory['candles']) - len(rsi_k) * 5
+	else:
+		stochrsi_idx		= len(pricehistory['candles']) - len(rsi_k)
+
 	rsi_idx				= len(pricehistory['candles']) - len(rsi)
 
 	mfi_idx				= len(pricehistory['candles']) - len(mfi)
@@ -399,6 +411,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	if ( shortonly == True ):
 		signal_mode = 'short'
 
+
 	# Main loop
 	for idx,key in enumerate(pricehistory['candles']):
 
@@ -408,6 +421,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 		try:
 			assert idx - stochrsi_idx >= 1
+			assert int((idx - stochrsi_idx) / 5) - 1 >= 1
+
 			assert idx - mfi_idx >= 1
 			assert idx - adx_idx >= 0
 			assert idx - di_idx >= 1
@@ -418,11 +433,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			continue
 
 		# Indicators current values
-		cur_rsi_k = rsi_k[idx - stochrsi_idx]
-		prev_rsi_k = rsi_k[(idx - stochrsi_idx) - 1]
+		if ( stochrsi_5m == True ):
+			cur_rsi_k = rsi_k[int((idx - stochrsi_idx) / 5)]
+			prev_rsi_k = rsi_k[int((idx - stochrsi_idx) / 5) - 1]
 
-		cur_rsi_d = rsi_d[idx - stochrsi_idx]
-		prev_rsi_d = rsi_d[(idx - stochrsi_idx) - 1]
+			cur_rsi_d = rsi_d[int((idx - stochrsi_idx) / 5)]
+			prev_rsi_d = rsi_d[int((idx - stochrsi_idx) / 5) - 1]
+
+		else:
+			cur_rsi_k = rsi_k[idx - stochrsi_idx]
+			prev_rsi_k = rsi_k[(idx - stochrsi_idx) - 1]
+
+			cur_rsi_d = rsi_d[idx - stochrsi_idx]
+			prev_rsi_d = rsi_d[(idx - stochrsi_idx) - 1]
 
 		cur_rsi = rsi[idx - rsi_idx]
 		prev_rsi = rsi[(idx - rsi_idx) - 1]

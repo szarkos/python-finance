@@ -65,6 +65,7 @@ parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent st
 parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_threshold and exit_percent based on the price action of the stock over the previous hour', action="store_true")
 
 parser.add_argument("--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
+parser.add_argument("--stochrsi_5m", help='Use 5-minute candles to calculate StochRSI', action="store_true")
 parser.add_argument("--stochrsi_period", help='RSI period to use for StochRSI calculation (Default: 128)', default=128, type=int)
 parser.add_argument("--rsi_slow", help='Slowing period to use in StochRSI algorithm', default=3, type=int)
 parser.add_argument("--rsi_k_period", help='k period to use in StochRSI algorithm', default=128, type=int)
@@ -398,7 +399,7 @@ for algo in args.algo.split(','):
 			sys.exit(1)
 
 		elif ( algo == 'stochrsi' or algo == 'stochrsi-new' ):
-			results = tda_gobot_analyze_helper.stochrsi_analyze_new( pricehistory=data, ticker=stock, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type,
+			results = tda_gobot_analyze_helper.stochrsi_analyze_new( pricehistory=data, ticker=stock, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type, stochrsi_5m=args.stochrsi_5m,
 									 rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
 									 with_vpt=args.with_vpt, with_rsi=args.with_rsi, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_macd=args.with_macd,
 									 with_mfi=args.with_mfi, with_vwap=args.with_vwap, with_dmi_simple=args.with_dmi_simple, with_macd_simple=args.with_macd_simple,

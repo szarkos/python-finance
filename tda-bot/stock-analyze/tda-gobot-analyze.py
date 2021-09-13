@@ -43,7 +43,8 @@ parser.add_argument("--with_mfi", help='Use MFI (Money Flow Index) as a secondar
 parser.add_argument("--with_adx", help='Use ADX as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
 parser.add_argument("--with_dmi", help='Use DMI as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
 parser.add_argument("--with_dmi_simple", help='Use DMI as secondary indicator to advise trade entries/exits, but do not wait for crossover (Default: False)', action="store_true")
-parser.add_argument("--with_aroonosc", help='Use Aroon Oscillator as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
+parser.add_argument("--with_aroonosc", help='Use Aroon Oscillator as secondary indicator to advise trade entries (Default: False)', action="store_true")
+parser.add_argument("--with_aroonosc_simple", help='Use Aroon Oscillator as secondary indicator to advise trade entries, but only evaluate AroonOsc value, not zero-line crossover (Default: False)', action="store_true")
 parser.add_argument("--with_macd", help='Use MACD as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
 parser.add_argument("--with_macd_simple", help='Use MACD as secondary indicator to advise trade entries/exits, but do not wait for crossover (default=False)', action="store_true")
 parser.add_argument("--with_vwap", help='Use VWAP as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
@@ -401,7 +402,7 @@ for algo in args.algo.split(','):
 		elif ( algo == 'stochrsi' or algo == 'stochrsi-new' ):
 			results = tda_gobot_analyze_helper.stochrsi_analyze_new( pricehistory=data, ticker=stock, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type, stochrsi_5m=args.stochrsi_5m,
 									 rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
-									 with_vpt=args.with_vpt, with_rsi=args.with_rsi, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_macd=args.with_macd,
+									 with_vpt=args.with_vpt, with_rsi=args.with_rsi, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_aroonosc_simple=args.with_aroonosc_simple, with_macd=args.with_macd,
 									 with_mfi=args.with_mfi, with_vwap=args.with_vwap, with_dmi_simple=args.with_dmi_simple, with_macd_simple=args.with_macd_simple,
 									 vpt_sma_period=args.vpt_sma_period, adx_period=args.adx_period, di_period=args.di_period, atr_period=args.atr_period, aroonosc_period=args.aroonosc_period,
 									 mfi_period=args.mfi_period, mfi_high_limit=args.mfi_high_limit, mfi_low_limit=args.mfi_low_limit, adx_threshold=args.adx_threshold,

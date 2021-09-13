@@ -15,7 +15,7 @@ import tda_gobot_helper
 def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3, stochrsi_5m=False,
 			  stoploss=False, incr_threshold=1, decr_threshold=1.5, hold_overnight=False, exit_percent=None, strict_exit_percent=False, vwap_exit=False, quick_exit=False,
 			  variable_exit=False, no_use_resistance=False, price_resistance_pct=1, price_support_pct=1,
-			  with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_macd=False, with_vwap=False, with_vpt=False, with_mfi=False,
+			  with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_aroonosc_simple=False, with_macd=False, with_vwap=False, with_vpt=False, with_mfi=False,
 			  with_dmi_simple=False, with_macd_simple=False, aroonosc_with_macd_simple=False, aroonosc_with_vpt=False, aroonosc_secondary_threshold=70,
 			  vpt_sma_period=72, adx_period=92, di_period=48, atr_period=14, adx_threshold=25, mfi_period=14, aroonosc_period=48,
 			  mfi_low_limit=20, mfi_high_limit=80, lod_hod_check=False,
@@ -467,7 +467,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		prev_macd_avg = macd_avg[(idx - macd_idx) - 1]
 
 		cur_aroonosc = aroonosc[idx - aroonosc_idx]
+		prev_aroonosc = aroonosc[idx - aroonosc_idx - 1]
 		cur_aroonosc_92 = aroonosc_92[idx - aroonosc_92_idx]
+		prev_aroonosc_92 = aroonosc_92[idx - aroonosc_92_idx - 1]
 
 		cur_vpt = vpt[idx]
 		prev_vpt = vpt[idx-1]
@@ -581,12 +583,21 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			#
 			# SAZ - 2021-08-29: Higher volatility stocks seem to work better with a longer
 			# Aroon Oscillator period value.
-			aroonosc_signal = False
-			if ( cur_natr > 0.24 ):
-				cur_aroonosc = cur_aroonosc_92
+#			if ( cur_natr > 0.24 and with_aroonosc_simple == True ):
+#				cur_aroonosc = cur_aroonosc_92
+#				prev_aroonosc = prev_aroonosc_92
+
+			if ( cur_aroonosc < 60 ):
+				aroonosc_signal = False
 
 			if ( cur_aroonosc > 60 ):
-				aroonosc_signal = True
+				if ( with_aroonosc_simple == True ):
+					aroonosc_signal = True
+
+				else:
+					if ( prev_aroonosc < 0 ):
+						# Crossover has occurred
+						aroonosc_signal = True
 
 				if ( aroonosc_with_vpt == True ):
 					if ( cur_aroonosc <= aroonosc_secondary_threshold ):
@@ -1056,12 +1067,21 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 			# Aroon oscillator signals
 			# Values closer to -100 indicate a downtrend
-			aroonosc_signal = False
-			if ( cur_natr > 0.24 ):
-				cur_aroonosc = cur_aroonosc_92
+#			if ( cur_natr > 0.24 and with_aroonosc_simple == True ):
+#				cur_aroonosc = cur_aroonosc_92
+#				prev_aroonosc = prev_aroonosc_92
 
-			if ( cur_aroonosc < -60 ):
-				aroonosc_signal = True
+			if ( cur_aroonosc > -60 ):
+				aroonosc_signal = False
+
+			elif ( cur_aroonosc < -60 ):
+				if ( with_aroonosc_simple == True ):
+					aroonosc_signal = True
+
+				else:
+					if ( prev_aroonosc > 0 ):
+						# Crossover has occurred
+						aroonosc_signal = True
 
 				# Enable macd_simple if the aroon oscillitor is greater than -aroonosc_secondary_threshold
 				if ( aroonosc_with_macd_simple == True ):

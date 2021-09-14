@@ -240,13 +240,13 @@ def stochrsi_gobot( algos=None, debug=False ):
 		percent_change = 0
 		net_change = 0
 
-		t_rsi_period = rsi_period * stocks[ticker]['period_multiplier']
-		t_stochrsi_period = stochrsi_period * stocks[ticker]['period_multiplier']
-		t_rsi_k_period = rsi_k_period * stocks[ticker]['period_multiplier']
+		t_rsi_period = algos['rsi_period'] * stocks[ticker]['period_multiplier']
+		t_stochrsi_period = algos['rsi_k_period'] * stocks[ticker]['period_multiplier']
+		t_rsi_k_period = algos['rsi_k_period'] * stocks[ticker]['period_multiplier']
 
 		# Get stochastic RSI
 		try:
-			stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(stocks[ticker]['pricehistory'], rsi_period=t_rsi_period, stochrsi_period=t_stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=t_rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+			stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(stocks[ticker]['pricehistory'], rsi_period=t_rsi_period, stochrsi_period=t_stochrsi_period, type=rsi_type, slow_period=algos['rsi_slow'], rsi_k_period=t_rsi_k_period, rsi_d_period=algos['rsi_d_period'], debug=False)
 
 		except Exception as e:
 			print('Error: stochrsi_gobot(): get_stochrsi(' + str(ticker) + '): ' + str(e))
@@ -262,7 +262,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 		# RSI
 		if ( algos['rsi'] == True ):
-			t_rsi_period = rsi_period * stocks[ticker]['period_multiplier']
+			t_rsi_period = algos['rsi_period'] * stocks[ticker]['period_multiplier']
 
 			try:
 				rsi = tda_gobot_helper.get_rsi(stocks[ticker]['pricehistory'], t_rsi_period, rsi_type, debug=False)
@@ -281,7 +281,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 		atr = []
 		natr = []
 		try:
-			atr, natr = tda_gobot_helper.get_atr( pricehistory=stocks[ticker]['pricehistory_5m'], period=atr_period )
+			atr, natr = tda_gobot_helper.get_atr( pricehistory=stocks[ticker]['pricehistory_5m'], period=algos['atr_period'] )
 
 		except Exception as e:
 			print('Error: stochrsi_gobot(' + str(ticker) + '): get_atr(): ' + str(e))
@@ -293,7 +293,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 		# MFI
 		if ( algos['mfi'] == True ):
 
-			t_mfi_period = stocks[ticker]['mfi_period'] * stocks[ticker]['period_multiplier']
+			t_mfi_period = algos['mfi_period'] * stocks[ticker]['period_multiplier']
 
 			mfi = []
 			try:
@@ -310,8 +310,8 @@ def stochrsi_gobot( algos=None, debug=False ):
 		# ADX, +DI, -DI
 		if ( algos['adx'] == True or algos['dmi'] == True or algos['dmi_simple'] == True ):
 
-			t_adx_period = stocks[ticker]['adx_period'] * stocks[ticker]['period_multiplier']
-			t_di_period = stocks[ticker]['di_period'] * stocks[ticker]['period_multiplier']
+			t_adx_period = algos['adx_period'] * stocks[ticker]['period_multiplier']
+			t_di_period = algos['di_period'] * stocks[ticker]['period_multiplier']
 
 			adx = []
 			plus_di = []
@@ -335,7 +335,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 			# SAZ - 2021-08-29: Higher volatility stocks seem to work better with a
 			#  longer Aroon Oscillator value.
-			stocks[ticker]['aroonosc_period'] = aroonosc_period
+			stocks[ticker]['aroonosc_period'] = algos['aroonosc_period']
 			if ( stocks[ticker]['cur_natr'] > 0.24 ):
 				stocks[ticker]['aroonosc_period'] = 92
 
@@ -399,7 +399,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 		if ( algos['vpt'] == True ):
 			vpt = []
 			vpt_sma = []
-			t_vpt_sma_period = vpt_sma_period * stocks[ticker]['period_multiplier']
+			t_vpt_sma_period = algos['vpt_sma_period'] * stocks[ticker]['period_multiplier']
 
 			try:
 				vpt, vpt_sma = tda_gobot_helper.get_vpt(stocks[ticker]['pricehistory'], period=t_vpt_sma_period)
@@ -412,12 +412,12 @@ def stochrsi_gobot( algos=None, debug=False ):
 			stocks[ticker]['cur_vpt_sma']	= float( vpt_sma[-1] )
 			stocks[ticker]['prev_vpt_sma']	= float( vpt_sma[-2] )
 
-
 		# Debug
 		if ( debug == True ):
 			time_now = datetime.datetime.now( mytimezone )
-			print(  '(' + str(ticker) + ') StochRSI period: ' + str(rsi_period) + ' / StochRSI type: ' + str(rsi_type) +
-				' / StochRSI K period: ' + str(rsi_k_period) + ' / StochRSI D period: ' + str(rsi_d_period) + ' / StochRSI slow period: ' + str(rsi_slow) )
+			print(  '(' + str(ticker) + ') StochRSI Period: ' + str(algos['rsi_period']) + ' / Type: ' + str(rsi_type) +
+				' / K Period: ' + str(algos['rsi_k_period']) + ' / D Period: ' + str(algos['rsi_d_period']) + ' / Slow Period: ' + str(algos['rsi_slow']) +
+				' / High Limit|Low Limit: ' + str(algos['rsi_high_limit']) + '|' + str(algos['rsi_low_limit']) )
 
 			# StochRSI
 			print('(' + str(ticker) + ') Current StochRSI K: ' + str(round(stocks[ticker]['cur_rsi_k'], 2)) +
@@ -429,12 +429,20 @@ def stochrsi_gobot( algos=None, debug=False ):
 			if ( algos['rsi'] == True ):
 				print('(' + str(ticker) + ') Current RSI: ' + str(round(stocks[ticker]['cur_rsi'], 2)))
 
+			# MFI
+			if ( algos['mfi'] == True ):
+				print('(' + str(ticker) + ') Current MFI: ' + str(round(stocks[ticker]['cur_mfi'], 2)) +
+							' / Previous MFI: ' + str(round(stocks[ticker]['prev_mfi'], 2)) +
+							' / High Limit|Low Limit: ' + str(algos['mfi_high_limit']) + '|' + str(algos['mfi_low_limit']) )
+
 			# ATR/NATR
 			print('(' + str(ticker) + ') Current ATR/NATR: ' + str(round(stocks[ticker]['cur_atr'], 3)) + ' / ' + str(round(stocks[ticker]['cur_natr'], 3)))
 
 			# ADX
 			if ( algos['adx'] == True ):
-				print('(' + str(ticker) + ') Current ADX: ' + str(round(stocks[ticker]['cur_adx'], 2)))
+				print('(' + str(ticker) + ') Current ADX: ' + str(round(stocks[ticker]['cur_adx'], 2)) +
+							' / ADX Period: ' + str(algos['adx_period']) +
+							' / ADX Threshold: ' + str(algos['adx_threshold']) )
 
 			# PLUS/MINUS DI
 			if ( algos['dmi'] == True or algos['dmi_simple'] == True ):
@@ -524,6 +532,13 @@ def stochrsi_gobot( algos=None, debug=False ):
 		prev_vpt	= stocks[ticker]['prev_vpt']
 		cur_vpt_sma	= stocks[ticker]['cur_vpt_sma']
 		prev_vpt_sma	= stocks[ticker]['prev_vpt_sma']
+
+		# Algo modifiers
+		stochrsi_high_limit	= algos['rsi_high_limit']
+		stochrsi_low_limit	= algos['rsi_low_limit']
+		mfi_high_limit		= algos['mfi_high_limit']
+		mfi_low_limit		= algos['mfi_low_limit']
+		adx_threshold		= algos['adx_threshold']
 
 
 		# Criteria for when we will not enter new trades
@@ -616,7 +631,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 			# ADX signal
 			if ( algos['adx'] == True ):
 				stocks[ticker]['adx_signal'] = False
-				if ( cur_adx > stocks[ticker]['adx_threshold'] ):
+				if ( cur_adx > adx_threshold ):
 					stocks[ticker]['adx_signal'] = True
 
 			# DMI signals
@@ -1170,7 +1185,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 			# ADX signal
 			if ( algos['adx'] == True ):
 				stocks[ticker]['adx_signal'] = False
-				if ( cur_adx > stocks[ticker]['adx_threshold'] ):
+				if ( cur_adx > adx_threshold ):
 					stocks[ticker]['adx_signal'] = True
 
 			# DMI signals

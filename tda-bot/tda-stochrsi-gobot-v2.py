@@ -175,7 +175,30 @@ for algo in args.algos:
 	print(algo)
 	algo = ','.join(algo)
 
+	# Indicators
 	stochrsi = rsi = mfi = adx = dmi = dmi_simple = macd = macd_simple = aroonosc = vwap = vpt = support_resistance = False
+
+	# Indicator modifiers
+	rsi_high_limit	= args.rsi_high_limit
+	rsi_low_limit	= args.rsi_low_limit
+	rsi_k_period	= args.rsi_k_period
+	rsi_d_period	= args.rsi_d_period
+	rsi_slow	= args.rsi_slow
+	rsi_period	= args.rsi_period
+
+	mfi_high_limit	= args.mfi_high_limit
+	mfi_low_limit	= args.mfi_low_limit
+	mfi_period	= args.mfi_period
+
+	adx_threshold	= args.adx_threshold
+	adx_period	= args.adx_period
+
+	aroonosc_period	= args.aroonosc_period
+	di_period	= args.di_period
+
+	atr_period	= args.atr_period
+	vpt_sma_period	= args.vpt_sma_period
+
 	for a in algo.split(','):
 
 		if ( a == 'stochrsi' ):		stochrsi	= True
@@ -205,6 +228,26 @@ for algo in args.algos:
 				macd = False
 				macd_simple = False
 
+		# Modifiers
+		if ( re.match('rsi_high_limit:', a)	!= None ):	rsi_high_limit	= int( a.split(':')[1] )
+
+		if ( re.match('rsi_low_limit:', a)	!= None ):	rsi_low_limit	= int( a.split(':')[1] )
+		if ( re.match('rsi_k_period:', a)	!= None ):	rsi_k_period	= int( a.split(':')[1] )
+		if ( re.match('rsi_d_period:', a)	!= None ):	rsi_d_period	= int( a.split(':')[1] )
+		if ( re.match('rsi_slow:', a)		!= None ):	rsi_slow	= int( a.split(':')[1] )
+		if ( re.match('rsi_period:', a)		!= None ):	rsi_period	= int( a.split(':')[1] )
+
+		if ( re.match('mfi_high_limit:', a)	!= None ):	mfi_high_limit	= int( a.split(':')[1] )
+		if ( re.match('mfi_low_limit:', a)	!= None ):	mfi_low_limit	= int( a.split(':')[1] )
+		if ( re.match('mfi_period:', a)		!= None ):	mfi_period	= int( a.split(':')[1] )
+
+		if ( re.match('adx_threshold:', a)	!= None ):	adx_threshold	= int( a.split(':')[1] )
+		if ( re.match('adx_period:', a)		!= None ):	adx_period	= int( a.split(':')[1] )
+		if ( re.match('aroonosc_period:', a)	!= None ):	aroonosc_period	= int( a.split(':')[1] )
+		if ( re.match('di_period:', a)		!= None ):	di_period	= int( a.split(':')[1] )
+		if ( re.match('atr_period:', a)		!= None ):	atr_period	= int( a.split(':')[1] )
+		if ( re.match('vpt_sma_period:', a)	!= None ):	vpt_sma_period	= int( a.split(':')[1] )
+
 	algo_list = {	'stochrsi':		True,  # For now this cannot be turned off
 			'rsi':			rsi,
 			'mfi':			mfi,
@@ -216,11 +259,29 @@ for algo in args.algos:
 			'aroonosc':		aroonosc,
 			'vwap':			vwap,
 			'vpt':			vpt,
-			'support_resistance':	support_resistance }
+			'support_resistance':	support_resistance,
+
+			# Algo modifiers
+			'rsi_high_limit':	rsi_high_limit,
+			'rsi_low_limit':	rsi_low_limit,
+			'rsi_k_period':		rsi_k_period,
+			'rsi_d_period':		rsi_d_period,
+			'rsi_slow':		rsi_slow,
+			'rsi_period':		rsi_period,
+			'mfi_high_limit':	mfi_high_limit,
+			'mfi_low_limit':	mfi_low_limit,
+			'mfi_period':		mfi_period,
+			'adx_threshold':	adx_threshold,
+			'adx_period':		adx_period,
+			'aroonosc_period':	aroonosc_period,
+			'di_period':		di_period,
+			'atr_period':		atr_period,
+			'vpt_sma_period':	vpt_sma_period  }
 
 	algos.append(algo_list)
 
 del(stochrsi,rsi,adx,dmi,macd,aroonosc,vwap,vpt,support_resistance)
+del(rsi_high_limit,rsi_low_limit,rsi_k_period,rsi_d_period,rsi_slow,rsi_period,mfi_high_limit,mfi_low_limit,mfi_period,adx_threshold,adx_period,aroonosc_period,di_period,atr_period,vpt_sma_period)
 print()
 
 
@@ -282,14 +343,10 @@ for ticker in args.stocks.split(','):
 				   'prev_rsi':			float(-1),
 
 				   # MFI
-				   'mfi_period':		args.mfi_period,
 				   'cur_mfi':			float(-1),
 				   'prev_mfi':			float(-1),
 
 				   # ADX
-				   'adx_period':		args.adx_period,
-				   'di_period':			args.di_period,
-				   'adx_threshold':		args.adx_threshold,
 				   'cur_adx':			float(-1),
 
 				   # DMI
@@ -534,31 +591,15 @@ tda_stochrsi_gobot_helper.stock_usd = args.stock_usd
 tda_stochrsi_gobot_helper.prev_timestamp = 0
 
 # StochRSI / RSI
-tda_stochrsi_gobot_helper.stochrsi_low_limit = args.rsi_low_limit
-tda_stochrsi_gobot_helper.stochrsi_high_limit = args.rsi_high_limit
-
 tda_stochrsi_gobot_helper.stochrsi_signal_cancel_low_limit = 20
 tda_stochrsi_gobot_helper.stochrsi_signal_cancel_high_limit = 80
-
 tda_stochrsi_gobot_helper.rsi_signal_cancel_low_limit = 30
 tda_stochrsi_gobot_helper.rsi_signal_cancel_high_limit = 70
-
-tda_stochrsi_gobot_helper.rsi_period = args.rsi_period
-tda_stochrsi_gobot_helper.stochrsi_period = args.stochrsi_period
-tda_stochrsi_gobot_helper.rsi_slow = args.rsi_slow
-tda_stochrsi_gobot_helper.rsi_k_period = args.rsi_k_period
-tda_stochrsi_gobot_helper.rsi_d_period = args.rsi_d_period
 tda_stochrsi_gobot_helper.rsi_type = args.rsi_type
 
 # MFI
-tda_stochrsi_gobot_helper.mfi_low_limit = args.mfi_low_limit
-tda_stochrsi_gobot_helper.mfi_high_limit = args.mfi_high_limit
 tda_stochrsi_gobot_helper.mfi_signal_cancel_low_limit = 30
 tda_stochrsi_gobot_helper.mfi_signal_cancel_high_limit = 70
-
-# ADX / DMI
-tda_stochrsi_gobot_helper.adx_period = args.adx_period
-tda_stochrsi_gobot_helper.di_period = args.di_period
 
 # MACD
 tda_stochrsi_gobot_helper.macd_short_period = 48
@@ -567,15 +608,8 @@ tda_stochrsi_gobot_helper.macd_signal_period = 36
 tda_stochrsi_gobot_helper.macd_offset = 0.006
 
 # Aroonosc
-tda_stochrsi_gobot_helper.aroonosc_period = args.aroonosc_period
 tda_stochrsi_gobot_helper.aroonosc_threshold = 60
 tda_stochrsi_gobot_helper.aroonosc_secondary_threshold = args.aroonosc_secondary_threshold
-
-# VPT
-tda_stochrsi_gobot_helper.vpt_sma_period = args.vpt_sma_period # Typically 72
-
-# ATR
-tda_stochrsi_gobot_helper.atr_period = args.atr_period
 
 # Support / Resistance
 tda_stochrsi_gobot_helper.price_resistance_pct = 1
@@ -807,15 +841,15 @@ while True:
 		continue
 
 	# Call read_stream():stream_client.handle_message() to read from the stream continuously
-	try:
-		asyncio.run(read_stream())
+#	try:
+	asyncio.run(read_stream())
 
-	except KeyboardInterrupt:
-		graceful_exit(None, None)
-		sys.exit(0)
-
-	except Exception as e:
-		print('Exception caught: read_stream(): ' + str(e) + ': retrying...')
+#	except KeyboardInterrupt:
+#		graceful_exit(None, None)
+#		sys.exit(0)
+#
+#	except Exception as e:
+#		print('Exception caught: read_stream(): ' + str(e) + ': retrying...')
 
 
 sys.exit(0)

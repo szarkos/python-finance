@@ -24,12 +24,10 @@ mytimezone = pytz.timezone("US/Eastern")
 
 
 # Test Scenarios
-scenarios = {	'stochrsi_mfi_aroonosc_macd_simple_adx_lodhod':	'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --with_mfi --with_macd_simple --with_aroonosc --with_adx --adx_threshold=6 --lod_hod_check ',
-		'stochrsi_mfi_aroonosc_macd_simple_lodhod':	'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --with_mfi --with_macd_simple --with_aroonosc --lod_hod_check ',
-		'stochrsi_mfi_aroonosc_macd_adx_simple':	'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --with_mfi --with_macd_simple --with_aroonosc --with_adx --adx_threshold=6 ',
-		'stochrsi_mfi_aroonosc_macd_simple_novarexit':	'--rsi_high_limit=95 --rsi_low_limit=15 --with_mfi --with_macd_simple --with_aroonosc ',
-
-#'stochrsi_mfi_aroonosc_dmi_simple_with_macd_lodhod':	'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --with_mfi --with_dmi_simple --with_aroonosc --aroonosc_with_macd_simple --with_adx --adx_threshold=6 --lod_hod_check ',
+scenarios = {
+		'stochrsi_aroonosc_simple_dmi_simple_with_macd_lodhod':		'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --lod_hod_check --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 ',
+		'stochrsi_mfi_aroonosc_simple_dmi_simple_with_macd_lodhod':	'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --lod_hod_check --with_mfi --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 ',
+		'stochrsi_mfi_rsi_adx':						'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --lod_hod_check --with_mfi --mfi_high_limit=95 --mfi_low_limit=5 --with_rsi --with_adx --adx_threshold=20 ',
 }
 
 #scenarios = {	'stochrsi_dmi_simple':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_dmi_simple',
@@ -176,7 +174,7 @@ if ( args.opts != None ):
 for key in scenarios:
 
 #	command = './tda-gobot-analyze.py ' + str(ticker) + ' --algo=stochrsi-new --no_use_resistance --stoploss --incr_threshold=0.5 --decr_threshold=0.4 --verbose ' + \
-	command = './tda-gobot-analyze.py ' + str(ticker) + ' --algo=stochrsi-new --stoploss --skip_blacklist --incr_threshold=0.5 --decr_threshold=0.4 --verbose --stock_usd=5000 ' + \
+	command = './tda-gobot-analyze.py ' + str(ticker) + ' --algo=stochrsi-new --stoploss --skip_check --incr_threshold=0.5 --decr_threshold=0.4 --exit_percent=1 --verbose --stock_usd=5000 ' + \
 			str(opts) + ' --ifile=' + str(args.ifile) + ' ' + str(start_date) + ' ' + str(scenarios[key])
 
 	outfile = str(args.ofile) + '-' + str(key)

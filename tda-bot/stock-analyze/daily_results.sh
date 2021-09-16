@@ -157,14 +157,16 @@ for tst in $tests; do
 
 		if [ $(echo "$net_gain > 0" | bc) == "1"  ]; then
 			wins=$((wins+1))
-		elif [ $(echo "$net_gain < 0" | bc) == "1" ]; then
+		fi
+		if [ $(echo "$net_gain < 0" | bc) == "1" ]; then
 			loss=$((loss+1))
 		fi
 
 		# Number of transactions
 		if [[ ! -v success_tx_num["$key"] ]]; then
 			success_tx_num["$key"]=0
-		elif [[ ! -v fail_tx_num["$key"] ]]; then
+		fi
+		if [[ ! -v fail_tx_num["$key"] ]]; then
 			fail_tx_num["$key"]=0
 		fi
 		echo -n "${success_tx_num["$key"]},"

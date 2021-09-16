@@ -51,8 +51,8 @@ if [ "$command" == "all" -o "$command" == "tx-stats" ]; then
 		done
 		echo
 	done
-
 fi
+
 
 if [ "$command" == "all" -o "$command" == "gain-loss" ]; then
 
@@ -74,6 +74,19 @@ if [ "$command" == "all" -o "$command" == "gain-loss" ]; then
 		total_return=$( cat *-${t} | grep 'Total return\:' | sed 's/Total return: //' | sed -z 's/\n/ + /g' | perl -e '$a=<>; $a =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$a 0\n" ' | bc )
 
 		echo "${t},${gain},${loss},${total_return}"
+	done
+
+	# Total trades, win / loss ratio
+	echo
+	echo "Test,Total_Trades,Wins,Loss,Win Rate"
+	for t in $tests; do
+		win=$( cat *-${t} | egrep '(2020|2021|2022)' | grep 32m | wc -l )
+		loss=$( cat *-${t} | egrep '(2020|2021|2022)' | grep 31m | wc -l )
+		total=$( echo "$win + $loss" | bc )
+		win_rate=$( echo "scale=2; ( $win / $total ) * 100" | bc )
+		loss_rate=$( echo "scale=2; ( $loss / $total ) * 100" | bc )
+
+		echo "${t},${total},${win},${loss},${win_rate}"
 	done
 
 	echo -e "\n"
@@ -181,7 +194,127 @@ fi
 if [ "$command" == "all" -o "$command" == "daily" ]; then
 	echo
 
-#	source_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+	source_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 	cd ..
-	./daily_results.sh
+	./daily_results.sh "$results_dir" "$tests"
+
 fi
+
+
+# Stats by sector
+if [ "$command" == "all" -o "$command" == "sector" ]; then
+	echo
+
+	# Reference - tickers by sector
+	# 108 Transportation
+	# 129 Consumer_Durables
+	# 148 Miscellaneous
+	# 164 Public_Utilities
+	# 180 Basic_Industries
+	# 182 Energy
+	# 185 Consumer_Non-Durables
+	# 396 Capital_Goods
+	# 618 Consumer_Services
+	# 668 Technology
+	# 916 Health_Care
+	# 1307 Finance
+
+	for tst in $tests; do
+		echo "$tst"
+
+		declare -A sector_fails
+		declare -A sector_wins
+
+		# Determine the wins/losses by sector
+		losses_by_ticker=$( egrep '(2020|2021|2022)' *-${tst} | grep '31m' | sed 's/results\///' | sed 's/-.*//' | uniq -c | sort | sed 's/^\s*//' )
+		wins_by_ticker=$( egrep '(2020|2021|2022)' *-${tst} | grep '32m' | sed 's/results\///' | sed 's/-.*//' | uniq -c | sort | sed 's/^\s*//' )
+
+		while IFS= read -r line; do
+			line=( $line )
+			num_txs=$( echo "${line[0]} / 2" | bc )
+			ticker=${line[1]}
+
+			sector=$( egrep "^$ticker," "../tickers_sector.csv" | awk -F, '{print $2}' | tr ' ' '_' )
+			if [ "$sector" == "" ]; then
+				sector="None"
+			fi
+
+			if [[ -v sector_fails["$sector"] ]]; then
+				sector_fails["$sector"]=$((${sector_fails["$sector"]}+$num_txs))
+			else
+				sector_fails["$sector"]=$num_txs
+			fi
+
+
+		done <<< "$losses_by_ticker"
+
+		while IFS= read -r line; do
+			line=( $line )
+			num_txs=$( echo "${line[0]} / 2" | bc )
+			ticker=${line[1]}
+
+			sector=$( egrep "^$ticker," "../tickers_sector.csv" | awk -F, '{print $2}' | tr ' ' '_' )
+			if [ "$sector" == "" ]; then
+				sector="None"
+			fi
+
+			if [[ -v sector_wins["$sector"] ]]; then
+				sector_wins["$sector"]=$((${sector_fails["$sector"]}+$num_txs))
+			else
+				sector_wins["$sector"]=$num_txs
+			fi
+
+		done <<< "$wins_by_ticker"
+
+
+		# Print the results
+		echo "Sector,Wins,Losses"
+		all_sectors=$( echo -n "${!sector_fails[@]} ${!sector_wins[@]}" | sed 's/ /\n/g' | sort | uniq | tr '\n' ' ' )
+		for key in $all_sectors; do
+			if [[ ! -v sector_fails["$key"] ]]; then
+				sector_fails["$key"]=0
+			fi
+			if [[ ! -v sector_wins["$key"] ]]; then
+				sector_wins["$key"]=0
+			fi
+
+			echo "$key,${sector_wins[${key}]},${sector_fails[${key}]}"
+		done
+
+		unset sector_fails
+		unset sector_wins
+
+		echo
+	done
+
+
+	# Print out some reference info:
+	#  - Which industries are represented in our ticker choice
+	#  - Overall number of industries for nasdaq/nyse tickers
+
+	# Assuming the same set of tickers were used for all tests, we only need to iterate through the first one
+	echo '---------------------------------------------------------'
+	echo 'Reference: Industry representation from our tickers'
+	all_sectors=""
+	tests=( $tests )
+	for t in *-${tests[0]}; do
+		ticker=$( echo -n $t | sed 's/-.*//' )
+		sector=$( egrep "^$ticker," "../tickers_sector.csv" | awk -F, '{print $2}' | tr ' ' '_' )
+		if [ "$sector" == "" ]; then
+			sector="None"
+		fi
+
+		all_sectors="$all_sectors $sector"
+	done
+
+	echo -n "$all_sectors" | sed 's/^\s*//' | tr ' ' '\n' | sort | uniq -c | sed 's/^\s*//' | sort -g
+
+	echo -e "\n"
+	echo "Reference: Total Tickers by Sector"
+	cat ../tickers_sector.csv | awk -F, '{print $2}' | sort | uniq -c | sort -g | sed 's/^\s*//'
+
+
+fi
+
+
+

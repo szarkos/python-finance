@@ -46,7 +46,7 @@ def tdalogin(passcode=None):
 #   isendofday(5) returns True if it's 5-minutes or less from market close (3:55)
 #   isendofday(60) returns True if it's 60-minutes or less from market close (3:00)
 def isendofday(mins=5, date=None):
-	if ( mins < 0 or mins > 60 ):
+	if ( mins < 0 ):
 		return False
 
 	eastern = timezone('US/Eastern') # Observes EST and EDT

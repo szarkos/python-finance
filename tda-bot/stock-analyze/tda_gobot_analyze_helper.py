@@ -17,8 +17,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			  variable_exit=False, no_use_resistance=False, price_resistance_pct=1, price_support_pct=1,
 			  with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_aroonosc_simple=False, with_macd=False, with_vwap=False, with_vpt=False, with_mfi=False,
 			  with_dmi_simple=False, with_macd_simple=False, aroonosc_with_macd_simple=False, aroonosc_with_vpt=False, aroonosc_secondary_threshold=70,
-			  vpt_sma_period=72, adx_period=92, di_period=48, atr_period=14, adx_threshold=25, mfi_period=14, aroonosc_period=48,
-			  mfi_low_limit=20, mfi_high_limit=80, lod_hod_check=False,
+			  vpt_sma_period=72, adx_period=92, di_period=48, atr_period=14, adx_threshold=25, mfi_period=14, aroonosc_period=48, mfi_low_limit=20, mfi_high_limit=80,
+			  lod_hod_check=False, check_volume=False, avg_volume=2000000, min_volume=1500000,
 			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None, stop_date=None, weekly_ph=None, keylevel_strict=False,
 			  debug=False, debug_all=False ):
 
@@ -223,6 +223,50 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	except Exception as e:
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_macd(): ' + str(e))
 		return False
+
+
+	# Calculate daily volume from the 1-minute candles that we have
+	if ( check_volume == True ):
+		daily_volume = OrderedDict()
+		for key in pricehistory['candles']:
+			day = datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d')
+			if day not in daily_volume:
+				daily_volume[day] = { 'volume': int(key['volume']), 'trade': True }
+			else:
+				daily_volume[day]['volume'] += int(key['volume'])
+
+		for idx,day in enumerate(daily_volume):
+			avg_vol = 0
+			if ( idx == 0 ):
+				if ( daily_volume[day]['volume'] < min_volume ):
+					daily_volume[day]['trade'] = False
+
+			elif ( idx < 5 ):
+				# Add up the previous days of volume (but not the current day)
+				for i in range(0, idx, 1):
+					avg_vol += list(daily_volume.values())[i]['volume']
+					if ( list(daily_volume.values())[i]['volume'] < min_volume ):
+						daily_volume[day]['trade'] = False
+						break
+
+				avg_vol = avg_vol / idx
+				if ( avg_vol < avg_volume ):
+					daily_volume[day]['trade'] = False
+
+			else:
+				# Add up the previous SIX days of volume (but not the current day)
+				for i in range(idx-6, idx, 1):
+					avg_vol += list(daily_volume.values())[i]['volume']
+					if ( list(daily_volume.values())[i]['volume'] < min_volume ):
+						daily_volume[day]['trade'] = False
+						break
+
+				avg_vol = avg_vol / 6
+				if ( avg_vol < avg_volume ):
+					daily_volume[day]['trade'] = False
+
+	# End daily volume check
+
 
 	# Calculate vwap and/or vwap_exit
 	if ( with_vwap == True or vwap_exit == True or no_use_resistance == False ):
@@ -483,14 +527,21 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		cur_atr = atr[int(idx / 5) - atr_period]
 		cur_natr = natr[int(idx / 5) - atr_period]
 
-		# Ignore pre-post market since we cannot trade during those hours
-		# Also skip all candles until start_date if it is set
-		date = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone)
+
+		# Skip all candles until start_date, if it is set
+		date = datetime.fromtimestamp(int(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone)
 		if ( start_date != None and date < start_date ):
 			continue
 		elif ( stop_date != None and date >= stop_date ):
 			return results
 
+		# Skip any days if check_volume marked it as low volume
+		if ( check_volume == True ):
+			day = date.strftime('%Y-%m-%d')
+			if ( isinstance(daily_volume[day]['trade'], bool) and daily_volume[day]['trade'] == False ):
+				continue
+
+		# Ignore pre-post market since we cannot trade during those hours
 		if ( tda_gobot_helper.ismarketopen_US(date, safe_open=safe_open) != True ):
 			continue
 

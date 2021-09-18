@@ -178,6 +178,27 @@ for tst in $tests; do
 
 	win_pct=$(echo "scale=2; ($wins / ( $wins + $loss )) * 100" | bc)
 	echo "Daily win/loss ratio: $wins / $loss (${win_pct}%)"
+	echo
+
+
+	sucess=""
+	fail=""
+	for key in $all_dates; do
+		if [ ! "${success_tx_num[$key]}" == "0" ]; then
+			success="${success},${success_tx_num[$key]} $key ($(date -d $key +'%A'))"
+		fi
+		if [ ! "${fail_tx_num[$key]}" == "0" ]; then
+			fail="${fail},${fail_tx_num["$key"]} $key ($(date -d $key +'%A'))"
+		fi
+	done
+
+	echo "Days with most successful trades: "
+	echo -n "$success" | tr ',' '\n' | sort -nr
+
+	echo
+	echo "Days with most failed trades: "
+	echo -n "$fail" | tr ',' '\n' | sort -nr
+
 	echo -e "\n"
 
 	unset single_share_gain
@@ -188,15 +209,6 @@ for tst in $tests; do
 
 	unset success_tx_num
 	unset fail_tx_num
-
-	# Not very useful
-#	for key in ${!single_share_gain[@]}; do
-#		echo ${key} ${single_share_gain[${key}]}
-#	done
-
-#	for key in ${!single_share_loss[@]}; do
-#		echo ${key} ${single_share_loss[${key}]}
-#	done
 
 done
 

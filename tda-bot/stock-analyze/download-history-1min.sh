@@ -82,12 +82,19 @@ echo "Downloading ${months}-months of 1-minute data for the following tickers:"
 echo "$1"
 echo
 
+# Avoid throttling
+slp=2
+if [ "$(echo "$months > 5" | bc)" == 1 ]; then
+	slp=10
+fi
+
 tickers=$( echo -n $tickers | sed 's/,/ /g' )
 for t in $tickers; do
 
 	echo "$t"
 	download_ticker $t &
-	sleep 2
+
+	sleep $slp
 
 done
 

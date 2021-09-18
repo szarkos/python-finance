@@ -25,9 +25,21 @@ mytimezone = pytz.timezone("US/Eastern")
 
 # Test Scenarios
 scenarios = {
-#		'stochrsi_aroonosc_simple_dmi_simple_with_macd_lodhod':		'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --lod_hod_check --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 ',
-#		'stochrsi_mfi_aroonosc_simple_dmi_simple_with_macd_lodhod':	'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --lod_hod_check --with_mfi --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 ',
-		'stochrsi_mfi_rsi_adx':						'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --lod_hod_check --with_mfi --mfi_high_limit=95 --mfi_low_limit=5 --with_rsi --with_adx --adx_threshold=20 ',
+		# Loud, not used but good baseline
+		'stochrsi_aroonosc_simple_dmi_simple_with_macd':	'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --lod_hod_check --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 ',
+
+		# Good results but fewer trades
+		'stochrsi_mfi_aroonosc_simple_dmi_simple_with_macd':	'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --lod_hod_check --with_mfi --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 ',
+
+		# Very good results but very few trades
+		'stochrsi_mfi_aroonosc_simple_adx_lowperiod':		'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --lod_hod_check --with_mfi --mfi_high_limit=95 --mfi_low_limit=5 --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=20 --adx_period=48 ',
+
+		# Similar to above without mfi, decent results (60 percentile) but more trades
+		'stochrsi_aroonosc_simple_adx_lowperiod':		'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --lod_hod_check --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=20 --adx_period=48 ',
+
+		# Decent results (60 percentile)
+		'stochrsi_mfi_rsi_adx':					'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --lod_hod_check --with_mfi --mfi_high_limit=95 --mfi_low_limit=5 --with_adx --adx_threshold=20 ',
+
 }
 
 #scenarios = {	'stochrsi_dmi_simple':			'--rsi_high_limit=95 --rsi_low_limit=5 --with_dmi_simple',

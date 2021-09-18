@@ -149,6 +149,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 	try:
 		rsi = tda_gobot_helper.get_rsi(pricehistory, rsi_period, rsi_type, debug=False)
+
 	except Exception as e:
 		print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_rsi(): ' + str(e))
 		return False
@@ -397,6 +398,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	macd_crossover			= False
 	macd_avg_crossover		= False
 
+	default_incr_threshold		= incr_threshold
+	default_decr_threshold		= decr_threshold
 	orig_incr_threshold		= incr_threshold
 	orig_decr_threshold		= decr_threshold
 	orig_exit_percent		= exit_percent
@@ -552,10 +555,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			# RSI signal
 			if ( cur_rsi >= rsi_signal_cancel_high_limit ):
 				rsi_signal = False
-			elif ( prev_rsi > 25 and cur_rsi < 25 ):
-				rsi_signal = False
-			elif ( prev_rsi < 25 and cur_rsi >= 25 ):
+			elif ( cur_rsi < 30 ):
 				rsi_signal = True
+
+#			elif ( prev_rsi > 25 and cur_rsi < 25 ):
+#				rsi_signal = False
+#			elif ( prev_rsi < 25 and cur_rsi >= 25 ):
+#				rsi_signal = True
 
 			# ADX signal
 			adx_signal = False
@@ -850,6 +856,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 							if ( exit_percent > cur_natr * 4 ):
 								exit_percent = cur_natr * 2
 
+						# We may adjust incr/decr_threshold later as well, so store the original version
+						#   for comparison if needed.
+						orig_incr_threshold = incr_threshold
+						orig_decr_threshold = decr_threshold
+
 				# DEBUG
 				if ( debug_all == True ):
 					print('(' + str(ticker) + '): Incr_Threshold: ' + str(incr_threshold) + ', Decr_Threshold: ' + str(decr_threshold) + ', Exit Percent: ' + str(exit_percent))
@@ -903,8 +914,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 					purchase_price	= 0
 					base_price	= 0
-					incr_threshold	= orig_incr_threshold
-					decr_threshold	= orig_decr_threshold
+					incr_threshold	= orig_incr_threshold = default_incr_threshold
+					decr_threshold	= orig_decr_threshold = default_decr_threshold
 					exit_percent	= orig_exit_percent
 
 					signal_mode = 'short'
@@ -916,8 +927,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					base_price = last_price
 
 					# Adapt decr_threshold based on changes made by --variable_exit
-					if ( incr_threshold < orig_incr_threshold ):
-						decr_threshold = incr_threshold
+					if ( incr_threshold < default_incr_threshold ):
+
+						# If this is the first adjustment, then set decr_threshold to be the same as orig_incr_threshold,
+						#  and reduce incr_threshold by half just one time to enable a quick base_price update reaction.
+						if ( incr_threshold == orig_incr_threshold ):
+							decr_threshold = incr_threshold
+							incr_threshold = incr_threshold / 2
+
 					else:
 						decr_threshold = incr_threshold / 2
 
@@ -991,8 +1008,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				purchase_price	= 0
 				base_price	= 0
-				incr_threshold	= orig_incr_threshold
-				decr_threshold	= orig_decr_threshold
+				incr_threshold	= orig_incr_threshold = default_incr_threshold
+				decr_threshold	= orig_decr_threshold = default_decr_threshold
 				exit_percent	= orig_exit_percent
 
 				if ( noshort == False ):
@@ -1039,10 +1056,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			# RSI signal
 			if ( cur_rsi <= rsi_signal_cancel_low_limit ):
 				rsi_signal = False
-			elif ( prev_rsi < 75 and cur_rsi > 75 ):
-				rsi_signal = False
-			elif ( prev_rsi > 75 and cur_rsi <= 75 ):
+			elif ( cur_rsi > 80 ):
 				rsi_signal = True
+
+#			elif ( prev_rsi < 75 and cur_rsi > 75 ):
+#				rsi_signal = False
+#			elif ( prev_rsi > 75 and cur_rsi <= 75 ):
+#				rsi_signal = True
 
 			# ADX signal
 			adx_signal = False
@@ -1327,6 +1347,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 							if ( exit_percent > cur_natr * 4 ):
 								exit_percent = cur_natr * 2
 
+						# We may adjust incr/decr_threshold later as well, so store the original version
+						#   for comparison if needed.
+						orig_incr_threshold = incr_threshold
+						orig_decr_threshold = decr_threshold
+
 				# DEBUG
 				if ( debug_all == True ):
 					print('(' + str(ticker) + '): Incr_Threshold: ' + str(incr_threshold) + ', Decr_Threshold: ' + str(decr_threshold) + ', Exit Percent: ' + str(exit_percent))
@@ -1379,8 +1404,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 					short_price	= 0
 					base_price	= 0
-					incr_threshold	= orig_incr_threshold
-					decr_threshold	= orig_decr_threshold
+					incr_threshold	= orig_incr_threshold = default_incr_threshold
+					decr_threshold	= orig_decr_threshold = default_decr_threshold
 					exit_percent	= orig_exit_percent
 
 					if ( shortonly == True ):
@@ -1395,8 +1420,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 					base_price = last_price
 
 					# Adapt decr_threshold based on changes made by --variable_exit
-					if ( incr_threshold < orig_incr_threshold ):
-						decr_threshold = incr_threshold
+					if ( incr_threshold < default_incr_threshold ):
+
+						# If this is the first adjustment, then set decr_threshold to be the same as orig_incr_threshold,
+						#  and reduce incr_threshold by half just one time to enable a quick base_price update reaction.
+						if ( incr_threshold == orig_incr_threshold ):
+							decr_threshold = incr_threshold
+							incr_threshold = incr_threshold / 2
+
 					else:
 						decr_threshold = incr_threshold / 2
 
@@ -1472,8 +1503,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 				short_price	= 0
 				base_price	= 0
-				incr_threshold	= orig_incr_threshold
-				decr_threshold	= orig_decr_threshold
+				incr_threshold	= orig_incr_threshold = default_incr_threshold
+				decr_threshold	= orig_decr_threshold = default_decr_threshold
 				exit_percent	= orig_exit_percent
 
 				if ( shortonly == True ):

@@ -313,7 +313,9 @@ for ticker in args.stocks.split(','):
 				   'base_price':		float(0),
 
 				   'incr_threshold':		args.incr_threshold,
+				   'orig_incr_threshold':	args.incr_threshold,
 				   'decr_threshold':		args.decr_threshold,
+				   'orig_decr_threshold':	args.decr_threshold,
 				   'exit_percent':		args.exit_percent,
 
 				   # Action signals

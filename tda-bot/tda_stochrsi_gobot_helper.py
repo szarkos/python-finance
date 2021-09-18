@@ -916,6 +916,11 @@ def stochrsi_gobot( algos=None, debug=False ):
 							if ( stocks[ticker]['exit_percent'] > stocks[ticker]['cur_natr'] * 4 ):
 								stocks[ticker]['exit_percent'] = stocks[ticker]['cur_natr'] * 2
 
+						# We may adjust incr/decr_threshold later as well, so store the original version
+						#   for comparison if needed.
+						stocks[ticker]['orig_incr_threshold'] = stocks[ticker]['incr_threshold']
+						stocks[ticker]['orig_decr_threshold'] = stocks[ticker]['decr_threshold']
+
 				# VARIABLE EXIT
 
 
@@ -1005,7 +1010,9 @@ def stochrsi_gobot( algos=None, debug=False ):
 					stocks[ticker]['base_price']		= 0
 					stocks[ticker]['orig_base_price']	= 0
 					stocks[ticker]['incr_threshold']	= args.incr_threshold
+					stocks[ticker]['orig_incr_threshold']	= args.incr_threshold
 					stocks[ticker]['decr_threshold']	= args.decr_threshold
+					stocks[ticker]['orig_decr_threshold']	= args.decr_threshold
 					stocks[ticker]['exit_percent']		= args.exit_percent
 
 					reset_signals(ticker)
@@ -1028,7 +1035,13 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 					# Adapt decr_threshold based on changes made by --variable_exit
 					if ( stocks[ticker]['incr_threshold'] < args.incr_threshold ):
-						stocks[ticker]['decr_threshold'] = stocks[ticker]['incr_threshold']
+
+						# If this is the first adjustment, then set decr_threshold to be the same as orig_incr_threshold,
+						#  and reduce incr_threshold by half just one time to enable a quick base_price update reaction.
+						if ( stocks[ticker]['incr_threshold'] == stocks[ticker]['orig_incr_threshold'] ):
+							stocks[ticker]['decr_threshold'] = stocks[ticker]['incr_threshold']
+							stocks[ticker]['incr_threshold'] = stocks[ticker]['incr_threshold'] / 2
+
 					else:
 						stocks[ticker]['decr_threshold'] = stocks[ticker]['incr_threshold'] / 2
 
@@ -1113,7 +1126,9 @@ def stochrsi_gobot( algos=None, debug=False ):
 				stocks[ticker]['base_price']		= 0
 				stocks[ticker]['orig_base_price']	= 0
 				stocks[ticker]['incr_threshold']	= args.incr_threshold
+				stocks[ticker]['orig_incr_threshold']	= args.incr_threshold
 				stocks[ticker]['decr_threshold']	= args.decr_threshold
+				stocks[ticker]['orig_decr_threshold']	= args.decr_threshold
 				stocks[ticker]['exit_percent']		= args.exit_percent
 
 				reset_signals(ticker)
@@ -1485,6 +1500,11 @@ def stochrsi_gobot( algos=None, debug=False ):
 							if ( stocks[ticker]['exit_percent'] > stocks[ticker]['cur_natr'] * 4 ):
 								stocks[ticker]['exit_percent'] = stocks[ticker]['cur_natr'] * 2
 
+						# We may adjust incr/decr_threshold later as well, so store the original version
+						#   for comparison if needed.
+						stocks[ticker]['orig_incr_threshold'] = stocks[ticker]['incr_threshold']
+						stocks[ticker]['orig_decr_threshold'] = stocks[ticker]['decr_threshold']
+
 				# VARIABLE EXIT
 
 
@@ -1530,7 +1550,9 @@ def stochrsi_gobot( algos=None, debug=False ):
 					stocks[ticker]['base_price']		= 0
 					stocks[ticker]['orig_base_price']	= 0
 					stocks[ticker]['incr_threshold']	= args.incr_threshold
+					stocks[ticker]['orig_incr_threshold']	= args.incr_threshold
 					stocks[ticker]['decr_threshold']	= args.decr_threshold
+					stocks[ticker]['orig_decr_threshold']	= args.decr_threshold
 					stocks[ticker]['exit_percent']		= args.exit_percent
 
 					reset_signals(ticker)
@@ -1566,7 +1588,13 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 					# Adapt decr_threshold based on changes made by --variable_exit
 					if ( stocks[ticker]['incr_threshold'] < args.incr_threshold ):
-						stocks[ticker]['decr_threshold'] = stocks[ticker]['incr_threshold']
+
+						# If this is the first adjustment, then set decr_threshold to be the same as orig_incr_threshold,
+						#  and reduce incr_threshold by half just one time to enable a quick base_price update reaction.
+						if ( stocks[ticker]['incr_threshold'] == stocks[ticker]['orig_incr_threshold'] ):
+							stocks[ticker]['decr_threshold'] = stocks[ticker]['incr_threshold']
+							stocks[ticker]['incr_threshold'] = stocks[ticker]['incr_threshold'] / 2
+
 					else:
 						stocks[ticker]['decr_threshold'] = stocks[ticker]['incr_threshold'] / 2
 
@@ -1604,7 +1632,9 @@ def stochrsi_gobot( algos=None, debug=False ):
 					stocks[ticker]['base_price']		= 0
 					stocks[ticker]['orig_base_price']	= 0
 					stocks[ticker]['incr_threshold']	= args.incr_threshold
+					stocks[ticker]['orig_incr_threshold']	= args.incr_threshold
 					stocks[ticker]['decr_threshold']	= args.decr_threshold
+					stocks[ticker]['orig_decr_threshold']	= args.decr_threshold
 					stocks[ticker]['exit_percent']		= args.exit_percent
 
 					reset_signals(ticker)

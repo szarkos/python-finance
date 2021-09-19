@@ -171,9 +171,19 @@ if ( tda_gobot_helper.tdalogin(passcode) != True ):
 print('Initializing algorithms... ')
 
 algos = []
+algo_ids = []
 for algo in args.algos:
 	print(algo)
 	algo = ','.join(algo)
+
+	# Generate a random unique algo_id
+	while True:
+		algo_id = random.randint(1000, 9999)
+		if 'algo_'+str(algo_id) in algo_ids:
+			continue
+		else:
+			algo_ids.append('algo_' + str(algo_id))
+			break
 
 	# Indicators
 	stochrsi = rsi = mfi = adx = dmi = dmi_simple = macd = macd_simple = aroonosc = vwap = vpt = support_resistance = False
@@ -248,7 +258,9 @@ for algo in args.algos:
 		if ( re.match('atr_period:', a)		!= None ):	atr_period	= int( a.split(':')[1] )
 		if ( re.match('vpt_sma_period:', a)	!= None ):	vpt_sma_period	= int( a.split(':')[1] )
 
-	algo_list = {	'stochrsi':		True,  # For now this cannot be turned off
+	algo_list = {   'algo_id':		algo_id,
+
+			'stochrsi':		True,  # For now this cannot be turned off
 			'rsi':			rsi,
 			'mfi':			mfi,
 			'adx':			adx,
@@ -276,7 +288,7 @@ for algo in args.algos:
 			'aroonosc_period':	aroonosc_period,
 			'di_period':		di_period,
 			'atr_period':		atr_period,
-			'vpt_sma_period':	vpt_sma_period  }
+			'vpt_sma_period':	vpt_sma_period }
 
 	algos.append(algo_list)
 
@@ -319,11 +331,6 @@ for ticker in args.stocks.split(','):
 				   'exit_percent':		args.exit_percent,
 
 				   # Action signals
-				   'buy_signal':		False,
-				   'sell_signal':		False,
-				   'short_signal':		False,
-				   'buy_to_cover_signal':	False,
-
 				   'final_buy_signal':		False,
 				   'final_sell_signal':		False,	# Currently unused
 				   'final_short_signal':	False,
@@ -399,21 +406,8 @@ for ticker in args.stocks.split(','):
 				   'cur_sma':			None,
 				   'cur_ema':			None,
 
-				   # Indicator Signals
-				   'rsi_signal':		False,
-				   'mfi_signal':		False,
-				   'adx_signal':		False,
-				   'dmi_signal':		False,
-				   'macd_signal':		False,
-				   'aroonosc_signal':		False,
-				   'vwap_signal':		False,
-				   'vpt_signal':		False,
-				   'resistance_signal':		False,
-
-				   'plus_di_crossover':		False,
-				   'minus_di_crossover':	False,
-				   'macd_crossover':		False,
-				   'macd_avg_crossover':	False,
+				   # Per-algo indicator signals
+				   'algo_signals':		{},
 
 				   # Period log will log datetime to determine period_multiplier
 				   'period_log':		[],
@@ -429,6 +423,31 @@ for ticker in args.stocks.split(','):
 	# Start in 'buy' mode unless we're only shorting
 	if ( args.shortonly == True ):
 		stocks[ticker]['signal_mode'] = 'short'
+
+	# Per algo signals
+	for algo in algos:
+		signals = { algo['algo_id']: {	'buy_signal':			False,
+						'sell_signal':			False,
+						'short_signal':			False,
+						'buy_to_cover_signal':		False,
+
+						# Indicator signals
+						'rsi_signal':			False,
+						'mfi_signal':			False,
+						'adx_signal':			False,
+						'dmi_signal':			False,
+						'macd_signal':			False,
+						'aroonosc_signal':		False,
+						'vwap_signal':			False,
+						'vpt_signal':			False,
+						'resistance_signal':		False,
+
+						'plus_di_crossover':		False,
+						'minus_di_crossover':		False,
+						'macd_crossover':		False,
+						'macd_avg_crossover':		False }}
+
+		stocks[ticker]['algo_signals'].update( signals )
 
 if ( len(stocks) == 0 ):
 	print('Error: no valid stock tickers provided, exiting.')
@@ -587,6 +606,7 @@ signal.signal(signal.SIGUSR1, siguser1_handler)
 
 # Global variables
 tda_stochrsi_gobot_helper.args = args
+tda_stochrsi_gobot_helper.algos = algos
 tda_stochrsi_gobot_helper.tx_log_dir = args.tx_log_dir
 tda_stochrsi_gobot_helper.stocks = stocks
 tda_stochrsi_gobot_helper.stock_usd = args.stock_usd

@@ -123,7 +123,7 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 
 	# Call stochrsi_gobot() for each set of specific algorithms
 	for algo_list in algos:
-		ret = stochrsi_gobot( algos=algo_list, debug=debug )
+		ret = stochrsi_gobot( cur_algo=algo_list, debug=debug )
 		if ( ret == False ):
 			print('Error: stochrsi_gobot_start(): stochrsi_gobot(' + str(algo) + '): returned False')
 
@@ -136,32 +136,34 @@ def reset_signals(ticker=None):
 	if ( ticker == None ):
 		return False
 
-	stocks[ticker]['buy_signal']			= False
-	stocks[ticker]['sell_signal']			= False
-	stocks[ticker]['short_signal']			= False
-	stocks[ticker]['buy_to_cover_signal']		= False
-
 	stocks[ticker]['final_buy_signal']		= False
 	stocks[ticker]['final_sell_signal']		= False		# Currently unused
 	stocks[ticker]['final_short_signal']		= False
 	stocks[ticker]['final_buy_to_cover_signal']	= False		# Currently unused
-
 	stocks[ticker]['exit_percent_signal']		= False
 
-	stocks[ticker]['rsi_signal']			= False
-	stocks[ticker]['mfi_signal']			= False
-	stocks[ticker]['adx_signal']			= False
-	stocks[ticker]['dmi_signal']			= False
-	stocks[ticker]['macd_signal']			= False
-	stocks[ticker]['aroonosc_signal']		= False
-	stocks[ticker]['vwap_signal']			= False
-	stocks[ticker]['vpt_signal']			= False
-	stocks[ticker]['resistance_signal']		= False
+	for algo in algos:
+		algo_id = algo['algo_id']
 
-	stocks[ticker]['plus_di_crossover']		= False
-	stocks[ticker]['minus_di_crossover']		= False
-	stocks[ticker]['macd_crossover']		= False
-	stocks[ticker]['macd_avg_crossover']		= False
+		stocks[ticker]['algo_signals'][algo_id]['buy_signal']		= False
+		stocks[ticker]['algo_signals'][algo_id]['sell_signal']		= False
+		stocks[ticker]['algo_signals'][algo_id]['short_signal']		= False
+		stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal']	= False
+
+		stocks[ticker]['algo_signals'][algo_id]['rsi_signal']		= False
+		stocks[ticker]['algo_signals'][algo_id]['mfi_signal']		= False
+		stocks[ticker]['algo_signals'][algo_id]['adx_signal']		= False
+		stocks[ticker]['algo_signals'][algo_id]['dmi_signal']		= False
+		stocks[ticker]['algo_signals'][algo_id]['macd_signal']		= False
+		stocks[ticker]['algo_signals'][algo_id]['aroonosc_signal']	= False
+		stocks[ticker]['algo_signals'][algo_id]['vwap_signal']		= False
+		stocks[ticker]['algo_signals'][algo_id]['vpt_signal']		= False
+		stocks[ticker]['algo_signals'][algo_id]['resistance_signal']	= False
+
+		stocks[ticker]['algo_signals'][algo_id]['plus_di_crossover']	= False
+		stocks[ticker]['algo_signals'][algo_id]['minus_di_crossover']	= False
+		stocks[ticker]['algo_signals'][algo_id]['macd_crossover']	= False
+		stocks[ticker]['algo_signals'][algo_id]['macd_avg_crossover']	= False
 
 	return True
 
@@ -207,9 +209,9 @@ def export_pricehistory():
 
 # Main helper function for tda-stochrsi-gobot-v2 that implements the primary stochrsi
 #  algorithm along with any secondary algorithms specified.
-def stochrsi_gobot( algos=None, debug=False ):
+def stochrsi_gobot( cur_algo=None, debug=False ):
 
-	if not isinstance(algos, dict):
+	if not isinstance(cur_algo, dict):
 		print('Error:')
 		return False
 
@@ -240,13 +242,13 @@ def stochrsi_gobot( algos=None, debug=False ):
 		percent_change = 0
 		net_change = 0
 
-		t_rsi_period = algos['rsi_period'] * stocks[ticker]['period_multiplier']
-		t_stochrsi_period = algos['rsi_k_period'] * stocks[ticker]['period_multiplier']
-		t_rsi_k_period = algos['rsi_k_period'] * stocks[ticker]['period_multiplier']
+		t_rsi_period = cur_algo['rsi_period'] * stocks[ticker]['period_multiplier']
+		t_stochrsi_period = cur_algo['rsi_k_period'] * stocks[ticker]['period_multiplier']
+		t_rsi_k_period = cur_algo['rsi_k_period'] * stocks[ticker]['period_multiplier']
 
 		# Get stochastic RSI
 		try:
-			stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(stocks[ticker]['pricehistory'], rsi_period=t_rsi_period, stochrsi_period=t_stochrsi_period, type=rsi_type, slow_period=algos['rsi_slow'], rsi_k_period=t_rsi_k_period, rsi_d_period=algos['rsi_d_period'], debug=False)
+			stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(stocks[ticker]['pricehistory'], rsi_period=t_rsi_period, stochrsi_period=t_stochrsi_period, type=rsi_type, slow_period=cur_algo['rsi_slow'], rsi_k_period=t_rsi_k_period, rsi_d_period=cur_algo['rsi_d_period'], debug=False)
 
 		except Exception as e:
 			print('Error: stochrsi_gobot(): get_stochrsi(' + str(ticker) + '): ' + str(e))
@@ -261,8 +263,8 @@ def stochrsi_gobot( algos=None, debug=False ):
 		stocks[ticker]['prev_rsi_d']	= float( rsi_d[-2] )
 
 		# RSI
-		if ( algos['rsi'] == True ):
-			t_rsi_period = algos['rsi_period'] * stocks[ticker]['period_multiplier']
+		if ( cur_algo['rsi'] == True ):
+			t_rsi_period = cur_algo['rsi_period'] * stocks[ticker]['period_multiplier']
 
 			try:
 				rsi = tda_gobot_helper.get_rsi(stocks[ticker]['pricehistory'], t_rsi_period, rsi_type, debug=False)
@@ -281,7 +283,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 		atr = []
 		natr = []
 		try:
-			atr, natr = tda_gobot_helper.get_atr( pricehistory=stocks[ticker]['pricehistory_5m'], period=algos['atr_period'] )
+			atr, natr = tda_gobot_helper.get_atr( pricehistory=stocks[ticker]['pricehistory_5m'], period=cur_algo['atr_period'] )
 
 		except Exception as e:
 			print('Error: stochrsi_gobot(' + str(ticker) + '): get_atr(): ' + str(e))
@@ -291,9 +293,9 @@ def stochrsi_gobot( algos=None, debug=False ):
 		stocks[ticker]['cur_natr'] = float( natr[-1] )
 
 		# MFI
-		if ( algos['mfi'] == True ):
+		if ( cur_algo['mfi'] == True ):
 
-			t_mfi_period = algos['mfi_period'] * stocks[ticker]['period_multiplier']
+			t_mfi_period = cur_algo['mfi_period'] * stocks[ticker]['period_multiplier']
 
 			mfi = []
 			try:
@@ -308,10 +310,10 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 
 		# ADX, +DI, -DI
-		if ( algos['adx'] == True or algos['dmi'] == True or algos['dmi_simple'] == True ):
+		if ( cur_algo['adx'] == True or cur_algo['dmi'] == True or cur_algo['dmi_simple'] == True ):
 
-			t_adx_period = algos['adx_period'] * stocks[ticker]['period_multiplier']
-			t_di_period = algos['di_period'] * stocks[ticker]['period_multiplier']
+			t_adx_period = cur_algo['adx_period'] * stocks[ticker]['period_multiplier']
+			t_di_period = cur_algo['di_period'] * stocks[ticker]['period_multiplier']
 
 			adx = []
 			plus_di = []
@@ -331,11 +333,11 @@ def stochrsi_gobot( algos=None, debug=False ):
 			stocks[ticker]['prev_minus_di']	= float( minus_di[-2] )
 
 		# Aroon Oscillator
-		if ( algos['aroonosc'] == True ):
+		if ( cur_algo['aroonosc'] == True ):
 
 			# SAZ - 2021-08-29: Higher volatility stocks seem to work better with a
 			#  longer Aroon Oscillator value.
-			stocks[ticker]['aroonosc_period'] = algos['aroonosc_period']
+			stocks[ticker]['aroonosc_period'] = cur_algo['aroonosc_period']
 			if ( stocks[ticker]['cur_natr'] > 0.24 ):
 				stocks[ticker]['aroonosc_period'] = 92
 
@@ -355,10 +357,10 @@ def stochrsi_gobot( algos=None, debug=False ):
 			# We do this here just so that the MACD values will be calculated below, but the buy/short logic
 			#  later on will determine if MACD is actually used to make a decision.
 			if ( args.aroonosc_with_macd_simple == True ):
-				algos['macd_simple'] = True
+				cur_algo['macd_simple'] = True
 
 		# MACD - 48, 104, 36
-		if ( algos['macd'] == True or algos['macd_simple'] == True ):
+		if ( cur_algo['macd'] == True or cur_algo['macd_simple'] == True ):
 			macd = []
 			macd_signal = []
 			macd_histogram = []
@@ -381,7 +383,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 		# VWAP
 		# Calculate vwap to use as entry or exit algorithm
-		if ( algos['vwap'] or args.vwap_exit == True or algos['support_resistance'] == True ):
+		if ( cur_algo['vwap'] or args.vwap_exit == True or cur_algo['support_resistance'] == True ):
 			vwap = []
 			vwap_up = []
 			vwap_down = []
@@ -396,10 +398,10 @@ def stochrsi_gobot( algos=None, debug=False ):
 			stocks[ticker]['cur_vwap_down']	= float( vwap_down[-1] )
 
 		# VPT
-		if ( algos['vpt'] == True ):
+		if ( cur_algo['vpt'] == True ):
 			vpt = []
 			vpt_sma = []
-			t_vpt_sma_period = algos['vpt_sma_period'] * stocks[ticker]['period_multiplier']
+			t_vpt_sma_period = cur_algo['vpt_sma_period'] * stocks[ticker]['period_multiplier']
 
 			try:
 				vpt, vpt_sma = tda_gobot_helper.get_vpt(stocks[ticker]['pricehistory'], period=t_vpt_sma_period)
@@ -415,9 +417,9 @@ def stochrsi_gobot( algos=None, debug=False ):
 		# Debug
 		if ( debug == True ):
 			time_now = datetime.datetime.now( mytimezone )
-			print(  '(' + str(ticker) + ') StochRSI Period: ' + str(algos['rsi_period']) + ' / Type: ' + str(rsi_type) +
-				' / K Period: ' + str(algos['rsi_k_period']) + ' / D Period: ' + str(algos['rsi_d_period']) + ' / Slow Period: ' + str(algos['rsi_slow']) +
-				' / High Limit|Low Limit: ' + str(algos['rsi_high_limit']) + '|' + str(algos['rsi_low_limit']) )
+			print(  '(' + str(ticker) + ') StochRSI Period: ' + str(cur_algo['rsi_period']) + ' / Type: ' + str(rsi_type) +
+				' / K Period: ' + str(cur_algo['rsi_k_period']) + ' / D Period: ' + str(cur_algo['rsi_d_period']) + ' / Slow Period: ' + str(cur_algo['rsi_slow']) +
+				' / High Limit|Low Limit: ' + str(cur_algo['rsi_high_limit']) + '|' + str(cur_algo['rsi_low_limit']) )
 
 			# StochRSI
 			print('(' + str(ticker) + ') Current StochRSI K: ' + str(round(stocks[ticker]['cur_rsi_k'], 2)) +
@@ -426,50 +428,50 @@ def stochrsi_gobot( algos=None, debug=False ):
 						' / Previous StochRSI D: ' + str(round(stocks[ticker]['prev_rsi_d'], 2)))
 
 			# RSI
-			if ( algos['rsi'] == True ):
+			if ( cur_algo['rsi'] == True ):
 				print('(' + str(ticker) + ') Current RSI: ' + str(round(stocks[ticker]['cur_rsi'], 2)))
 
 			# MFI
-			if ( algos['mfi'] == True ):
+			if ( cur_algo['mfi'] == True ):
 				print('(' + str(ticker) + ') Current MFI: ' + str(round(stocks[ticker]['cur_mfi'], 2)) +
 							' / Previous MFI: ' + str(round(stocks[ticker]['prev_mfi'], 2)) +
-							' / High Limit|Low Limit: ' + str(algos['mfi_high_limit']) + '|' + str(algos['mfi_low_limit']) )
+							' / High Limit|Low Limit: ' + str(cur_algo['mfi_high_limit']) + '|' + str(cur_algo['mfi_low_limit']) )
 
 			# ATR/NATR
 			print('(' + str(ticker) + ') Current ATR/NATR: ' + str(round(stocks[ticker]['cur_atr'], 3)) + ' / ' + str(round(stocks[ticker]['cur_natr'], 3)))
 
 			# ADX
-			if ( algos['adx'] == True ):
+			if ( cur_algo['adx'] == True ):
 				print('(' + str(ticker) + ') Current ADX: ' + str(round(stocks[ticker]['cur_adx'], 2)) +
-							' / ADX Period: ' + str(algos['adx_period']) +
-							' / ADX Threshold: ' + str(algos['adx_threshold']) )
+							' / ADX Period: ' + str(cur_algo['adx_period']) +
+							' / ADX Threshold: ' + str(cur_algo['adx_threshold']) )
 
 			# PLUS/MINUS DI
-			if ( algos['dmi'] == True or algos['dmi_simple'] == True ):
+			if ( cur_algo['dmi'] == True or cur_algo['dmi_simple'] == True ):
 				print('(' + str(ticker) + ') Current PLUS_DI: ' + str(round(stocks[ticker]['cur_plus_di'], 2)) +
 							' / Previous PLUS_DI: ' + str(round(stocks[ticker]['prev_plus_di'], 2)))
 				print('(' + str(ticker) + ') Current MINUS_DI: ' + str(round(stocks[ticker]['cur_minus_di'], 2)) +
 							' / Previous MINUS_DI: ' + str(round(stocks[ticker]['prev_minus_di'], 2)))
 
 			# MACD
-			if ( algos['macd'] == True or algos['macd_simple'] ):
+			if ( cur_algo['macd'] == True or cur_algo['macd_simple'] ):
 				print('(' + str(ticker) + ') Current MACD: ' + str(round(stocks[ticker]['cur_macd'], 2)) +
 							' / Previous MACD: ' + str(round(stocks[ticker]['prev_macd'], 2)))
 				print('(' + str(ticker) + ') Current MACD_AVG: ' + str(round(stocks[ticker]['cur_macd_avg'], 2)) +
 							' / Previous MACD_AVG: ' + str(round(stocks[ticker]['prev_macd_avg'], 2)))
 
 			# AroonOsc
-			if ( algos['aroonosc'] == True ):
+			if ( cur_algo['aroonosc'] == True ):
 				print('(' + str(ticker) + ') Current AroonOsc: ' + str(round(stocks[ticker]['cur_aroonosc'], 2)))
 
 			# VWAP
-			if ( algos['vwap'] == True or algos['support_resistance'] == True ):
+			if ( cur_algo['vwap'] == True or cur_algo['support_resistance'] == True ):
 				print('(' + str(ticker) + ') Current VWAP: ' + str(round(stocks[ticker]['cur_vwap'], 2)) +
 							' / Current VWAP_UP: ' + str(round(stocks[ticker]['cur_vwap_up'], 2)) +
 							' / Current VWAP_DOWN: ' + str(round(stocks[ticker]['cur_vwap_down'], 2)))
 
 			# VPT
-			if ( algos['vpt'] == True ):
+			if ( cur_algo['vpt'] == True ):
 				print('(' + str(ticker) + ') Current VPT: ' + str(round(stocks[ticker]['cur_vpt'], 2)) +
 							' / Previous VPT: ' + str(round(stocks[ticker]['prev_vpt'], 2)))
 				print('(' + str(ticker) + ') Current VPT_SMA: ' + str(round(stocks[ticker]['cur_vpt_sma'], 2)) +
@@ -495,6 +497,8 @@ def stochrsi_gobot( algos=None, debug=False ):
 			args.singleday = False
 
 		# Set some short variables to improve readability :)
+		algo_id		= cur_algo['algo_id']
+
 		signal_mode	= stocks[ticker]['signal_mode']
 		cur_rsi_k	= stocks[ticker]['cur_rsi_k']
 		prev_rsi_k	= stocks[ticker]['prev_rsi_k']
@@ -534,11 +538,11 @@ def stochrsi_gobot( algos=None, debug=False ):
 		prev_vpt_sma	= stocks[ticker]['prev_vpt_sma']
 
 		# Algo modifiers
-		stochrsi_high_limit	= algos['rsi_high_limit']
-		stochrsi_low_limit	= algos['rsi_low_limit']
-		mfi_high_limit		= algos['mfi_high_limit']
-		mfi_low_limit		= algos['mfi_low_limit']
-		adx_threshold		= algos['adx_threshold']
+		stochrsi_high_limit	= cur_algo['rsi_high_limit']
+		stochrsi_low_limit	= cur_algo['rsi_low_limit']
+		mfi_high_limit		= cur_algo['mfi_high_limit']
+		mfi_low_limit		= cur_algo['mfi_low_limit']
+		adx_threshold		= cur_algo['adx_threshold']
 
 
 		# Criteria for when we will not enter new trades
@@ -593,116 +597,119 @@ def stochrsi_gobot( algos=None, debug=False ):
 					print(  '(' + str(ticker) + ') BUY SIGNAL: StochRSI K value passed above the D value in the low_limit region (' +
 						str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 
-					stocks[ticker]['buy_signal'] = True
+					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = True
 
 			elif ( prev_rsi_k < stochrsi_low_limit and cur_rsi_k > prev_rsi_k ):
 				if ( cur_rsi_k >= stochrsi_low_limit ):
 					print(  '(' + str(ticker) + ') BUY SIGNAL: StochRSI K value passed above the low_limit threshold (' +
 						str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 
-					stocks[ticker]['buy_signal'] = True
+					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = True
 
 			elif ( cur_rsi_k > stochrsi_signal_cancel_low_limit and cur_rsi_d > stochrsi_signal_cancel_low_limit ):
 				# Reset the buy signal if rsi has wandered back above stochrsi_low_limit
-				if ( stocks[ticker]['buy_signal'] == True ):
+				if ( stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
 					print( '(' + str(ticker) + ') BUY SIGNAL CANCELED: RSI moved back above stochrsi_low_limit' )
 
 				reset_signals(ticker)
 
 			# Process any secondary indicators
 			# RSI
-			if ( algos['rsi'] == True ):
-				if ( cur_rsi >= rsi_signal_cancel_high_limit ):
-					stocks[ticker]['rsi_signal'] = False
-				elif ( prev_rsi > 25 and cur_rsi < 25 ):
-					stocks[ticker]['rsi_signal'] = False
-				elif ( prev_rsi < 25 and cur_rsi >= 25 ):
-					stocks[ticker]['rsi_signal'] = True
+			if ( cur_algo['rsi'] == True ):
+				stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = True
+				if ( cur_rsi < 25 ):
+					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = True
+#				if ( cur_rsi >= rsi_signal_cancel_high_limit ):
+#					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = False
+#				elif ( prev_rsi > 25 and cur_rsi < 25 ):
+#					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = False
+#				elif ( prev_rsi < 25 and cur_rsi >= 25 ):
+#					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = True
 
 			# MFI signal
-			if ( algos['mfi'] == True ):
+			if ( cur_algo['mfi'] == True ):
 				if ( cur_mfi >= mfi_signal_cancel_high_limit ):
-					stocks[ticker]['mfi_signal'] = False
+					stocks[ticker]['algo_signals'][algo_id]['mfi_signal'] = False
 				elif ( prev_mfi > mfi_low_limit and cur_mfi < mfi_low_limit ):
-					stocks[ticker]['mfi_signal'] = False
+					stocks[ticker]['algo_signals'][algo_id]['mfi_signal'] = False
 				elif ( prev_mfi < mfi_low_limit and cur_mfi >= mfi_low_limit ):
-					stocks[ticker]['mfi_signal'] = True
+					stocks[ticker]['algo_signals'][algo_id]['mfi_signal'] = True
 
 			# ADX signal
-			if ( algos['adx'] == True ):
-				stocks[ticker]['adx_signal'] = False
+			if ( cur_algo['adx'] == True ):
+				stocks[ticker]['algo_signals'][algo_id]['adx_signal'] = False
 				if ( cur_adx > adx_threshold ):
-					stocks[ticker]['adx_signal'] = True
+					stocks[ticker]['algo_signals'][algo_id]['adx_signal'] = True
 
 			# DMI signals
 			# DI+ cross above DI- indicates uptrend
-			if ( algos['dmi'] == True or algos['dmi_simple'] == True ):
+			if ( cur_algo['dmi'] == True or cur_algo['dmi_simple'] == True ):
 				if ( prev_plus_di < prev_minus_di and cur_plus_di > cur_minus_di ):
-					stocks[ticker]['plus_di_crossover'] = True
-					stocks[ticker]['minus_di_crossover'] = False
+					stocks[ticker]['algo_signals'][algo_id]['plus_di_crossover'] = True
+					stocks[ticker]['algo_signals'][algo_id]['minus_di_crossover'] = False
 
 				elif ( prev_plus_di > prev_minus_di and cur_plus_di < cur_minus_di ):
-					stocks[ticker]['plus_di_crossover'] = False
-					stocks[ticker]['minus_di_crossover'] = True
+					stocks[ticker]['algo_signals'][algo_id]['plus_di_crossover'] = False
+					stocks[ticker]['algo_signals'][algo_id]['minus_di_crossover'] = True
 
-				stocks[ticker]['dmi_signal'] = False
+				stocks[ticker]['algo_signals'][algo_id]['dmi_signal'] = False
 				if ( cur_plus_di > cur_minus_di ):
-					if ( algos['dmi_simple'] == True ):
-						stocks[ticker]['dmi_signal'] = True
-					elif ( stocks[ticker]['plus_di_crossover'] == True ):
-						stocks[ticker]['dmi_signal'] = True
+					if ( cur_algo['dmi_simple'] == True ):
+						stocks[ticker]['algo_signals'][algo_id]['dmi_signal'] = True
+					elif ( stocks[ticker]['algo_signals'][algo_id]['plus_di_crossover'] == True ):
+						stocks[ticker]['algo_signals'][algo_id]['dmi_signal'] = True
 
 			# Aroon oscillator signals
 			# Values closer to 100 indicate an uptrend
-			if ( algos['aroonosc'] == True ):
-				stocks[ticker]['aroonosc_signal'] = False
+			if ( cur_algo['aroonosc'] == True ):
+				stocks[ticker]['algo_signals'][algo_id]['aroonosc_signal'] = False
 				if ( cur_aroonosc > aroonosc_threshold ):
-					stocks[ticker]['aroonosc_signal'] = True
+					stocks[ticker]['algo_signals'][algo_id]['aroonosc_signal'] = True
 
 					# Enable macd_simple if the aroon oscillator is less than aroonosc_secondary_threshold
 					if ( args.aroonosc_with_macd_simple == True ):
-						algos['macd_simple'] = False
+						cur_algo['macd_simple'] = False
 						if ( cur_aroonosc <= aroonosc_secondary_threshold ):
-							algos['macd_simple'] = True
+							cur_algo['macd_simple'] = True
 
 			# MACD crossover signals
-			if ( algos['macd'] == True or algos['macd_simple'] == True ):
+			if ( cur_algo['macd'] == True or cur_algo['macd_simple'] == True ):
 				if ( prev_macd < prev_macd_avg and cur_macd > cur_macd_avg ):
-					stocks[ticker]['macd_crossover'] = True
-					stocks[ticker]['macd_avg_crossover'] = False
+					stocks[ticker]['algo_signals'][algo_id]['macd_crossover'] = True
+					stocks[ticker]['algo_signals'][algo_id]['macd_avg_crossover'] = False
 
 				elif ( prev_macd > prev_macd_avg and cur_macd < cur_macd_avg ):
-					stocks[ticker]['macd_crossover'] = False
-					stocks[ticker]['macd_avg_crossover'] = True
+					stocks[ticker]['algo_signals'][algo_id]['macd_crossover'] = False
+					stocks[ticker]['algo_signals'][algo_id]['macd_avg_crossover'] = True
 
-				stocks[ticker]['macd_signal'] = False
+				stocks[ticker]['algo_signals'][algo_id]['macd_signal'] = False
 				if ( cur_macd > cur_macd_avg and cur_macd - cur_macd_avg > macd_offset ):
-					if ( algos['macd_simple'] == True ):
-						stocks[ticker]['macd_signal'] = True
-					elif ( stocks[ticker]['macd_crossover'] == True ):
-						stocks[ticker]['macd_signal'] = True
+					if ( cur_algo['macd_simple'] == True ):
+						stocks[ticker]['algo_signals'][algo_id]['macd_signal'] = True
+					elif ( stocks[ticker]['algo_signals'][algo_id]['macd_crossover'] == True ):
+						stocks[ticker]['algo_signals'][algo_id]['macd_signal'] = True
 
 			# VWAP signal
 			# This is the most simple/pessimistic approach right now
-			if ( algos['vwap'] == True ):
-				stocks[ticker]['vwap_signal'] = False
+			if ( cur_algo['vwap'] == True ):
+				stocks[ticker]['algo_signals'][algo_id]['vwap_signal'] = False
 				cur_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 				if ( cur_price < cur_vwap ):
-					stocks[ticker]['vwap_signal'] = True
+					stocks[ticker]['algo_signals'][algo_id]['vwap_signal'] = True
 
 			# VPT
-			if ( algos['vpt'] == True ):
+			if ( cur_algo['vpt'] == True ):
 				# Buy signal - VPT crosses above vpt_sma
 				if ( prev_vpt < prev_vpt_sma and cur_vpt > cur_vpt_sma ):
-					stocks[ticker]['vpt_signal'] = True
+					stocks[ticker]['algo_signals'][algo_id]['vpt_signal'] = True
 
 				# Cancel signal if VPT crosses back over
 				elif ( cur_vpt < cur_vpt_sma ):
-					stocks[ticker]['vpt_signal'] = False
+					stocks[ticker]['algo_signals'][algo_id]['vpt_signal'] = False
 
 			# Support / Resistance
-			if ( algos['support_resistance'] == True and args.no_use_resistance == False ):
-				stocks[ticker]['resistance_signal'] = True
+			if ( cur_algo['support_resistance'] == True and args.no_use_resistance == False ):
+				stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = True
 				cur_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 
 				# PDC
@@ -719,13 +726,14 @@ def stochrsi_gobot( algos=None, debug=False ):
 						# If average was below PDC then PDC is resistance
 						# If average was above PDC then PDC is support
 						if ( avg < stocks[ticker]['previous_day_close'] ):
-							if ( debug == True and stocks[ticker]['buy_signal'] == True ):
+							if ( debug == True and stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
 								print( '(' + str(ticker) + ') BUY SIGNAL stalled due to PDC resistance - PDC: ' + str(round(stocks[ticker]['previous_day_close'], 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
 
-							stocks[ticker]['resistance_signal'] = False
+							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# VWAP
-				if ( stocks[ticker]['resistance_signal'] == True and abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
+				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and
+						abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
 
 					# Current price is very close to VWAP
 					# Next check average of last 15 (minute) candles
@@ -737,10 +745,10 @@ def stochrsi_gobot( algos=None, debug=False ):
 					# If average was below VWAP then VWAP is resistance
 					# If average was above VWAP then VWAP is support
 					if ( avg < cur_vwap ):
-						if ( debug == True and stocks[ticker]['buy_signal'] == True ):
+						if ( debug == True and stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
 							print( '(' + str(ticker) + ') BUY SIGNAL stalled due to VWAP resistance - Current VWAP: ' + str(round(cur_vwap, 5)) + ' / 15-min Avg: ' + str(round(avg, 5)) )
 
-						stocks[ticker]['resistance_signal'] = False
+						stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# High of the day (HOD)
 				# Skip this check for the first 2.5 hours of the day. The reason for this is
@@ -750,7 +758,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 				cur_time	= datetime.datetime.fromtimestamp(float(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone)
 				cur_day		= cur_time.strftime('%Y-%m-%d')
 				cur_hour	= int( cur_time.strftime('%-H') )
-				if ( stocks[ticker]['resistance_signal'] == True and args.lod_hod_check == True and cur_hour >= 13 ):
+				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and args.lod_hod_check == True and cur_hour >= 13 ):
 					cur_day_start = datetime.datetime.strptime(cur_day + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
 					cur_day_start = mytimezone.localize(cur_day_start)
 
@@ -768,13 +776,13 @@ def stochrsi_gobot( algos=None, debug=False ):
 					#  then we should not enter the trade.
 					if ( cur_price < hod ):
 						if ( abs((cur_price / hod - 1) * 100) <= price_resistance_pct ):
-							stocks[ticker]['resistance_signal'] = False
+							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# END HOD Check
 
 				# Key Levels
 				# Check if price is near historic key level
-				if ( stocks[ticker]['resistance_signal'] == True ):
+				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True ):
 					near_keylevel = False
 					for lvl in stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']:
 						if ( abs((lvl / cur_price - 1) * 100) <= price_support_pct ):
@@ -793,19 +801,19 @@ def stochrsi_gobot( algos=None, debug=False ):
 							# If average was below key level then key level is resistance
 							# Therefore this is not a great buy
 							if ( avg < lvl ):
-								if ( debug == True and stocks[ticker]['buy_signal'] == True ):
+								if ( debug == True and stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
 									print( '(' + str(ticker) + ') BUY SIGNAL stalled due to Key Level resistance - KL: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
 
-								stocks[ticker]['resistance_signal'] = False
+								stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 								break
 
 					# If keylevel_strict is True then only buy the stock if price is near a key level
 					# Otherwise reject this buy to avoid getting chopped around between levels
 					if ( args.keylevel_strict == True and near_keylevel == False ):
-						if ( debug == True and stocks[ticker]['buy_signal'] == True ):
+						if ( debug == True and stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
 							print( '(' + str(ticker) + ') BUY SIGNAL stalled due to keylevel_strict - Current price: ' + str(round(cur_price, 2)) )
 
-						stocks[ticker]['resistance_signal'] = False
+						stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# End Key Levels
 
@@ -813,45 +821,56 @@ def stochrsi_gobot( algos=None, debug=False ):
 #				if ( cur_price >= float(stocks[ticker]['twenty_week_high']) ):
 #					# This is not a good bet
 #					stocks[ticker]['twenty_week_high'] = cur_price
-#					stocks[ticker]['resistance_signal'] = False
+#					stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 #
 #				elif ( ( abs(cur_price / float(stocks[ticker]['twenty_week_high']) - 1) * 100 ) < 1 ):
 #					# Current high is within 1% of 20-week high, not a good bet
-#					stocks[ticker]['resistance_signal'] = False
+#					stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
-			if ( stocks[ticker]['buy_signal'] == True ):
+			if ( stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
+
+				rsi_signal		= stocks[ticker]['algo_signals'][algo_id]['rsi_signal']
+				mfi_signal		= stocks[ticker]['algo_signals'][algo_id]['mfi_signal']
+				adx_signal		= stocks[ticker]['algo_signals'][algo_id]['adx_signal']
+				dmi_signal		= stocks[ticker]['algo_signals'][algo_id]['dmi_signal']
+				aroonosc_signal		= stocks[ticker]['algo_signals'][algo_id]['aroonosc_signal']
+				macd_signal		= stocks[ticker]['algo_signals'][algo_id]['macd_signal']
+				vwap_signal		= stocks[ticker]['algo_signals'][algo_id]['vwap_signal']
+				vpt_signal		= stocks[ticker]['algo_signals'][algo_id]['vpt_signal']
+				resistance_signal	= stocks[ticker]['algo_signals'][algo_id]['resistance_signal']
 
 				stocks[ticker]['final_buy_signal'] = True
-				if ( algos['rsi'] == True and stocks[ticker]['rsi_signal'] != True ):
+
+				if ( cur_algo['rsi'] == True and rsi_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
-				if ( algos['mfi'] == True and stocks[ticker]['mfi_signal'] != True ):
+				if ( cur_algo['mfi'] == True and mfi_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
-				if ( algos['adx'] == True and stocks[ticker]['adx_signal'] != True ):
+				if ( cur_algo['adx'] == True and adx_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
-				if ( (algos['dmi'] == True or algos['dmi_simple'] == True) and stocks[ticker]['dmi_signal'] != True ):
+				if ( (cur_algo['dmi'] == True or cur_algo['dmi_simple'] == True) and dmi_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
-				if ( algos['aroonosc'] == True and stocks[ticker]['aroonosc_signal'] != True ):
+				if ( cur_algo['aroonosc'] == True and aroonosc_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
-				if ( (algos['macd'] == True or algos['macd_simple'] == True) and stocks[ticker]['macd_signal'] != True ):
+				if ( (cur_algo['macd'] == True or cur_algo['macd_simple'] == True) and macd_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
-				if ( algos['vwap'] == True and stocks[ticker]['vwap_signal'] != True ):
+				if ( cur_algo['vwap'] == True and vwap_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
-				if ( algos['vpt'] == True and stocks[ticker]['vpt_signal'] != True ):
+				if ( cur_algo['vpt'] == True and vpt_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
-				if ( (algos['support_resistance'] == True and args.no_use_resistance == False) and stocks[ticker]['resistance_signal'] != True ):
+				if ( (cur_algo['support_resistance'] == True and args.no_use_resistance == False) and resistance_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
 			# BUY THE STOCK
-			if ( stocks[ticker]['buy_signal'] == True and stocks[ticker]['final_buy_signal'] == True ):
+			if ( stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True and stocks[ticker]['final_buy_signal'] == True ):
 
 				# Calculate stock quantity from investment amount
 				last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
@@ -975,7 +994,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 					percent_change = abs( stocks[ticker]['orig_base_price'] / last_price - 1 ) * 100
 					if ( percent_change >= args.last_hour_threshold ):
 						stocks[ticker]['exit_percent_signal'] = True
-						stocks[ticker]['sell_signal'] = True
+						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 			# STOPLOSS MONITOR
 			# If price decreases
@@ -1064,7 +1083,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 					last_close = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 					last_open = float( stocks[ticker]['pricehistory']['candles'][-1]['open'] )
 					if ( last_close < last_open ):
-						stocks[ticker]['sell_signal'] = True
+						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 				elif ( total_percent_change >= stocks[ticker]['exit_percent'] ):
 					stocks[ticker]['exit_percent_signal'] = True
@@ -1073,11 +1092,11 @@ def stochrsi_gobot( algos=None, debug=False ):
 			if ( args.vwap_exit == True ):
 				if ( cur_vwap > stocks[ticker]['orig_base_price'] ):
 					if ( last_price >= ((cur_vwap - stocks[ticker]['orig_base_price']) / 2) + stocks[ticker]['orig_base_price'] ):
-						stocks[ticker]['sell_signal'] = True
+						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 				elif ( cur_vwap < stocks[ticker]['orig_base_price'] ):
 					if ( last_price >= ((cur_vwap_up - cur_vwap) / 2) + cur_vwap ):
-						stocks[ticker]['sell_signal'] = True
+						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 
 			# StochRSI MONITOR
@@ -1093,18 +1112,18 @@ def stochrsi_gobot( algos=None, debug=False ):
 						print(  '(' + str(ticker) + ') SELL SIGNAL: StochRSI K value passed below the D value in the high_limit region (' +
 							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 
-						stocks[ticker]['sell_signal'] = True
+						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 				elif ( prev_rsi_k > stochrsi_high_limit and cur_rsi_k < prev_rsi_k ):
 					if ( cur_rsi_k <= stochrsi_high_limit ):
 						print(  '(' + str(ticker) + ') SELL SIGNAL: StochRSI K value passed below the high_limit threshold (' +
 							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 
-						stocks[ticker]['sell_signal'] = True
+						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 
 			# SELL THE STOCK
-			if ( stocks[ticker]['sell_signal'] == True ):
+			if ( stocks[ticker]['algo_signals'][algo_id]['sell_signal'] == True ):
 
 				if ( args.fake == False ):
 					data = tda_gobot_helper.sell_stock_marketprice(ticker, stocks[ticker]['stock_qty'], fillwait=True, debug=True)
@@ -1133,9 +1152,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 
 				reset_signals(ticker)
 				if ( args.short == True and stocks[ticker]['shortable'] == True ):
-					stocks[ticker]['short_signal'] = True
 					stocks[ticker]['signal_mode'] = 'short'
-					continue
 				else:
 					stocks[ticker]['signal_mode'] = 'buy'
 
@@ -1162,116 +1179,120 @@ def stochrsi_gobot( algos=None, debug=False ):
 					print(  '(' + str(ticker) + ') SHORT SIGNAL: StochRSI K value passed below the D value in the high_limit region (' +
 						str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 
-					stocks[ticker]['short_signal'] = True
+					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = True
 
 			elif ( prev_rsi_k > stochrsi_high_limit and cur_rsi_k < prev_rsi_k ):
 				if ( cur_rsi_k <= stochrsi_high_limit ):
 					print(  '(' + str(ticker) + ') SHORT SIGNAL: StochRSI K value passed below the high_limit threshold (' +
 						str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 
-					stocks[ticker]['short_signal'] = True
+					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = True
 
 			elif ( cur_rsi_k < stochrsi_signal_cancel_high_limit and cur_rsi_d < stochrsi_signal_cancel_high_limit ):
 				# Reset the short signal if rsi has wandered back below stochrsi_high_limit
-				if ( stocks[ticker]['short_signal'] == True ):
+				if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True ):
 					print( '(' + str(ticker) + ') SHORT SIGNAL CANCELED: RSI moved back below stochrsi_high_limit' )
 
 				reset_signals(ticker)
 
 			# Secondary Indicators
 			# RSI
-			if ( algos['rsi'] == True ):
-				if ( cur_rsi <= rsi_signal_cancel_low_limit ):
-					stocks[ticker]['rsi_signal'] = False
-				elif ( prev_rsi < 75 and cur_rsi > 75 ):
-					stocks[ticker]['rsi_signal'] = False
-				elif ( prev_rsi > 75 and cur_rsi <= 75 ):
-					stocks[ticker]['rsi_signal'] = True
+			if ( cur_algo['rsi'] == True ):
+				stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = False
+				if ( cur_rsi >= 80 ):
+					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = True
+
+#				if ( cur_rsi <= rsi_signal_cancel_low_limit ):
+#					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = False
+#				elif ( prev_rsi < 75 and cur_rsi > 75 ):
+#					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = False
+#				elif ( prev_rsi > 75 and cur_rsi <= 75 ):
+#					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = True
 
 			# MFI signal
-			if ( algos['mfi'] == True ):
+			if ( cur_algo['mfi'] == True ):
 				if ( cur_mfi <= mfi_signal_cancel_low_limit ):
-					stocks[ticker]['mfi_signal'] = False
+					stocks[ticker]['algo_signals'][algo_id]['mfi_signal'] = False
 				elif ( prev_mfi < mfi_high_limit and cur_mfi > mfi_high_limit ):
-					stocks[ticker]['mfi_signal'] = False
+					stocks[ticker]['algo_signals'][algo_id]['mfi_signal'] = False
 				elif ( prev_mfi > mfi_high_limit and cur_mfi <= mfi_high_limit ):
-					stocks[ticker]['mfi_signal'] = True
+					stocks[ticker]['algo_signals'][algo_id]['mfi_signal'] = True
 
 			# ADX signal
-			if ( algos['adx'] == True ):
-				stocks[ticker]['adx_signal'] = False
+			if ( cur_algo['adx'] == True ):
+				stocks[ticker]['algo_signals'][algo_id]['adx_signal'] = False
 				if ( cur_adx > adx_threshold ):
-					stocks[ticker]['adx_signal'] = True
+					stocks[ticker]['algo_signals'][algo_id]['adx_signal'] = True
 
 			# DMI signals
 			# DI+ cross above DI- indicates uptrend
-			if ( algos['dmi'] == True or algos['dmi_simple'] == True ):
+			if ( cur_algo['dmi'] == True or cur_algo['dmi_simple'] == True ):
 				if ( prev_plus_di < prev_minus_di and cur_plus_di > cur_minus_di ):
-					stocks[ticker]['plus_di_crossover'] = True
-					stocks[ticker]['minus_di_crossover'] = False
+					stocks[ticker]['algo_signals'][algo_id]['plus_di_crossover'] = True
+					stocks[ticker]['algo_signals'][algo_id]['minus_di_crossover'] = False
 
 				elif ( prev_plus_di > prev_minus_di and cur_plus_di < cur_minus_di ):
-					stocks[ticker]['plus_di_crossover'] = False
-					stocks[ticker]['minus_di_crossover'] = True
+					stocks[ticker]['algo_signals'][algo_id]['plus_di_crossover'] = False
+					stocks[ticker]['algo_signals'][algo_id]['minus_di_crossover'] = True
 
-				stocks[ticker]['dmi_signal'] = False
+				stocks[ticker]['algo_signals'][algo_id]['dmi_signal'] = False
 				if ( cur_plus_di < cur_minus_di ):
-					if ( algos['dmi_simple'] == True ):
-						stocks[ticker]['dmi_signal'] = True
-					elif ( stocks[ticker]['minus_di_crossover'] == True ):
-						stocks[ticker]['dmi_signal'] = True
+					if ( cur_algo['dmi_simple'] == True ):
+						stocks[ticker]['algo_signals'][algo_id]['dmi_signal'] = True
+					elif ( stocks[ticker]['algo_signals'][algo_id]['minus_di_crossover'] == True ):
+						stocks[ticker]['algo_signals'][algo_id]['dmi_signal'] = True
 
 			# Aroon oscillator signals
 			# Values closer to -100 indicate a downtrend
-			if ( algos['aroonosc'] == True ):
-				stocks[ticker]['aroonosc_signal'] = False
+			if ( cur_algo['aroonosc'] == True ):
+				stocks[ticker]['algo_signals'][algo_id]['aroonosc_signal'] = False
 				if ( cur_aroonosc < -aroonosc_threshold ):
-					stocks[ticker]['aroonosc_signal'] = True
+					stocks[ticker]['algo_signals'][algo_id]['aroonosc_signal'] = True
 
 					# Enable macd_simple if the aroon oscillator is less than aroonosc_secondary_threshold
 					if ( args.aroonosc_with_macd_simple == True ):
-						algos['macd_simple'] = False
+						cur_algo['macd_simple'] = False
 						if ( cur_aroonosc >= -aroonosc_secondary_threshold ):
-							algos['macd_simple'] = True
+							cur_algo['macd_simple'] = True
 
 			# MACD crossover signals
-			if ( algos['macd'] == True or algos['macd_simple'] == True ):
+			if ( cur_algo['macd'] == True or cur_algo['macd_simple'] == True ):
 				if ( prev_macd < prev_macd_avg and cur_macd > cur_macd_avg ):
-					stocks[ticker]['macd_crossover'] = True
-					stocks[ticker]['macd_avg_crossover'] = False
+					stocks[ticker]['algo_signals'][algo_id]['macd_crossover'] = True
+					stocks[ticker]['algo_signals'][algo_id]['macd_avg_crossover'] = False
 
 				elif ( prev_macd > prev_macd_avg and cur_macd < cur_macd_avg ):
-					stocks[ticker]['macd_crossover'] = False
-					stocks[ticker]['macd_avg_crossover'] = True
+					stocks[ticker]['algo_signals'][algo_id]['macd_crossover'] = False
+					stocks[ticker]['algo_signals'][algo_id]['macd_avg_crossover'] = True
 
-				stocks[ticker]['macd_signal'] = False
+				stocks[ticker]['algo_signals'][algo_id]['macd_signal'] = False
 				if ( cur_macd < cur_macd_avg and cur_macd_avg - cur_macd > macd_offset ):
-					if ( algos['macd_simple'] == True ):
-						stocks[ticker]['macd_signal'] = True
-					elif ( stocks[ticker]['macd_avg_crossover'] == True ):
-						stocks[ticker]['macd_signal'] = True
+					if ( cur_algo['macd_simple'] == True ):
+						stocks[ticker]['algo_signals'][algo_id]['macd_signal'] = True
+					elif ( stocks[ticker]['algo_signals'][algo_id]['macd_avg_crossover'] == True ):
+						stocks[ticker]['algo_signals'][algo_id]['macd_signal'] = True
 
 			# VWAP signal
 			# This is the most simple/pessimistic approach right now
-			if ( algos['vwap'] == True ):
-				stocks[ticker]['vwap_signal'] = False
+			if ( cur_algo['vwap'] == True ):
+				stocks[ticker]['algo_signals'][algo_id]['vwap_signal'] = False
 				cur_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 				if ( cur_price > cur_vwap ):
-					stocks[ticker]['vwap_signal'] = True
+					stocks[ticker]['algo_signals'][algo_id]['vwap_signal'] = True
 
 			# VPT
-			if ( algos['vpt'] == True ):
+			if ( cur_algo['vpt'] == True ):
 				# Short signal - VPT crosses below vpt_sma
 				if ( prev_vpt > prev_vpt_sma and cur_vpt < cur_vpt_sma ):
-					stocks[ticker]['vpt_signal'] = True
+					stocks[ticker]['algo_signals'][algo_id]['vpt_signal'] = True
 
 				# Cancel signal if VPT crosses back over
 				elif ( cur_vpt > cur_vpt_sma ):
-					stocks[ticker]['vpt_signal'] = False
+					stocks[ticker]['algo_signals'][algo_id]['vpt_signal'] = False
 
 			# Support / Resistance
-			if ( algos['support_resistance'] == True and args.no_use_resistance == False ):
-				stocks[ticker]['resistance_signal'] = True
+			if ( cur_algo['support_resistance'] == True and args.no_use_resistance == False ):
+				stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = True
 				cur_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 
 				# PDC
@@ -1288,13 +1309,14 @@ def stochrsi_gobot( algos=None, debug=False ):
 						# If average was below PDC then PDC is resistance (good for short)
 						# If average was above PDC then PDC is support (bad for short)
 						if ( avg > stocks[ticker]['previous_day_close'] ):
-							if ( stocks[ticker]['short_signal'] == True and debug == True ):
+							if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True and debug == True ):
 								print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to PDC resistance - PDC: ' + str(round(stocks[ticker]['previous_day_close'], 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
 
-							stocks[ticker]['resistance_signal'] = False
+							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# VWAP
-				if ( stocks[ticker]['resistance_signal'] == True and abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
+				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and
+						abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
 
 					# Current price is very close to VWAP
 					# Next check average of last 15 (minute) candles
@@ -1306,10 +1328,10 @@ def stochrsi_gobot( algos=None, debug=False ):
 					# If average was below VWAP then VWAP is resistance (good for short)
 					# If average was above VWAP then VWAP is support (bad for short)
 					if ( avg > cur_vwap ):
-						if ( stocks[ticker]['short_signal'] == True and debug == True ):
+						if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True and debug == True ):
 							print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to VWAP resistance - Current VWAP: ' + str(round(cur_vwap, 5)) + ' / 15-min Avg: ' + str(round(avg, 5)) )
 
-						stocks[ticker]['resistance_signal'] = False
+						stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# Low of the day (LOD)
 				# Skip this check for the first 1.5 hours of the day. The reason for this is
@@ -1319,7 +1341,8 @@ def stochrsi_gobot( algos=None, debug=False ):
 				cur_time	= datetime.datetime.fromtimestamp(float(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone)
 				cur_day		= cur_time.strftime('%Y-%m-%d')
 				cur_hour	= int( cur_time.strftime('%-H') )
-				if ( stocks[ticker]['resistance_signal'] == True and args.lod_hod_check == True and cur_hour >= 13 ):
+				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and args.lod_hod_check == True and cur_hour >= 13 ):
+
 					cur_day_start = datetime.datetime.strptime(cur_day + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
 					cur_day_start = mytimezone.localize(cur_day_start)
 
@@ -1337,12 +1360,12 @@ def stochrsi_gobot( algos=None, debug=False ):
 					#  then we should not enter the trade.
 					if ( cur_price > lod ):
 						if ( abs((lod / cur_price - 1) * 100) <= price_resistance_pct ):
-							stocks[ticker]['resistance_signal'] = False
+							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# END HOD Check
 				# Key Levels
 				# Check if price is near historic key level
-				if ( stocks[ticker]['resistance_signal'] == True ):
+				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True ):
 					near_keylevel = False
 					for lvl in stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']:
 						if ( abs((lvl / cur_price - 1) * 100) <= price_resistance_pct ):
@@ -1361,19 +1384,19 @@ def stochrsi_gobot( algos=None, debug=False ):
 							# If average was above key level then key level is support
 							# Therefore this is not a good short
 							if ( avg > lvl ):
-								if ( stocks[ticker]['short_signal'] == True and debug == True ):
+								if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True and debug == True ):
 									print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to Key Level resistance - KL: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
 
-								stocks[ticker]['resistance_signal'] = False
+								stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 								break
 
 					# If keylevel_strict is True then only short the stock if price is near a key level
 					# Otherwise reject this short altogether to avoid getting chopped around between levels
 					if ( args.keylevel_strict == True and near_keylevel == False ):
-						if ( stocks[ticker]['short_signal'] == True and debug == True ):
+						if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True and debug == True ):
 							print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to keylevel_strict - Current price: ' + str(round(cur_price, 2)) )
 
-						stocks[ticker]['resistance_signal'] = False
+						stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# End Key Levels
 
@@ -1381,46 +1404,57 @@ def stochrsi_gobot( algos=None, debug=False ):
 #				if ( cur_price <= float(stocks[ticker]['twenty_week_low']) ):
 #					# This is not a good bet
 #					stocks[ticker]['twenty_week_low'] = cur_price
-#					stocks[ticker]['resistance_signal'] = False
+#					stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 #
 #				elif ( ( abs(float(stocks[ticker]['twenty_week_low']) / float(cur_price) - 1) * 100 ) < 1 ):
 #					# Current low is within 1% of 20-week low, not a good bet
-#					stocks[ticker]['resistance_signal'] = False
+#					stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
-			if ( stocks[ticker]['short_signal'] == True ):
+			if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True ):
+
+				rsi_signal		= stocks[ticker]['algo_signals'][algo_id]['rsi_signal']
+				mfi_signal		= stocks[ticker]['algo_signals'][algo_id]['mfi_signal']
+				adx_signal		= stocks[ticker]['algo_signals'][algo_id]['adx_signal']
+				dmi_signal		= stocks[ticker]['algo_signals'][algo_id]['dmi_signal']
+				aroonosc_signal		= stocks[ticker]['algo_signals'][algo_id]['aroonosc_signal']
+				macd_signal		= stocks[ticker]['algo_signals'][algo_id]['macd_signal']
+				vwap_signal		= stocks[ticker]['algo_signals'][algo_id]['vwap_signal']
+				vpt_signal		= stocks[ticker]['algo_signals'][algo_id]['vpt_signal']
+				resistance_signal	= stocks[ticker]['algo_signals'][algo_id]['resistance_signal']
 
 				stocks[ticker]['final_short_signal'] = True
-				if ( algos['rsi'] == True and stocks[ticker]['rsi_signal'] != True ):
+
+				if ( cur_algo['rsi'] == True and rsi_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
 
-				if ( algos['mfi'] == True and stocks[ticker]['mfi_signal'] != True ):
+				if ( cur_algo['mfi'] == True and mfi_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
 
-				if ( algos['adx'] == True and stocks[ticker]['adx_signal'] != True ):
+				if ( cur_algo['adx'] == True and adx_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
 
-				if ( (algos['dmi'] == True or algos['dmi_simple'] == True) and stocks[ticker]['dmi_signal'] != True ):
+				if ( (cur_algo['dmi'] == True or cur_algo['dmi_simple'] == True) and dmi_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
 
-				if ( algos['aroonosc'] == True and stocks[ticker]['aroonosc_signal'] != True ):
+				if ( cur_algo['aroonosc'] == True and aroonosc_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
 
-				if ( (algos['macd'] == True or algos['macd_simple'] == True) and stocks[ticker]['macd_signal'] != True ):
+				if ( (cur_algo['macd'] == True or cur_algo['macd_simple'] == True) and macd_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
 
-				if ( algos['vwap'] == True and stocks[ticker]['vwap_signal'] != True ):
+				if ( cur_algo['vwap'] == True and vwap_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
 
-				if ( algos['vpt'] == True and stocks[ticker]['vpt_signal'] != True ):
+				if ( cur_algo['vpt'] == True and vpt_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
 
-				if ( (algos['support_resistance'] == True and args.no_use_resistance == False) and stocks[ticker]['resistance_signal'] != True ):
+				if ( (cur_algo['support_resistance'] == True and args.no_use_resistance == False) and resistance_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
 
 
 			# SHORT THE STOCK
-			if ( stocks[ticker]['short_signal'] == True and stocks[ticker]['final_short_signal'] == True ):
+			if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True and stocks[ticker]['final_short_signal'] == True ):
 
 				# Calculate stock quantity from investment amount
 				last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
@@ -1568,8 +1602,8 @@ def stochrsi_gobot( algos=None, debug=False ):
 				if ( last_price < stocks[ticker]['orig_base_price'] ):
 					percent_change = abs( last_price / stocks[ticker]['orig_base_price'] - 1 ) * 100
 					if ( percent_change >= args.last_hour_threshold ):
+						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 						stocks[ticker]['exit_percent_signal'] = True
-						stocks[ticker]['buy_to_cover_signal'] = True
 
 
 			# STOPLOSS MONITOR
@@ -1661,7 +1695,7 @@ def stochrsi_gobot( algos=None, debug=False ):
 					last_close = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 					last_open = float( stocks[ticker]['pricehistory']['candles'][-1]['open'] )
 					if ( last_close > last_open ):
-						stocks[ticker]['buy_to_cover_signal'] = True
+						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 				elif ( total_percent_change >= stocks[ticker]['exit_percent'] ):
 					stocks[ticker]['exit_percent_signal'] = True
@@ -1670,11 +1704,11 @@ def stochrsi_gobot( algos=None, debug=False ):
 			if ( args.vwap_exit == True ):
 				if ( cur_vwap < stocks[ticker]['orig_base_price'] ):
 					if ( last_price <= ((stocks[ticker]['orig_base_price'] - cur_vwap) / 2) + cur_vwap ):
-						stocks[ticker]['buy_to_cover_signal'] = True
+						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 				elif ( cur_vwap > stocks[ticker]['orig_base_price'] ):
 					if ( last_price <= ((cur_vwap - cur_vwap_down) / 2) + cur_vwap_down ):
-						stocks[ticker]['buy_to_cover_signal'] = True
+						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 
 			# RSI MONITOR
@@ -1688,18 +1722,18 @@ def stochrsi_gobot( algos=None, debug=False ):
 						print(  '(' + str(ticker) + ') BUY_TO_COVER SIGNAL: StochRSI K value passed above the D value in the low_limit region (' +
 							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 
-						stocks[ticker]['buy_to_cover_signal'] = True
+						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 				elif ( prev_rsi_k < stochrsi_low_limit and cur_rsi_k > prev_rsi_k ):
 					if ( cur_rsi_k >= stochrsi_low_limit ):
 						print(  '(' + str(ticker) + ') BUY_TO_COVER SIGNAL: StochRSI K value passed above the low_limit threshold (' +
 							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 
-						stocks[ticker]['buy_to_cover_signal'] = True
+						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 
 			# BUY-TO-COVER THE STOCK
-			if ( stocks[ticker]['buy_to_cover_signal'] == True ):
+			if ( stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] == True ):
 				if ( args.fake == False ):
 					data = tda_gobot_helper.buytocover_stock_marketprice(ticker, stocks[ticker]['stock_qty'], fillwait=True, debug=True)
 

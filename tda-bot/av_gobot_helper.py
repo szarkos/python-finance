@@ -5,6 +5,7 @@
 
 import os, sys, re
 import datetime, pytz
+import requests
 
 # Obtain API key for Alpha Vantage
 from dotenv import load_dotenv
@@ -22,8 +23,6 @@ except:
 # Return daily candles - date, daily open, daily high, daily low, daily close, daily volume
 # outputsize = compact | full
 def av_get_day_pricehistory(ticker=None, outputsize='compact', debug=False):
-
-	import requests
 
 	if ( ticker == None ):
 		print('Error: av_get_day_pricehistory(' + str(ticker) + '): ticker is empty', file=sys.stderr)
@@ -81,8 +80,6 @@ def av_get_day_pricehistory(ticker=None, outputsize='compact', debug=False):
 # slice = year1month1, year1month2, year1month3, ..., year1month11, year1month12, year2month1, year2month2, year2month3, ..., year2month11, year2month12
 # adjusted = True|False
 def av_get_intraday_pricehistory(ticker=None, interval='1min', slice='year1month1', adjusted=False, debug=False):
-
-	import requests
 
 	if ( ticker == None ):
 		print('Error: av_get_intraday_pricehistory(' + str(ticker) + '): ticker is empty', file=sys.stderr)
@@ -149,8 +146,6 @@ def av_get_intraday_pricehistory(ticker=None, interval='1min', slice='year1month
 # series_type = close, open, high, low (default: close)
 def av_get_ma(ticker=None, ma_type='sma', interval='daily', time_period=200, series_type='close', debug=False):
 
-	import requests
-
 	if ( ticker == None ):
 		print('Error: av_get_ma(' + str(ticker) + '): ticker is empty', file=sys.stderr)
 		return False
@@ -205,4 +200,111 @@ def av_get_ma(ticker=None, ma_type='sma', interval='daily', time_period=200, ser
 
 	return ma
 
+
+# Get historical earnings information for a single ticker
+# Use type='raw' for all the data, or type='reported' to just return a
+#  list of 'reportedDate' entries from 'quarterlyEarnings'
+def av_get_earnings(ticker=None, type='reported', debug=False):
+
+	if ( ticker == None ):
+		print('Error: av_get_earnings(' + str(ticker) + '): ticker is empty', file=sys.stderr)
+		return False
+
+	try:
+		av_api_key
+
+	except:
+		print('Error: av_get_earnings(): API key not defined.')
+		return False
+
+	base_url = 'https://www.alphavantage.co/query?function=EARNINGS'
+	base_url = base_url + '&symbol=' + str(ticker)
+	base_url = base_url + '&apikey=' + str(av_api_key)
+
+	try:
+		data = requests.get( url=base_url )
+		data.raise_for_status()
+		data = data.json()
+
+	except Exception as e:
+		print('Error: av_get_earnings(' + str(ticker) + '): error downloading data: ' + str(e))
+
+	if ( debug == True ):
+		print(data)
+
+	if ( type == 'raw' ):
+		return(data)
+
+	elif ( type == 'reported' ):
+		reported_dates = []
+		for entry in data['quarterlyEarnings']:
+
+			# Skip dates from before 2020
+			# If for some reason anyone ever needs all the dates back to the 90s,
+			#  then they can just request the raw data.
+			if ( re.match('202[0-9]\-', entry['reportedDate']) != None ):
+				reported_dates.append(entry['reportedDate'])
+
+		return reported_dates
+
+	return False
+
+
+# Get future earnings calendar
+# Leave ticker=None to get a full calendar for all known stock tickers.
+# 'period' is in months
+def av_get_earnings_calendar(ticker=None, period=3, debug=False):
+
+	try:
+		av_api_key
+
+	except:
+		print('Error: av_get_earnings_calendar(): API key not defined.')
+		return False
+
+	base_url = 'https://www.alphavantage.co/query?function=EARNINGS_CALENDAR'
+	base_url = base_url + '&horizon=' + str(period) + 'month'
+	base_url = base_url + '&apikey=' + str(av_api_key)
+
+	if ( ticker != None ):
+		base_url = base_url + '&symbol=' + str(ticker)
+
+	try:
+		data = requests.get(url=base_url)
+		data.raise_for_status()
+
+	except Exception as e:
+		print('Error: av_get_earnings_calendar(' + str(ticker) + '): error downloading data: ' + str(e))
+
+	data = data.content.decode()
+
+	if ( debug == True ):
+		print(data)
+
+	# This endpoint returns only CSV data rather than json
+	earnings_dates = {}
+	symbol = name = report_date = fiscal_date_ending = estimate = currency = ''
+	for line in data.split('\r\n'):
+		if ( line == 'symbol,name,reportDate,fiscalDateEnding,estimate,currency' or line == '' ):
+			continue
+
+		try:
+			symbol, name, report_date, fiscal_date_ending, estimate, currency = line.split(',', 6)
+
+		except Exception as e:
+			print('Error: av_get_earnings_calendar(' + str(ticker) + '): error parsing data: ' + str(e))
+			return False
+
+		if ( ticker == None ):
+			newdate = { symbol: report_date }
+			earnings_dates.update( newdate )
+
+		else:
+			if ( len(earnings_dates) == 0 ):
+				earnings_dates[symbol] = []
+
+			earnings_dates[symbol].append( report_date )
+
+
+	return earnings_dates
 

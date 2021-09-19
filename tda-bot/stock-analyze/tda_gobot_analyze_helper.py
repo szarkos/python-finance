@@ -12,14 +12,14 @@ import tda_gobot_helper
 
 
 # Like stochrsi_analyze(), but sexier
-def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='close', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3, stochrsi_5m=False,
+def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='hlc3', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3, stochrsi_5m=False,
 			  stoploss=False, incr_threshold=1, decr_threshold=1.5, hold_overnight=False, exit_percent=None, strict_exit_percent=False, vwap_exit=False, quick_exit=False,
 			  variable_exit=False, no_use_resistance=False, price_resistance_pct=1, price_support_pct=1,
-			  with_rsi=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_aroonosc_simple=False, with_macd=False, with_vwap=False, with_vpt=False, with_mfi=False,
+			  with_rsi=False, with_rsi_simple=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_aroonosc_simple=False, with_macd=False, with_vwap=False, with_vpt=False, with_mfi=False,
 			  with_dmi_simple=False, with_macd_simple=False, aroonosc_with_macd_simple=False, aroonosc_with_vpt=False, aroonosc_secondary_threshold=70,
 			  vpt_sma_period=72, adx_period=92, di_period=48, atr_period=14, adx_threshold=25, mfi_period=14, aroonosc_period=48, mfi_low_limit=20, mfi_high_limit=80,
 			  lod_hod_check=False, check_volume=False, avg_volume=2000000, min_volume=1500000,
-			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None, stop_date=None, weekly_ph=None, keylevel_strict=False,
+			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None, stop_date=None, weekly_ph=None, keylevel_strict=False, blacklist_earnings=False,
 			  debug=False, debug_all=False ):
 
 	if ( ticker == None or pricehistory == None ):
@@ -267,6 +267,26 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 	# End daily volume check
 
+	# Blacklist the week before and after earnings reporting
+	if ( blacklist_earnings == True ):
+
+		import av_gobot_helper
+		earnings = av_gobot_helper.av_get_earnings( ticker=ticker, type='reported' )
+		if ( earnings == False ):
+			print('Error: (' + str(ticker) + '): --blacklist_earnings was set but av_gobot_helper.av_get_earnings() returned False')
+			return False
+
+		earnings_blacklist = {}
+		for day in earnings:
+			date = datetime.strptime(day, '%Y-%m-%d')
+			date = mytimezone.localize(date)
+			start_blacklist	= date - timedelta( days=7 )
+			end_blacklist	= date + timedelta( days=7 )
+
+			entry = { day: { 'start_blacklist': start_blacklist, 'end_blacklist': end_blacklist } }
+			earnings_blacklist.update( entry )
+
+	# End earnings blacklist
 
 	# Calculate vwap and/or vwap_exit
 	if ( with_vwap == True or vwap_exit == True or no_use_resistance == False ):
@@ -535,6 +555,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		elif ( stop_date != None and date >= stop_date ):
 			return results
 
+		# Skip the week before/after earnings if --blacklist_earnings was set
+		if ( blacklist_earnings == True ):
+			blackout = False
+			for day in earnings_blacklist:
+				if ( date > earnings_blacklist[day]['start_blacklist'] and date < earnings_blacklist[day]['end_blacklist'] ):
+					blackout = True
+					break
+
+			if ( blackout == True ):
+				continue
+
 		# Skip any days if check_volume marked it as low volume
 		if ( check_volume == True ):
 			day = date.strftime('%Y-%m-%d')
@@ -566,7 +597,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			elif ( cur_sma > cur_ema ):
 				# Stock is bearish, allow shorting
 				noshort = False
-
 
 		# BUY mode
 		if ( signal_mode == 'buy' ):
@@ -604,15 +634,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 			# Secondary Indicators
 			# RSI signal
-			if ( cur_rsi >= rsi_signal_cancel_high_limit ):
-				rsi_signal = False
-			elif ( cur_rsi < 30 ):
-				rsi_signal = True
+			if ( with_rsi == True ):
+				if ( cur_rsi >= rsi_signal_cancel_high_limit ):
+					rsi_signal = False
+				elif ( prev_rsi > 25 and cur_rsi < 25 ):
+					rsi_signal = False
+				elif ( prev_rsi < 25 and cur_rsi >= 25 ):
+					rsi_signal = True
 
-#			elif ( prev_rsi > 25 and cur_rsi < 25 ):
-#				rsi_signal = False
-#			elif ( prev_rsi < 25 and cur_rsi >= 25 ):
-#				rsi_signal = True
+			elif ( with_rsi_simple == True ):
+				rsi_signal = False
+				if ( cur_rsi < 25 ):
+					rsi_signal = True
 
 			# ADX signal
 			adx_signal = False
@@ -1105,15 +1138,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 			# Secondary Indicators
 			# RSI signal
-			if ( cur_rsi <= rsi_signal_cancel_low_limit ):
-				rsi_signal = False
-			elif ( cur_rsi > 80 ):
-				rsi_signal = True
+			if ( with_rsi == True ):
+				if ( cur_rsi <= rsi_signal_cancel_low_limit ):
+					rsi_signal = False
+				elif ( prev_rsi < 75 and cur_rsi > 75 ):
+					rsi_signal = False
+				elif ( prev_rsi > 75 and cur_rsi <= 75 ):
+					rsi_signal = True
 
-#			elif ( prev_rsi < 75 and cur_rsi > 75 ):
-#				rsi_signal = False
-#			elif ( prev_rsi > 75 and cur_rsi <= 75 ):
-#				rsi_signal = True
+			elif ( with_rsi_simple == True ):
+				rsi_signal = False
+				if ( cur_rsi >= 80 ):
+					rsi_signal = True
 
 			# ADX signal
 			adx_signal = False

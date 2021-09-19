@@ -39,6 +39,7 @@ parser.add_argument("--price_support_pct", help='Support indicators will come in
 parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
 
 parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
+parser.add_argument("--with_rsi_simple", help='Use just the current RSI value as a secondary indicator', action="store_true")
 parser.add_argument("--with_mfi", help='Use MFI (Money Flow Index) as a secondary indicator', action="store_true")
 parser.add_argument("--with_adx", help='Use ADX as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
 parser.add_argument("--with_dmi", help='Use DMI as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
@@ -65,6 +66,7 @@ parser.add_argument("--vwap_exit", help='Use vwap exit strategy - sell/close at 
 parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent strategy was set, do not wait for the next candle', action="store_true")
 parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_threshold and exit_percent based on the price action of the stock over the previous hour', action="store_true")
 
+parser.add_argument("--blacklist_earnings", help='Blacklist trading one week before and after quarterly earnings dates (Default: False)', action="store_true")
 parser.add_argument("--check_volume", help='Check the last several days (up to 6-days, depending on how much history is available) to ensure stock is not trading at a low volume threshold (Default: False)', action="store_true")
 parser.add_argument("--avg_volume", help='Skip trading for the day unless the average volume over the last few days equals this value', default=2000000, type=int)
 parser.add_argument("--min_volume", help='Skip trading for the day unless the daily volume over the last few days equals at least this value', default=1500000, type=int)
@@ -406,7 +408,7 @@ for algo in args.algo.split(','):
 		elif ( algo == 'stochrsi' or algo == 'stochrsi-new' ):
 			results = tda_gobot_analyze_helper.stochrsi_analyze_new( pricehistory=data, ticker=stock, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type, stochrsi_5m=args.stochrsi_5m,
 									 rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
-									 with_vpt=args.with_vpt, with_rsi=args.with_rsi, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_aroonosc_simple=args.with_aroonosc_simple, with_macd=args.with_macd,
+									 with_vpt=args.with_vpt, with_rsi=args.with_rsi, with_rsi_simple=args.with_rsi_simple, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_aroonosc_simple=args.with_aroonosc_simple, with_macd=args.with_macd,
 									 with_mfi=args.with_mfi, with_vwap=args.with_vwap, with_dmi_simple=args.with_dmi_simple, with_macd_simple=args.with_macd_simple,
 									 vpt_sma_period=args.vpt_sma_period, adx_period=args.adx_period, di_period=args.di_period, atr_period=args.atr_period, aroonosc_period=args.aroonosc_period,
 									 mfi_period=args.mfi_period, mfi_high_limit=args.mfi_high_limit, mfi_low_limit=args.mfi_low_limit, adx_threshold=args.adx_threshold,
@@ -414,7 +416,7 @@ for algo in args.algo.split(','):
 									 stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly, check_ma=args.check_ma,
 									 incr_threshold=args.incr_threshold, decr_threshold=args.decr_threshold,
 									 exit_percent=args.exit_percent, strict_exit_percent=args.strict_exit_percent, vwap_exit=args.vwap_exit, quick_exit=args.quick_exit, variable_exit=args.variable_exit,
-									 check_volume=args.check_volume, avg_volume=args.avg_volume, min_volume=args.min_volume,
+									 blacklist_earnings=args.blacklist_earnings, check_volume=args.check_volume, avg_volume=args.avg_volume, min_volume=args.min_volume,
 									 safe_open=True, start_date=args.start_date, stop_date=args.stop_date, weekly_ph=data_weekly, keylevel_strict=args.keylevel_strict,
 									 no_use_resistance=args.no_use_resistance, price_resistance_pct=args.price_resistance_pct, price_support_pct=args.price_support_pct, lod_hod_check=args.lod_hod_check,
 									 debug=True, debug_all=args.debug_all )

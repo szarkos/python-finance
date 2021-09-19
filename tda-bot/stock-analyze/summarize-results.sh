@@ -192,22 +192,9 @@ if [ "$command" == "all" -o "$command" == "ticker-net-gain" ]; then
 
 fi
 
-
-# Daily test results
-if [ "$command" == "all" -o "$command" == "daily" ]; then
-	echo
-
-	cd ${source_dir}/..
-	./daily_results.sh "$results_dir" "$tests"
-	cd ${source_dir}
-
-fi
-
-
 # Stats by sector
 if [ "$command" == "all" -o "$command" == "sector" ]; then
 	echo
-	cd ${source_dir}
 
 	# Reference - tickers by sector
 	# 108 Transportation
@@ -320,5 +307,14 @@ if [ "$command" == "all" -o "$command" == "sector" ]; then
 
 fi
 
+
+# Daily test results
+if [ "$command" == "all" -o "$command" == "daily" ]; then
+	echo
+
+	cd ${source_dir}
+	./daily_results.sh "$results_dir" "$tests"
+
+fi
 
 

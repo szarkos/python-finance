@@ -4,8 +4,11 @@ results_dir=${1-'results'}
 command=${2-'all'} # tx-stats, gain-loss, ticker-net-gain, daily
 tests=${3-''}
 
+# This is our main working directory (typically tda-bot/stock-analyze/)
+source_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
 if [ "$tests" == "" ]; then
-	tests=$(./gobot-test.py --print_scenarios)
+	tests=$( ${source_dir}/gobot-test.py --print_scenarios )
 fi
 
 cd $results_dir
@@ -194,9 +197,9 @@ fi
 if [ "$command" == "all" -o "$command" == "daily" ]; then
 	echo
 
-	source_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-	cd ..
+	cd ${source_dir}/..
 	./daily_results.sh "$results_dir" "$tests"
+	cd ${source_dir}
 
 fi
 
@@ -204,6 +207,7 @@ fi
 # Stats by sector
 if [ "$command" == "all" -o "$command" == "sector" ]; then
 	echo
+	cd ${source_dir}
 
 	# Reference - tickers by sector
 	# 108 Transportation

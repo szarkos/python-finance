@@ -378,18 +378,21 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				pdc[today]['close'] = float(key['close'])
 
 		# Key levels
+		klfilter = False
 		if ( weekly_ph == None ):
 
 			# get_pricehistory() variables
 			p_type = 'year'
 			period = '2'
 			freq = '1'
-
 			f_type = 'weekly'
-			klfilter = False
-			if ( keylevel_use_daily == True )
+
+			if ( keylevel_use_daily == True ):
 				f_type = 'daily'
+
 				klfilter = True
+				if ( keylevel_strict == True ):
+					klfilter = False
 
 			weekly_ph, ep = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, needExtendedHoursData=False)
 

@@ -19,7 +19,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			  with_dmi_simple=False, with_macd_simple=False, aroonosc_with_macd_simple=False, aroonosc_with_vpt=False, aroonosc_secondary_threshold=70,
 			  vpt_sma_period=72, adx_period=92, di_period=48, atr_period=14, adx_threshold=25, mfi_period=14, aroonosc_period=48, mfi_low_limit=20, mfi_high_limit=80,
 			  lod_hod_check=False, check_volume=False, avg_volume=2000000, min_volume=1500000,
-			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None, stop_date=None, weekly_ph=None, keylevel_strict=False, blacklist_earnings=False,
+			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None, stop_date=None, weekly_ph=None, keylevel_strict=False, keylevel_use_daily=False, blacklist_earnings=False,
 			  debug=False, debug_all=False ):
 
 	if ( ticker == None or pricehistory == None ):
@@ -383,11 +383,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 			# get_pricehistory() variables
 			p_type = 'year'
 			period = '2'
-			f_type = 'weekly'
 			freq = '1'
+
+			f_type = 'weekly'
+			klfilter = False
+			if ( keylevel_use_daily == True )
+				f_type = 'daily'
+				klfilter = True
+
 			weekly_ph, ep = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, needExtendedHoursData=False)
 
-		long_support, long_resistance = tda_gobot_helper.get_keylevels(weekly_ph, filter=False)
+		long_support, long_resistance = tda_gobot_helper.get_keylevels(weekly_ph, filter=klfilter)
 
 		# Three/Twenty week high/low
 #		three_week_high = three_week_low = three_week_avg = -1

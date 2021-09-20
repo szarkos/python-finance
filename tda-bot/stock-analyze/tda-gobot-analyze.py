@@ -34,6 +34,7 @@ parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and 
 parser.add_argument("--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (Default: False)', action="store_true")
 parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (Default: False)', action="store_true")
 parser.add_argument("--keylevel_strict", help='Use strict key level checks to enter trades (Default: False)', action="store_true")
+parser.add_argument("--keylevel_use_daily", help='Use daily candles to determine key levels instead of weekly (Default: False)', action="store_true")
 parser.add_argument("--price_resistance_pct", help='Resistance indicators will come into effect if price is within this percentage of a known support/resistance line', default=1, type=float)
 parser.add_argument("--price_support_pct", help='Support indicators will come into effect if price is within this percentage of a known support/resistance line', default=1, type=float)
 parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
@@ -417,7 +418,7 @@ for algo in args.algo.split(','):
 									 incr_threshold=args.incr_threshold, decr_threshold=args.decr_threshold,
 									 exit_percent=args.exit_percent, strict_exit_percent=args.strict_exit_percent, vwap_exit=args.vwap_exit, quick_exit=args.quick_exit, variable_exit=args.variable_exit,
 									 blacklist_earnings=args.blacklist_earnings, check_volume=args.check_volume, avg_volume=args.avg_volume, min_volume=args.min_volume,
-									 safe_open=True, start_date=args.start_date, stop_date=args.stop_date, weekly_ph=data_weekly, keylevel_strict=args.keylevel_strict,
+									 safe_open=True, start_date=args.start_date, stop_date=args.stop_date, weekly_ph=data_weekly, keylevel_strict=args.keylevel_strict, keylevel_use_daily=args.keylevel_use_daily,
 									 no_use_resistance=args.no_use_resistance, price_resistance_pct=args.price_resistance_pct, price_support_pct=args.price_support_pct, lod_hod_check=args.lod_hod_check,
 									 debug=True, debug_all=args.debug_all )
 

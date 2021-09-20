@@ -280,8 +280,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 		for day in earnings:
 			date = datetime.strptime(day, '%Y-%m-%d')
 			date = mytimezone.localize(date)
-			start_blacklist	= date - timedelta( days=7 )
-			end_blacklist	= date + timedelta( days=7 )
+			start_blacklist	= date - timedelta( days=2 )
+			end_blacklist	= date + timedelta( days=2 )
 
 			entry = { day: { 'start_blacklist': start_blacklist, 'end_blacklist': end_blacklist } }
 			earnings_blacklist.update( entry )

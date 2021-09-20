@@ -287,8 +287,8 @@ if [ "$command" == "all" -o "$command" == "sector" ]; then
 	echo '---------------------------------------------------------'
 	echo 'Reference: Industry representation from our tickers'
 	all_sectors=""
-	tests=( $tests )
-	for t in *-${tests[0]}; do
+	tests_arr=( $tests )
+	for t in *-${tests_arr[0]}; do
 		ticker=$( echo -n $t | sed 's/-.*//' )
 		sector=$( egrep "^$ticker," "../tickers_sector.csv" | awk -F, '{print $2}' | tr ' ' '_' )
 		if [ "$sector" == "" ]; then

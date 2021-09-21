@@ -18,6 +18,7 @@ parser.add_argument("stock", help='Stock ticker to check')
 parser.add_argument("--no_filter", help='Do not use ATR to filter and reduce noise in the results', action="store_true")
 parser.add_argument("--plot", help='Plot the result', action="store_true")
 parser.add_argument("--atr_period", help='Plot the result', default=14, type=int)
+parser.add_argument("--use_daily", help='Use daily candles instead of weekly', action="store_true")
 args = parser.parse_args()
 
 
@@ -43,10 +44,14 @@ if ( args.no_filter == True ):
 	filter = False
 
 # get_pricehistory() variables
+f_type = 'weekly'
+if ( args.use_daily == True ):
+	f_type = 'daily'
+
 p_type = 'year'
 period = '2'
-f_type = 'weekly'
 freq = '1'
+
 try:
 	pricehistory, epochs = tda_gobot_helper.get_pricehistory(args.stock, p_type, f_type, freq, period, needExtendedHoursData=False)
 

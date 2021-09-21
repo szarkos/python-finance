@@ -48,26 +48,26 @@ try:
 			# 2021-03-12 19:51:00,31.44,31.45,31.44,31.45,350
 			#
 			# Note: weekly data does not include %H:%M:%S
-			time,open,high,low,close,volume = line.split(',')
+			time_t,open,high,low,close,volume = line.split(',')
 
-			if ( time == 'time' ):
+			if ( time_t == 'time' ):
 				continue
 
-			time = datetime.datetime.strptime(time, date_fmt)
-			time = mytimezone.localize(time)
-			time = time.timestamp() * 1000
+			time_t = datetime.datetime.strptime(time_t, date_fmt)
+			time_t = mytimezone.localize(time_t)
+			time_t = time_t.timestamp() * 1000
 
 			candle_data = { 'open':		float( open ),
 					'high':		float( high ),
 					'low':		float( low ),
 					'close':	float( close ),
 					'volume':	int( volume ),
-					'datetime':	time }
+					'datetime':	time_t }
 
 			pricehistory['candles'].append(candle_data)
 
 	handle.close()
-	del time,open,high,low,close,volume
+	del(time_t,open,high,low,close,volume)
 
 except Exception as e:
 	print('Error opening file ' + str(args.ifile) + ': ' + str(e))
@@ -129,7 +129,7 @@ if ( args.augment_today == True ):
 
 		if ( ph_data == False ):
 			print('Error: get_pricehistory(' + str(ticker) + ', ' + str(time_prev_epoch) + ', ' + str(time_now_epoch) + '): attempt ' + str(tries) + ' returned False, retrying...', file=sys.stderr)
-			time.sleep(2)
+			time.sleep(5)
 
 		else:
 			break

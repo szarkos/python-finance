@@ -23,22 +23,27 @@ args = parser.parse_args()
 mytimezone = pytz.timezone("US/Eastern")
 
 
+# Standard options for all scenarios
+std_opts = ' --algo=stochrsi-new --stoploss --skip_check --incr_threshold=0.5 --decr_threshold=0.4 --exit_percent=1 --verbose --stock_usd=5000 ' + \
+		' --variable_exit --lod_hod_check '
+
 # Test Scenarios
 scenarios = {
 		# Loud, not used but good baseline
-		'stochrsi_aroonosc_simple_dmi_simple_with_macd':	'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --lod_hod_check --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 ',
+		'stochrsi_aroonosc_simple_dmi_simple_with_macd_adx':		'--rsi_high_limit=95 --rsi_low_limit=15 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 ',
 
 		# Good results but fewer trades
-		'stochrsi_mfi_aroonosc_simple_dmi_simple_with_macd':	'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --lod_hod_check --with_mfi --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 ',
+		'stochrsi_mfi_aroonosc_simple_dmi_simple_with_macd_adx':	'--rsi_high_limit=95 --rsi_low_limit=15 --with_mfi --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 ',
 
 		# Very good results but very few trades
-		'stochrsi_mfi_aroonosc_simple_adx_lowperiod':		'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --lod_hod_check --with_mfi --mfi_high_limit=95 --mfi_low_limit=5 --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=20 --adx_period=48 ',
+		'stochrsi_mfi_aroonosc_simple_adx_lowperiod':			'--rsi_high_limit=95 --rsi_low_limit=15 --with_mfi --mfi_high_limit=90 --mfi_low_limit=10 --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=20 --adx_period=48 ',
 
-		# Similar to above without mfi, decent results (60 percentile) but more trades
-		'stochrsi_aroonosc_simple_adx_lowperiod':		'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --lod_hod_check --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=20 --adx_period=48 ',
+		# Similar to above without mfi, decent results (60 percentile daily win rate) but more trades
+		# Currently not used, needs more testing
+		'stochrsi_aroonosc_simple_adx_lowperiod':			'--rsi_high_limit=95 --rsi_low_limit=15 --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=20 --adx_period=48 ',
 
 		# Decent results (60 percentile)
-		'stochrsi_mfi_rsi_adx':					'--rsi_high_limit=95 --rsi_low_limit=15 --variable_exit --lod_hod_check --with_mfi --mfi_high_limit=95 --mfi_low_limit=5 --with_adx --adx_threshold=20 ',
+		'stochrsi_mfi_rsi_adx':						'--rsi_high_limit=95 --rsi_low_limit=15 --with_mfi --mfi_high_limit=95 --mfi_low_limit=5 --with_rsi --with_adx --adx_threshold=20 ',
 
 }
 
@@ -185,9 +190,7 @@ if ( args.opts != None ):
 # Run the data through all available test scenarios
 for key in scenarios:
 
-#	command = './tda-gobot-analyze.py ' + str(ticker) + ' --algo=stochrsi-new --no_use_resistance --stoploss --incr_threshold=0.5 --decr_threshold=0.4 --verbose ' + \
-	command = './tda-gobot-analyze.py ' + str(ticker) + ' --algo=stochrsi-new --stoploss --skip_check --incr_threshold=0.5 --decr_threshold=0.4 --exit_percent=1 --verbose --stock_usd=5000 ' + \
-			str(opts) + ' --ifile=' + str(args.ifile) + ' ' + str(start_date) + ' ' + str(scenarios[key])
+	command = './tda-gobot-analyze.py ' + str(ticker) + ' ' + str(std_opts) + ' ' + str(opts) + ' --ifile=' + str(args.ifile) + ' ' + str(start_date) + ' ' + str(scenarios[key])
 
 	outfile = str(args.ofile) + '-' + str(key)
 

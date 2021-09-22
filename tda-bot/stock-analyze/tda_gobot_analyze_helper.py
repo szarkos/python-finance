@@ -12,7 +12,7 @@ import tda_gobot_helper
 
 
 # Like stochrsi_analyze(), but sexier
-def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrsi_period=128, rsi_type='hlc3', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3, stochrsi_5m=False,
+def stochrsi_analyze_new( pricehistory=None, ticker=None, primary_stoch_indicator='stochrsi', rsi_period=14, stochrsi_period=128, rsi_type='hlc3', rsi_slow=3, rsi_low_limit=20, rsi_high_limit=80, rsi_k_period=128, rsi_d_period=3, stochrsi_5m=False,
 			  stoploss=False, incr_threshold=1, decr_threshold=1.5, hold_overnight=False, exit_percent=None, strict_exit_percent=False, vwap_exit=False, quick_exit=False,
 			  variable_exit=False, no_use_resistance=False, price_resistance_pct=1, price_support_pct=1,
 			  with_rsi=False, with_rsi_simple=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_aroonosc_simple=False, with_macd=False, with_vwap=False, with_vpt=False, with_mfi=False,
@@ -109,20 +109,28 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 	del(open_p, high, low, close, volume, newcandle)
 
 
-	# Get stochastic RSI
+	# Get stochastic RSI/MFI
 	stochrsi_signal_cancel_low_limit = 20
 	stochrsi_signal_cancel_high_limit = 80
 
 	try:
-#		import tulipy as ti
-#		mfi = tda_gobot_helper.get_mfi(pricehistory, period=mfi_period)
-#		rsi_k, rsi_d = ti.stoch( mfi, mfi, mfi, rsi_k_period, rsi_slow, rsi_d_period )
-#		stochrsi = rsi_k
+		if ( primary_stoch_indicator == 'stochrsi' ):
+			if ( stochrsi_5m == True ):
+				stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(pricehistory_5m, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+			else:
+				stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(pricehistory, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
 
-		if ( stochrsi_5m == True ):
-			stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(pricehistory_5m, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+		elif ( primary_stoch_indicator == 'stochmfi' ):
+			if ( stochrsi_5m == True ):
+				rsi_k, rsi_d = tda_gobot_helper.get_stochmfi(pricehistory_5m, mfi_period=mfi_period, mfi_k_period=rsi_k_period, slow_period=rsi_slow, mfi_d_period=rsi_d_period, debug=False)
+			else:
+				rsi_k, rsi_d = tda_gobot_helper.get_stochmfi(pricehistory, mfi_period=mfi_period, mfi_k_period=rsi_k_period, slow_period=rsi_slow, mfi_d_period=rsi_d_period, debug=False)
+
+			stochrsi = rsi_k
+
 		else:
-			stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(pricehistory, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+			print('Error: stochrsi_analyze_new(' + str(ticker) + '): unknown primary_stoch_indicator "' + str(primary_stoch_indicator) + '"')
+			sys.exit(1)
 
 	except Exception as e:
 		print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_stochrsi(): ' + str(e))
@@ -134,14 +142,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 
 	# If using the same 1-minute data, the len of stochrsi will be (stochrsi_period * 2 - 1)
 	# len(rsi_k) should be (stochrsi_period * 2 - rsi_d_period)
-	if ( len(stochrsi) != len(pricehistory['candles']) - (rsi_period * 2 - 1) ):
-		print( 'Warning, unexpected length of stochrsi (pricehistory[candles]=' + str(len(pricehistory['candles'])) + ', len(stochrsi)=' + str(len(stochrsi)) + ')' )
+	if ( primary_stoch_indicator == 'stochrsi' and stochrsi_5m == False ):
+		if ( len(stochrsi) != len(pricehistory['candles']) - (rsi_period * 2 - 1) ):
+			print( 'Warning, unexpected length of stochrsi (pricehistory[candles]=' + str(len(pricehistory['candles'])) + ', len(stochrsi)=' + str(len(stochrsi)) + ')' )
 
-	if ( len(rsi_k) != len(pricehistory['candles']) - stochrsi_period * 2 - rsi_d_period ):
-		print( 'Warning, unexpected length of rsi_k (pricehistory[candles]=' + str(len(pricehistory['candles'])) + ', len(rsi_k)=' + str(len(rsi_k)) + ')' )
-	if ( len(rsi_k) != len(rsi_d) ):
-		print( 'Warning, unexpected length of rsi_k (pricehistory[candles]=' + str(len(pricehistory['candles'])) +
-			', len(rsi_k)=' + str(len(stochrsi)) + '), len(rsi_d)=' + str(len(rsi_d)) + ')' )
+		if ( len(rsi_k) != len(pricehistory['candles']) - stochrsi_period * 2 - rsi_d_period ):
+			print( 'Warning, unexpected length of rsi_k (pricehistory[candles]=' + str(len(pricehistory['candles'])) + ', len(rsi_k)=' + str(len(rsi_k)) + ')' )
+		if ( len(rsi_k) != len(rsi_d) ):
+			print( 'Warning, unexpected length of rsi_k (pricehistory[candles]=' + str(len(pricehistory['candles'])) +
+				', len(rsi_k)=' + str(len(stochrsi)) + '), len(rsi_d)=' + str(len(rsi_d)) + ')' )
 
 	# Get RSI
 	rsi_signal_cancel_low_limit = 30
@@ -394,7 +403,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, rsi_period=14, stochrs
 				if ( keylevel_strict == True ):
 					klfilter = False
 
-			weekly_ph, ep = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, needExtendedHoursData=False)
+			tries = 0
+			while ( tries < 3 ):
+				weekly_ph, ep = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, needExtendedHoursData=False)
+				if ( isinstance(weekly_ph, bool) and weekly_ph == False ):
+					print('Error: get_pricehistory(' + str(ticker) + '): attempt ' + str(tries) + ' returned False, retrying...', file=sys.stderr)
+					time.sleep(5)
+				else:
+					break
+
+				tries += 1
 
 		long_support, long_resistance = tda_gobot_helper.get_keylevels(weekly_ph, filter=klfilter)
 

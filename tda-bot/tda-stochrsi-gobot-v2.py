@@ -2,15 +2,18 @@
 
 # Monitor a stock's Stochastic RSI and other indicator values and make entry/exit decisions based off those values.
 # Example:
-
-# $ source stock-analyze/tickers.conf
+#
+# $ tickers='MSFT,AAPL' # put tickers here
+#
 # $ ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=5000 --stocks=${tickers} --short --singleday \
 #	--decr_threshold=0.4 --incr_threshold=0.5 --max_failed_txs=2 --exit_percent=1 \
-#	--tx_log_dir=TX_LOGS_v2 --weekly_ifile=stock-analyze/weekly-csv/TICKER-weekly-2019-2021.pickle \
+#	--algos=stochrsi,mfi,dmi_simple,aroonosc,adx,support_resistance,adx_threshold:6,rsi_low_limit:10 \
+#	--algos=stochrsi,mfi,aroonosc,adx,support_resistance,mfi_high_limit:95,mfi_low_limit:5,adx_threshold:20,adx_period:48 \
+#	--algos=stochrsi,rsi,mfi,adx,support_resistance,adx_threshold:20,mfi_high_limit:95,mfi_low_limit:5 \
 #	--rsi_high_limit=95 --rsi_low_limit=15 \
-#	--algos=stochrsi,dmi_simple,aroonosc,support_resistance --aroonosc_with_macd_simple \
-#	--variable_exit --aroonosc_period=24 --adx_period=92 --adx_threshold=4.25 \
-#	1> logs/gobot-v2.log 2>&1
+#	--aroonosc_with_macd_simple --variable_exit --lod_hod_check \
+#	--tx_log_dir=TX_LOGS_v2 --weekly_ifile=stock-analyze/weekly-csv/TICKER-weekly-2019-2021.pickle \
+#	1> logs/gobot-v2.log 2>&1 &
 
 import os, sys, signal, re, random
 import time, datetime, pytz
@@ -585,9 +588,9 @@ def siguser1_handler(signum=None, frame=None):
 	graceful_exit(None, None)
 	sys.exit(0)
 
-signal.signal(signal.SIGINT, graceful_exit)
-signal.signal(signal.SIGTERM, graceful_exit)
-signal.signal(signal.SIGUSR1, siguser1_handler)
+#signal.signal(signal.SIGINT, graceful_exit)
+#signal.signal(signal.SIGTERM, graceful_exit)
+#signal.signal(signal.SIGUSR1, siguser1_handler)
 
 
 # Main Loop

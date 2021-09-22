@@ -39,6 +39,7 @@ parser.add_argument("--price_resistance_pct", help='Resistance indicators will c
 parser.add_argument("--price_support_pct", help='Support indicators will come into effect if price is within this percentage of a known support/resistance line', default=1, type=float)
 parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
 
+parser.add_argument("--primary_stoch_indicator", help='Use this indicator as the primary stochastic indicator (Default: stochrsi)', default='stochrsi', type=str)
 parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
 parser.add_argument("--with_rsi_simple", help='Use just the current RSI value as a secondary indicator', action="store_true")
 parser.add_argument("--with_mfi", help='Use MFI (Money Flow Index) as a secondary indicator', action="store_true")
@@ -407,7 +408,7 @@ for algo in args.algo.split(','):
 			sys.exit(1)
 
 		elif ( algo == 'stochrsi' or algo == 'stochrsi-new' ):
-			results = tda_gobot_analyze_helper.stochrsi_analyze_new( pricehistory=data, ticker=stock, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type, stochrsi_5m=args.stochrsi_5m,
+			results = tda_gobot_analyze_helper.stochrsi_analyze_new( pricehistory=data, ticker=stock, primary_stoch_indicator=args.primary_stoch_indicator, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type, stochrsi_5m=args.stochrsi_5m,
 									 rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
 									 with_vpt=args.with_vpt, with_rsi=args.with_rsi, with_rsi_simple=args.with_rsi_simple, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_aroonosc_simple=args.with_aroonosc_simple, with_macd=args.with_macd,
 									 with_mfi=args.with_mfi, with_vwap=args.with_vwap, with_dmi_simple=args.with_dmi_simple, with_macd_simple=args.with_macd_simple,
@@ -422,7 +423,7 @@ for algo in args.algo.split(','):
 									 no_use_resistance=args.no_use_resistance, price_resistance_pct=args.price_resistance_pct, price_support_pct=args.price_support_pct, lod_hod_check=args.lod_hod_check,
 									 debug=True, debug_all=args.debug_all )
 
-		if ( results == False ):
+		if ( isinstance(results, bool) and results == False ):
 			print('Error: rsi_analyze(' + str(stock) + ') returned false', file=sys.stderr)
 			continue
 		if ( int(len(results)) == 0 ):

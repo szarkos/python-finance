@@ -617,14 +617,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# RSI
 			if ( cur_algo['rsi'] == True ):
 				stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = True
-				if ( cur_rsi < 25 ):
+				if ( cur_rsi >= rsi_signal_cancel_high_limit ):
+					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = False
+				elif ( prev_rsi > 25 and cur_rsi < 25 ):
+					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = False
+				elif ( prev_rsi < 25 and cur_rsi >= 25 ):
 					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = True
-#				if ( cur_rsi >= rsi_signal_cancel_high_limit ):
-#					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = False
-#				elif ( prev_rsi > 25 and cur_rsi < 25 ):
-#					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = False
-#				elif ( prev_rsi < 25 and cur_rsi >= 25 ):
-#					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = True
 
 			# MFI signal
 			if ( cur_algo['mfi'] == True ):
@@ -1199,15 +1197,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# RSI
 			if ( cur_algo['rsi'] == True ):
 				stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = False
-				if ( cur_rsi >= 80 ):
+				if ( cur_rsi <= rsi_signal_cancel_low_limit ):
+					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = False
+				elif ( prev_rsi < 75 and cur_rsi > 75 ):
+					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = False
+				elif ( prev_rsi > 75 and cur_rsi <= 75 ):
 					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = True
-
-#				if ( cur_rsi <= rsi_signal_cancel_low_limit ):
-#					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = False
-#				elif ( prev_rsi < 75 and cur_rsi > 75 ):
-#					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = False
-#				elif ( prev_rsi > 75 and cur_rsi <= 75 ):
-#					stocks[ticker]['algo_signals'][algo_id]['rsi_signal'] = True
 
 			# MFI signal
 			if ( cur_algo['mfi'] == True ):

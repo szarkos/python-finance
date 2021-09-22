@@ -748,13 +748,10 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 		if key['datetime'] not in seen:
 			seen[key['datetime']] = 1
 		else:
-			if key['datetime'] not in dup:
-				dup[key['datetime']] = 1
-			else:
-				dup[key['datetime']] += 1
+			dup[key['datetime']] += 1
 
 	if ( len( dup.items() ) > 0 ):
-		print("\nWARNING: get_pricehistory(" + str(ticker) + "): DUPLICATE TIMESTAMPS DETECTED\n", file=sys.stderr)
+		print("\nWARNING: get_pricehistory(" + str(ticker) + "(: DUPLICATE TIMESTAMPS DETECTED\n", file=sys.stderr)
 
 	return data, epochs
 
@@ -1688,6 +1685,39 @@ def get_stochrsi(pricehistory=None, rsi_period=14, stochrsi_period=128, type='cl
 		return False, [], []
 
 	return stochrsi, k, d
+
+
+# Return numpy array of Stochastic RSI values for a given price history.
+# Reference: https://tulipindicators.org/stochrsi
+# 'pricehistory' should be a data list obtained from get_pricehistory()
+def get_stochmfi(pricehistory=None, mfi_period=14, mfi_k_period=128, mfi_d_period=3, slow_period=3, debug=False):
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	if ( pricehistory == None ):
+		print('Error: get_stochmfi(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False, []
+
+	# get_mfi + ti.stoch
+	# Use ti.stoch() to get k and d values
+	#   K measures the strength of the current move relative to the range of the previous n-periods
+	#   D is a simple moving average of the K
+	mfi = []
+	mfi_k = []
+	mfi_d = []
+	try:
+		mfi = get_mfi(pricehistory, period=mfi_period)
+		mfi_k, mfi_d = ti.stoch( mfi, mfi, mfi, mfi_k_period, slow_period, mfi_d_period )
+
+	except Exception as e:
+		print( 'Caught Exception: get_stochmfi(' + str(ticker) + '): ti.stoch(): ' + str(e) + ', len(pricehistory)=' + str(len(pricehistory['candles'])) )
+		return False, []
+
+	return mfi_k, mfi_d
 
 
 # Return numpy array of Stochastic Oscillator values for a given price history.

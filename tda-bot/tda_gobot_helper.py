@@ -748,10 +748,13 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 		if key['datetime'] not in seen:
 			seen[key['datetime']] = 1
 		else:
-			dup[key['datetime']] += 1
+			if key['datetime'] not in dup:
+				dup[key['datetime']] = 1
+			else:
+				dup[key['datetime']] += 1
 
 	if ( len( dup.items() ) > 0 ):
-		print("\nWARNING: get_pricehistory(" + str(ticker) + "(: DUPLICATE TIMESTAMPS DETECTED\n", file=sys.stderr)
+		print("\nWARNING: get_pricehistory(" + str(ticker) + "): DUPLICATE TIMESTAMPS DETECTED\n", file=sys.stderr)
 
 	return data, epochs
 

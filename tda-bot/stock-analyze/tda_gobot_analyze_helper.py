@@ -146,7 +146,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, primary_stoch_indicato
 		if ( len(stochrsi) != len(pricehistory['candles']) - (rsi_period * 2 - 1) ):
 			print( 'Warning, unexpected length of stochrsi (pricehistory[candles]=' + str(len(pricehistory['candles'])) + ', len(stochrsi)=' + str(len(stochrsi)) + ')' )
 
-		if ( len(rsi_k) != len(pricehistory['candles']) - stochrsi_period * 2 - rsi_d_period ):
+		if ( len(rsi_k) != len(pricehistory['candles']) - (stochrsi_period + rsi_k_period + rsi_d_period) ):
 			print( 'Warning, unexpected length of rsi_k (pricehistory[candles]=' + str(len(pricehistory['candles'])) + ', len(rsi_k)=' + str(len(rsi_k)) + ')' )
 		if ( len(rsi_k) != len(rsi_d) ):
 			print( 'Warning, unexpected length of rsi_k (pricehistory[candles]=' + str(len(pricehistory['candles'])) +
@@ -637,7 +637,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, primary_stoch_indicato
 			# Jump to short mode if StochRSI K and D are already above rsi_high_limit
 			# The intent here is if the bot starts up while the RSI is high we don't want to wait until the stock
 			#  does a full loop again before acting on it.
-			if ( cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit and noshort == False ):
+			if ( cur_rsi_k > stochrsi_signal_cancel_high_limit and cur_rsi_d > stochrsi_signal_cancel_high_limit and noshort == False ):
 				reset_signals()
 				signal_mode = 'short'
 				continue
@@ -917,6 +917,34 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, primary_stoch_indicato
 				if ( no_use_resistance == False and resistance_signal != True ):
 					final_buy_signal = False
 
+			# DEBUG
+			if ( debug_all == True ):
+				time_t = datetime.fromtimestamp(int(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S')
+				print(	'(' + str(time_t) + ') '	+
+					'buy_signal:'			+ str(buy_signal) +
+					', final_buy_signal: '		+ str(final_buy_signal) +
+					', rsi_signal: '		+ str(rsi_signal) +
+					', mfi_signal: '		+ str(mfi_signal) +
+					', adx_signal: '		+ str(adx_signal) +
+					', dmi_signal: '		+ str(dmi_signal) +
+					', aroonosc_signal: '		+ str(aroonosc_signal) +
+					', macd_signal: '		+ str(macd_signal) +
+					', vwap_signal: '		+ str(vwap_signal) +
+					', vpt_signal: '		+ str(vpt_signal) +
+					', resistance_signal: '		+ str(resistance_signal) )
+
+				print('(' + str(ticker) + '): ' + str(signal_mode).upper() + ' / ' + str(time_t) + ' (' + str(pricehistory['candles'][idx]['datetime']) + ')')
+				print('(' + str(ticker) + '): StochRSI K/D: ' + str(round(cur_rsi_k, 3)) + ' / ' + str(round(cur_rsi_d,3)))
+				print('(' + str(ticker) + '): MFI: ' + str(round(cur_mfi, 2)) + ' signal: ' + str(mfi_signal))
+				print('(' + str(ticker) + '): DI+/-: ' + str(round(cur_plus_di, 3)) + ' / ' + str(round(cur_minus_di,3)) + ' signal: ' + str(dmi_signal))
+				print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
+				print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
+				print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
+				print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
+				print('(' + str(ticker) + '): BUY signal: ' + str(buy_signal) + ', Final BUY signal: ' + str(final_buy_signal))
+			# DEBUG
+
+
 			# BUY SIGNAL
 			if ( buy_signal == True and final_buy_signal == True ):
 				purchase_price = float(pricehistory['candles'][idx]['close'])
@@ -926,19 +954,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, primary_stoch_indicato
 				results.append( str(purchase_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
 						str(round(cur_natr,3)) + ',' + str(round(cur_adx,2)) + ',' + str(purchase_time) )
-
-				# DEBUG
-				if ( debug_all == True ):
-					print('(' + str(ticker) + '): ' + str(signal_mode).upper() + ' / ' + str(purchase_time) + ' (' + str(pricehistory['candles'][idx]['datetime']) + ')')
-					print('(' + str(ticker) + '): StochRSI K/D: ' + str(round(cur_rsi_k, 3)) + ' / ' + str(round(cur_rsi_d,3)))
-					print('(' + str(ticker) + '): MFI: ' + str(round(cur_mfi, 2)) + ' signal: ' + str(mfi_signal))
-					print('(' + str(ticker) + '): DI+/-: ' + str(round(cur_plus_di, 3)) + ' / ' + str(round(cur_minus_di,3)) + ' signal: ' + str(dmi_signal))
-					print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
-					print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
-					print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
-					print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
-					print('(' + str(ticker) + '): BUY signal: ' + str(buy_signal) + ', Final BUY signal: ' + str(final_buy_signal))
-				# DEBUG
 
 				reset_signals()
 				signal_mode = 'sell'
@@ -1141,7 +1156,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, primary_stoch_indicato
 				continue
 
 			# Jump to buy mode if StochRSI K and D are already below rsi_low_limit
-			if ( cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit ):
+			if ( cur_rsi_k < stochrsi_signal_cancel_low_limit and cur_rsi_d < stochrsi_signal_cancel_low_limit ):
 				reset_signals()
 				signal_mode = 'buy'
 				continue
@@ -1410,6 +1425,35 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, primary_stoch_indicato
 				if ( no_use_resistance == False and resistance_signal != True ):
 					final_short_signal = False
 
+			# DEBUG
+			if ( debug_all == True ):
+				time_t = datetime.fromtimestamp(int(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S')
+				print(	'(' + str(time_t) + ') '	+
+					'short_signal:'			+ str(buy_signal) +
+					', final_short_signal: '	+ str(final_buy_signal) +
+					', rsi_signal: '		+ str(rsi_signal) +
+					', mfi_signal: '		+ str(mfi_signal) +
+					', adx_signal: '		+ str(adx_signal) +
+					', dmi_signal: '		+ str(dmi_signal) +
+					', aroonosc_signal: '		+ str(aroonosc_signal) +
+					', macd_signal: '		+ str(macd_signal) +
+					', vwap_signal: '		+ str(vwap_signal) +
+					', vpt_signal: '		+ str(vpt_signal) +
+					', resistance_signal: '		+ str(resistance_signal) )
+
+				print('(' + str(ticker) + '): ' + str(signal_mode).upper() + ' / ' + str(time_t) + ' (' + str(pricehistory['candles'][idx]['datetime']) + ')')
+				print('(' + str(ticker) + '): StochRSI K/D: ' + str(round(cur_rsi_k, 3)) + ' / ' + str(round(cur_rsi_d,3)))
+				print('(' + str(ticker) + '): MFI: ' + str(round(cur_mfi, 2)) + ' signal: ' + str(mfi_signal))
+				print('(' + str(ticker) + '): DI+/-: ' + str(round(cur_plus_di, 3)) + ' / ' + str(round(cur_minus_di,3)) + ' signal: ' + str(dmi_signal))
+				print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
+				print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
+				print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
+				print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
+				print('(' + str(ticker) + '): SHORT signal: ' + str(short_signal) + ', Final SHORT signal: ' + str(final_short_signal))
+				print()
+			# DEBUG
+
+
 			# SHORT SIGNAL
 			if ( short_signal == True and final_short_signal == True ):
 				short_price = float(pricehistory['candles'][idx]['close'])
@@ -1419,19 +1463,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, primary_stoch_indicato
 				results.append( str(short_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
 						str(round(cur_natr, 3)) + ',' + str(round(cur_adx, 2)) + ',' + str(short_time) )
-
-				# DEBUG
-				if ( debug_all == True ):
-					print('(' + str(ticker) + '): ' + str(signal_mode).upper() + ' / ' + str(short_time) + ' (' + str(pricehistory['candles'][idx]['datetime']) + ')')
-					print('(' + str(ticker) + '): StochRSI K/D: ' + str(round(cur_rsi_k, 3)) + ' / ' + str(round(cur_rsi_d,3)))
-					print('(' + str(ticker) + '): MFI: ' + str(round(cur_mfi, 2)) + ' signal: ' + str(mfi_signal))
-					print('(' + str(ticker) + '): DI+/-: ' + str(round(cur_plus_di, 3)) + ' / ' + str(round(cur_minus_di,3)) + ' signal: ' + str(dmi_signal))
-					print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
-					print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
-					print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
-					print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
-					print('(' + str(ticker) + '): SHORT signal: ' + str(short_signal) + ', Final SHORT signal: ' + str(final_short_signal))
-				# DEBUG
 
 				reset_signals()
 

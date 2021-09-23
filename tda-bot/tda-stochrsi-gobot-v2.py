@@ -194,6 +194,7 @@ for algo in args.algos:
 	# Indicator modifiers
 	rsi_high_limit	= args.rsi_high_limit
 	rsi_low_limit	= args.rsi_low_limit
+	stochrsi_period	= args.stochrsi_period
 	rsi_k_period	= args.rsi_k_period
 	rsi_d_period	= args.rsi_d_period
 	rsi_slow	= args.rsi_slow
@@ -245,6 +246,7 @@ for algo in args.algos:
 		if ( re.match('rsi_high_limit:', a)	!= None ):	rsi_high_limit	= int( a.split(':')[1] )
 
 		if ( re.match('rsi_low_limit:', a)	!= None ):	rsi_low_limit	= int( a.split(':')[1] )
+		if ( re.match('stochrsi_period:', a)	!= None ):	stochrsi_period	= int( a.split(':')[1] )
 		if ( re.match('rsi_k_period:', a)	!= None ):	rsi_k_period	= int( a.split(':')[1] )
 		if ( re.match('rsi_d_period:', a)	!= None ):	rsi_d_period	= int( a.split(':')[1] )
 		if ( re.match('rsi_slow:', a)		!= None ):	rsi_slow	= int( a.split(':')[1] )
@@ -279,6 +281,7 @@ for algo in args.algos:
 			# Algo modifiers
 			'rsi_high_limit':	rsi_high_limit,
 			'rsi_low_limit':	rsi_low_limit,
+			'stochrsi_period':	stochrsi_period,
 			'rsi_k_period':		rsi_k_period,
 			'rsi_d_period':		rsi_d_period,
 			'rsi_slow':		rsi_slow,
@@ -296,7 +299,7 @@ for algo in args.algos:
 	algos.append(algo_list)
 
 del(stochrsi,rsi,adx,dmi,macd,aroonosc,vwap,vpt,support_resistance)
-del(rsi_high_limit,rsi_low_limit,rsi_k_period,rsi_d_period,rsi_slow,rsi_period,mfi_high_limit,mfi_low_limit,mfi_period,adx_threshold,adx_period,aroonosc_period,di_period,atr_period,vpt_sma_period)
+del(rsi_high_limit,rsi_low_limit,stochrsi_period,rsi_k_period,rsi_d_period,rsi_slow,rsi_period,mfi_high_limit,mfi_low_limit,mfi_period,adx_threshold,adx_period,aroonosc_period,di_period,atr_period,vpt_sma_period)
 print()
 
 
@@ -588,9 +591,9 @@ def siguser1_handler(signum=None, frame=None):
 	graceful_exit(None, None)
 	sys.exit(0)
 
-#signal.signal(signal.SIGINT, graceful_exit)
-#signal.signal(signal.SIGTERM, graceful_exit)
-#signal.signal(signal.SIGUSR1, siguser1_handler)
+signal.signal(signal.SIGINT, graceful_exit)
+signal.signal(signal.SIGTERM, graceful_exit)
+signal.signal(signal.SIGUSR1, siguser1_handler)
 
 
 # Main Loop

@@ -243,7 +243,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		net_change = 0
 
 		t_rsi_period = cur_algo['rsi_period'] * stocks[ticker]['period_multiplier']
-		t_stochrsi_period = cur_algo['rsi_k_period'] * stocks[ticker]['period_multiplier']
+		t_stochrsi_period = cur_algo['stochrsi_period'] * stocks[ticker]['period_multiplier']
 		t_rsi_k_period = cur_algo['rsi_k_period'] * stocks[ticker]['period_multiplier']
 
 		# Get stochastic RSI
@@ -417,7 +417,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		# Debug
 		if ( debug == True ):
 			time_now = datetime.datetime.now( mytimezone )
-			print(  '(' + str(ticker) + ') StochRSI Period: ' + str(cur_algo['rsi_period']) + ' / Type: ' + str(rsi_type) +
+			print(  '(' + str(ticker) + ') StochRSI Period: ' + str(cur_algo['stochrsi_period']) + ' / Type: ' + str(rsi_type) +
 				' / K Period: ' + str(cur_algo['rsi_k_period']) + ' / D Period: ' + str(cur_algo['rsi_d_period']) + ' / Slow Period: ' + str(cur_algo['rsi_slow']) +
 				' / High Limit|Low Limit: ' + str(cur_algo['rsi_high_limit']) + '|' + str(cur_algo['rsi_low_limit']) )
 
@@ -581,8 +581,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# Jump to short mode if StochRSI K and D are already above stochrsi_high_limit
 			# The intent here is if the bot starts up while the RSI is high we don't want to wait until the stock
 			#  does a full loop again before acting on it.
-			if ( cur_rsi_k > stochrsi_high_limit and cur_rsi_d > stochrsi_high_limit and stocks[ticker]['shortable'] == True ):
-				print('(' + str(ticker) + ') StochRSI K and D values already above ' + str(stochrsi_high_limit) + ', switching to short mode.')
+			if ( (cur_rsi_k > stochrsi_signal_cancel_high_limit and cur_rsi_d > stochrsi_signal_cancel_high_limit) and args.short == True and stocks[ticker]['shortable'] == True ):
+				print('(' + str(ticker) + ') StochRSI K and D values already above ' + str(stochrsi_signal_cancel_high_limit) + ', switching to short mode.')
 
 				reset_signals(ticker)
 				stocks[ticker]['signal_mode'] = 'short'
@@ -1162,8 +1162,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# Jump to buy mode if StochRSI K and D are already below stochrsi_low_limit
 			# The intent here is if the bot starts up while the RSI is low we don't want to wait until the stock
 			#  does a full loop again before acting on it.
-			if ( cur_rsi_k < stochrsi_low_limit and cur_rsi_d < stochrsi_low_limit and args.shortonly == False ):
-				print('(' + str(ticker) + ') StochRSI K and D values already below ' + str(stochrsi_low_limit) + ', switching to buy mode.')
+			if ( cur_rsi_k < stochrsi_signal_cancel_low_limit and cur_rsi_d < stochrsi_signal_cancel_low_limit and args.shortonly == False ):
+				print('(' + str(ticker) + ') StochRSI K and D values already below ' + str(stochrsi_signal_cancel_low_limit) + ', switching to buy mode.')
 
 				reset_signals(ticker)
 				stocks[ticker]['signal_mode'] = 'buy'

@@ -968,10 +968,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, primary_stoch_indicato
 						#  even farther away from exit_percent (if it is set). So we adjust these parameters
 						#  to increase the likelihood of a successful trade.
 						#
+						# This typically means the price action is not very good, but setting
+						#  incr_threshold too low risks losing the ability to handle even slight
+						#  variations in price. So we try to tailor incr_threshold to make the best
+						#  of this entry.
+						#
 						# Note that currently we may reduce these values, but we do not increase them above
 						#  their settings configured by the user.
-						if ( incr_threshold > cur_natr * 2 ):
+						if ( incr_threshold > cur_natr * 3 ):
 							incr_threshold = cur_natr * 2
+
+						elif ( incr_threshold > cur_natr * 2 ):
+							incr_threshold = cur_natr + (cur_natr / 2)
+
 						else:
 							incr_threshold = cur_natr
 
@@ -1478,10 +1487,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, primary_stoch_indicato
 						#  even farther away from exit_percent (if it is set). So we adjust these parameters
 						#  to increase the likelihood of a successful trade.
 						#
+						# This typically means the price action is not very good, but setting
+						#  incr_threshold too low risks losing the ability to handle even slight
+						#  variations in price. So we try to tailor incr_threshold to make the best
+						#  of this entry.
+						#
 						# Note that currently we may reduce these values, but we do not increase them above
 						#  their settings configured by the user.
-						if ( incr_threshold > cur_natr * 2 ):
+						if ( incr_threshold > cur_natr * 3 ):
 							incr_threshold = cur_natr * 2
+
+						elif ( incr_threshold > cur_natr * 2 ):
+							incr_threshold = cur_natr + (cur_natr / 2)
+
 						else:
 							incr_threshold = cur_natr
 

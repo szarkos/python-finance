@@ -29,6 +29,7 @@ parser.add_argument("--start_date", help='The day to start trading (i.e. 2021-05
 parser.add_argument("--stop_date", help='The day to stop trading (i.e. 2021-05-12)', default=None, type=str)
 parser.add_argument("--skip_blacklist", help='Do not process blacklisted tickers.', action="store_true")
 parser.add_argument("--skip_check", help="Skip fixup and check of stock ticker", action="store_true")
+parser.add_argument("--unsafe", help='Allow trading between 9:30-10:15AM where volatility is high', action="store_true")
 
 parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal (Default: False)', action="store_true")
 parser.add_argument("--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (Default: False)', action="store_true")
@@ -172,6 +173,10 @@ if ( args.ifile == None ):
 mytimezone = pytz.timezone("US/Eastern")
 tda_gobot_helper.mytimezone = mytimezone
 tda_gobot_analyze_helper.mytimezone = mytimezone
+
+safe_open = True
+if ( args.unsafe == True ):
+	safe_open = False
 
 p_type = 'day'
 period = None
@@ -419,7 +424,7 @@ for algo in args.algo.split(','):
 									 incr_threshold=args.incr_threshold, decr_threshold=args.decr_threshold,
 									 exit_percent=args.exit_percent, strict_exit_percent=args.strict_exit_percent, vwap_exit=args.vwap_exit, quick_exit=args.quick_exit, variable_exit=args.variable_exit,
 									 blacklist_earnings=args.blacklist_earnings, check_volume=args.check_volume, avg_volume=args.avg_volume, min_volume=args.min_volume,
-									 safe_open=True, start_date=args.start_date, stop_date=args.stop_date, weekly_ph=data_weekly, keylevel_strict=args.keylevel_strict, keylevel_use_daily=args.keylevel_use_daily,
+									 safe_open=safe_open, start_date=args.start_date, stop_date=args.stop_date, weekly_ph=data_weekly, keylevel_strict=args.keylevel_strict, keylevel_use_daily=args.keylevel_use_daily,
 									 no_use_resistance=args.no_use_resistance, price_resistance_pct=args.price_resistance_pct, price_support_pct=args.price_support_pct, lod_hod_check=args.lod_hod_check,
 									 debug=True, debug_all=args.debug_all )
 

@@ -87,6 +87,8 @@ parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', d
 parser.add_argument("--adx_period", help='ADX period', default=92, type=int)
 parser.add_argument("--di_period", help='Plus/Minus DI period', default=48, type=int)
 parser.add_argument("--aroonosc_period", help='Aroon Oscillator period', default=24, type=int)
+parser.add_argument("--aroonosc_alt_period", help='Alternate Aroon Oscillator period for higher volatility stocks', default=60, type=int)
+parser.add_argument("--aroonosc_alt_threshold", help='Threshold for enabling the alternate Aroon Oscillator period for higher volatility stocks', default=0.24, type=float)
 parser.add_argument("--atr_period", help='Average True Range period', default=14, type=int)
 parser.add_argument("--mfi_period", help='Money Flow Index (MFI) period', default=14, type=int)
 parser.add_argument("--mfi_high_limit", help='MFI high limit', default=80, type=int)
@@ -422,6 +424,7 @@ for algo in args.algo.split(','):
 									 aroonosc_with_macd_simple=args.aroonosc_with_macd_simple, aroonosc_secondary_threshold=args.aroonosc_secondary_threshold, aroonosc_with_vpt=args.aroonosc_with_vpt,
 									 stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly, check_ma=args.check_ma,
 									 incr_threshold=args.incr_threshold, decr_threshold=args.decr_threshold,
+									 aroonosc_alt_period=args.aroonosc_alt_period, aroonosc_alt_threshold=args.aroonosc_alt_threshold,
 									 exit_percent=args.exit_percent, strict_exit_percent=args.strict_exit_percent, vwap_exit=args.vwap_exit, quick_exit=args.quick_exit, variable_exit=args.variable_exit,
 									 blacklist_earnings=args.blacklist_earnings, check_volume=args.check_volume, avg_volume=args.avg_volume, min_volume=args.min_volume,
 									 safe_open=safe_open, start_date=args.start_date, stop_date=args.stop_date, weekly_ph=data_weekly, keylevel_strict=args.keylevel_strict, keylevel_use_daily=args.keylevel_use_daily,

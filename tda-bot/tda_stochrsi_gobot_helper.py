@@ -339,8 +339,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# SAZ - 2021-08-29: Higher volatility stocks seem to work better with a
 			#  longer Aroon Oscillator value.
 			stocks[ticker]['aroonosc_period'] = cur_algo['aroonosc_period']
-			if ( stocks[ticker]['cur_natr'] > 0.24 ):
-				stocks[ticker]['aroonosc_period'] = 92
+			if ( stocks[ticker]['cur_natr'] > args.aroonosc_alt_threshold ):
+				stocks[ticker]['aroonosc_period'] = args.aroonosc_alt_period
 
 			t_aroonosc_period = stocks[ticker]['aroonosc_period'] * stocks[ticker]['period_multiplier']
 

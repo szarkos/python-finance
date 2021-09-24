@@ -18,6 +18,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, primary_stoch_indicato
 			  with_rsi=False, with_rsi_simple=False, with_adx=False, with_dmi=False, with_aroonosc=False, with_aroonosc_simple=False, with_macd=False, with_vwap=False, with_vpt=False, with_mfi=False,
 			  with_dmi_simple=False, with_macd_simple=False, aroonosc_with_macd_simple=False, aroonosc_with_vpt=False, aroonosc_secondary_threshold=70,
 			  vpt_sma_period=72, adx_period=92, di_period=48, atr_period=14, adx_threshold=25, mfi_period=14, aroonosc_period=48, mfi_low_limit=20, mfi_high_limit=80,
+			  aroonosc_alt_period=60, aroonosc_alt_threshold=0.24,
 			  lod_hod_check=False, check_volume=False, avg_volume=2000000, min_volume=1500000,
 			  check_ma=False, noshort=False, shortonly=False, safe_open=True, start_date=None, stop_date=None, weekly_ph=None, keylevel_strict=False, keylevel_use_daily=False, blacklist_earnings=False,
 			  debug=False, debug_all=False ):
@@ -209,10 +210,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, primary_stoch_indicato
 		with_macd_simple = False
 
 	aroonosc = []
-	aroonosc_92 = []
+	aroonosc_alt = []
 	try:
 		aroonosc = tda_gobot_helper.get_aroon_osc(pricehistory, period=aroonosc_period)
-		aroonosc_92 = tda_gobot_helper.get_aroon_osc(pricehistory, period=92)
+		aroonosc_alt = tda_gobot_helper.get_aroon_osc(pricehistory, period=aroonosc_alt_period)
 
 	except Exception as e:
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_aroon_osc(): ' + str(e))
@@ -459,7 +460,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, primary_stoch_indicato
 	di_idx				= len(pricehistory['candles']) - len(plus_di)
 
 	aroonosc_idx			= len(pricehistory['candles']) - len(aroonosc)
-	aroonosc_92_idx			= len(pricehistory['candles']) - len(aroonosc_92)
+	aroonosc_alt_idx		= len(pricehistory['candles']) - len(aroonosc_alt)
 	macd_idx			= len(pricehistory['candles']) - len(macd)
 
 	buy_signal			= False
@@ -562,8 +563,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, primary_stoch_indicato
 
 		cur_aroonosc = aroonosc[idx - aroonosc_idx]
 		prev_aroonosc = aroonosc[idx - aroonosc_idx - 1]
-		cur_aroonosc_92 = aroonosc_92[idx - aroonosc_92_idx]
-		prev_aroonosc_92 = aroonosc_92[idx - aroonosc_92_idx - 1]
+		cur_aroonosc_alt = aroonosc_alt[idx - aroonosc_alt_idx]
+		prev_aroonosc_alt = aroonosc_alt[idx - aroonosc_alt_idx - 1]
 
 		cur_vpt = vpt[idx]
 		prev_vpt = vpt[idx-1]
@@ -700,9 +701,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, primary_stoch_indicato
 			#
 			# SAZ - 2021-08-29: Higher volatility stocks seem to work better with a longer
 			# Aroon Oscillator period value.
-			if ( cur_natr > 0.24 and with_aroonosc_simple == True ):
-				cur_aroonosc = cur_aroonosc_92
-				prev_aroonosc = prev_aroonosc_92
+			if ( cur_natr > aroonosc_alt_threshold and with_aroonosc_simple == True ):
+				cur_aroonosc = cur_aroonosc_alt
+				prev_aroonosc = prev_aroonosc_alt
 
 			if ( cur_aroonosc < 60 ):
 				aroonosc_signal = False
@@ -1225,9 +1226,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, primary_stoch_indicato
 
 			# Aroon oscillator signals
 			# Values closer to -100 indicate a downtrend
-			if ( cur_natr > 0.24 and with_aroonosc_simple == True ):
-				cur_aroonosc = cur_aroonosc_92
-				prev_aroonosc = prev_aroonosc_92
+			if ( cur_natr > aroonosc_alt_threshold and with_aroonosc_simple == True ):
+				cur_aroonosc = cur_aroonosc_alt
+				prev_aroonosc = prev_aroonosc_alt
 
 			if ( cur_aroonosc > -60 ):
 				aroonosc_signal = False

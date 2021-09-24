@@ -30,6 +30,7 @@ parser.add_argument("--stop_date", help='The day to stop trading (i.e. 2021-05-1
 parser.add_argument("--skip_blacklist", help='Do not process blacklisted tickers.', action="store_true")
 parser.add_argument("--skip_check", help="Skip fixup and check of stock ticker", action="store_true")
 parser.add_argument("--unsafe", help='Allow trading between 9:30-10:15AM where volatility is high', action="store_true")
+parser.add_argument("--hold_overnight", help='Allow algorithm to hold stocks across multiple days', action="store_true")
 
 parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal (Default: False)', action="store_true")
 parser.add_argument("--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (Default: False)', action="store_true")
@@ -415,22 +416,109 @@ for algo in args.algo.split(','):
 			sys.exit(1)
 
 		elif ( algo == 'stochrsi' or algo == 'stochrsi-new' ):
-			results = tda_gobot_analyze_helper.stochrsi_analyze_new( pricehistory=data, ticker=stock, primary_stoch_indicator=args.primary_stoch_indicator, stochrsi_period=stochrsi_period, rsi_period=rsi_period, rsi_type=rsi_type, stochrsi_5m=args.stochrsi_5m,
-									 rsi_low_limit=rsi_low_limit, rsi_high_limit=rsi_high_limit, rsi_slow=rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period,
-									 with_vpt=args.with_vpt, with_rsi=args.with_rsi, with_rsi_simple=args.with_rsi_simple, with_adx=args.with_adx, with_dmi=args.with_dmi, with_aroonosc=args.with_aroonosc, with_aroonosc_simple=args.with_aroonosc_simple, with_macd=args.with_macd,
-									 with_mfi=args.with_mfi, with_vwap=args.with_vwap, with_dmi_simple=args.with_dmi_simple, with_macd_simple=args.with_macd_simple,
-									 vpt_sma_period=args.vpt_sma_period, adx_period=args.adx_period, di_period=args.di_period, atr_period=args.atr_period, aroonosc_period=args.aroonosc_period,
-									 mfi_period=args.mfi_period, mfi_high_limit=args.mfi_high_limit, mfi_low_limit=args.mfi_low_limit, adx_threshold=args.adx_threshold,
-									 aroonosc_with_macd_simple=args.aroonosc_with_macd_simple, aroonosc_secondary_threshold=args.aroonosc_secondary_threshold, aroonosc_with_vpt=args.aroonosc_with_vpt,
-									 stoploss=args.stoploss, noshort=args.noshort, shortonly=args.shortonly, check_ma=args.check_ma,
-									 incr_threshold=args.incr_threshold, decr_threshold=args.decr_threshold,
-									 aroonosc_alt_period=args.aroonosc_alt_period, aroonosc_alt_threshold=args.aroonosc_alt_threshold,
-									 exit_percent=args.exit_percent, strict_exit_percent=args.strict_exit_percent, vwap_exit=args.vwap_exit, quick_exit=args.quick_exit, variable_exit=args.variable_exit,
-									 blacklist_earnings=args.blacklist_earnings, check_volume=args.check_volume, avg_volume=args.avg_volume, min_volume=args.min_volume,
-									 safe_open=safe_open, start_date=args.start_date, stop_date=args.stop_date, weekly_ph=data_weekly, keylevel_strict=args.keylevel_strict, keylevel_use_daily=args.keylevel_use_daily,
-									 no_use_resistance=args.no_use_resistance, price_resistance_pct=args.price_resistance_pct, price_support_pct=args.price_support_pct, lod_hod_check=args.lod_hod_check,
-									 debug=True, debug_all=args.debug_all )
 
+			test_params = {
+					# Test range and input options
+					'start_date':				args.start_date,
+					'stop_date':				args.stop_date,
+					'safe_open':				safe_open,
+					'weekly_ph':				data_weekly,
+
+					'debug':				True,
+					'debug_all':				args.debug_all,
+
+					# Trade exit parameters
+					'incr_threshold':			args.incr_threshold,
+					'decr_threshold':			args.decr_threshold,
+					'stoploss':				args.stoploss,
+					'exit_percent':				args.exit_percent,
+					'quick_exit':				args.quick_exit,
+					'strict_exit_percent':			args.strict_exit_percent,
+					'vwap_exit':				args.vwap_exit,
+					'variable_exit':			args.variable_exit,
+					'hold_overnight':			args.hold_overnight,
+
+					# Stock shorting options
+					'noshort':				args.noshort,
+					'shortonly':				args.shortonly,
+					'check_ma':				args.check_ma,
+
+					# Other stock behavior options
+					'blacklist_earnings':			args.blacklist_earnings,
+					'check_volume':				args.check_volume,
+					'avg_volume':				args.avg_volume,
+					'min_volume':				args.min_volume,
+
+					# Indicators
+					'primary_stoch_indicator':		args.primary_stoch_indicator,
+					'stochrsi_5m':				args.stochrsi_5m,
+
+					'with_rsi':				args.with_rsi,
+					'with_rsi_simple':			args.with_rsi_simple,
+
+					'with_dmi':				args.with_dmi,
+					'with_dmi_simple':			args.with_dmi_simple,
+					'with_adx':				args.with_adx,
+
+					'with_macd':				args.with_macd,
+					'with_macd_simple':			args.with_macd_simple,
+
+					'with_aroonosc':			args.with_aroonosc,
+					'with_aroonosc_simple':			args.with_aroonosc_simple,
+
+					'with_mfi':				args.with_mfi,
+
+					'with_vpt':				args.with_vpt,
+					'with_vwap':				args.with_vwap,
+
+					# Indicator parameters and modifiers
+					'stochrsi_period':			args.stochrsi_period,
+					'rsi_period':				args.rsi_period,
+					'rsi_type':				args.rsi_type,
+					'rsi_slow':				args.rsi_slow,
+					'rsi_k_period':				args.rsi_k_period,
+					'rsi_d_period':				args.rsi_d_period,
+					'rsi_low_limit':			args.rsi_low_limit,
+					'rsi_high_limit':			args.rsi_high_limit,
+
+					'di_period':				args.di_period,
+					'adx_period':				args.adx_period,
+					'adx_threshold':			args.adx_threshold,
+
+					'macd_short_period':			48,
+					'macd_long_period':			104,
+					'macd_signal_period':			36,
+					'macd_offset':				0.006,
+
+					'aroonosc_period':			args.aroonosc_period,
+					'aroonosc_alt_period':			args.aroonosc_alt_period,
+					'aroonosc_alt_threshold':		args.aroonosc_alt_threshold,
+					'aroonosc_secondary_threshold':		args.aroonosc_secondary_threshold,
+					'aroonosc_with_macd_simple':		args.aroonosc_with_macd_simple,
+					'aroonosc_with_vpt':			args.aroonosc_with_vpt,
+
+					'mfi_period':				args.mfi_period,
+					'mfi_high_limit':			args.mfi_high_limit,
+					'mfi_low_limit':			args.mfi_low_limit,
+
+					'atr_period':				args.atr_period,
+
+					'vpt_sma_period':			args.vpt_sma_period,
+
+					# Resistance indicators
+					'no_use_resistance':			args.no_use_resistance,
+					'price_resistance_pct':			args.price_resistance_pct,
+					'price_support_pct':			args.price_support_pct,
+					'lod_hod_check':			args.lod_hod_check,
+					'keylevel_strict':			args.keylevel_strict,
+					'keylevel_use_daily':			args.keylevel_use_daily
+			}
+
+			# Call stochrsi_analyze_new() with test_params{} to run the backtest
+			results = tda_gobot_analyze_helper.stochrsi_analyze_new( pricehistory=data, ticker=stock, params=test_params )
+
+
+		# Check and print the results from stochrsi_analyze_new()
 		if ( isinstance(results, bool) and results == False ):
 			print('Error: rsi_analyze(' + str(stock) + ') returned false', file=sys.stderr)
 			continue

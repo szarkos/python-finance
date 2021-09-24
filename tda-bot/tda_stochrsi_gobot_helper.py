@@ -55,6 +55,7 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 		# Adding this log here so we can check with live data.
 		if ( int(idx['SEQUENCE']) == stocks[ticker]['prev_seq'] ):
 			print( '(' + str(ticker) + '): WARNING: duplicate sequence number detected - seq/timestamp: ' + str(idx['SEQUENCE']) + ' / ' + str(stream['timestamp']) )
+			continue
 
 		stocks[ticker]['prev_seq'] = int( idx['SEQUENCE'] )
 

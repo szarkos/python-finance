@@ -39,6 +39,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 		nonlocal exit_percent_signal		; exit_percent_signal		= False
 
+		nonlocal stochrsi_signal		; stochrsi_signal		= False
 		nonlocal rsi_signal			; rsi_signal			= False
 		nonlocal mfi_signal			; mfi_signal			= False
 		nonlocal adx_signal			; adx_signal			= False
@@ -128,6 +129,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	rsi_d_period		=	3		if ('rsi_d_period' not in params) else params['rsi_d_period']
 	rsi_low_limit		=	20		if ('rsi_low_limit' not in params) else params['rsi_low_limit']
 	rsi_high_limit		=	80		if ('rsi_high_limit' not in params) else params['rsi_high_limit']
+	nocrossover		=	False		if ('nocrossover' not in params) else params['nocrossover']
+	crossover_only		=	False		if ('crossover_only' not in params) else params['crossover_only']
 
 	di_period		=	48		if ('di_period' not in params) else params['di_period']
 	adx_period		=	92		if ('adx_period' not in params) else params['adx_period']
@@ -251,9 +254,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				', len(rsi_k)=' + str(len(stochrsi)) + '), len(rsi_d)=' + str(len(rsi_d)) + ')' )
 
 	# Get RSI
-	rsi_signal_cancel_low_limit = 30
-	rsi_signal_cancel_high_limit = 70
-
 	try:
 		rsi = tda_gobot_helper.get_rsi(pricehistory, rsi_period, rsi_type, debug=False)
 
@@ -262,9 +262,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		return False
 
 	# Get MFI
-	mfi_signal_cancel_low_limit = 30
-	mfi_signal_cancel_high_limit = 70
-
 	try:
 		mfi = tda_gobot_helper.get_mfi(pricehistory, period=mfi_period)
 
@@ -571,6 +568,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	exit_percent_signal		= False
 
+	stochrsi_signal			= False
 	rsi_signal			= False
 	mfi_signal			= False
 	adx_signal			= False
@@ -591,6 +589,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	orig_incr_threshold		= incr_threshold
 	orig_decr_threshold		= decr_threshold
 	orig_exit_percent		= exit_percent
+
+	stochrsi_default_low_limit	= 20
+	stochrsi_default_high_limit	= 80
+	rsi_signal_cancel_low_limit	= 30
+	rsi_signal_cancel_high_limit	= 70
+
+	mfi_signal_cancel_low_limit	= 30
+	mfi_signal_cancel_high_limit	= 70
 
 	first_day			= datetime.fromtimestamp(float(pricehistory['candles'][0]['datetime'])/1000, tz=mytimezone)
 	start_day			= first_day + timedelta( days=1 )
@@ -741,18 +747,20 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# Check StochRSI
 			if ( cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit ):
+				stochrsi_signal = True
 
 				# Monitor if K and D intersect
 				# A buy signal occurs when an increasing %K line crosses above the %D line in the oversold region.
 				#  or if the %K line crosses below the rsi limit
-				if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
+				if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d and nocrossover == False ):
 					buy_signal = True
 
-			elif ( prev_rsi_k < rsi_low_limit and cur_rsi_k > prev_rsi_k ):
-				if ( cur_rsi_k >= rsi_low_limit ):
-					buy_signal = True
+			if ( stochrsi_signal == True and crossover_only == False ):
+				if ( prev_rsi_k < stochrsi_default_low_limit and cur_rsi_k > prev_rsi_k ):
+					if ( cur_rsi_k >= stochrsi_default_low_limit ):
+						buy_signal = True
 
-			elif ( cur_rsi_k > stochrsi_signal_cancel_low_limit and cur_rsi_d > stochrsi_signal_cancel_low_limit ):
+			if ( cur_rsi_k > stochrsi_signal_cancel_low_limit and cur_rsi_d > stochrsi_signal_cancel_low_limit ):
 				reset_signals()
 				buy_signal = False
 
@@ -1207,15 +1215,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			#   should wait for either a red candle or for decr_threshold to be hit.
 			if ( strict_exit_percent == False and exit_percent_signal == False ):
 				if ( cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit ):
+					stochrsi_signal = True
 
 					# Monitor if K and D intercect
 					# A sell signal occurs when a decreasing %K line crosses below the %D line in the overbought region
-					if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
+					if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d and nocrossover == False ):
 						sell_signal = True
 
-				elif ( prev_rsi_k > rsi_high_limit and cur_rsi_k < prev_rsi_k ):
-					if ( cur_rsi_k <= rsi_high_limit ):
-						sell_signal = True
+				if ( stochrsi_signal == True and crossover_only == False ):
+					if ( prev_rsi_k > stochrsi_default_high_limit and cur_rsi_k < prev_rsi_k ):
+						if ( cur_rsi_k <= stochrsi_default_high_limit ):
+							sell_signal = True
 
 			if ( sell_signal == True ):
 
@@ -1269,15 +1279,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# Monitor RSI
 			if ( cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit ):
+				stochrsi_signal = True
 
 				# Monitor if K and D intercect
 				# A sell-short signal occurs when a decreasing %K line crosses below the %D line in the overbought region
-				if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
+				if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d and nocrossover == False ):
 					short_signal = True
 
-			elif ( prev_rsi_k > rsi_high_limit and cur_rsi_k < prev_rsi_k ):
-				if ( cur_rsi_k <= rsi_high_limit ):
-					short_signal = True
+			if ( stochrsi_signal == True and crossover_only == False ):
+				if ( prev_rsi_k > stochrsi_default_high_limit and cur_rsi_k < prev_rsi_k ):
+					if ( cur_rsi_k <= stochrsi_default_high_limit ):
+						short_signal = True
 
 			elif ( cur_rsi_k < stochrsi_signal_cancel_high_limit and cur_rsi_d < stochrsi_signal_cancel_high_limit ):
 				reset_signals()
@@ -1731,15 +1743,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			#   should wait for either a red candle or for decr_threshold to be hit.
 			if ( strict_exit_percent == False and exit_percent_signal == False ):
 				if ( cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit ):
+					stochrsi_signal = True
 
 					# Monitor if K and D intercect
 					# A buy-to-cover signal occurs when an increasing %K line crosses above the %D line in the oversold region.
-					if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
+					if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d and nocrossover == False ):
 						buy_to_cover_signal = True
 
-				elif ( prev_rsi_k < rsi_low_limit and cur_rsi_k > prev_rsi_k ):
-					if ( cur_rsi_k >= rsi_low_limit ):
-						buy_to_cover_signal = True
+				if ( stochrsi_signal == True ):
+					if ( prev_rsi_k < stochrsi_default_low_limit and cur_rsi_k > prev_rsi_k and crossover_only == False ):
+						if ( cur_rsi_k >= stochrsi_default_low_limit ):
+							buy_to_cover_signal = True
 
 			# BUY-TO-COVER
 			if ( buy_to_cover_signal == True ):

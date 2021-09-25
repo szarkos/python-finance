@@ -116,7 +116,6 @@ incr_threshold = args.incr_threshold
 
 stock = args.stock
 stock_usd = args.stock_usd
-args.nocrossover
 
 # Initialize and log into TD Ameritrade
 from dotenv import load_dotenv
@@ -480,6 +479,8 @@ for algo in args.algo.split(','):
 					'rsi_d_period':				args.rsi_d_period,
 					'rsi_low_limit':			args.rsi_low_limit,
 					'rsi_high_limit':			args.rsi_high_limit,
+					'nocrossover':				args.nocrossover,
+					'crossover_only':			args.crossover_only,
 
 					'di_period':				args.di_period,
 					'adx_period':				args.adx_period,

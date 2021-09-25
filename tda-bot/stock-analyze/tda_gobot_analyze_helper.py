@@ -139,8 +139,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	macd_offset		=	0.006		if ('macd_offset' not in params) else params['macd_offset']
 
 
-	aroonosc_period		=	48		if ('aroonosc_period' not in params) else params['aroonosc_period']
-	aroonosc_alt_period	=	60		if ('aroonosc_alt_period' not in params) else params['aroonosc_alt_period']
+	aroonosc_period		=	24		if ('aroonosc_period' not in params) else params['aroonosc_period']
+	aroonosc_alt_period	=	48		if ('aroonosc_alt_period' not in params) else params['aroonosc_alt_period']
 	aroonosc_alt_threshold	=	0.24		if ('aroonosc_alt_threshold' not in params) else params['aroonosc_alt_threshold']
 	aroonosc_secondary_threshold	= 70		if ('aroonosc_secondary_threshold' not in params) else params['aroonosc_secondary_threshold']
 	aroonosc_with_macd_simple	= False		if ('aroonosc_with_macd_simple' not in params) else params['aroonosc_with_macd_simple']

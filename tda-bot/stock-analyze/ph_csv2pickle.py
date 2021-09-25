@@ -127,7 +127,7 @@ if ( args.augment_today == True ):
 			print('Caught Exception: get_pricehistory(' + str(ticker) + ', ' + str(time_prev_epoch) + ', ' + str(time_now_epoch) + '): ' + str(e) + ', exiting.', file=sys.stderr)
 			sys.exit(1)
 
-		if ( ph_data == False ):
+		if ( isinstance(ph_data, bool) and ph_data == False ):
 			print('Error: get_pricehistory(' + str(ticker) + ', ' + str(time_prev_epoch) + ', ' + str(time_now_epoch) + '): attempt ' + str(tries) + ' returned False, retrying...', file=sys.stderr)
 			time.sleep(5)
 

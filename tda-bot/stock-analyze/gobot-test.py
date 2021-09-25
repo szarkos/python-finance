@@ -36,7 +36,7 @@ scenarios = {
 		'stochrsi_mfi_aroonosc_simple_dmi_simple_with_macd_adx':	'--rsi_high_limit=95 --rsi_low_limit=15 --with_mfi --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 ',
 
 		# Very good results but very few trades
-		'stochrsi_mfi_aroonosc_simple_adx_lowperiod':			'--rsi_high_limit=95 --rsi_low_limit=15 --with_mfi --mfi_high_limit=90 --mfi_low_limit=10 --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=20 --adx_period=48 ',
+		'stochrsi_mfi_aroonosc_simple_adx_lowperiod':			'--rsi_high_limit=95 --rsi_low_limit=15 --with_mfi --mfi_high_limit=95 --mfi_low_limit=5 --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=20 --adx_period=48 ',
 
 		# Similar to above without mfi, decent results (60 percentile daily win rate) but more trades
 		# Currently not used, needs more testing

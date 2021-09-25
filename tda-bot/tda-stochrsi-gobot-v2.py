@@ -2,15 +2,18 @@
 
 # Monitor a stock's Stochastic RSI and other indicator values and make entry/exit decisions based off those values.
 # Example:
-
-# $ source stock-analyze/tickers.conf
+#
+# $ tickers='MSFT,AAPL' # put tickers here
+#
 # $ ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=5000 --stocks=${tickers} --short --singleday \
 #	--decr_threshold=0.4 --incr_threshold=0.5 --max_failed_txs=2 --exit_percent=1 \
-#	--tx_log_dir=TX_LOGS_v2 --weekly_ifile=stock-analyze/weekly-csv/TICKER-weekly-2019-2021.pickle \
+#	--algos=stochrsi,mfi,dmi_simple,aroonosc,adx,support_resistance,adx_threshold:6,rsi_low_limit:10 \
+#	--algos=stochrsi,mfi,aroonosc,adx,support_resistance,mfi_high_limit:95,mfi_low_limit:5,adx_threshold:20,adx_period:48 \
+#	--algos=stochrsi,rsi,mfi,adx,support_resistance,adx_threshold:20,mfi_high_limit:95,mfi_low_limit:5 \
 #	--rsi_high_limit=95 --rsi_low_limit=15 \
-#	--algos=stochrsi,dmi_simple,aroonosc,support_resistance --aroonosc_with_macd_simple \
-#	--variable_exit --aroonosc_period=24 --adx_period=92 --adx_threshold=4.25 \
-#	1> logs/gobot-v2.log 2>&1
+#	--aroonosc_with_macd_simple --variable_exit --lod_hod_check \
+#	--tx_log_dir=TX_LOGS_v2 --weekly_ifile=stock-analyze/weekly-csv/TICKER-weekly-2019-2021.pickle \
+#	1> logs/gobot-v2.log 2>&1 &
 
 import os, sys, signal, re, random
 import time, datetime, pytz
@@ -75,6 +78,8 @@ parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', d
 parser.add_argument("--adx_period", help='ADX period', default=92, type=int)
 parser.add_argument("--di_period", help='Plus/Minus DI period', default=48, type=int)
 parser.add_argument("--aroonosc_period", help='Aroon Oscillator period', default=24, type=int)
+parser.add_argument("--aroonosc_alt_period", help='Alternate Aroon Oscillator period for higher volatility stocks', default=60, type=int)
+parser.add_argument("--aroonosc_alt_threshold", help='Threshold for enabling the alternate Aroon Oscillator period for higher volatility stocks', default=0.24, type=float)
 parser.add_argument("--atr_period", help='Average True Range period', default=14, type=int)
 parser.add_argument("--mfi_period", help='Money Flow Index (MFI) period', default=14, type=int)
 parser.add_argument("--mfi_high_limit", help='MFI high limit', default=80, type=int)
@@ -191,6 +196,7 @@ for algo in args.algos:
 	# Indicator modifiers
 	rsi_high_limit	= args.rsi_high_limit
 	rsi_low_limit	= args.rsi_low_limit
+	stochrsi_period	= args.stochrsi_period
 	rsi_k_period	= args.rsi_k_period
 	rsi_d_period	= args.rsi_d_period
 	rsi_slow	= args.rsi_slow
@@ -242,6 +248,7 @@ for algo in args.algos:
 		if ( re.match('rsi_high_limit:', a)	!= None ):	rsi_high_limit	= int( a.split(':')[1] )
 
 		if ( re.match('rsi_low_limit:', a)	!= None ):	rsi_low_limit	= int( a.split(':')[1] )
+		if ( re.match('stochrsi_period:', a)	!= None ):	stochrsi_period	= int( a.split(':')[1] )
 		if ( re.match('rsi_k_period:', a)	!= None ):	rsi_k_period	= int( a.split(':')[1] )
 		if ( re.match('rsi_d_period:', a)	!= None ):	rsi_d_period	= int( a.split(':')[1] )
 		if ( re.match('rsi_slow:', a)		!= None ):	rsi_slow	= int( a.split(':')[1] )
@@ -276,6 +283,7 @@ for algo in args.algos:
 			# Algo modifiers
 			'rsi_high_limit':	rsi_high_limit,
 			'rsi_low_limit':	rsi_low_limit,
+			'stochrsi_period':	stochrsi_period,
 			'rsi_k_period':		rsi_k_period,
 			'rsi_d_period':		rsi_d_period,
 			'rsi_slow':		rsi_slow,
@@ -293,7 +301,7 @@ for algo in args.algos:
 	algos.append(algo_list)
 
 del(stochrsi,rsi,adx,dmi,macd,aroonosc,vwap,vpt,support_resistance)
-del(rsi_high_limit,rsi_low_limit,rsi_k_period,rsi_d_period,rsi_slow,rsi_period,mfi_high_limit,mfi_low_limit,mfi_period,adx_threshold,adx_period,aroonosc_period,di_period,atr_period,vpt_sma_period)
+del(rsi_high_limit,rsi_low_limit,stochrsi_period,rsi_k_period,rsi_d_period,rsi_slow,rsi_period,mfi_high_limit,mfi_low_limit,mfi_period,adx_threshold,adx_period,aroonosc_period,di_period,atr_period,vpt_sma_period)
 print()
 
 

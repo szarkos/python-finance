@@ -11,7 +11,7 @@ fi
 cd $results_dir
 
 tickers=''
-for i in *-stochrsi*; do
+for i in *-stoch*; do
 	tickers="$tickers "$( echo -n $i | sed 's/\-.*//' )
 done
 tickers=$( echo -n $tickers | sed 's/ /\n/g' | uniq | tr '\n' ' ' )
@@ -164,10 +164,10 @@ for tst in $tests; do
 
 		# Number of transactions
 		if [[ ! -v success_tx_num["$key"] ]]; then
-			success_tx_num["$key"]=0
+			success_tx_num["$key"]="0"
 		fi
 		if [[ ! -v fail_tx_num["$key"] ]]; then
-			fail_tx_num["$key"]=0
+			fail_tx_num["$key"]="0"
 		fi
 		echo -n "${success_tx_num["$key"]},"
 		echo -n "${fail_tx_num["$key"]},"
@@ -181,7 +181,7 @@ for tst in $tests; do
 	echo
 
 
-	sucess=""
+	success=""
 	fail=""
 	for key in $all_dates; do
 		if [ ! "${success_tx_num[$key]}" == "0" ]; then

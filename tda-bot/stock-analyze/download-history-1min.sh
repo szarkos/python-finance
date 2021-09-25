@@ -85,7 +85,7 @@ echo
 # Avoid throttling
 slp=2
 if [ "$(echo "$months > 5" | bc)" == 1 ]; then
-	slp=10
+	slp=5
 fi
 
 tickers=$( echo -n $tickers | sed 's/,/ /g' )
@@ -97,4 +97,8 @@ for t in $tickers; do
 	sleep $slp
 
 done
+
+# Check downloaded .csv files for errors
+sleep 20
+./download-history-1min.sh CHECK_TICKERS $interval $months
 

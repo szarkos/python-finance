@@ -32,8 +32,6 @@ parser.add_argument("--skip_check", help="Skip fixup and check of stock ticker",
 parser.add_argument("--unsafe", help='Allow trading between 9:30-10:15AM where volatility is high', action="store_true")
 parser.add_argument("--hold_overnight", help='Allow algorithm to hold stocks across multiple days', action="store_true")
 
-parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal (Default: False)', action="store_true")
-parser.add_argument("--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (Default: False)', action="store_true")
 parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (Default: False)', action="store_true")
 parser.add_argument("--keylevel_strict", help='Use strict key level checks to enter trades (Default: False)', action="store_true")
 parser.add_argument("--keylevel_use_daily", help='Use daily candles to determine key levels instead of weekly (Default: False)', action="store_true")
@@ -84,6 +82,10 @@ parser.add_argument("--rsi_d_period", help='D period to use in StochRSI algorith
 parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='hlc3', type=str)
 parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=int)
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
+parser.add_argument("--stochrsi_offset", help='Offset between K and D to determine strength of trend', default=8, type=int)
+parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal (Default: False)', action="store_true")
+parser.add_argument("--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (Default: False)', action="store_true")
+
 parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', default=72, type=int)
 parser.add_argument("--adx_period", help='ADX period', default=92, type=int)
 parser.add_argument("--di_period", help='Plus/Minus DI period', default=48, type=int)
@@ -479,6 +481,7 @@ for algo in args.algo.split(','):
 					'rsi_d_period':				args.rsi_d_period,
 					'rsi_low_limit':			args.rsi_low_limit,
 					'rsi_high_limit':			args.rsi_high_limit,
+					'stochrsi_offset':			args.stochrsi_offset,
 					'nocrossover':				args.nocrossover,
 					'crossover_only':			args.crossover_only,
 

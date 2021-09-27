@@ -146,25 +146,29 @@ def reset_signals(ticker=None):
 	for algo in algos:
 		algo_id = algo['algo_id']
 
-		stocks[ticker]['algo_signals'][algo_id]['buy_signal']		= False
-		stocks[ticker]['algo_signals'][algo_id]['sell_signal']		= False
-		stocks[ticker]['algo_signals'][algo_id]['short_signal']		= False
-		stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal']	= False
+		stocks[ticker]['algo_signals'][algo_id]['buy_signal']			= False
+		stocks[ticker]['algo_signals'][algo_id]['sell_signal']			= False
+		stocks[ticker]['algo_signals'][algo_id]['short_signal']			= False
+		stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal']		= False
 
-		stocks[ticker]['algo_signals'][algo_id]['rsi_signal']		= False
-		stocks[ticker]['algo_signals'][algo_id]['mfi_signal']		= False
-		stocks[ticker]['algo_signals'][algo_id]['adx_signal']		= False
-		stocks[ticker]['algo_signals'][algo_id]['dmi_signal']		= False
-		stocks[ticker]['algo_signals'][algo_id]['macd_signal']		= False
-		stocks[ticker]['algo_signals'][algo_id]['aroonosc_signal']	= False
-		stocks[ticker]['algo_signals'][algo_id]['vwap_signal']		= False
-		stocks[ticker]['algo_signals'][algo_id]['vpt_signal']		= False
-		stocks[ticker]['algo_signals'][algo_id]['resistance_signal']	= False
+		stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal']		= False
+		stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal']	= False
+		stocks[ticker]['algo_signals'][algo_id]['stochrsi_threshold_signal']	= False
 
-		stocks[ticker]['algo_signals'][algo_id]['plus_di_crossover']	= False
-		stocks[ticker]['algo_signals'][algo_id]['minus_di_crossover']	= False
-		stocks[ticker]['algo_signals'][algo_id]['macd_crossover']	= False
-		stocks[ticker]['algo_signals'][algo_id]['macd_avg_crossover']	= False
+		stocks[ticker]['algo_signals'][algo_id]['rsi_signal']			= False
+		stocks[ticker]['algo_signals'][algo_id]['mfi_signal']			= False
+		stocks[ticker]['algo_signals'][algo_id]['adx_signal']			= False
+		stocks[ticker]['algo_signals'][algo_id]['dmi_signal']			= False
+		stocks[ticker]['algo_signals'][algo_id]['macd_signal']			= False
+		stocks[ticker]['algo_signals'][algo_id]['aroonosc_signal']		= False
+		stocks[ticker]['algo_signals'][algo_id]['vwap_signal']			= False
+		stocks[ticker]['algo_signals'][algo_id]['vpt_signal']			= False
+		stocks[ticker]['algo_signals'][algo_id]['resistance_signal']		= False
+
+		stocks[ticker]['algo_signals'][algo_id]['plus_di_crossover']		= False
+		stocks[ticker]['algo_signals'][algo_id]['minus_di_crossover']		= False
+		stocks[ticker]['algo_signals'][algo_id]['macd_crossover']		= False
+		stocks[ticker]['algo_signals'][algo_id]['macd_avg_crossover']		= False
 
 	return True
 
@@ -246,10 +250,19 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		t_rsi_period = cur_algo['rsi_period'] * stocks[ticker]['period_multiplier']
 		t_stochrsi_period = cur_algo['stochrsi_period'] * stocks[ticker]['period_multiplier']
 		t_rsi_k_period = cur_algo['rsi_k_period'] * stocks[ticker]['period_multiplier']
+		t_mfi_period = cur_algo['mfi_period'] * stocks[ticker]['period_multiplier']
 
 		# Get stochastic RSI
 		try:
-			stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(stocks[ticker]['pricehistory'], rsi_period=t_rsi_period, stochrsi_period=t_stochrsi_period, type=rsi_type, slow_period=cur_algo['rsi_slow'], rsi_k_period=t_rsi_k_period, rsi_d_period=cur_algo['rsi_d_period'], debug=False)
+			if ( cur_algo['stochrsi'] == True ):
+				stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(stocks[ticker]['pricehistory'], rsi_period=t_rsi_period, stochrsi_period=t_stochrsi_period, type=rsi_type, slow_period=cur_algo['rsi_slow'], rsi_k_period=t_rsi_k_period, rsi_d_period=cur_algo['rsi_d_period'], debug=False)
+
+			elif ( cur_algo['stochmfi'] == True ):
+				rsi_k, rsi_d = tda_gobot_helper.get_stochmfi(stocks[ticker]['pricehistory'], mfi_period=t_mfi_period, mfi_k_period=t_rsi_k_period, slow_period=cur_algo['rsi_slow'], mfi_d_period=cur_algo['rsi_d_period'], debug=False)
+				stochrsi = rsi_k
+
+			else:
+				return False
 
 		except Exception as e:
 			print('Error: stochrsi_gobot(): get_stochrsi(' + str(ticker) + '): ' + str(e))
@@ -582,8 +595,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# Jump to short mode if StochRSI K and D are already above stochrsi_high_limit
 			# The intent here is if the bot starts up while the RSI is high we don't want to wait until the stock
 			#  does a full loop again before acting on it.
-			if ( (cur_rsi_k > stochrsi_signal_cancel_high_limit and cur_rsi_d > stochrsi_signal_cancel_high_limit) and args.short == True and stocks[ticker]['shortable'] == True ):
-				print('(' + str(ticker) + ') StochRSI K and D values already above ' + str(stochrsi_signal_cancel_high_limit) + ', switching to short mode.')
+			if ( (cur_rsi_k >= stochrsi_default_high_limit and cur_rsi_d >= stochrsi_default_high_limit) and args.short == True and stocks[ticker]['shortable'] == True ):
+				print('(' + str(ticker) + ') StochRSI K and D values already above ' + str(stochrsi_default_high_limit) + ', switching to short mode.')
 
 				reset_signals(ticker)
 				stocks[ticker]['signal_mode'] = 'short'
@@ -593,26 +606,46 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# Monitor K and D
 			# A buy signal occurs when an increasing %K line crosses above the %D line in the oversold region,
 			#  or if the %K line crosses above the rsi limit
+			# Signal the primary stochrsi signal if K and D cross the low limit threshold
 			if ( (cur_rsi_k < stochrsi_low_limit and cur_rsi_d < stochrsi_low_limit) ):
+				stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal'] = True
+
+				# Monitor if K and D intersect - this must happen below the rsi_low_limit
+				# A buy signal occurs when an increasing %K line crosses above the %D line in the oversold region.
+				#  or if the %K line crosses below the rsi limit
 				if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
-					print(  '(' + str(ticker) + ') BUY SIGNAL: StochRSI K value passed above the D value in the low_limit region (' +
+					print(  '(' + str(ticker) + ') STOCH_CROSSOVER SIGNAL: StochRSI K value passed above the D value in the low_limit region (' +
 						str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
+					stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal'] = True
 
-					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = True
+			# Cancel the crossover signal if K wanders back below D
+			if ( stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal'] == True ):
+				if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
+					print( '(' + str(ticker) + ') STOCH_CROSSOVER SIGNAL CANCELED: K moved back below D' )
+					stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal'] = False
 
-			elif ( prev_rsi_k < stochrsi_low_limit and cur_rsi_k > prev_rsi_k ):
-				if ( cur_rsi_k >= stochrsi_low_limit ):
-					print(  '(' + str(ticker) + ') BUY SIGNAL: StochRSI K value passed above the low_limit threshold (' +
-						str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
+			if ( stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal'] == True ):
 
-					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = True
+				# If stochrsi signal was triggered, monitor K to see if it breaks up above stochrsi_default_low_limit
+				if ( prev_rsi_k < stochrsi_default_low_limit and cur_rsi_k > prev_rsi_k ):
+					if ( cur_rsi_k >= stochrsi_default_low_limit ):
+						print(  '(' + str(ticker) + ') STOCH_THRESHOLD SIGNAL: StochRSI K value passed above the low_limit threshold (' +
+							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
+						stocks[ticker]['algo_signals'][algo_id]['stochrsi_threshold_signal'] = True
 
-			elif ( cur_rsi_k > stochrsi_signal_cancel_low_limit and cur_rsi_d > stochrsi_signal_cancel_low_limit ):
-				# Reset the buy signal if rsi has wandered back above stochrsi_low_limit
+				if ( stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal'] == True or stocks[ticker]['algo_signals'][algo_id]['stochrsi_threshold_signal'] == True ):
+					if ( cur_rsi_k - cur_rsi_d >= cur_algo['stochrsi_offset'] ):
+						print(  '(' + str(ticker) + ') BUY SIGNAL: stoch_crossover_signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal']) +
+							' / stoch_threshold_signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['stochrsi_threshold_signal']) )
+						stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = True
+
+			# Reset the buy signal if rsi has wandered back above stochrsi_high_limit
+			if ( cur_rsi_k > stochrsi_signal_cancel_high_limit and cur_rsi_d > stochrsi_signal_cancel_high_limit ):
 				if ( stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
 					print( '(' + str(ticker) + ') BUY SIGNAL CANCELED: RSI moved back above stochrsi_low_limit' )
 
 				reset_signals(ticker)
+
 
 			# Process any secondary indicators
 			# RSI
@@ -1106,18 +1139,21 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				# Monitor K and D
 				# A sell signal occurs when a decreasing %K line crosses below the %D line in the overbought region,
 				#  or if the %K line crosses below the RSI limit
-				if ( (cur_rsi_k > stochrsi_high_limit and cur_rsi_d > stochrsi_high_limit) ):
+				if ( cur_rsi_k > stochrsi_default_high_limit and cur_rsi_d > stochrsi_default_high_limit ):
+					stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal'] = True
+
+					# Monitor if K and D intersect
+					# A sell signal occurs when a decreasing %K line crosses below the %D line in the overbought region
 					if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
 						print(  '(' + str(ticker) + ') SELL SIGNAL: StochRSI K value passed below the D value in the high_limit region (' +
 							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
-
 						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
-				elif ( prev_rsi_k > stochrsi_high_limit and cur_rsi_k < prev_rsi_k ):
-					if ( cur_rsi_k <= stochrsi_high_limit ):
+
+				if ( stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal'] == True ):
+					if ( prev_rsi_k > stochrsi_default_high_limit and cur_rsi_k <= stochrsi_default_high_limit ):
 						print(  '(' + str(ticker) + ') SELL SIGNAL: StochRSI K value passed below the high_limit threshold (' +
 							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
-
 						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 
@@ -1163,36 +1199,57 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# Jump to buy mode if StochRSI K and D are already below stochrsi_low_limit
 			# The intent here is if the bot starts up while the RSI is low we don't want to wait until the stock
 			#  does a full loop again before acting on it.
-			if ( cur_rsi_k < stochrsi_signal_cancel_low_limit and cur_rsi_d < stochrsi_signal_cancel_low_limit and args.shortonly == False ):
-				print('(' + str(ticker) + ') StochRSI K and D values already below ' + str(stochrsi_signal_cancel_low_limit) + ', switching to buy mode.')
+			if ( cur_rsi_k < stochrsi_default_low_limit and cur_rsi_d < stochrsi_default_low_limit and args.shortonly == False ):
+				print('(' + str(ticker) + ') StochRSI K and D values already below ' + str(stochrsi_default_low_limit) + ', switching to buy mode.')
 
 				reset_signals(ticker)
 				stocks[ticker]['signal_mode'] = 'buy'
 				continue
 
-
 			# StochRSI MONITOR
 			# Monitor K and D
+			# A buy signal occurs when an increasing %K line crosses above the %D line in the oversold region,
+			#  or if the %K line crosses above the rsi limit
+			# Signal the primary stochrsi signal if K and D cross the low limit threshold
 			if ( (cur_rsi_k > stochrsi_high_limit and cur_rsi_d > stochrsi_high_limit) ):
+				stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal'] = True
+
+				# Monitor if K and D intersect - this must happen below the rsi_low_limit
+				# A buy signal occurs when an increasing %K line crosses above the %D line in the oversold region.
+				#  or if the %K line crosses below the rsi limit
 				if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
-					print(  '(' + str(ticker) + ') SHORT SIGNAL: StochRSI K value passed below the D value in the high_limit region (' +
+					print(  '(' + str(ticker) + ') STOCH_CROSSOVER SIGNAL: StochRSI K value passed below the D value in the high_limit region (' +
 						str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
+					stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal'] = True
 
-					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = True
+			# Cancel the crossover signal if K wanders back above D
+			if ( stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal'] == True ):
+				if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
+					print( '(' + str(ticker) + ') STOCH_CROSSOVER SIGNAL CANCELED: K moved back above D' )
+					stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal'] = False
 
-			elif ( prev_rsi_k > stochrsi_high_limit and cur_rsi_k < prev_rsi_k ):
-				if ( cur_rsi_k <= stochrsi_high_limit ):
-					print(  '(' + str(ticker) + ') SHORT SIGNAL: StochRSI K value passed below the high_limit threshold (' +
-						str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
+			if ( stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal'] == True ):
 
-					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = True
+				# If stochrsi signal was triggered, monitor K to see if it breaks down below stochrsi_default_high_limit
+				if ( prev_rsi_k > stochrsi_default_high_limit and cur_rsi_k < prev_rsi_k ):
+					if ( cur_rsi_k <= stochrsi_default_low_limit ):
+						print(  '(' + str(ticker) + ') STOCH_THRESHOLD SIGNAL: StochRSI K value passed below the high_limit threshold (' +
+							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
+						stocks[ticker]['algo_signals'][algo_id]['stochrsi_threshold_signal'] = True
 
-			elif ( cur_rsi_k < stochrsi_signal_cancel_high_limit and cur_rsi_d < stochrsi_signal_cancel_high_limit ):
-				# Reset the short signal if rsi has wandered back below stochrsi_high_limit
+				if ( stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal'] == True or stocks[ticker]['algo_signals'][algo_id]['stochrsi_threshold_signal'] == True ):
+					if ( abs(cur_rsi_k - cur_rsi_d) >= cur_algo['stochrsi_offset'] ):
+						print(  '(' + str(ticker) + ') SHORT SIGNAL: stoch_crossover_signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal']) +
+							' / stoch_threshold_signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['stochrsi_threshold_signal']) )
+						stocks[ticker]['algo_signals'][algo_id]['short_signal'] = True
+
+			# Reset the short signal if rsi has wandered back below stochrsi_low_limit
+			if ( cur_rsi_k < stochrsi_signal_cancel_low_limit and cur_rsi_d < stochrsi_signal_cancel_low_limit ):
 				if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True ):
-					print( '(' + str(ticker) + ') SHORT SIGNAL CANCELED: RSI moved back below stochrsi_high_limit' )
+					print( '(' + str(ticker) + ') SHORT SIGNAL CANCELED: RSI moved back above stochrsi_low_limit' )
 
 				reset_signals(ticker)
+
 
 			# Secondary Indicators
 			# RSI
@@ -1712,19 +1769,20 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# exit_percent threshold and should wait for either a red candle or for decr_threshold to be hit.
 			if ( stocks[ticker]['exit_percent_signal'] == False ):
 
-				# Monitor K and D
-				if ( (cur_rsi_k < stochrsi_low_limit and cur_rsi_d < stochrsi_low_limit) ):
+				if ( cur_rsi_k < stochrsi_default_low_limit and cur_rsi_d < stochrsi_default_low_limit ):
+					stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal'] = True
+
+					# Monitor if K and D intercect
+					# A buy-to-cover signal occurs when an increasing %K line crosses above the %D line in the oversold region.
 					if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
 						print(  '(' + str(ticker) + ') BUY_TO_COVER SIGNAL: StochRSI K value passed above the D value in the low_limit region (' +
 							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
-
 						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
-				elif ( prev_rsi_k < stochrsi_low_limit and cur_rsi_k > prev_rsi_k ):
-					if ( cur_rsi_k >= stochrsi_low_limit ):
+				if ( stochrsi_signal == True ):
+					if ( prev_rsi_k < stochrsi_default_low_limit and cur_rsi_k >= stochrsi_default_low_limit ):
 						print(  '(' + str(ticker) + ') BUY_TO_COVER SIGNAL: StochRSI K value passed above the low_limit threshold (' +
 							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
-
 						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 

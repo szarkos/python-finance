@@ -74,6 +74,8 @@ parser.add_argument("--rsi_period", help='RSI period to use for calculation (Def
 parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='hlc3', type=str)
 parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=int)
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
+parser.add_argument("--stochrsi_offset", help='Offset between K and D to determine strength of trend', default=8, type=int)
+
 parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', default=72, type=int)
 parser.add_argument("--adx_period", help='ADX period', default=92, type=int)
 parser.add_argument("--di_period", help='Plus/Minus DI period', default=48, type=int)
@@ -191,16 +193,18 @@ for algo in args.algos:
 			break
 
 	# Indicators
-	stochrsi = rsi = mfi = adx = dmi = dmi_simple = macd = macd_simple = aroonosc = vwap = vpt = support_resistance = False
+	stochrsi = stochmfi = mfi = rsi = mfi = adx = dmi = dmi_simple = macd = macd_simple = aroonosc = vwap = vpt = support_resistance = False
 
 	# Indicator modifiers
 	rsi_high_limit	= args.rsi_high_limit
 	rsi_low_limit	= args.rsi_low_limit
+
+	rsi_period	= args.rsi_period
 	stochrsi_period	= args.stochrsi_period
 	rsi_k_period	= args.rsi_k_period
 	rsi_d_period	= args.rsi_d_period
 	rsi_slow	= args.rsi_slow
-	rsi_period	= args.rsi_period
+	stochrsi_offset = args.stochrsi_offset
 
 	mfi_high_limit	= args.mfi_high_limit
 	mfi_low_limit	= args.mfi_low_limit
@@ -218,6 +222,7 @@ for algo in args.algos:
 	for a in algo.split(','):
 
 		if ( a == 'stochrsi' ):		stochrsi	= True
+		if ( a == 'stochmfi' ):		stochmfi	= True
 		if ( a == 'rsi' ):		rsi		= True
 		if ( a == 'mfi' ):		mfi		= True
 		if ( a == 'adx' ):		adx		= True
@@ -234,6 +239,13 @@ for algo in args.algos:
 			dmi_simple = False
 		if ( macd == True and macd_simple == True ):
 			macd_simple = False
+
+		if ( stochrsi == True and stochmfi == True ):
+			print('Error: you can only use stochrsi or stochmfi, but not both. Exiting.')
+			sys.exit(1)
+		elif ( stochrsi == False and stochmfi == False ):
+			print('Error: you must use either stochrsi or stochmfi, but not both. Exiting.')
+			sys.exit(1)
 
 		# Aroon Oscillator with MACD
 		# aroonosc_with_macd_simple implies that if aroonosc is enabled, then macd_simple will be
@@ -253,6 +265,7 @@ for algo in args.algos:
 		if ( re.match('rsi_d_period:', a)	!= None ):	rsi_d_period	= int( a.split(':')[1] )
 		if ( re.match('rsi_slow:', a)		!= None ):	rsi_slow	= int( a.split(':')[1] )
 		if ( re.match('rsi_period:', a)		!= None ):	rsi_period	= int( a.split(':')[1] )
+		if ( re.match('stochrsi_offset:', a)	!= None ):	stochrsi_offset	= int( a.split(':')[1] )
 
 		if ( re.match('mfi_high_limit:', a)	!= None ):	mfi_high_limit	= int( a.split(':')[1] )
 		if ( re.match('mfi_low_limit:', a)	!= None ):	mfi_low_limit	= int( a.split(':')[1] )
@@ -267,7 +280,8 @@ for algo in args.algos:
 
 	algo_list = {   'algo_id':		algo_id,
 
-			'stochrsi':		True,  # For now this cannot be turned off
+			'stochrsi':		stochrsi,
+			'stochmfi':		stochmfi,
 			'rsi':			rsi,
 			'mfi':			mfi,
 			'adx':			adx,
@@ -288,6 +302,8 @@ for algo in args.algos:
 			'rsi_d_period':		rsi_d_period,
 			'rsi_slow':		rsi_slow,
 			'rsi_period':		rsi_period,
+			'stochrsi_offset':	stochrsi_offset,
+
 			'mfi_high_limit':	mfi_high_limit,
 			'mfi_low_limit':	mfi_low_limit,
 			'mfi_period':		mfi_period,
@@ -440,6 +456,10 @@ for ticker in args.stocks.split(','):
 						'buy_to_cover_signal':		False,
 
 						# Indicator signals
+						'stochrsi_signal':		False,
+						'stochrsi_crossover_signal':	False,
+						'stochrsi_threshold_signal':	False,
+
 						'rsi_signal':			False,
 						'mfi_signal':			False,
 						'adx_signal':			False,
@@ -621,8 +641,12 @@ tda_stochrsi_gobot_helper.stock_usd = args.stock_usd
 tda_stochrsi_gobot_helper.prev_timestamp = 0
 
 # StochRSI / RSI
-tda_stochrsi_gobot_helper.stochrsi_signal_cancel_low_limit = 20
-tda_stochrsi_gobot_helper.stochrsi_signal_cancel_high_limit = 80
+tda_stochrsi_gobot_helper.stochrsi_default_low_limit = 20
+tda_stochrsi_gobot_helper.stochrsi_default_high_limit = 80
+
+tda_stochrsi_gobot_helper.stochrsi_signal_cancel_low_limit = 40		# Cancel stochrsi short signal at this level
+tda_stochrsi_gobot_helper.stochrsi_signal_cancel_high_limit = 60	# Cancel stochrsi buy signal at this level
+
 tda_stochrsi_gobot_helper.rsi_signal_cancel_low_limit = 30
 tda_stochrsi_gobot_helper.rsi_signal_cancel_high_limit = 70
 tda_stochrsi_gobot_helper.rsi_type = args.rsi_type

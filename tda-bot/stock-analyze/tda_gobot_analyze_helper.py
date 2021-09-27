@@ -42,6 +42,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal stochrsi_signal		; stochrsi_signal		= False
 		nonlocal stochrsi_crossover_signal	; stochrsi_crossover_signal	= False
 		nonlocal stochrsi_threshold_signal	; stochrsi_threshold_signal	= False
+
 		nonlocal rsi_signal			; rsi_signal			= False
 		nonlocal mfi_signal			; mfi_signal			= False
 		nonlocal adx_signal			; adx_signal			= False
@@ -1240,7 +1241,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Also, if exit_percent_signal is triggered that means we've surpassed the exit_percent threshold and
 			#   should wait for either a red candle or for decr_threshold to be hit.
 			if ( strict_exit_percent == False and exit_percent_signal == False ):
-				if ( cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit ):
+				if ( cur_rsi_k > stochrsi_default_high_limit and cur_rsi_d > stochrsi_default_high_limit ):
 					stochrsi_signal = True
 
 					# Monitor if K and D intersect
@@ -1784,7 +1785,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Also, if exit_percent_signal is triggered that means we've surpassed the exit_percent threshold and
 			#   should wait for either a red candle or for decr_threshold to be hit.
 			if ( strict_exit_percent == False and exit_percent_signal == False ):
-				if ( cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit ):
+				if ( cur_rsi_k < stochrsi_default_low_limit and cur_rsi_d < stochrsi_default_low_limit ):
 					stochrsi_signal = True
 
 					# Monitor if K and D intercect

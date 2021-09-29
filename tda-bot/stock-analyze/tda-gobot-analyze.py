@@ -99,7 +99,8 @@ parser.add_argument("--mfi_low_limit", help='MFI low limit', default=20, type=in
 
 parser.add_argument("--noshort", help='Disable short selling of stock', action="store_true")
 parser.add_argument("--shortonly", help='Only short sell the stock', action="store_true")
-parser.add_argument("--check_ma", help='Check SMA and EMA to enable/disable short selling of stock', action="store_true")
+parser.add_argument("--check_ma", help='Tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior', action="store_true")
+parser.add_argument("--check_ma_strict", help='Check SMA and EMA to enable/disable the longing or shorting of stock', action="store_true")
 parser.add_argument("--verbose", help='Print additional information about each transaction (Default: False)', action="store_true")
 parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
 parser.add_argument("--debug_all", help='Enable extra debugging output', action="store_true")
@@ -442,7 +443,9 @@ for algo in args.algo.split(','):
 					# Stock shorting options
 					'noshort':				args.noshort,
 					'shortonly':				args.shortonly,
+
 					'check_ma':				args.check_ma,
+					'check_ma_strict':			args.check_ma_strict,
 
 					# Other stock behavior options
 					'blacklist_earnings':			args.blacklist_earnings,

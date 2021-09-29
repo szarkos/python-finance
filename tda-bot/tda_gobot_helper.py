@@ -891,63 +891,33 @@ def get_pdc(pricehistory=None, debug=False):
 	return float(pdc)
 
 
-# Return the N-day simple moving average (SMA) (default: 200-day)
-def get_sma(ticker=None, period=200, debug=False):
+# Return the N-period simple moving average (SMA)
+def get_sma(pricehistory=None, period=200, debug=False):
 
-	days = 730	# Number of days to request from API. This needs to be larger
-			#  than period because we're subtracting days from start_date,
-			#  which will include weekends/holidays.
+	if ( pricehistory == None ):
+		return False
 
-	if ( ticker == None ):
-		print('Error: get_sma(' + str(ticker) + '): ticker is empty', file=sys.stderr)
-		return False, []
-
+	ticker = ''
 	try:
-		mytimezone
+		ticker = pricehistory['symbol']
 	except:
-		mytimezone = timezone("US/Eastern")
-
-	end_date = datetime.now( mytimezone )
-	start_date = end_date - timedelta( days=days )
-
-	# Make sure start and end dates don't land on a weekend
-	#  or outside market hours
-	end_date = fix_timestamp(end_date)
-	start_date = fix_timestamp(start_date)
-
-	start_date = int( start_date.timestamp() * 1000 )
-	end_date = int( end_date.timestamp() * 1000 )
-
-	try:
-		ph, epochs = get_pricehistory(ticker, 'year', 'daily', '1', start_date=start_date, end_date=end_date)
-
-	except Exception as e:
-		print('Caught Exception: get_sma(' + str(ticker) + '): ' + str(e))
-
-	if ( ph == False ):
-		print('Error: get_sma(' + str(ticker) + '): get_pricehistory() returned False', file=sys.stderr)
-		return False, []
-
-	if ( len(ph['candles']) < period ):
-		# Possibly this ticker is too new, not enough history
-		print( 'Warning: get_sma(' + str(ticker) + ', ' + str(period) + '): len(ph) is less than period (' +
-			str(len(ph['candles'])) + ') - unable to calculate SMA')
-		return False, []
+		pass
 
 	# Put pricehistory data into a numpy array
 	prices = []
-	for key in ph['candles']:
+	for key in pricehistory['candles']:
 		prices.append( float(key['close']) )
 
 	prices = np.array( prices )
 
 	# Get the N-day SMA
+	sma = []
 	try:
 		sma = ti.sma(prices, period=period)
 
 	except Exception as e:
 		print('Caught Exception: get_sma(' + str(ticker) + '): ti.sma(): ' + str(e))
-		return False, []
+		return False
 
 	if ( debug == True ):
 		pd.set_option('display.max_rows', None)
@@ -956,66 +926,36 @@ def get_sma(ticker=None, period=200, debug=False):
 		pd.set_option('display.max_colwidth', None)
 		print(sma)
 
-	return tuple(sma), ph
+	return sma
 
 
-# Return the N-day simple moving average (eMA) (default: 50-day)
-def get_ema(ticker=None, period=50, debug=False):
+# Return the N-period exponential moving average (EMA)
+def get_ema(pricehistory=None, period=50, debug=False):
 
-	days = 365	# Number of days to request from API. This needs to be larger
-			#  than period because we're subtracting days from start_date,
-			#  which will include weekends/holidays.
+	if ( pricehistory == None ):
+		return False
 
-	if ( ticker == None ):
-		print('Error: get_ema(' + str(ticker) + '): ticker is empty', file=sys.stderr)
-		return False, []
-
+	ticker = ''
 	try:
-		assert mytimezone
+		ticker = pricehistory['symbol']
 	except:
-		mytimezone = timezone("US/Eastern")
-
-	end_date = datetime.now( mytimezone )
-	start_date = end_date - timedelta( days=days )
-
-	# Make sure start and end dates don't land on a weekend
-	#  or outside market hours
-	end_date = fix_timestamp(end_date)
-	start_date = fix_timestamp(start_date)
-
-	start_date = int( start_date.timestamp() * 1000 )
-	end_date = int( end_date.timestamp() * 1000 )
-
-	try:
-		ph, epochs = get_pricehistory(ticker, 'year', 'daily', '1', start_date=start_date, end_date=end_date)
-
-	except Exception as e:
-		print('Caught Exception: get_ema(' + str(ticker) + '): ' + str(e))
-
-	if ( ph == False ):
-		print('Error: get_ema(' + str(ticker) + '): get_pricehistory() returned False', file=sys.stderr)
-		return False, []
-
-	if ( len(ph['candles']) < period ):
-		# Possibly this ticker is too new, not enough history
-		print( 'Error: get_ema(' + str(ticker) + ', ' + str(period) + '): len(ph) is less than period (' +
-			str(len(ph['candles'])) + ') - unable to calculate EMA')
-		return False, []
+		pass
 
 	# Put pricehistory data into a numpy array
 	prices = []
-	for key in ph['candles']:
+	for key in pricehistory['candles']:
 		prices.append( float(key['close']) )
 
 	prices = np.array( prices )
 
 	# Get the N-day EMA
+	ema = []
 	try:
 		ema = ti.ema(prices, period=period)
 
 	except Exception as e:
 		print('Caught Exception: get_ema(' + str(ticker) + '): ti.ema(): ' + str(e))
-		return False, []
+		return False
 
 	if ( debug == True ):
 		pd.set_option('display.max_rows', None)
@@ -1024,7 +964,7 @@ def get_ema(ticker=None, period=50, debug=False):
 		pd.set_option('display.max_colwidth', None)
 		print(ema)
 
-	return tuple(ema), ph
+	return ema
 
 
 # Use Tulipy to calculate the N-day historic volatility (default: 30-days)

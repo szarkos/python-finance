@@ -92,8 +92,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	# Stock shorting options
 	noshort			=	False		if ('noshort' not in params) else params['noshort']
 	shortonly		=	False		if ('shortonly' not in params) else params['shortonly']
-	check_ma		=	False		if ('check_ma' not in params) else params['check_ma']
-
 
 	# Other stock behavior options
 	blacklist_earnings	=	False		if ('blacklist_earnings' not in params) else params['blacklist_earnings']
@@ -135,6 +133,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	stochrsi_offset		=	8		if ('stochrsi_offset' not in params) else params['stochrsi_offset']
 	nocrossover		=	False		if ('nocrossover' not in params) else params['nocrossover']
 	crossover_only		=	False		if ('crossover_only' not in params) else params['crossover_only']
+
+	check_ma_strict		=	False		if ('check_ma_strict' not in params) else params['check_ma_strict']
+	check_ma		=	False		if ('check_ma' not in params) else params['check_ma']
+	check_ma		=	True		if (check_ma_strict == True ) else check_ma
+	sma_period		=	5		if ('sma_period' not in params) else params['sma_period']
+	ema_period		=	5		if ('ema_period' not in params) else params['ema_period']
 
 	di_period		=	48		if ('di_period' not in params) else params['di_period']
 	adx_period		=	92		if ('adx_period' not in params) else params['adx_period']
@@ -528,13 +532,22 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 #		except Exception as e:
 #			print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
 
-	# Check the SMA and EMA to see if stock is bearish or bullish
-	sma = {}
-	ema = {}
+
+	# Tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior
 	if ( check_ma == True ):
-		import av_gobot_helper
-		sma = av_gobot_helper.av_get_ma(ticker, ma_type='sma', time_period=200)
-		ema = av_gobot_helper.av_get_ma(ticker, ma_type='ema', time_period=50)
+		orig_rsi_low_limit = rsi_low_limit
+		orig_rsi_high_limit = rsi_high_limit
+
+		sma = []
+		ema = []
+		try:
+			sma = tda_gobot_helper.get_sma( pricehistory_5m, period=sma_period )
+			ema = tda_gobot_helper.get_ema( pricehistory_5m, period=ema_period )
+
+		except Exception as e:
+			print('Error, unable to calculate SMA/EMA: ' + str(e))
+			sma[0] = 0
+			ema[0] = 0
 
 
 	# Run through the RSI values and log the results
@@ -595,8 +608,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	stochrsi_default_low_limit	= 20
 	stochrsi_default_high_limit	= 80
 
-	stochrsi_signal_cancel_low_limit = 40	# Cancel stochrsi short signal at this level
-	stochrsi_signal_cancel_high_limit = 60	# Cancel stochrsi buy signal at this level
+	stochrsi_signal_cancel_low_limit = 60	# Cancel stochrsi short signal at this level
+	stochrsi_signal_cancel_high_limit = 40	# Cancel stochrsi buy signal at this level
 
 	rsi_signal_cancel_low_limit	= 30
 	rsi_signal_cancel_high_limit	= 70
@@ -683,9 +696,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		cur_atr = atr[int(idx / 5) - atr_period]
 		cur_natr = natr[int(idx / 5) - atr_period]
 
+		if ( check_ma == True ):
+			cur_sma = round( sma[int(idx / 5) - sma_period], 2 )
+			cur_ema = round( ema[int(idx / 5) - 1], 2 )
+
+		date = datetime.fromtimestamp(int(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone)
 
 		# Skip all candles until start_date, if it is set
-		date = datetime.fromtimestamp(int(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone)
 		if ( start_date != None and date < start_date ):
 			continue
 		elif ( stop_date != None and date >= stop_date ):
@@ -712,27 +729,32 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		if ( tda_gobot_helper.ismarketopen_US(date, safe_open=safe_open) != True ):
 			continue
 
-		# Check SMA/EMA to see if stock is bullish or bearish
+		# Tailor the rsi_low_limit and rsi_high_limit based on the SMA/EMA orientation
+		#  to make the indicator more biased toward bullish or bearish trades
 		if ( check_ma == True ):
-			cur_day = date.strftime('%Y-%m-%d')
+			rsi_low_limit = orig_rsi_low_limit
+			rsi_high_limit = orig_rsi_high_limit
 
-			try:
-				cur_sma = sma['moving_avg'][cur_day]
-				cur_ema = ema['moving_avg'][cur_day]
+			if ( cur_ema > cur_sma ):
+				# Price action is bullish
+				rsi_low_limit = 15
+				rsi_high_limit = 95
 
-			except Exception as e:
-				cur_sma = 0
-				cur_ema = 0
+				if ( check_ma_strict == True ):
+					noshort = True
+					if ( signal_mode == 'short' ):
+						signal_mode = 'buy'
 
-			if ( cur_sma <= cur_ema ):
-				# Stock is bullish, disable shorting for now
-				noshort = True
-				if ( signal_mode == 'short' ):
-					signal_mode = 'buy'
+			elif ( cur_ema < cur_sma ):
+				# Price action is bearish
+				rsi_low_limit = 5
+				rsi_high_limit = 85
 
-			elif ( cur_sma > cur_ema ):
-				# Stock is bearish, allow shorting
-				noshort = False
+				if ( check_ma_strict == True ):
+					shortonly = True
+					if ( signal_mode == 'buy' ):
+						signal_mode = 'short'
+
 
 		# BUY mode
 		if ( signal_mode == 'buy' ):

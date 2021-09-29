@@ -541,8 +541,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		sma = []
 		ema = []
 		try:
-			sma = tda_gobot_helper.get_sma( pricehistory_5m, period=sma_period )
-			ema = tda_gobot_helper.get_ema( pricehistory_5m, period=ema_period )
+			sma = tda_gobot_helper.get_sma( pricehistory, period=sma_period, type='hlc3' )
+			ema = tda_gobot_helper.get_ema( pricehistory, period=ema_period )
 
 		except Exception as e:
 			print('Error, unable to calculate SMA/EMA: ' + str(e))
@@ -697,8 +697,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		cur_natr = natr[int(idx / 5) - atr_period]
 
 		if ( check_ma == True ):
-			cur_sma = round( sma[int(idx / 5) - sma_period], 2 )
-			cur_ema = round( ema[int(idx / 5) - 1], 2 )
+			# 5min candles
+			#cur_sma = round( sma[int(idx / 5) - sma_period], 3 )
+			#cur_ema = round( ema[int(idx / 5) - 1], 3 )
+
+			cur_sma = sma[idx - sma_period]
+			cur_ema = ema[idx - 1]
 
 		date = datetime.fromtimestamp(int(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone)
 
@@ -732,28 +736,21 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		# Tailor the rsi_low_limit and rsi_high_limit based on the SMA/EMA orientation
 		#  to make the indicator more biased toward bullish or bearish trades
 		if ( check_ma == True ):
-			rsi_low_limit = orig_rsi_low_limit
-			rsi_high_limit = orig_rsi_high_limit
+			rsi_low_limit	= orig_rsi_low_limit
+			rsi_high_limit	= orig_rsi_high_limit
+			ma_affinity	= None
 
+			# Price action is bullish
 			if ( cur_ema > cur_sma ):
-				# Price action is bullish
+				ma_affinity = 'bull'
 				rsi_low_limit = 15
 				rsi_high_limit = 95
 
-				if ( check_ma_strict == True ):
-					noshort = True
-					if ( signal_mode == 'short' ):
-						signal_mode = 'buy'
-
+			# Price action is bearish
 			elif ( cur_ema < cur_sma ):
-				# Price action is bearish
+				ma_affinity = 'bear'
 				rsi_low_limit = 5
 				rsi_high_limit = 85
-
-				if ( check_ma_strict == True ):
-					shortonly = True
-					if ( signal_mode == 'buy' ):
-						signal_mode = 'short'
 
 
 		# BUY mode
@@ -1066,6 +1063,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					final_buy_signal = False
 
 				if ( no_use_resistance == False and resistance_signal != True ):
+					final_buy_signal = False
+
+				if ( check_ma_strict == True and ma_affinity != 'bull' ):
 					final_buy_signal = False
 
 			# DEBUG
@@ -1607,6 +1607,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				if ( no_use_resistance == False and resistance_signal != True ):
 					final_short_signal = False
+
+				if ( check_ma_strict == True and ma_affinity != 'bear' ):
+					final_buy_signal = False
 
 			# DEBUG
 			if ( debug_all == True ):

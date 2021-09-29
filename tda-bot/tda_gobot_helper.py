@@ -892,7 +892,7 @@ def get_pdc(pricehistory=None, debug=False):
 
 
 # Return the N-period simple moving average (SMA)
-def get_sma(pricehistory=None, period=200, debug=False):
+def get_sma(pricehistory=None, period=200, type='close', debug=False):
 
 	if ( pricehistory == None ):
 		return False
@@ -905,8 +905,37 @@ def get_sma(pricehistory=None, period=200, debug=False):
 
 	# Put pricehistory data into a numpy array
 	prices = []
-	for key in pricehistory['candles']:
-		prices.append( float(key['close']) )
+	if ( type == 'close' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['close']))
+
+	elif ( type == 'high' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['high']))
+
+	elif ( type == 'low' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['low']))
+
+	elif ( type == 'open' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['open']))
+
+	elif ( type == 'volume' ):
+		for key in pricehistory['candles']:
+			prices.append(int(key['volume']))
+
+	elif ( type == 'hl2' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+
+	elif ( type == 'hlc3' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+
+	elif ( type == 'ohlc4' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
 
 	prices = np.array( prices )
 
@@ -930,7 +959,7 @@ def get_sma(pricehistory=None, period=200, debug=False):
 
 
 # Return the N-period exponential moving average (EMA)
-def get_ema(pricehistory=None, period=50, debug=False):
+def get_ema(pricehistory=None, period=50, type='close', debug=False):
 
 	if ( pricehistory == None ):
 		return False
@@ -943,8 +972,37 @@ def get_ema(pricehistory=None, period=50, debug=False):
 
 	# Put pricehistory data into a numpy array
 	prices = []
-	for key in pricehistory['candles']:
-		prices.append( float(key['close']) )
+	if ( type == 'close' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['close']))
+
+	elif ( type == 'high' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['high']))
+
+	elif ( type == 'low' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['low']))
+
+	elif ( type == 'open' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['open']))
+
+	elif ( type == 'volume' ):
+		for key in pricehistory['candles']:
+			prices.append(int(key['volume']))
+
+	elif ( type == 'hl2' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+
+	elif ( type == 'hlc3' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+
+	elif ( type == 'ohlc4' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
 
 	prices = np.array( prices )
 

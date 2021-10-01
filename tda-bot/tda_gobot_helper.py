@@ -1806,6 +1806,13 @@ def get_vwap(pricehistory=None, day='today', end_timestamp=None, use_bands=True,
 	if ( pricehistory == None ):
 		return False, [], []
 
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+
 	if ( day != None ):
 		if ( day == 'today' ):
 			today = datetime.now(mytimezone).strftime('%Y-%m-%d')
@@ -1818,7 +1825,6 @@ def get_vwap(pricehistory=None, day='today', end_timestamp=None, use_bands=True,
 
 	# Calculate VWAP
 	prices = np.array([[1,1,1]])
-	ticker = pricehistory['symbol']
 	for key in pricehistory['candles']:
 		if ( day != None and float(key['datetime']) < day_start ):
 			continue
@@ -1851,7 +1857,7 @@ def get_vwap(pricehistory=None, day='today', end_timestamp=None, use_bands=True,
 		vwap = df.assign(vwap=(p * q).cumsum() / q.cumsum())
 
 	except Exception as e:
-		print('Caught exception: get_vwap(' + str(pricehistory['symbol']) + '): ' + str(e), file=sys.stderr)
+		print('Caught exception: get_vwap(' + str(ticker) + '): ' + str(e), file=sys.stderr)
 		return False, [], []
 
 	vwap = vwap['vwap'].to_numpy()
@@ -1967,6 +1973,12 @@ def get_macd(pricehistory=None, short_period=12, long_period=26, signal_period=9
 	if ( pricehistory == None ):
 		return False, [], []
 
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
 	if ( len(pricehistory['candles']) < short_period ):
 		# Possibly this ticker is too new, not enough history
 		print( 'Warning: get_macd(' + str(ticker) + ', ' + str(period) + '): len(pricehistory) is less than short_period (' +
@@ -1998,7 +2010,67 @@ def get_macd(pricehistory=None, short_period=12, long_period=26, signal_period=9
 		print(macd_signal)
 		print(macd_histogram)
 
-	return tuple(macd), tuple(macd_signal), tuple(macd_histogram)
+	return macd, macd_signal, macd_histogram
+
+
+# Choppiness Index
+def get_chop_index(pricehistory=None, period=20, debug=False):
+
+	if ( pricehistory == None ):
+		return False
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	# Put pricehistory data into a numpy array
+	high = []
+	low = []
+	for key in pricehistory['candles']:
+		high.append( float(key['high']) )
+		low.append( float(key['low']) )
+
+	high = np.array( high )
+	low = np.array( low )
+
+	# Get ATR
+	atr = []
+	natr = []
+	try:
+		atr, natr = get_atr(pricehistory, period=period)
+
+	except Exception as e:
+		print('Caught Exception: get_chop_index(' + str(ticker) + '): ' + str(e))
+		return False
+
+	# Initialize all the arrays we'll need
+	atr = np.array(atr)
+	atr_sum = np.array(atr)
+	atr_ratio = np.array(atr)
+	high_low_range = np.array(atr)
+	chop = np.array(atr)
+
+	# Calculate the sum of ATR values
+	for i in range(len(atr)):
+		atr_sum[i] = atr[i - period + 1:i + 1].sum()
+
+	# Calculate the high/low range
+	for i in range(len(high)):
+		try:
+			high_low_range[i] = max(high[i - period + 1:i + 1] - min(low[i - period + 1:i + 1]))
+		except:
+			pass
+
+	# Calculate the ATR/range ratio
+	atr_ratio[:] = atr_sum[:] / high_low_range[:]
+
+	# Calculate the Choppiness Index
+	for i in range(len(atr_ratio)):
+		chop[i] = 100 * np.log(atr_ratio[i]) * (1 / np.log(period))
+
+	return list(chop)
 
 
 # Purchase a stock at Market price

@@ -452,7 +452,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							' / High Limit|Low Limit: ' + str(cur_algo['mfi_high_limit']) + '|' + str(cur_algo['mfi_low_limit']) )
 
 			# ATR/NATR
-			print('(' + str(ticker) + ') Current ATR/NATR: ' + str(round(stocks[ticker]['cur_atr'], 3)) + ' / ' + str(round(stocks[ticker]['cur_natr'], 3)))
+			print('(' + str(ticker) + ') Current ATR/NATR: ' + str(round(stocks[ticker]['cur_atr'], 3)) + ' / ' + str(round(stocks[ticker]['cur_natr'], 3)) + ' | ' +
+						' Daily ATR/NATR: ' + str(round(stocks[ticker]['atr_daily'], 3)) + ' / ' + str(round(stocks[ticker]['natr_daily'], 3)) )
 
 			# ADX
 			if ( cur_algo['adx'] == True ):
@@ -504,11 +505,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 		# Loop continuously while after hours if --multiday or --singleday is set
 		# Also re-set --singleday to False when the market opens
-		if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False ):
-			if ( args.multiday == True or args.singleday == True ):
-				continue
-		else:
-			args.singleday = False
+#		if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False ):
+#			if ( args.multiday == True or args.singleday == True ):
+#				continue
+#		else:
+#			args.singleday = False
 
 		# Set some short variables to improve readability :)
 		algo_id		= cur_algo['algo_id']

@@ -763,6 +763,22 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
+				# NATR resistance
+				if ( args.use_natr_resistance == True and stocks[ticker]['natr_daily'] != None ):
+					if ( cur_price > stocks[ticker]['previous_day_close'] ):
+						natr_mod = 1
+						if ( stocks[ticker]['natr_daily'] >= 8 ):
+							natr_mod = 2
+
+						natr_resistance = ((stocks[ticker]['natr_daily'] / natr_mod) / 100 + 1) * stocks[ticker]['previous_day_close']
+						if ( cur_price > natr_resistance ):
+							if ( abs(cur_rsi_k - cur_rsi_d) < 12 and stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
+								stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
+
+						if ( abs((cur_price / natr_resistance - 1) * 100) <= price_resistance_pct ):
+							if ( abs(cur_rsi_k - cur_rsi_d) < 10 and stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
+								stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
+
 				# VWAP
 				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and
 						abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
@@ -900,6 +916,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				if ( (cur_algo['support_resistance'] == True and args.no_use_resistance == False) and resistance_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
+
+				if ( args.min_intra_natr != None and stocks[ticker]['cur_natr'] < args.min_intra_natr ):
+					stocks[ticker]['final_buy_signal'] = False
+
 
 			# BUY THE STOCK
 			if ( stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True and stocks[ticker]['final_buy_signal'] == True ):
@@ -1503,6 +1523,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['final_short_signal'] = False
 
 				if ( (cur_algo['support_resistance'] == True and args.no_use_resistance == False) and resistance_signal != True ):
+					stocks[ticker]['final_short_signal'] = False
+
+				if ( args.min_intra_natr != None and stocks[ticker]['cur_natr'] < args.min_intra_natr ):
 					stocks[ticker]['final_short_signal'] = False
 
 

@@ -51,8 +51,6 @@ parser.add_argument("--multiday", help='Run and monitor stock continuously acros
 parser.add_argument("--singleday", help='Allows bot to start (but not trade) before market opens. Bot will revert to non-multiday behavior after the market opens.', action="store_true")
 parser.add_argument("--unsafe", help='Allow trading between 9:30-10:15AM where volatility is high', action="store_true")
 parser.add_argument("--hold_overnight", help='Hold stocks overnight when --multiday is in use (default: False) - Warning: implies --unsafe', action="store_true")
-parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (default=False)', action="store_true")
-parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
 
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
 parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1, type=float)
@@ -84,6 +82,7 @@ parser.add_argument("--aroonosc_alt_period", help='Alternate Aroon Oscillator pe
 parser.add_argument("--aroonosc_alt_threshold", help='Threshold for enabling the alternate Aroon Oscillator period for higher volatility stocks', default=0.24, type=float)
 parser.add_argument("--atr_period", help='Average True Range period', default=14, type=int)
 parser.add_argument("--mfi_period", help='Money Flow Index (MFI) period', default=14, type=int)
+parser.add_argument("--daily_atr_period", help='Daily (Normalized) Average True Range period', default=7, type=int)
 parser.add_argument("--mfi_high_limit", help='MFI high limit', default=80, type=int)
 parser.add_argument("--mfi_low_limit", help='MFI low limit', default=20, type=int)
 parser.add_argument("--period_multiplier", help='Period multiplier - set statically here, or otherwise gobot will determine based on the number of candles it receives per minute.', default=0, type=int)
@@ -100,8 +99,14 @@ parser.add_argument("--adx_threshold", help='ADX threshold for when to trigger t
 #parser.add_argument("--with_aroonosc", help='Use the Aroon Oscillator as a secondary indicator', action="store_true")
 #parser.add_argument("--with_vwap", help='Use VWAP as a secondary indicator', action="store_true")
 
+parser.add_argument("--daily_ifile", help='Use pickle file for daily pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--weekly_ifile", help='Use pickle file for weekly pricehistory data rather than accessing the API', default=None, type=str)
+parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (default=False)', action="store_true")
 parser.add_argument("--keylevel_strict", help='Use strict key level checks to enter trades (Default: False)', action="store_true")
+parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
+parser.add_argument("--use_natr_resistance", help='Enable daily NATR level resistance checks', action="store_true")
+parser.add_argument("--max_daily_natr", help='Do not process tickers with more than this daily NATR value (Default: None)', default=None, type=float)
+parser.add_argument("--min_intra_natr", help='Minimum intraday NATR value to allow trade entry (Default: None)', default=None, type=float)
 
 parser.add_argument("--short", help='Enable short selling of stock', action="store_true")
 parser.add_argument("--shortonly", help='Only short sell the stock', action="store_true")
@@ -422,6 +427,8 @@ for ticker in args.stocks.split(','):
 				   'twenty_week_avg':		float(0),
 
 				   'previous_day_close':	None,
+				   'atr_daily':			None,
+				   'natr_daily':		None,
 
 				   'kl_long_support':		[],
 				   'kl_long_resistance':	[],
@@ -843,9 +850,81 @@ for ticker in list(stocks.keys()):
 		stocks[ticker]['kl_long_support'] = []
 		stocks[ticker]['kl_long_resistance'] = []
 
+	time.sleep(1)
 	# End Key Levels
 
+	# Use daily_ifile or download daily candle data
+	daily_ph = False
+	if ( args.daily_ifile != None ):
+		import pickle
+
+		parent_path = os.path.dirname( os.path.realpath(__file__) )
+		daily_ifile = str(parent_path) + '/' + re.sub('TICKER', ticker, args.daily_ifile)
+		print('Using ' + str(daily_ifile))
+
+		try:
+			with open(daily_ifile, 'rb') as handle:
+				daily_ph = handle.read()
+				daily_ph = pickle.loads(daily_ph)
+
+		except Exception as e:
+			print('Exception caught, error opening file ' + str(daily_ifile) + ': ' + str(e) + '. Falling back to get_pricehistory().')
+
+	if ( daily_ph == False):
+
+		# Use get_pricehistory() to download daily data
+		daily_p_type = 'year'
+		daily_period = '2'
+		daily_f_type = 'daily'
+		daily_freq = '1'
+
+		while ( daily_ph == False ):
+			daily_ph, ep = tda_gobot_helper.get_pricehistory(ticker, daily_p_type, daily_f_type, daily_freq, daily_period, needExtendedHoursData=False)
+
+			if ( daily_ph == False ):
+				time.sleep(5)
+				if ( tda_gobot_helper.tdalogin(passcode) != True ):
+					print('Error: (' + str(ticker) + '): Login failure')
+				continue
+
+	if ( daily_ph == False ):
+		print('(' + str(ticker) + '): Warning: unable to retrieve daily data to calculate daily NATR, skipping.')
+		continue
+
+	# Calculate the current daily ATR/NATR
+	atr_d   = []
+	natr_d  = []
+	try:
+		atr_d, natr_d = tda_gobot_helper.get_atr( pricehistory=daily_ph, period=args.daily_atr_period )
+
+	except Exception as e:
+		print('Exception caught: date_atr(' + str(ticker) + '): ' + str(e) + '. Daily NATR resistance will not be used.')
+
+	stocks[ticker]['atr_daily']	= float( atr_d[-1] )
+	stocks[ticker]['natr_daily']	= float( natr_d[-1] )
+
+	# Ignore days where cur_daily_natr is below min_daily_natr or above max_daily_natr, if configured
+	if ( args.min_daily_natr != None and stocks[ticker]['natr_daily'] < args.min_daily_natr ):
+		print('(' + str(ticker) + ') Warning: daily NATR (' + str(stocks[ticker]['natr_daily']) + ') is below the min_daily_natr (' + str(args.min_daily_natr) + '), removing from the list')
+		stocks[ticker]['isvalid'] = False
+
+	if ( args.max_daily_natr != None and stocks[ticker]['natr_daily'] > args.max_daily_natr ):
+		print('(' + str(ticker) + ') Warning: daily NATR (' + str(stocks[ticker]['natr_daily']) + ') is above the max_daily_natr (' + str(args.max_daily_natr) + '), removing from the list')
+		stocks[ticker]['isvalid'] = False
+
 	time.sleep(1)
+
+	# End daily ATR/NATR
+
+
+
+
+
+
+
+
+
+
 
 
 # MAIN: Log into tda-api and run the stream client

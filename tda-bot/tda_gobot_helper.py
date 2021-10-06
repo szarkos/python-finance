@@ -2068,6 +2068,8 @@ def get_chop_index(pricehistory=None, period=20, debug=False):
 
 	# Calculate the Choppiness Index
 	for i in range(len(atr_ratio)):
+		if ( atr_ratio[i] == 0 ):
+			continue
 		chop[i] = 100 * np.log(atr_ratio[i]) * (1 / np.log(period))
 
 	return list(chop)

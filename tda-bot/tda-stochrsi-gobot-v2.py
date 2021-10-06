@@ -651,8 +651,8 @@ tda_stochrsi_gobot_helper.prev_timestamp = 0
 tda_stochrsi_gobot_helper.stochrsi_default_low_limit = 20
 tda_stochrsi_gobot_helper.stochrsi_default_high_limit = 80
 
-tda_stochrsi_gobot_helper.stochrsi_signal_cancel_low_limit = 40		# Cancel stochrsi short signal at this level
-tda_stochrsi_gobot_helper.stochrsi_signal_cancel_high_limit = 60	# Cancel stochrsi buy signal at this level
+tda_stochrsi_gobot_helper.stochrsi_signal_cancel_low_limit = 60		# Cancel stochrsi short signal at this level
+tda_stochrsi_gobot_helper.stochrsi_signal_cancel_high_limit = 40	# Cancel stochrsi buy signal at this level
 
 tda_stochrsi_gobot_helper.rsi_signal_cancel_low_limit = 30
 tda_stochrsi_gobot_helper.rsi_signal_cancel_high_limit = 70

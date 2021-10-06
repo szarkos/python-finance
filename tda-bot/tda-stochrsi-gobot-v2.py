@@ -105,6 +105,7 @@ parser.add_argument("--no_use_resistance", help='Do no use the high/low resistan
 parser.add_argument("--keylevel_strict", help='Use strict key level checks to enter trades (Default: False)', action="store_true")
 parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
 parser.add_argument("--use_natr_resistance", help='Enable daily NATR level resistance checks', action="store_true")
+parser.add_argument("--min_daily_natr", help='Do not process tickers with less than this daily NATR value (Default: None)', default=None, type=float)
 parser.add_argument("--max_daily_natr", help='Do not process tickers with more than this daily NATR value (Default: None)', default=None, type=float)
 parser.add_argument("--min_intra_natr", help='Minimum intraday NATR value to allow trade entry (Default: None)', default=None, type=float)
 
@@ -905,11 +906,11 @@ for ticker in list(stocks.keys()):
 
 	# Ignore days where cur_daily_natr is below min_daily_natr or above max_daily_natr, if configured
 	if ( args.min_daily_natr != None and stocks[ticker]['natr_daily'] < args.min_daily_natr ):
-		print('(' + str(ticker) + ') Warning: daily NATR (' + str(stocks[ticker]['natr_daily']) + ') is below the min_daily_natr (' + str(args.min_daily_natr) + '), removing from the list')
+		print('(' + str(ticker) + ') Warning: daily NATR (' + str(round(stocks[ticker]['natr_daily'], 3)) + ') is below the min_daily_natr (' + str(args.min_daily_natr) + '), removing from the list')
 		stocks[ticker]['isvalid'] = False
 
 	if ( args.max_daily_natr != None and stocks[ticker]['natr_daily'] > args.max_daily_natr ):
-		print('(' + str(ticker) + ') Warning: daily NATR (' + str(stocks[ticker]['natr_daily']) + ') is above the max_daily_natr (' + str(args.max_daily_natr) + '), removing from the list')
+		print('(' + str(ticker) + ') Warning: daily NATR (' + str(round(stocks[ticker]['natr_daily'], 3)) + ') is above the max_daily_natr (' + str(args.max_daily_natr) + '), removing from the list')
 		stocks[ticker]['isvalid'] = False
 
 	time.sleep(1)

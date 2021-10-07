@@ -2059,16 +2059,19 @@ def get_chop_index(pricehistory=None, period=20, debug=False):
 	# Calculate the high/low range
 	for i in range(len(high)):
 		try:
-			high_low_range[i] = max(high[i - period + 1:i + 1] - min(low[i - period + 1:i + 1]))
+			high_low_range[i] = max(high[i - period + 1:i + 1], default=0) - min(low[i - period + 1:i + 1], default=0)
 		except:
 			pass
 
 	# Calculate the ATR/range ratio
-	atr_ratio[:] = atr_sum[:] / high_low_range[:]
+	with np.errstate( divide='ignore', invalid='ignore' ):
+		atr_ratio[:] = atr_sum[:] / high_low_range[:]
+
+	atr_ratio[np.isnan(atr_ratio)] = -1
 
 	# Calculate the Choppiness Index
 	for i in range(len(atr_ratio)):
-		if ( atr_ratio[i] == 0 ):
+		if ( atr_ratio[i] == 0 or atr_ratio[i] == -1 ):
 			continue
 		chop[i] = 100 * np.log(atr_ratio[i]) * (1 / np.log(period))
 

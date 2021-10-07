@@ -34,7 +34,7 @@ pricehistory = {'candles':	[],
 }
 
 date_fmt = '%Y-%m-%d %H:%M:%S'
-if ( re.search('weekly', args.ifile) != None ):
+if ( re.search('(daily|weekly)', args.ifile) != None ):
 	date_fmt = '%Y-%m-%d'
 
 try:

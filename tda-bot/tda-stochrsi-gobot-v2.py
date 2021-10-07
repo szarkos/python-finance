@@ -64,15 +64,30 @@ parser.add_argument("--exit_percent", help='Sell security if price improves by t
 parser.add_argument("--vwap_exit", help='Use vwap exit strategy - sell/close at half way between entry point and vwap', action="store_true")
 parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_threshold and exit_percent based on the price action of the stock over the previous hour',  action="store_true")
 
-parser.add_argument("--rsi_slow", help='Slowing period to use in StochRSI algorithm', default=3, type=int)
-parser.add_argument("--rsi_k_period", help='k period to use in StochRSI algorithm', default=128, type=int)
-parser.add_argument("--rsi_d_period", help='D period to use in StochRSI algorithm', default=3, type=int)
-parser.add_argument("--stochrsi_period", help='RSI period to use for stochastic RSI calculation (Default: 128)', default=128, type=int)
-parser.add_argument("--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
-parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='hlc3', type=str)
 parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=int)
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
+parser.add_argument("--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
+parser.add_argument("--rsi_period_5m", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
+parser.add_argument("--stochrsi_period", help='RSI period to use for stochastic RSI calculation (Default: 128)', default=128, type=int)
+parser.add_argument("--stochrsi_5m_period", help='RSI period to use for stochastic RSI calculation (Default: 128)', default=128, type=int)
+parser.add_argument("--rsi_k_period", help='k period to use in StochRSI algorithm', default=128, type=int)
+parser.add_argument("--rsi_k_5m_period", help='k period to use in StochRSI algorithm', default=128, type=int)
+parser.add_argument("--rsi_d_period", help='D period to use in StochRSI algorithm', default=3, type=int)
+parser.add_argument("--rsi_slow", help='Slowing period to use in StochRSI algorithm', default=3, type=int)
+parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='hlc3', type=str)
 parser.add_argument("--stochrsi_offset", help='Offset between K and D to determine strength of trend', default=8, type=int)
+
+parser.add_argument("--mfi_high_limit", help='MFI high limit', default=80, type=int)
+parser.add_argument("--mfi_low_limit", help='MFI low limit', default=20, type=int)
+parser.add_argument("--mfi_period", help='Money Flow Index (MFI) period', default=14, type=int)
+parser.add_argument("--mfi_5m_period", help='Money Flow Index (MFI) period', default=14, type=int)
+parser.add_argument("--stochmfi_period", help='Money Flow Index (MFI) period for stochastic MFI calculation', default=14, type=int)
+parser.add_argument("--stochmfi_5m_period", help='Money Flow Index (MFI) period for stochastic MFI calculation', default=14, type=int)
+parser.add_argument("--mfi_k_period", help='k period to use in StochMFI algorithm', default=128, type=int)
+parser.add_argument("--mfi_k_5m_period", help='k period to use in StochMFI algorithm', default=128, type=int)
+parser.add_argument("--mfi_d_period", help='D period to use in StochMFI algorithm', default=3, type=int)
+parser.add_argument("--mfi_slow", help='Slowing period to use in StochMFI algorithm', default=3, type=int)
+parser.add_argument("--stochmfi_offset", help='Offset between K and D to determine strength of trend', default=3, type=int)
 
 parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', default=72, type=int)
 parser.add_argument("--adx_period", help='ADX period', default=92, type=int)
@@ -81,15 +96,13 @@ parser.add_argument("--aroonosc_period", help='Aroon Oscillator period', default
 parser.add_argument("--aroonosc_alt_period", help='Alternate Aroon Oscillator period for higher volatility stocks', default=60, type=int)
 parser.add_argument("--aroonosc_alt_threshold", help='Threshold for enabling the alternate Aroon Oscillator period for higher volatility stocks', default=0.24, type=float)
 parser.add_argument("--atr_period", help='Average True Range period', default=14, type=int)
-parser.add_argument("--mfi_period", help='Money Flow Index (MFI) period', default=14, type=int)
 parser.add_argument("--daily_atr_period", help='Daily (Normalized) Average True Range period', default=7, type=int)
-parser.add_argument("--mfi_high_limit", help='MFI high limit', default=80, type=int)
-parser.add_argument("--mfi_low_limit", help='MFI low limit', default=20, type=int)
-parser.add_argument("--period_multiplier", help='Period multiplier - set statically here, or otherwise gobot will determine based on the number of candles it receives per minute.', default=0, type=int)
 
 parser.add_argument("--aroonosc_with_macd_simple", help='When using Aroon Oscillator, use macd_simple as tertiary indicator if AroonOsc is less than +/- 72 (Default: False)', action="store_true")
 parser.add_argument("--aroonosc_secondary_threshold", help='AroonOsc threshold for when to enable macd_simple when --aroonosc_with_macd_simple is enabled (Default: 72)', default=72, type=float)
 parser.add_argument("--adx_threshold", help='ADX threshold for when to trigger the ADX signal (Default: 25)', default=25, type=float)
+
+parser.add_argument("--period_multiplier", help='Period multiplier - set statically here, or otherwise gobot will determine based on the number of candles it receives per minute.', default=0, type=int)
 
 # Deprecated - use --algos=... instead
 #parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
@@ -199,58 +212,76 @@ for algo in args.algos:
 			break
 
 	# Indicators
-	stochrsi = stochmfi = mfi = rsi = mfi = adx = dmi = dmi_simple = macd = macd_simple = aroonosc = vwap = vpt = support_resistance = False
+	primary_stochrsi = primary_stochmfi = stochrsi_5m = stochmfi = stochmfi_5m = False
+	rsi = mfi = adx = dmi = dmi_simple = macd = macd_simple = aroonosc = vwap = vpt = support_resistance = False
 
 	# Indicator modifiers
-	rsi_high_limit	= args.rsi_high_limit
-	rsi_low_limit	= args.rsi_low_limit
+	rsi_high_limit		= args.rsi_high_limit
+	rsi_low_limit		= args.rsi_low_limit
 
-	rsi_period	= args.rsi_period
-	stochrsi_period	= args.stochrsi_period
-	rsi_k_period	= args.rsi_k_period
-	rsi_d_period	= args.rsi_d_period
-	rsi_slow	= args.rsi_slow
-	stochrsi_offset = args.stochrsi_offset
+	rsi_period		= args.rsi_period
+	stochrsi_period		= args.stochrsi_period
+	stochrsi_5m_period	= args.stochrsi_5m_period
+	rsi_k_period		= args.rsi_k_period
+	rsi_k_5m_period		= args.rsi_k_5m_period
+	rsi_d_period		= args.rsi_d_period
+	rsi_slow		= args.rsi_slow
+	stochrsi_offset		= args.stochrsi_offset
+	stochrsi_5m_offset	= stochrsi_offset
 
-	mfi_high_limit	= args.mfi_high_limit
-	mfi_low_limit	= args.mfi_low_limit
-	mfi_period	= args.mfi_period
+	# MFI
+	mfi_high_limit		= args.mfi_high_limit
+	mfi_low_limit		= args.mfi_low_limit
 
-	adx_threshold	= args.adx_threshold
-	adx_period	= args.adx_period
+	mfi_period		= args.mfi_period
+	stochmfi_period		= args.stochmfi_period
+	stochmfi_5m_period	= args.stochmfi_5m_period
+	mfi_k_period		= args.mfi_k_period
+	mfi_k_5m_period		= args.mfi_k_5m_period
+	mfi_d_period		= args.mfi_d_period
+	mfi_slow		= args.mfi_slow
+	stochmfi_offset		= args.stochmfi_offset
+	stochmfi_5m_offset	= stochmfi_offset
 
-	aroonosc_period	= args.aroonosc_period
-	di_period	= args.di_period
+	# Additional Indicators
+	adx_threshold		= args.adx_threshold
+	adx_period		= args.adx_period
 
-	atr_period	= args.atr_period
-	vpt_sma_period	= args.vpt_sma_period
+	aroonosc_period		= args.aroonosc_period
+	di_period		= args.di_period
+
+	atr_period		= args.atr_period
+	vpt_sma_period		= args.vpt_sma_period
 
 	for a in algo.split(','):
 
-		if ( a == 'stochrsi' ):		stochrsi	= True
-		if ( a == 'stochmfi' ):		stochmfi	= True
-		if ( a == 'rsi' ):		rsi		= True
-		if ( a == 'mfi' ):		mfi		= True
-		if ( a == 'adx' ):		adx		= True
-		if ( a == 'dmi' ):		dmi		= True
-		if ( a == 'dmi_simple' ):	dmi_simple	= True
-		if ( a == 'macd' ):		macd		= True
-		if ( a == 'macd_simple' ):	macd_simple	= True
-		if ( a == 'aroonosc' ):		aroonosc	= True
-		if ( a == 'vwap' ):		vwap		= True
-		if ( a == 'vpt' ):		vpt		= True
-		if ( a == 'support_resistance' ): support_resistance = True
+		if ( a == 'primary_stochrsi' ):		primary_stochrsi	= True
+		if ( a == 'primary_stochmfi' ):		primary_stochmfi	= True
+		if ( a == 'stochrsi_5m' ):		stochrsi_5m		= True
+		if ( a == 'stochmfi' ):			stochmfi		= True
+		if ( a == 'stochmfi_5m' ):		stochmfi_5m		= True
+		if ( a == 'rsi' ):			rsi			= True
+		if ( a == 'mfi' ):			mfi			= True
+		if ( a == 'adx' ):			adx			= True
+		if ( a == 'dmi' ):			dmi			= True
+		if ( a == 'dmi_simple' ):		dmi_simple		= True
+		if ( a == 'macd' ):			macd			= True
+		if ( a == 'macd_simple' ):		macd_simple		= True
+		if ( a == 'aroonosc' ):			aroonosc		= True
+		if ( a == 'vwap' ):			vwap			= True
+		if ( a == 'vpt' ):			vpt			= True
+		if ( a == 'support_resistance' ):	support_resistance	= True
 
 		if ( dmi == True and dmi_simple == True ):
 			dmi_simple = False
 		if ( macd == True and macd_simple == True ):
 			macd_simple = False
 
-		if ( stochrsi == True and stochmfi == True ):
-			print('Error: you can only use stochrsi or stochmfi, but not both. Exiting.')
+		if ( primary_stochrsi == True and primary_stochmfi == True ):
+			print('Error: you can only use primary_stochrsi or primary_stochmfi, but not both. Exiting.')
 			sys.exit(1)
-		elif ( stochrsi == False and stochmfi == False ):
-			print('Error: you must use either stochrsi or stochmfi, but not both. Exiting.')
+		elif ( primary_stochrsi == False and primary_stochmfi == False ):
+			print('Error: you must use either primary_stochrsi or primary_stochmfi, but not both. Exiting.')
 			sys.exit(1)
 
 		# Aroon Oscillator with MACD
@@ -263,31 +294,46 @@ for algo in args.algos:
 				macd_simple = False
 
 		# Modifiers
-		if ( re.match('rsi_high_limit:', a)	!= None ):	rsi_high_limit	= int( a.split(':')[1] )
+		if ( re.match('rsi_high_limit:', a)	!= None ):	rsi_high_limit		= int( a.split(':')[1] )
+		if ( re.match('rsi_low_limit:', a)	!= None ):	rsi_low_limit		= int( a.split(':')[1] )
 
-		if ( re.match('rsi_low_limit:', a)	!= None ):	rsi_low_limit	= int( a.split(':')[1] )
-		if ( re.match('stochrsi_period:', a)	!= None ):	stochrsi_period	= int( a.split(':')[1] )
-		if ( re.match('rsi_k_period:', a)	!= None ):	rsi_k_period	= int( a.split(':')[1] )
-		if ( re.match('rsi_d_period:', a)	!= None ):	rsi_d_period	= int( a.split(':')[1] )
-		if ( re.match('rsi_slow:', a)		!= None ):	rsi_slow	= int( a.split(':')[1] )
-		if ( re.match('rsi_period:', a)		!= None ):	rsi_period	= int( a.split(':')[1] )
-		if ( re.match('stochrsi_offset:', a)	!= None ):	stochrsi_offset	= int( a.split(':')[1] )
+		if ( re.match('rsi_period:', a)		!= None ):	rsi_period		= int( a.split(':')[1] )
+		if ( re.match('stochrsi_period:', a)	!= None ):	stochrsi_period		= int( a.split(':')[1] )
+		if ( re.match('stochrsi_period_5m:', a)	!= None ):	stochrsi_period_5m	= int( a.split(':')[1] )
+		if ( re.match('rsi_k_period:', a)	!= None ):	rsi_k_period		= int( a.split(':')[1] )
+		if ( re.match('rsi_k_5m_period:', a)	!= None ):	rsi_k_5m_period		= int( a.split(':')[1] )
+		if ( re.match('rsi_d_period:', a)	!= None ):	rsi_d_period		= int( a.split(':')[1] )
+		if ( re.match('rsi_slow:', a)		!= None ):	rsi_slow		= int( a.split(':')[1] )
+		if ( re.match('stochrsi_offset:', a)	!= None ):	stochrsi_offset		= int( a.split(':')[1] )
+		if ( re.match('stochrsi_5m_offset:', a)	!= None ):	stochrsi_5m_offset	= int( a.split(':')[1] )
 
-		if ( re.match('mfi_high_limit:', a)	!= None ):	mfi_high_limit	= int( a.split(':')[1] )
-		if ( re.match('mfi_low_limit:', a)	!= None ):	mfi_low_limit	= int( a.split(':')[1] )
-		if ( re.match('mfi_period:', a)		!= None ):	mfi_period	= int( a.split(':')[1] )
+		if ( re.match('mfi_high_limit:', a)	!= None ):	mfi_high_limit		= int( a.split(':')[1] )
+		if ( re.match('mfi_low_limit:', a)	!= None ):	mfi_low_limit		= int( a.split(':')[1] )
 
-		if ( re.match('adx_threshold:', a)	!= None ):	adx_threshold	= int( a.split(':')[1] )
-		if ( re.match('adx_period:', a)		!= None ):	adx_period	= int( a.split(':')[1] )
-		if ( re.match('aroonosc_period:', a)	!= None ):	aroonosc_period	= int( a.split(':')[1] )
-		if ( re.match('di_period:', a)		!= None ):	di_period	= int( a.split(':')[1] )
-		if ( re.match('atr_period:', a)		!= None ):	atr_period	= int( a.split(':')[1] )
-		if ( re.match('vpt_sma_period:', a)	!= None ):	vpt_sma_period	= int( a.split(':')[1] )
+		if ( re.match('mfi_period:', a)		!= None ):	mfi_period		= int( a.split(':')[1] )
+		if ( re.match('stochmfi_period:', a)	!= None ):	stoch_mfi_period	= int( a.split(':')[1] )
+		if ( re.match('stochmfi_5m_period:', a)	!= None ):	stoch_mfi_5m_period	= int( a.split(':')[1] )
+		if ( re.match('mfi_k_period:', a)	!= None ):	mfi_k_period		= int( a.split(':')[1] )
+		if ( re.match('mfi_k_5m_period:', a)	!= None ):	mfi_k_5m_period		= int( a.split(':')[1] )
+		if ( re.match('mfi_d_period:', a)	!= None ):	mfi_d_period		= int( a.split(':')[1] )
+		if ( re.match('mfi_slow:', a)		!= None ):	mfi_slow		= int( a.split(':')[1] )
+		if ( re.match('stochmfi_offset:', a)	!= None ):	stochmfi_offset		= int( a.split(':')[1] )
+		if ( re.match('stochmfi_5m_offset:', a)	!= None ):	stochmfi_5m_offset	= int( a.split(':')[1] )
+
+		if ( re.match('adx_threshold:', a)	!= None ):	adx_threshold		= int( a.split(':')[1] )
+		if ( re.match('adx_period:', a)		!= None ):	adx_period		= int( a.split(':')[1] )
+		if ( re.match('aroonosc_period:', a)	!= None ):	aroonosc_period		= int( a.split(':')[1] )
+		if ( re.match('di_period:', a)		!= None ):	di_period		= int( a.split(':')[1] )
+		if ( re.match('atr_period:', a)		!= None ):	atr_period		= int( a.split(':')[1] )
+		if ( re.match('vpt_sma_period:', a)	!= None ):	vpt_sma_period		= int( a.split(':')[1] )
 
 	algo_list = {   'algo_id':		algo_id,
 
-			'stochrsi':		stochrsi,
+			'primary_stochrsi':	primary_stochrsi,
+			'primary_stochmfi':	primary_stochmfi,
+			'stochrsi_5m':		stochrsi_5m,
 			'stochmfi':		stochmfi,
+			'stochmfi_5m':		stochmfi_5m,
 			'rsi':			rsi,
 			'mfi':			mfi,
 			'adx':			adx,
@@ -303,16 +349,30 @@ for algo in args.algos:
 			# Algo modifiers
 			'rsi_high_limit':	rsi_high_limit,
 			'rsi_low_limit':	rsi_low_limit,
+
+			'rsi_period':		rsi_period,
 			'stochrsi_period':	stochrsi_period,
+			'stochrsi_5m_period':	stochrsi_5m_period,
 			'rsi_k_period':		rsi_k_period,
+			'rsi_k_5m_period':	rsi_k_5m_period,
 			'rsi_d_period':		rsi_d_period,
 			'rsi_slow':		rsi_slow,
-			'rsi_period':		rsi_period,
 			'stochrsi_offset':	stochrsi_offset,
+			'stochrsi_5m_offset':	stochrsi_5m_offset,
 
 			'mfi_high_limit':	mfi_high_limit,
 			'mfi_low_limit':	mfi_low_limit,
+
 			'mfi_period':		mfi_period,
+			'stochmfi_period':	stochmfi_period,
+			'stochmfi_5m_period':	stochmfi_5m_period,
+			'mfi_k_period':		mfi_k_period,
+			'mfi_k_5m_period':	mfi_k_5m_period,
+			'mfi_d_period':		mfi_d_period,
+			'mfi_slow':		mfi_slow,
+			'stochmfi_offset':	stochmfi_offset,
+			'stochmfi_5m_offset':	stochmfi_5m_offset,
+
 			'adx_threshold':	adx_threshold,
 			'adx_period':		adx_period,
 			'aroonosc_period':	aroonosc_period,
@@ -320,14 +380,19 @@ for algo in args.algos:
 			'atr_period':		atr_period,
 			'vpt_sma_period':	vpt_sma_period }
 
+
 	algos.append(algo_list)
 
-del(stochrsi,rsi,adx,dmi,macd,aroonosc,vwap,vpt,support_resistance)
-del(rsi_high_limit,rsi_low_limit,stochrsi_period,rsi_k_period,rsi_d_period,rsi_slow,rsi_period,mfi_high_limit,mfi_low_limit,mfi_period,adx_threshold,adx_period,aroonosc_period,di_period,atr_period,vpt_sma_period)
-print()
+# Cleanup some junk
+del(stochrsi_primary,stochmfi_primary,stochrsi_5m, stochmfi,stochmfi_5m)
+del(rsi,mfi,adx,dmi,macd,aroonosc,vwap,vpt,support_resistance)
+del(rsi_high_limit,rsi_low_limit,rsi_period,stochrsi_period,stochrsi_5m_period,rsi_k_period,rsi_k_5m_period,rsi_d_period,rsi_slow,stochrsi_offset,stochrsi_5m_offset)
+del(mfi_high_limit,mfi_low_limit,mfi_period,stochmfi_period,stochmfi_5m_period,mfi_k_period,mfi_k_5m_period,mfi_d_period,mfi_slow,stochmfi_offset,stochmfi_5m_offset)
+del(adx_threshold,adx_period,aroonosc_period,di_period,atr_period,vpt_sma_period)
 
 
 # Initialize stocks{}
+print()
 print( 'Initializing stock tickers: ' + str(args.stocks.split(',')) )
 
 # Fix up and sanity check the stock symbol before proceeding
@@ -368,14 +433,28 @@ for ticker in args.stocks.split(','):
 
 				   'exit_percent_signal':	False,
 
-				   'signal_mode':		'buy',
-
 				   # Indicator variables
 				   # StochRSI
 				   'cur_rsi_k':			float(-1),
 				   'prev_rsi_k':		float(-1),
 				   'cur_rsi_d':			float(-1),
 				   'prev_rsi_d':		float(-1),
+
+				   'cur_rsi_k_5m':		float(-1),
+				   'prev_rsi_k_5m':		float(-1),
+				   'cur_rsi_d_5m':		float(-1),
+				   'prev_rsi_d_5m':		float(-1),
+
+				   # StochMFI
+				   'cur_mfi_k':			float(-1),
+				   'prev_mfi_k':		float(-1),
+				   'cur_mfi_d':			float(-1),
+				   'prev_mfi_d':		float(-1),
+
+				   'cur_mfi_k_5m':		float(-1),
+				   'prev_mfi_k_5m':		float(-1),
+				   'cur_mfi_d_5m':		float(-1),
+				   'prev_mfi_d_5m':		float(-1),
 
 				   # RSI
 				   'cur_rsi':			float(-1),
@@ -452,36 +531,49 @@ for ticker in args.stocks.split(','):
 				   'pricehistory_5m':		{ 'candles': [], 'ticker': ticker }
 			}} )
 
-	# Start in 'buy' mode unless we're only shorting
-	if ( args.shortonly == True ):
-		stocks[ticker]['signal_mode'] = 'short'
-
 	# Per algo signals
 	for algo in algos:
-		signals = { algo['algo_id']: {	'buy_signal':			False,
-						'sell_signal':			False,
-						'short_signal':			False,
-						'buy_to_cover_signal':		False,
+		signals = { algo['algo_id']: {	'signal_mode':				'buy',
+
+						'buy_signal':				False,
+						'sell_signal':				False,
+						'short_signal':				False,
+						'buy_to_cover_signal':			False,
 
 						# Indicator signals
-						'stochrsi_signal':		False,
-						'stochrsi_crossover_signal':	False,
-						'stochrsi_threshold_signal':	False,
+						'stochrsi_signal':			False,
+						'stochrsi_crossover_signal':		False,
+						'stochrsi_threshold_signal':		False,
 
-						'rsi_signal':			False,
-						'mfi_signal':			False,
-						'adx_signal':			False,
-						'dmi_signal':			False,
-						'macd_signal':			False,
-						'aroonosc_signal':		False,
-						'vwap_signal':			False,
-						'vpt_signal':			False,
-						'resistance_signal':		False,
+						'stochrsi_5m_signal':			False,
+						'stochrsi_5m_crossover_signal':		False,
+						'stochrsi_5m_threshold_signal':		False,
+						'stochrsi_5m_final_signal':		False,
 
-						'plus_di_crossover':		False,
-						'minus_di_crossover':		False,
-						'macd_crossover':		False,
-						'macd_avg_crossover':		False }}
+						'stochmfi_signal':			False,
+						'stochmfi_crossover_signal':		False,
+						'stochmfi_threshold_signal':		False,
+						'stochmfi_final_signal':		False,
+
+						'stochmfi_5m_signal':			False,
+						'stochmfi_5m_crossover_signal':		False,
+						'stochmfi_5m_threshold_signal':		False,
+						'stochmfi_5m_final_signal':		False,
+
+						'rsi_signal':				False,
+						'mfi_signal':				False,
+						'adx_signal':				False,
+						'dmi_signal':				False,
+						'macd_signal':				False,
+						'aroonosc_signal':			False,
+						'vwap_signal':				False,
+						'vpt_signal':				False,
+						'resistance_signal':			False,
+
+						'plus_di_crossover':			False,
+						'minus_di_crossover':			False,
+						'macd_crossover':			False,
+						'macd_avg_crossover':			False }}
 
 		stocks[ticker]['algo_signals'].update( signals )
 
@@ -649,11 +741,11 @@ tda_stochrsi_gobot_helper.stock_usd = args.stock_usd
 tda_stochrsi_gobot_helper.prev_timestamp = 0
 
 # StochRSI / RSI
-tda_stochrsi_gobot_helper.stochrsi_default_low_limit = 20
-tda_stochrsi_gobot_helper.stochrsi_default_high_limit = 80
+tda_stochrsi_gobot_helper.stoch_default_low_limit = 20
+tda_stochrsi_gobot_helper.stoch_default_high_limit = 80
 
-tda_stochrsi_gobot_helper.stochrsi_signal_cancel_low_limit = 60		# Cancel stochrsi short signal at this level
-tda_stochrsi_gobot_helper.stochrsi_signal_cancel_high_limit = 40	# Cancel stochrsi buy signal at this level
+tda_stochrsi_gobot_helper.stoch_signal_cancel_low_limit = 60	# Cancel stochrsi short signal at this level
+tda_stochrsi_gobot_helper.stoch_signal_cancel_high_limit = 40	# Cancel stochrsi buy signal at this level
 
 tda_stochrsi_gobot_helper.rsi_signal_cancel_low_limit = 30
 tda_stochrsi_gobot_helper.rsi_signal_cancel_high_limit = 70
@@ -916,16 +1008,6 @@ for ticker in list(stocks.keys()):
 	time.sleep(1)
 
 	# End daily ATR/NATR
-
-
-
-
-
-
-
-
-
-
 
 
 # MAIN: Log into tda-api and run the stream client

@@ -254,6 +254,7 @@ for algo in args.algos:
 	vpt_sma_period		= args.vpt_sma_period
 
 	for a in algo.split(','):
+		a = re.sub( '[\s\t]*', '', a )
 
 		if ( a == 'primary_stochrsi' ):		primary_stochrsi	= True
 		if ( a == 'primary_stochmfi' ):		primary_stochmfi	= True
@@ -384,7 +385,7 @@ for algo in args.algos:
 	algos.append(algo_list)
 
 # Cleanup some junk
-del(stochrsi_primary,stochmfi_primary,stochrsi_5m, stochmfi,stochmfi_5m)
+del(primary_stochrsi,primary_stochmfi,stochrsi_5m, stochmfi,stochmfi_5m)
 del(rsi,mfi,adx,dmi,macd,aroonosc,vwap,vpt,support_resistance)
 del(rsi_high_limit,rsi_low_limit,rsi_period,stochrsi_period,stochrsi_5m_period,rsi_k_period,rsi_k_5m_period,rsi_d_period,rsi_slow,stochrsi_offset,stochrsi_5m_offset)
 del(mfi_high_limit,mfi_low_limit,mfi_period,stochmfi_period,stochmfi_5m_period,mfi_k_period,mfi_k_5m_period,mfi_d_period,mfi_slow,stochmfi_offset,stochmfi_5m_offset)
@@ -1047,7 +1048,7 @@ while True:
 		continue
 
 	# Initialize streams client
-	print( 'Initializing streams client for stock tickers: ' + str(list(stocks.keys())) )
+	print( 'Initializing streams client for stock tickers: ' + str(list(stocks.keys())) + "\n" )
 	try:
 		stream_client = StreamClient(tda_client, account_id=tda_account_number)
 
@@ -1057,15 +1058,15 @@ while True:
 		continue
 
 	# Call read_stream():stream_client.handle_message() to read from the stream continuously
-	try:
-		asyncio.run(read_stream())
+#	try:
+	asyncio.run(read_stream())
 
-	except KeyboardInterrupt:
-		graceful_exit(None, None)
-		sys.exit(0)
-
-	except Exception as e:
-		print('Exception caught: read_stream(): ' + str(e) + ': retrying...')
+#	except KeyboardInterrupt:
+#		graceful_exit(None, None)
+#		sys.exit(0)
+#
+#	except Exception as e:
+#		print('Exception caught: read_stream(): ' + str(e) + ': retrying...')
 
 
 sys.exit(0)

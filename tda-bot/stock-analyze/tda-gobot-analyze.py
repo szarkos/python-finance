@@ -25,6 +25,7 @@ parser.add_argument("--ofile", help='Dump the pricehistory data to pickle file',
 parser.add_argument("--ifile", help='Use pickle file for pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--augment_ifile", help='Pull additional history data and append it to candles imported from ifile', action="store_true")
 parser.add_argument("--weekly_ifile", help='Use pickle file for weekly pricehistory data rather than accessing the API', default=None, type=str)
+parser.add_argument("--daily_ifile", help='Use pickle file for daily pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--start_date", help='The day to start trading (i.e. 2021-05-12). Typically useful for verifying history logs.', default=None, type=str)
 parser.add_argument("--stop_date", help='The day to stop trading (i.e. 2021-05-12)', default=None, type=str)
 parser.add_argument("--skip_blacklist", help='Do not process blacklisted tickers.', action="store_true")
@@ -37,9 +38,18 @@ parser.add_argument("--keylevel_strict", help='Use strict key level checks to en
 parser.add_argument("--keylevel_use_daily", help='Use daily candles to determine key levels instead of weekly (Default: False)', action="store_true")
 parser.add_argument("--price_resistance_pct", help='Resistance indicators will come into effect if price is within this percentage of a known support/resistance line', default=1, type=float)
 parser.add_argument("--price_support_pct", help='Support indicators will come into effect if price is within this percentage of a known support/resistance line', default=1, type=float)
+parser.add_argument("--use_natr_resistance", help='Enable the daily NATR resistance check', action="store_true")
+parser.add_argument("--check_daily_natr", help='Check daily NATR values and tailor algorithm accordingly', action="store_true")
 parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
+parser.add_argument("--check_ma", help='Tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior', action="store_true")
+parser.add_argument("--check_ma_strict", help='Check SMA and EMA to enable/disable the longing or shorting of stock', action="store_true")
 
 parser.add_argument("--primary_stoch_indicator", help='Use this indicator as the primary stochastic indicator (Default: stochrsi)', default='stochrsi', type=str)
+parser.add_argument("--with_stoch_5m", help='Use 5-minute candles with the --primary_stoch_indicator', action="store_true")
+parser.add_argument("--with_stochrsi_5m", help='Use StochRSI with 5-min candles as an additional stochastic indicator (Default: False)', action="store_true")
+parser.add_argument("--with_stochmfi", help='Use StochMFI as an additional stochastic indicator (Default: False)', action="store_true")
+parser.add_argument("--with_stochmfi_5m", help='Use StochMFI with 5-min candles as an additional stochastic indicator (Default: False)', action="store_true")
+
 parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
 parser.add_argument("--with_rsi_simple", help='Use just the current RSI value as a secondary indicator', action="store_true")
 parser.add_argument("--with_mfi", help='Use MFI (Money Flow Index) as a secondary indicator', action="store_true")
@@ -52,6 +62,8 @@ parser.add_argument("--with_macd", help='Use MACD as secondary indicator to advi
 parser.add_argument("--with_macd_simple", help='Use MACD as secondary indicator to advise trade entries/exits, but do not wait for crossover (default=False)', action="store_true")
 parser.add_argument("--with_vwap", help='Use VWAP as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
 parser.add_argument("--with_vpt", help='Use VPT as secondary indicator to advise trade entries (Default: False)', action="store_true")
+parser.add_argument("--with_chop_index", help='Use the Choppiness Index as secondary indicator to advise trade entries (Default: False)', action="store_true")
+parser.add_argument("--with_chop_simple", help='Use a simple version Choppiness Index as secondary indicator to advise on trade entries (Default: False)', action="store_true")
 
 parser.add_argument("--aroonosc_with_macd_simple", help='When using Aroon Oscillator, use macd_simple as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
 parser.add_argument("--aroonosc_with_vpt", help='When using Aroon Oscillator, use vpt as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
@@ -72,17 +84,22 @@ parser.add_argument("--blacklist_earnings", help='Blacklist trading one week bef
 parser.add_argument("--check_volume", help='Check the last several days (up to 6-days, depending on how much history is available) to ensure stock is not trading at a low volume threshold (Default: False)', action="store_true")
 parser.add_argument("--avg_volume", help='Skip trading for the day unless the average volume over the last few days equals this value', default=2000000, type=int)
 parser.add_argument("--min_volume", help='Skip trading for the day unless the daily volume over the last few days equals at least this value', default=1500000, type=int)
+parser.add_argument("--min_ticker_age", help='Do not process tickers younger than this number of days (Default: None)', default=None, type=int)
+parser.add_argument("--min_daily_natr", help='Do not process tickers with less than this daily NATR value (Default: None)', default=None, type=float)
+parser.add_argument("--max_daily_natr", help='Do not process tickers with more than this daily NATR value (Default: None)', default=None, type=float)
+parser.add_argument("--min_intra_natr", help='Minimum intraday NATR value to allow trade entry (Default: None)', default=None, type=float)
+parser.add_argument("--max_intra_natr", help='Maximum intraday NATR value to allow trade entry (Default: None)', default=None, type=float)
 
 parser.add_argument("--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
-parser.add_argument("--stochrsi_5m", help='Use 5-minute candles to calculate StochRSI', action="store_true")
 parser.add_argument("--stochrsi_period", help='RSI period to use for StochRSI calculation (Default: 128)', default=128, type=int)
+parser.add_argument("--stochrsi_5m_period", help='RSI period to use for StochRSI calculation (Default: 28)', default=28, type=int)
 parser.add_argument("--rsi_slow", help='Slowing period to use in StochRSI algorithm', default=3, type=int)
 parser.add_argument("--rsi_k_period", help='k period to use in StochRSI algorithm', default=128, type=int)
 parser.add_argument("--rsi_d_period", help='D period to use in StochRSI algorithm', default=3, type=int)
 parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='hlc3', type=str)
 parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=int)
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
-parser.add_argument("--stochrsi_offset", help='Offset between K and D to determine strength of trend', default=8, type=int)
+parser.add_argument("--stochrsi_offset", help='Offset between K and D to determine strength of trend', default=8, type=float)
 parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal (Default: False)', action="store_true")
 parser.add_argument("--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (Default: False)', action="store_true")
 
@@ -92,15 +109,27 @@ parser.add_argument("--di_period", help='Plus/Minus DI period', default=48, type
 parser.add_argument("--aroonosc_period", help='Aroon Oscillator period', default=24, type=int)
 parser.add_argument("--aroonosc_alt_period", help='Alternate Aroon Oscillator period for higher volatility stocks', default=48, type=int)
 parser.add_argument("--aroonosc_alt_threshold", help='Threshold for enabling the alternate Aroon Oscillator period for higher volatility stocks', default=0.24, type=float)
-parser.add_argument("--atr_period", help='Average True Range period', default=14, type=int)
+parser.add_argument("--atr_period", help='Average True Range period for intraday calculations', default=14, type=int)
+parser.add_argument("--daily_atr_period", help='Average True Range period for daily calculations', default=14, type=int)
+parser.add_argument("--chop_period", help='Choppiness Index period', default=14, type=int)
+parser.add_argument("--chop_low_limit", help='Choppiness Index low limit', default=38.2, type=float)
+parser.add_argument("--chop_high_limit", help='Choppiness Index high limit', default=61.8, type=float)
+parser.add_argument("--macd_short_period", help='MACD short (fast) period', default=48, type=int)
+parser.add_argument("--macd_long_period", help='MACD long (slow) period', default=104, type=int)
+parser.add_argument("--macd_signal_period", help='MACD signal (length) period', default=36, type=int)
+parser.add_argument("--macd_offset", help='MACD offset for signal lines', default=0.006, type=float)
+
+parser.add_argument("--stochmfi_period", help='Money Flow Index (MFI) period to use for StochMFI calculation (Default: 14)', default=14, type=int)
+parser.add_argument("--stochmfi_5m_period", help='Money Flow Index (MFI) period to use for StochMFI calculation using 5-minute candles (Default: 14)', default=14, type=int)
 parser.add_argument("--mfi_period", help='Money Flow Index (MFI) period', default=14, type=int)
 parser.add_argument("--mfi_high_limit", help='MFI high limit', default=80, type=int)
 parser.add_argument("--mfi_low_limit", help='MFI low limit', default=20, type=int)
 
+
+
 parser.add_argument("--noshort", help='Disable short selling of stock', action="store_true")
 parser.add_argument("--shortonly", help='Only short sell the stock', action="store_true")
-parser.add_argument("--check_ma", help='Tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior', action="store_true")
-parser.add_argument("--check_ma_strict", help='Check SMA and EMA to enable/disable the longing or shorting of stock', action="store_true")
+
 parser.add_argument("--verbose", help='Print additional information about each transaction (Default: False)', action="store_true")
 parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
 parser.add_argument("--debug_all", help='Enable extra debugging output', action="store_true")
@@ -191,7 +220,6 @@ freq = '1'
 # RSI variables
 rsi_type = args.rsi_type
 rsi_period = args.rsi_period
-stochrsi_period = args.stochrsi_period
 rsi_slow = args.rsi_slow
 cur_rsi = 0
 prev_rsi = 0
@@ -332,6 +360,18 @@ for algo in args.algo.split(','):
 			print('Error opening file ' + str(args.weekly_ifile) + ': ' + str(e))
 			exit(1)
 
+	# Daily Candles
+	data_daily = None
+	if ( args.daily_ifile != None ):
+		try:
+			with open(args.daily_ifile, 'rb') as handle:
+				data_daily = handle.read()
+				data_daily = pickle.loads(data_daily)
+
+		except Exception as e:
+			print('Error opening file ' + str(args.daily_ifile) + ': ' + str(e))
+			exit(1)
+
 
 	# Print results for the most recent 10 and 5 days of data
 	for days in str(args.days).split(','):
@@ -397,7 +437,6 @@ for algo in args.algo.split(','):
 			print('Not enough data - returned candles=' + str(len(data['candles'])) + ', rsi_period=' + str(rsi_period))
 			continue
 
-
 		# Dump pickle data if requested
 		if ( args.ofile != None ):
 			try:
@@ -425,6 +464,7 @@ for algo in args.algo.split(','):
 					'stop_date':				args.stop_date,
 					'safe_open':				safe_open,
 					'weekly_ph':				data_weekly,
+					'daily_ph':				data_daily,
 
 					'debug':				True,
 					'debug_all':				args.debug_all,
@@ -444,18 +484,23 @@ for algo in args.algo.split(','):
 					'noshort':				args.noshort,
 					'shortonly':				args.shortonly,
 
-					'check_ma':				args.check_ma,
-					'check_ma_strict':			args.check_ma_strict,
-
 					# Other stock behavior options
 					'blacklist_earnings':			args.blacklist_earnings,
 					'check_volume':				args.check_volume,
 					'avg_volume':				args.avg_volume,
 					'min_volume':				args.min_volume,
+					'min_ticker_age':			args.min_ticker_age,
+					'min_daily_natr':			args.min_daily_natr,
+					'max_daily_natr':			args.max_daily_natr,
+					'min_intra_natr':			args.min_intra_natr,
+					'max_intra_natr':			args.max_intra_natr,
 
 					# Indicators
 					'primary_stoch_indicator':		args.primary_stoch_indicator,
-					'stochrsi_5m':				args.stochrsi_5m,
+					'with_stoch_5m':			args.with_stoch_5m,
+					'with_stochrsi_5m':			args.with_stochrsi_5m,
+					'with_stochmfi':			args.with_stochmfi,
+					'with_stochmfi_5m':			args.with_stochmfi_5m,
 
 					'with_rsi':				args.with_rsi,
 					'with_rsi_simple':			args.with_rsi_simple,
@@ -474,9 +519,12 @@ for algo in args.algo.split(','):
 
 					'with_vpt':				args.with_vpt,
 					'with_vwap':				args.with_vwap,
+					'with_chop_index':			args.with_chop_index,
+					'with_chop_simple':			args.with_chop_simple,
 
-					# Indicator parameters and modifiers
+ 					# Indicator parameters and modifiers
 					'stochrsi_period':			args.stochrsi_period,
+					'stochrsi_5m_period':			args.stochrsi_5m_period,
 					'rsi_period':				args.rsi_period,
 					'rsi_type':				args.rsi_type,
 					'rsi_slow':				args.rsi_slow,
@@ -492,10 +540,10 @@ for algo in args.algo.split(','):
 					'adx_period':				args.adx_period,
 					'adx_threshold':			args.adx_threshold,
 
-					'macd_short_period':			48,
-					'macd_long_period':			104,
-					'macd_signal_period':			36,
-					'macd_offset':				0.006,
+					'macd_short_period':			args.macd_short_period,
+					'macd_long_period':			args.macd_long_period,
+					'macd_signal_period':			args.macd_signal_period,
+					'macd_offset':				args.macd_offset,
 
 					'aroonosc_period':			args.aroonosc_period,
 					'aroonosc_alt_period':			args.aroonosc_alt_period,
@@ -504,13 +552,19 @@ for algo in args.algo.split(','):
 					'aroonosc_with_macd_simple':		args.aroonosc_with_macd_simple,
 					'aroonosc_with_vpt':			args.aroonosc_with_vpt,
 
+					'stochmfi_period':			args.stochmfi_period,
+					'stochmfi_5m_period':			args.stochmfi_5m_period,
 					'mfi_period':				args.mfi_period,
 					'mfi_high_limit':			args.mfi_high_limit,
 					'mfi_low_limit':			args.mfi_low_limit,
 
 					'atr_period':				args.atr_period,
-
+					'daily_atr_period':			args.daily_atr_period,
 					'vpt_sma_period':			args.vpt_sma_period,
+
+					'chop_period':				args.chop_period,
+					'chop_low_limit':			args.chop_low_limit,
+					'chop_high_limit':			args.chop_high_limit,
 
 					# Resistance indicators
 					'no_use_resistance':			args.no_use_resistance,
@@ -518,7 +572,11 @@ for algo in args.algo.split(','):
 					'price_support_pct':			args.price_support_pct,
 					'lod_hod_check':			args.lod_hod_check,
 					'keylevel_strict':			args.keylevel_strict,
-					'keylevel_use_daily':			args.keylevel_use_daily
+					'keylevel_use_daily':			args.keylevel_use_daily,
+					'use_natr_resistance':			args.use_natr_resistance,
+					'check_daily_natr':			args.check_daily_natr,
+					'check_ma':				args.check_ma,
+					'check_ma_strict':			args.check_ma_strict,
 			}
 
 			# Call stochrsi_analyze_new() with test_params{} to run the backtest
@@ -535,7 +593,7 @@ for algo in args.algo.split(','):
 
 		# Print the returned results
 		elif ( (algo == 'stochrsi' or algo == 'stochrsi-new') and args.verbose ):
-			print('{0:18} {1:15} {2:15} {3:10} {4:10} {5:10}'.format('Buy/Sell Price', 'Net Change', 'RSI_K/RSI_D', 'NATR', 'ADX', 'Time'))
+			print('{0:18} {1:15} {2:15} {3:10} {4:10} {5:10} {6:10}'.format('Buy/Sell Price', 'Net Change', 'RSI_K/RSI_D', 'NATR', 'Daily_NATR', 'ADX', 'Time'))
 
 		rating = 0
 		success = fail = 0
@@ -545,8 +603,8 @@ for algo in args.algo.split(','):
 		counter = 0
 		while ( counter < len(results) - 1 ):
 
-			price_tx, short, rsi_tx, natr_tx, adx_tx, time_tx = results[counter].split( ',', 6 )
-			price_rx, short, rsi_rx, natr_rx, adx_rx, time_rx = results[counter+1].split( ',', 6 )
+			price_tx, short, rsi_tx, natr_tx, dnatr_tx, adx_tx, time_tx = results[counter].split( ',', 7 )
+			price_rx, short, rsi_rx, natr_rx, dnatr_rx, adx_rx, time_rx = results[counter+1].split( ',', 7 )
 
 			vwap_tx = vwap_rx = 0
 			stochrsi_tx = stochrsi_rx = 0
@@ -619,13 +677,13 @@ for algo in args.algo.split(','):
 				rsi_rx = str(rsi_prev_rx) + '/' + str(rsi_cur_rx)
 
 				print(text_color, end='')
-				print('{0:18} {1:15} {2:15} {3:10} {4:10} {5:10}'.format(str(price_tx), ' ', str(rsi_tx), str(natr_tx), str(adx_tx), time_tx), end='')
+				print('{0:18} {1:15} {2:15} {3:10} {4:10} {5:10} {6:10}'.format(str(price_tx), '-', str(rsi_tx), str(natr_tx), str(dnatr_tx), str(adx_tx), time_tx), end='')
 				print(reset_color, end='')
 
 				print()
 
 				print(text_color, end='')
-				print('{0:18} {1:15} {2:15} {3:10} {4:10} {5:10}'.format(str(price_rx), str(net_change), str(rsi_rx), ' ', str(adx_tx), time_rx), end='')
+				print('{0:18} {1:15} {2:15} {3:10} {4:10} {5:10} {6:10}'.format(str(price_rx), str(net_change), str(rsi_rx), '-', '-', str(adx_tx), time_rx), end='')
 				print(reset_color, end='')
 
 				print()

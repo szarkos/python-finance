@@ -43,6 +43,21 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal stochrsi_crossover_signal	; stochrsi_crossover_signal	= False
 		nonlocal stochrsi_threshold_signal	; stochrsi_threshold_signal	= False
 
+		nonlocal stochrsi_5m_signal		; stochrsi_5m_signal		= False
+		nonlocal stochrsi_5m_crossover_signal	; stochrsi_5m_crossover_signal	= False
+		nonlocal stochrsi_5m_threshold_signal	; stochrsi_5m_threshold_signal	= False
+		nonlocal stochrsi_5m_final_signal	; stochrsi_5m_final_signal	= False
+
+		nonlocal stochmfi_signal		; stochmfi_signal		= False
+		nonlocal stochmfi_crossover_signal	; stochmfi_crossover_signal	= False
+		nonlocal stochmfi_threshold_signal	; stochmfi_threshold_signal	= False
+		nonlocal stochmfi_final_signal		; stochmfi_final_signal		= False
+
+		nonlocal stochmfi_5m_signal		; stochmfi_5m_signal		= False
+		nonlocal stochmfi_5m_crossover_signal	; stochmfi_5m_crossover_signal	= False
+		nonlocal stochmfi_5m_threshold_signal	; stochmfi_5m_threshold_signal	= False
+		nonlocal stochmfi_5m_final_signal	; stochmfi_5m_final_signal	= False
+
 		nonlocal rsi_signal			; rsi_signal			= False
 		nonlocal mfi_signal			; mfi_signal			= False
 		nonlocal adx_signal			; adx_signal			= False
@@ -52,6 +67,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal vwap_signal			; vwap_signal			= False
 		nonlocal vpt_signal			; vpt_signal			= False
 		nonlocal resistance_signal		; resistance_signal		= False
+
+		nonlocal chop_init_signal		; chop_init_signal		= False
+		nonlocal chop_signal			; chop_signal			= False
 
 		nonlocal plus_di_crossover		; plus_di_crossover		= False
 		nonlocal minus_di_crossover		; minus_di_crossover		= False
@@ -74,6 +92,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	stop_date		=	None		if ('stop_date' not in params) else params['stop_date']
 	safe_open		=	True		if ('safe_open' not in params) else params['safe_open']
 	weekly_ph		=	None		if ('weekly_ph' not in params) else params['weekly_ph']
+	daily_ph		=	None		if ('daily_ph' not in params) else params['daily_ph']
 
 	debug			=	False		if ('debug' not in params) else params['debug']
 	debug_all		=	False		if ('debug_all' not in params) else params['debug_all']
@@ -98,10 +117,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	check_volume		=	False		if ('check_volume' not in params) else params['check_volume']
 	avg_volume		=	2000000		if ('avg_volume' not in params) else params['avg_volume']
 	min_volume		=	1500000		if ('min_volume' not in params) else params['min_volume']
+	min_ticker_age		=	None		if ('min_ticker_age' not in params) else params['min_ticker_age']
+	min_daily_natr		=	None		if ('min_daily_natr' not in params) else params['min_daily_natr']
+	max_daily_natr		=	None		if ('max_daily_natr' not in params) else params['max_daily_natr']
+	min_intra_natr		=	None		if ('min_intra_natr' not in params) else params['min_intra_natr']
+	max_intra_natr		=	None		if ('max_intra_natr' not in params) else params['max_intra_natr']
 
 	# Indicators
 	primary_stoch_indicator	=	'stochrsi'	if ('primary_stoch_indicator' not in params) else params['primary_stoch_indicator']
-	stochrsi_5m		=	False		if ('stochrsi_5m' not in params) else params['stochrsi_5m']
+	with_stoch_5m		=	False		if ('with_stoch_5m' not in params) else params['with_stoch_5m']
+	with_stochrsi_5m	=	False		if ('with_stochrsi_5m' not in params) else params['with_stochrsi_5m']
+	with_stochmfi		=	False		if ('with_stochmfi' not in params) else params['with_stochmfi']
+	with_stochmfi_5m	=	False		if ('with_stochmfi_5m' not in params) else params['with_stochmfi_5m']
 
 	with_rsi		=	False		if ('with_rsi' not in params) else params['with_rsi']
 	with_rsi_simple		=	False		if ('with_rsi_simple' not in params) else params['with_rsi_simple']
@@ -120,9 +147,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	with_vpt		=	False		if ('with_vpt' not in params) else params['with_vpt']
 	with_vwap		=	False		if ('with_vwap' not in params) else params['with_vwap']
+	with_chop_index		=	False		if ('with_chop_index' not in params) else params['with_chop_index']
+	with_chop_simple	=	False		if ('with_chop_simple' not in params) else params['with_chop_simple']
 
 	# Indicator parameters and modifiers
 	stochrsi_period		=	128		if ('stochrsi_period' not in params) else params['stochrsi_period']
+	stochrsi_5m_period	=	28		if ('stochrsi_5m_period' not in params) else params['stochrsi_5m_period']
 	rsi_period		=	14		if ('rsi_period' not in params) else params['rsi_period']
 	rsi_type		=	'hlc3'		if ('rsi_type' not in params) else params['rsi_type']
 	rsi_slow		=	3		if ('rsi_slow' not in params) else params['rsi_slow']
@@ -133,12 +163,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	stochrsi_offset		=	8		if ('stochrsi_offset' not in params) else params['stochrsi_offset']
 	nocrossover		=	False		if ('nocrossover' not in params) else params['nocrossover']
 	crossover_only		=	False		if ('crossover_only' not in params) else params['crossover_only']
-
-	check_ma_strict		=	False		if ('check_ma_strict' not in params) else params['check_ma_strict']
-	check_ma		=	False		if ('check_ma' not in params) else params['check_ma']
-	check_ma		=	True		if (check_ma_strict == True ) else check_ma
-	sma_period		=	5		if ('sma_period' not in params) else params['sma_period']
-	ema_period		=	5		if ('ema_period' not in params) else params['ema_period']
 
 	di_period		=	48		if ('di_period' not in params) else params['di_period']
 	adx_period		=	92		if ('adx_period' not in params) else params['adx_period']
@@ -154,22 +178,36 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	aroonosc_alt_threshold	=	0.24		if ('aroonosc_alt_threshold' not in params) else params['aroonosc_alt_threshold']
 	aroonosc_secondary_threshold	= 70		if ('aroonosc_secondary_threshold' not in params) else params['aroonosc_secondary_threshold']
 	aroonosc_with_macd_simple	= False		if ('aroonosc_with_macd_simple' not in params) else params['aroonosc_with_macd_simple']
-	aroonosc_with_vpt	=	False		if ('aroonosc_with_vpt' not in params) else params['aroonosc_with_vpt']
+	aroonosc_with_vpt		= False		if ('aroonosc_with_vpt' not in params) else params['aroonosc_with_vpt']
+
+	stochmfi_5m_period	=	14		if ('stochmfi_5m_period' not in params) else params['stochmfi_5m_period']
+	stochmfi_period		=	14		if ('stochmfi_period' not in params) else params['stochmfi_period']
 	mfi_period		=	14		if ('mfi_period' not in params) else params['mfi_period']
 	mfi_low_limit		=	20		if ('mfi_low_limit' not in params) else params['mfi_low_limit']
 	mfi_high_limit		=	80		if ('mfi_high_limit' not in params) else params['mfi_high_limit']
 
 	atr_period		=	14		if ('atr_period' not in params) else params['atr_period']
-
+	daily_atr_period	=	14		if ('daily_atr_period' not in params) else params['daily_atr_period']
 	vpt_sma_period		=	72		if ('vpt_sma_period' not in params) else params['vpt_sma_period']
+
+	chop_period		=	14		if ('chop_period' not in params) else params['chop_period']
+	chop_low_limit		=	38.2		if ('chop_low_limit' not in params) else params['chop_low_limit']
+	chop_high_limit		=	61.8		if ('chop_high_limit' not in params) else params['chop_high_limit']
 
 	# Resistance indicators
 	no_use_resistance	=	False		if ('no_use_resistance' not in params) else params['no_use_resistance']
 	price_resistance_pct	=	1		if ('price_resistance_pct' not in params) else params['price_resistance_pct']
 	price_support_pct	=	1		if ('price_support_pct' not in params) else params['price_support_pct']
+	use_natr_resistance	=	False		if ('use_natr_resistance' not in params) else params['use_natr_resistance']
 	lod_hod_check		=	False		if ('lod_hod_check' not in params) else params['lod_hod_check']
 	keylevel_strict		=	False		if ('keylevel_strict' not in params) else params['keylevel_strict']
 	keylevel_use_daily	=	False		if ('keylevel_use_daily' not in params) else params['keylevel_use_daily']
+	check_daily_natr	=	False		if ('check_daily_natr' not in params) else params['check_daily_natr']
+	check_ma_strict		=	False		if ('check_ma_strict' not in params) else params['check_ma_strict']
+	check_ma		=	False		if ('check_ma' not in params) else params['check_ma']
+	check_ma		=	True		if (check_ma_strict == True ) else check_ma ; params['check_ma'] = check_ma
+	sma_period		=	5		if ('sma_period' not in params) else params['sma_period']
+	ema_period		=	5		if ('ema_period' not in params) else params['ema_period']
 
 	# End params{} configuration
 
@@ -182,7 +220,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		stop_date = datetime.strptime(stop_date + ' 00:00:00', '%Y-%m-%d %H:%M:%S')
 		stop_date = mytimezone.localize(stop_date)
 
-	# We use 5-minute candles to calculate the ATR
+	# 5-minute candles
 	pricehistory_5m = { 'candles': [], 'ticker': ticker }
 	for idx,key in enumerate(pricehistory['candles']):
 		if ( idx == 0 ):
@@ -216,22 +254,31 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	del(open_p, high, low, close, volume, newcandle)
 
-
 	# Get stochastic RSI/MFI
+	stochrsi	= []
+	rsi_k		= []
+	rsi_d		= []
 	try:
 		if ( primary_stoch_indicator == 'stochrsi' ):
-			if ( stochrsi_5m == True ):
-				stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(pricehistory_5m, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+			if ( with_stoch_5m == True ):
+				stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(pricehistory_5m, rsi_period=rsi_period, stochrsi_period=stochrsi_5m_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
 			else:
 				stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(pricehistory, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
 
+			if ( isinstance(stochrsi, bool) and stochrsi == False ):
+				print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_stochrsi() returned false - no data', file=sys.stderr)
+				return False
+
 		elif ( primary_stoch_indicator == 'stochmfi' ):
-			if ( stochrsi_5m == True ):
+			if ( with_stoch_5m == True ):
 				rsi_k, rsi_d = tda_gobot_helper.get_stochmfi(pricehistory_5m, mfi_period=mfi_period, mfi_k_period=rsi_k_period, slow_period=rsi_slow, mfi_d_period=rsi_d_period, debug=False)
 			else:
 				rsi_k, rsi_d = tda_gobot_helper.get_stochmfi(pricehistory, mfi_period=mfi_period, mfi_k_period=rsi_k_period, slow_period=rsi_slow, mfi_d_period=rsi_d_period, debug=False)
 
 			stochrsi = rsi_k
+			if ( isinstance(rsi_k, bool) and rsi_k == False ):
+				print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_stochmfi() returned false - no data', file=sys.stderr)
+				return False
 
 		else:
 			print('Error: stochrsi_analyze_new(' + str(ticker) + '): unknown primary_stoch_indicator "' + str(primary_stoch_indicator) + '"')
@@ -241,13 +288,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_stochrsi(): ' + str(e))
 		return False
 
-	if ( isinstance(stochrsi, bool) and stochrsi == False ):
-		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_stochrsi() returned false - no data', file=sys.stderr)
-		return False
-
 	# If using the same 1-minute data, the len of stochrsi will be (stochrsi_period * 2 - 1)
 	# len(rsi_k) should be (stochrsi_period * 2 - rsi_d_period)
-	if ( primary_stoch_indicator == 'stochrsi' and stochrsi_5m == False ):
+	if ( primary_stoch_indicator == 'stochrsi' and with_stoch_5m == False ):
 		if ( len(stochrsi) != len(pricehistory['candles']) - (rsi_period * 2 - 1) ):
 			print( 'Warning, unexpected length of stochrsi (pricehistory[candles]=' + str(len(pricehistory['candles'])) + ', len(stochrsi)=' + str(len(stochrsi)) + ')' )
 
@@ -256,6 +299,47 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		if ( len(rsi_k) != len(rsi_d) ):
 			print( 'Warning, unexpected length of rsi_k (pricehistory[candles]=' + str(len(pricehistory['candles'])) +
 				', len(rsi_k)=' + str(len(stochrsi)) + '), len(rsi_d)=' + str(len(rsi_d)) + ')' )
+
+	# Get secondary stochastic indicators
+	if ( with_stochrsi_5m == True ):
+		stochrsi_5m	= []
+		rsi_k_5m	= []
+		rsi_d_5m	= []
+		try:
+			stochrsi, rsi_k_5m, rsi_d_5m = tda_gobot_helper.get_stochrsi(pricehistory_5m, rsi_period=rsi_period, stochrsi_period=stochrsi_5m_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+
+		except Exception as e:
+			print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_stochrsi(): ' + str(e))
+			return False
+		if ( isinstance(stochrsi_5m, bool) and stochrsi_5m == False ):
+			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_stochrsi() returned false - no data', file=sys.stderr)
+			return False
+
+	if ( with_stochmfi == True ):
+		mfi_k		= []
+		mfi_d		= []
+		try:
+			mfi_k, mfi_d = tda_gobot_helper.get_stochmfi(pricehistory, mfi_period=stochmfi_period, mfi_k_period=rsi_k_period, slow_period=rsi_slow, mfi_d_period=rsi_d_period, debug=False)
+
+		except Exception as e:
+			print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_stochmfi(): ' + str(e))
+			return False
+		if ( isinstance(mfi_k, bool) and mfi_k == False ):
+			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_stochmfi() returned false - no data', file=sys.stderr)
+			return False
+
+	if ( with_stochmfi_5m == True ):
+		mfi_k_5m	= []
+		mfi_d_5m	= []
+		try:
+			mfi_k_5m, mfi_d_5m = tda_gobot_helper.get_stochmfi(pricehistory_5m, mfi_period=stochmfi_5m_period, mfi_k_period=rsi_k_period, slow_period=rsi_slow, mfi_d_period=rsi_d_period, debug=False)
+
+		except Exception as e:
+			print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_stochmfi(): ' + str(e))
+			return False
+		if ( isinstance(mfi_k_5m, bool) and mfi_k_5m == False ):
+			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_stochmfi() returned false - no data', file=sys.stderr)
+			return False
 
 	# Get RSI
 	try:
@@ -273,8 +357,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_mfi(): ' + str(e))
 
 	# Average True Range (ATR)
-	atr = []
-	natr = []
+	atr	= []
+	natr	= []
 	try:
 		atr, natr = tda_gobot_helper.get_atr( pricehistory=pricehistory_5m, period=atr_period )
 
@@ -282,6 +366,47 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_atr(): ' + str(e))
 		return False
 
+	# Daily ATR/NATR
+	if ( daily_ph == None ):
+
+		# get_pricehistory() variables
+		p_type	= 'year'
+		period	= '2'
+		freq	= '1'
+		f_type	= 'daily'
+
+		tries	= 0
+		while ( tries < 3 ):
+			daily_ph, ep = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, needExtendedHoursData=False)
+			if ( isinstance(daily_ph, bool) and daly_ph == False ):
+				print('Error: get_pricehistory(' + str(ticker) + '): attempt ' + str(tries) + ' returned False, retrying...', file=sys.stderr)
+				time.sleep(5)
+			else:
+				break
+
+			tries += 1
+
+	atr_d	= []
+	natr_d	= []
+	try:
+		atr_d, natr_d = tda_gobot_helper.get_atr( pricehistory=daily_ph, period=daily_atr_period )
+
+	except Exception as e:
+		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_atr(): ' + str(e))
+		return False
+
+	if ( min_ticker_age != None ):
+		if ( len(atr_d) + daily_atr_period < min_ticker_age ):
+			print('Error: ' + str(ticker) + ' appears to be younger than min_ticker_age (' + str(len(atr_d)+daily_atr_period) + '), exiting.')
+			sys.exit(1)
+
+	daily_natr = OrderedDict()
+	for idx in range(-1, -len(atr_d), -1):
+		day = datetime.fromtimestamp(int(daily_ph['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d')
+		if day not in daily_natr:
+			daily_natr[day] = { 'atr': atr_d[idx], 'natr': natr_d[idx] }
+
+	# End ATR
 
 	# ADX, +DI, -DI
 	# We now use different periods for adx and plus/minus_di
@@ -329,6 +454,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	except Exception as e:
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_macd(): ' + str(e))
+		return False
+
+	# Choppiness Index
+	chop = []
+	try:
+		chop = tda_gobot_helper.get_chop_index(pricehistory, period=chop_period)
+
+	except Exception as e:
+		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_chop_index(): ' + str(e))
 		return False
 
 
@@ -533,41 +667,61 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 #			print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
 
 
-	# Tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior
-	if ( check_ma == True ):
-		orig_rsi_low_limit = rsi_low_limit
-		orig_rsi_high_limit = rsi_high_limit
+	# Intraday SMA/EMA
+	# We can use this to tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior
+	sma = []
+	ema = []
+	try:
+		sma = tda_gobot_helper.get_sma( pricehistory_5m, period=sma_period, type='hlc3' )
+		ema = tda_gobot_helper.get_ema( pricehistory_5m, period=ema_period )
 
-		sma = []
-		ema = []
-		try:
-			sma = tda_gobot_helper.get_sma( pricehistory, period=sma_period, type='hlc3' )
-			ema = tda_gobot_helper.get_ema( pricehistory, period=ema_period )
+	except Exception as e:
+		print('Error, unable to calculate SMA/EMA: ' + str(e))
+		sma[0] = 0
+		ema[0] = 0
 
-		except Exception as e:
-			print('Error, unable to calculate SMA/EMA: ' + str(e))
-			sma[0] = 0
-			ema[0] = 0
+	# Daily SMA/EMA
+	daily_sma = []
+	daily_ema = []
+	try:
+		daily_sma = tda_gobot_helper.get_sma( pricehistory=daily_ph, period=10, type='hlc3' )
+		daily_ema = tda_gobot_helper.get_ema( pricehistory=daily_ph, period=5 )
+
+	except Exception as e:
+		print('Error, unable to calculate SMA/EMA: ' + str(e))
+		daily_sma[0] = 0
+		daily_ema[0] = 0
+
+	daily_ma = OrderedDict()
+	for idx in range(-1, -len(daily_sma), -1):
+		day = datetime.fromtimestamp(int(daily_ph['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d')
+		if day not in daily_ma:
+			daily_ma[day] = { 'sma': daily_sma[idx], 'ema': daily_ema[idx] }
+
+	# End SMA/EMA
 
 
 	# Run through the RSI values and log the results
 	results				= []
 
-	if ( stochrsi_5m == True ):
-		stochrsi_idx		= len(pricehistory['candles']) - len(rsi_k) * 5
-	else:
-		stochrsi_idx		= len(pricehistory['candles']) - len(rsi_k)
+	stochrsi_idx			= len(pricehistory['candles']) - len(rsi_k)
+	if ( with_stoch_5m == True ):
+		stochrsi_5m_idx		= len(pricehistory['candles']) - len(rsi_k) * 5
+	if ( with_stochrsi_5m == True ):
+		stochrsi_5m_idx		= len(pricehistory['candles']) - len(rsi_k_5m) * 5
+	if ( with_stochmfi == True ):
+		stochmfi_idx		= len(pricehistory['candles']) - len(mfi_k)
+	if ( with_stochmfi_5m == True ):
+		stochmfi_5m_idx		= len(pricehistory['candles']) - len(mfi_k_5m) * 5
 
 	rsi_idx				= len(pricehistory['candles']) - len(rsi)
-
 	mfi_idx				= len(pricehistory['candles']) - len(mfi)
-
 	adx_idx				= len(pricehistory['candles']) - len(adx)
 	di_idx				= len(pricehistory['candles']) - len(plus_di)
-
 	aroonosc_idx			= len(pricehistory['candles']) - len(aroonosc)
 	aroonosc_alt_idx		= len(pricehistory['candles']) - len(aroonosc_alt)
 	macd_idx			= len(pricehistory['candles']) - len(macd)
+	chop_idx			= len(pricehistory['candles']) - len(chop)
 
 	buy_signal			= False
 	sell_signal			= False
@@ -584,6 +738,22 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	stochrsi_signal			= False
 	stochrsi_crossover_signal	= False
 	stochrsi_threshold_signal	= False
+
+	stochrsi_5m_signal		= False
+	stochrsi_5m_crossover_signal	= False
+	stochrsi_5m_threshold_signal	= False
+	stochrsi_5m_final_signal	= False
+
+	stochmfi_signal			= False
+	stochmfi_crossover_signal	= False
+	stochmfi_threshold_signal	= False
+	stochmfi_final_signal		= False
+
+	stochmfi_5m_signal		= False
+	stochmfi_5m_crossover_signal	= False
+	stochmfi_5m_threshold_signal	= False
+	stochmfi_5m_final_signal	= False
+
 	rsi_signal			= False
 	mfi_signal			= False
 	adx_signal			= False
@@ -593,6 +763,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	vwap_signal			= False
 	vpt_signal			= False
 	resistance_signal		= False
+
+	chop_init_signal		= False
+	chop_signal			= False
 
 	plus_di_crossover		= False
 	minus_di_crossover		= False
@@ -608,14 +781,22 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	stochrsi_default_low_limit	= 20
 	stochrsi_default_high_limit	= 80
 
+	orig_rsi_low_limit		= rsi_low_limit
+	orig_rsi_high_limit		= rsi_high_limit
+	ma_intraday_affinity		= None
+	ma_daily_affinity		= None
+
 	stochrsi_signal_cancel_low_limit = 60	# Cancel stochrsi short signal at this level
 	stochrsi_signal_cancel_high_limit = 40	# Cancel stochrsi buy signal at this level
 
-	rsi_signal_cancel_low_limit	= 30
-	rsi_signal_cancel_high_limit	= 70
+	rsi_signal_cancel_low_limit	= 40
+	rsi_signal_cancel_high_limit	= 60
 
 	mfi_signal_cancel_low_limit	= 30
 	mfi_signal_cancel_high_limit	= 70
+
+	default_chop_low_limit		= 38.2
+	default_chop_high_limit		= 61.8
 
 	first_day			= datetime.fromtimestamp(float(pricehistory['candles'][0]['datetime'])/1000, tz=mytimezone)
 	start_day			= first_day + timedelta( days=1 )
@@ -628,6 +809,132 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		signal_mode = 'short'
 
 
+	# Choppiness Index
+	def get_chop_signal(simple=False, prev_chop=-1, cur_chop=-1, chop_init_signal=False, chop_signal=False):
+
+		nonlocal chop_high_limit
+		nonlocal default_chop_high_limit
+
+		if ( simple == True ):
+			# Chop simple algo can be used as a weak signal to help confirm trendiness,
+			#  but no crossover from high->low is required
+			if ( cur_chop < chop_high_limit and cur_chop > chop_low_limit ):
+				chop_init_signal = True
+				chop_signal = True
+			elif ( cur_chop > chop_high_limit or cur_chop < chop_low_limit ):
+				chop_init_signal = False
+				chop_signal = False
+
+		else:
+			if ( prev_chop > chop_high_limit and cur_chop <= chop_high_limit ):
+				chop_init_signal = True
+
+			if ( chop_init_signal == True and chop_signal == False ):
+				if ( cur_chop <= default_chop_high_limit ):
+					chop_signal = True
+
+			if ( chop_signal == True ):
+				if ( cur_chop > default_chop_high_limit ):
+					chop_init_signal = False
+					chop_signal = False
+
+				elif ( prev_chop < chop_low_limit and cur_chop < chop_low_limit ):
+					if ( cur_chop > prev_chop ):
+						# Trend may be reversing, cancel the signal
+						chop_init_signal = False
+						chop_signal = False
+
+		return chop_init_signal, chop_signal
+
+
+	# StochRSI/StochMFI long algorithm
+	def get_stoch_signal_long(cur_k=0, cur_d=0, prev_k=0, prev_d=0, stoch_signal=False, crossover_signal=False, threshold_signal=False, final_signal=False):
+
+		nonlocal rsi_low_limit				; stoch_low_limit		= rsi_low_limit
+		nonlocal rsi_high_limit				; stoch_high_limit		= rsi_high_limit
+		nonlocal stochrsi_offset			; stoch_offset			= stochrsi_offset
+		nonlocal stochrsi_default_low_limit		; stoch_default_low_limit	= stochrsi_default_low_limit
+		nonlocal stochrsi_default_high_limit		; stoch_default_high_limit	= stochrsi_default_high_limit
+		nonlocal nocrossover
+		nonlocal crossover_only
+
+		# Signal the primary stoch signal if K and D cross the low limit threshold
+		if ( cur_k < stoch_low_limit and cur_d < stoch_low_limit ):
+			stoch_signal = True
+
+			# Monitor if K and D intersect - this must happen below the stoch_low_limit
+			# A buy signal occurs when an increasing %K line crosses above the %D line in the oversold region.
+			#  or if the %K line crosses below the low limit
+			if ( prev_k < prev_d and cur_k >= cur_d ):
+				crossover_signal = True
+
+		# Cancel the crossover signal if K wanders back below D
+		if ( crossover_signal == True ):
+			if ( prev_k > prev_d and cur_k <= cur_d ):
+				crossover_signal = False
+
+		if ( stoch_signal == True ):
+
+			# If stoch signal was triggered, monitor K to see if it breaks up above default_low_limit
+			if ( prev_k < stoch_default_low_limit and cur_k > prev_k ):
+				if ( cur_k >= stoch_default_low_limit ):
+					threshold_signal = True
+
+			# If the crossover or threshold signals have been triggered, then next test the gap
+			#  between K and D to confirm there is strength to this movement.
+			if ( (crossover_signal == True and nocrossover == False) or
+			     (threshold_signal == True and crossover_only == False) ):
+
+				if ( cur_k - cur_d >= stoch_offset ):
+					final_signal = True
+
+		return stoch_signal, crossover_signal, threshold_signal, final_signal
+
+
+	# StochRSI/StochMFI short algorithm
+	def get_stoch_signal_short(cur_k=0, cur_d=0, prev_k=0, prev_d=0, stoch_signal=False, crossover_signal=False, threshold_signal=False, final_signal=False):
+
+		nonlocal rsi_low_limit				; stoch_low_limit		= rsi_low_limit
+		nonlocal rsi_high_limit				; stoch_high_limit		= rsi_high_limit
+		nonlocal stochrsi_offset			; stoch_offset			= stochrsi_offset
+		nonlocal stochrsi_default_low_limit		; stoch_default_low_limit	= stochrsi_default_low_limit
+		nonlocal stochrsi_default_high_limit		; stoch_default_high_limit	= stochrsi_default_high_limit
+		nonlocal nocrossover
+		nonlocal crossover_only
+
+		# Signal the primary stoch signal if K and D cross the high limit threshold
+		if ( cur_k > stoch_high_limit and cur_d > stoch_high_limit ):
+			stoch_signal = True
+
+			# Monitor if K and D intercect - this must happen above the stoch_high_limit
+			# A sell-short signal occurs when a decreasing %K line crosses below the %D line in the overbought region
+			if ( prev_k > prev_d and cur_k <= cur_d ):
+				crossover_signal = True
+
+		# Cancel the crossover signal if K wanders back above D
+		if ( crossover_signal == True ):
+			if ( prev_k < prev_d and cur_k >= cur_d ):
+				crossover_signal = False
+
+		if ( stoch_signal == True ):
+
+			# If stoch signal was triggered, monitor K to see if it breaks down below stoch_default_high_limit
+			if ( prev_k > stoch_default_high_limit and cur_k < prev_k ):
+				if ( cur_k <= stoch_default_high_limit ):
+					threshold_signal = True
+
+			# If the crossover or threshold signals have been triggered, then next test the gap
+			#  between K and D to confirm there is strength to this movement.
+			if ( (crossover_signal == True and nocrossover == False) or
+			     (threshold_signal == True and crossover_only == False) ):
+
+				if ( cur_d - cur_k >= stoch_offset ):
+					final_signal = True
+
+		return stoch_signal, crossover_signal, threshold_signal, final_signal
+
+
+	##################################################################################################################
 	# Main loop
 	for idx,key in enumerate(pricehistory['candles']):
 
@@ -648,63 +955,96 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		except:
 			continue
 
-		# Indicators current values
-		if ( stochrsi_5m == True ):
-			cur_rsi_k = rsi_k[int((idx - stochrsi_idx) / 5)]
-			prev_rsi_k = rsi_k[int((idx - stochrsi_idx) / 5) - 1]
-
-			cur_rsi_d = rsi_d[int((idx - stochrsi_idx) / 5)]
-			prev_rsi_d = rsi_d[int((idx - stochrsi_idx) / 5) - 1]
-
-		else:
-			cur_rsi_k = rsi_k[idx - stochrsi_idx]
-			prev_rsi_k = rsi_k[(idx - stochrsi_idx) - 1]
-
-			cur_rsi_d = rsi_d[idx - stochrsi_idx]
-			prev_rsi_d = rsi_d[(idx - stochrsi_idx) - 1]
-
-		cur_rsi = rsi[idx - rsi_idx]
-		prev_rsi = rsi[(idx - rsi_idx) - 1]
-
-		cur_mfi = mfi[idx - mfi_idx]
-		prev_mfi = mfi[(idx - mfi_idx) - 1]
-
-		# Additional indicators
-		cur_adx = adx[idx - adx_idx]
-		cur_plus_di = plus_di[idx - di_idx]
-		prev_plus_di = plus_di[(idx - di_idx) - 1]
-		cur_minus_di = minus_di[idx - di_idx]
-		prev_minus_di = minus_di[(idx - di_idx) - 1]
-
-		cur_macd = macd[idx - macd_idx]
-		prev_macd = macd[(idx - macd_idx) - 1]
-
-		cur_macd_avg = macd_avg[idx - macd_idx]
-		prev_macd_avg = macd_avg[(idx - macd_idx) - 1]
-
-		cur_aroonosc = aroonosc[idx - aroonosc_idx]
-		prev_aroonosc = aroonosc[idx - aroonosc_idx - 1]
-		cur_aroonosc_alt = aroonosc_alt[idx - aroonosc_alt_idx]
-		prev_aroonosc_alt = aroonosc_alt[idx - aroonosc_alt_idx - 1]
-
-		cur_vpt = vpt[idx]
-		prev_vpt = vpt[idx-1]
-
-		cur_vpt_sma = vpt_sma[idx - vpt_sma_period]
-		prev_vpt_sma = vpt_sma[idx - vpt_sma_period]
-
-		cur_atr = atr[int(idx / 5) - atr_period]
-		cur_natr = natr[int(idx / 5) - atr_period]
-
-		if ( check_ma == True ):
-			# 5min candles
-			#cur_sma = round( sma[int(idx / 5) - sma_period], 3 )
-			#cur_ema = round( ema[int(idx / 5) - 1], 3 )
-
-			cur_sma = sma[idx - sma_period]
-			cur_ema = ema[idx - 1]
-
+		# Datetime object from the current timestamp
 		date = datetime.fromtimestamp(int(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone)
+
+		# Indicators current values
+		cur_rsi_k	= rsi_k[idx - stochrsi_idx]
+		prev_rsi_k	= rsi_k[idx - stochrsi_idx - 1]
+		cur_rsi_d	= rsi_d[idx - stochrsi_idx]
+		prev_rsi_d	= rsi_d[idx - stochrsi_idx - 1]
+
+		if ( with_stoch_5m == True ):
+			cur_rsi_k	= rsi_k[int((idx - stochrsi_5m_idx) / 5)]
+			prev_rsi_k	= rsi_k[int((idx - stochrsi_5m_idx) / 5) - 1]
+			cur_rsi_d	= rsi_d[int((idx - stochrsi_5m_idx) / 5)]
+			prev_rsi_d	= rsi_d[int((idx - stochrsi_5m_idx) / 5) - 1]
+
+		if ( with_stochrsi_5m == True ):
+			cur_rsi_k_5m	= rsi_k_5m[int((idx - stochrsi_5m_idx) / 5)]
+			prev_rsi_k_5m	= rsi_k_5m[int((idx - stochrsi_5m_idx) / 5) - 1]
+			cur_rsi_d_5m	= rsi_d_5m[int((idx - stochrsi_5m_idx) / 5)]
+			prev_rsi_d_5m	= rsi_d_5m[int((idx - stochrsi_5m_idx) / 5) - 1]
+
+		if ( with_stochmfi == True ):
+			cur_mfi_k	= mfi_k[idx - stochmfi_idx]
+			prev_mfi_k	= mfi_k[idx - stochmfi_idx - 1]
+			cur_mfi_d	= mfi_d[idx - stochmfi_idx]
+			prev_mfi_d	= mfi_d[idx - stochmfi_idx - 1]
+
+		if ( with_stochmfi_5m == True ):
+			cur_mfi_k_5m	= mfi_k_5m[int((idx - stochmfi_5m_idx) / 5)]
+			prev_mfi_k_5m	= mfi_k_5m[int((idx - stochmfi_5m_idx) / 5) - 1]
+			cur_mfi_d_5m	= mfi_d_5m[int((idx - stochmfi_5m_idx) / 5)]
+			prev_mfi_d_5m	= mfi_d_5m[int((idx - stochmfi_5m_idx) / 5) -1]
+
+		cur_rsi			= rsi[idx - rsi_idx]
+		prev_rsi		= rsi[idx - rsi_idx - 1]
+
+		cur_mfi			= mfi[idx - mfi_idx]
+		prev_mfi		= mfi[idx - mfi_idx - 1]
+
+		cur_adx			= adx[idx - adx_idx]
+		cur_plus_di		= plus_di[idx - di_idx]
+		prev_plus_di		= plus_di[idx - di_idx - 1]
+		cur_minus_di		= minus_di[idx - di_idx]
+		prev_minus_di		= minus_di[idx - di_idx - 1]
+
+		cur_macd		= macd[idx - macd_idx]
+		prev_macd		= macd[idx - macd_idx - 1]
+
+		cur_macd_avg		= macd_avg[idx - macd_idx]
+		prev_macd_avg		= macd_avg[idx - macd_idx - 1]
+
+		cur_aroonosc		= aroonosc[idx - aroonosc_idx]
+		prev_aroonosc		= aroonosc[idx - aroonosc_idx - 1]
+		cur_aroonosc_alt	= aroonosc_alt[idx - aroonosc_alt_idx]
+		prev_aroonosc_alt	= aroonosc_alt[idx - aroonosc_alt_idx - 1]
+
+		cur_vpt			= vpt[idx]
+		prev_vpt		= vpt[idx-1]
+
+		cur_vpt_sma		= vpt_sma[idx - vpt_sma_period]
+		prev_vpt_sma		= vpt_sma[idx - vpt_sma_period]
+
+		cur_atr			= atr[int(idx / 5) - atr_period]
+		cur_natr		= natr[int(idx / 5) - atr_period]
+
+		cur_chop		= chop[idx - chop_idx]
+		prev_chop		= chop[idx - chop_idx - 1]
+
+		cur_natr_daily = 0
+		try:
+			cur_natr_daily = daily_natr[date.strftime('%Y-%m-%d')]['natr']
+		except:
+			pass
+
+		cur_daily_sma = 0
+		cur_daily_ema = 0
+		try:
+			cur_daily_sma = daily_ma[date.strftime('%Y-%m-%d')]['sma']
+			cur_daily_ema = daily_ma[date.strftime('%Y-%m-%d')]['ema']
+		except:
+			pass
+
+		# EMA/SMA
+		# 5min candles
+		cur_sma		= round( sma[int(idx / 5) - sma_period], 3 )
+		cur_ema		= round( ema[int(idx / 5) - 1], 3 )
+
+		# 1min candles
+		#cur_sma			= sma[idx - sma_period]
+		#cur_ema			= ema[idx - 1]
 
 		# Skip all candles until start_date, if it is set
 		if ( start_date != None and date < start_date ):
@@ -733,24 +1073,69 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		if ( tda_gobot_helper.ismarketopen_US(date, safe_open=safe_open) != True ):
 			continue
 
+		# Ignore days where cur_daily_natr is below min_daily_natr or above max_daily_natr, if configured
+		if ( min_daily_natr != None and cur_natr_daily < min_daily_natr ):
+			continue
+		if ( max_daily_natr != None and cur_natr_daily > max_daily_natr ):
+			continue
+
 		# Tailor the rsi_low_limit and rsi_high_limit based on the SMA/EMA orientation
 		#  to make the indicator more biased toward bullish or bearish trades
 		if ( check_ma == True ):
-			rsi_low_limit	= orig_rsi_low_limit
-			rsi_high_limit	= orig_rsi_high_limit
-			ma_affinity	= None
+			rsi_low_limit		= orig_rsi_low_limit
+			rsi_high_limit		= orig_rsi_high_limit
+
+			ma_intraday_affinity	= None
+			ma_daily_affinity	= None
+
+			check_ma_strict	 	= params['check_ma_strict']
+			with_mfi	 	= params['with_mfi']
 
 			# Price action is bullish
 			if ( cur_ema > cur_sma ):
-				ma_affinity = 'bull'
-				rsi_low_limit = 15
-				rsi_high_limit = 95
+				ma_intraday_affinity	= 'bull'
+				rsi_low_limit		= 15
+				rsi_high_limit		= 95
 
 			# Price action is bearish
 			elif ( cur_ema < cur_sma ):
-				ma_affinity = 'bear'
-				rsi_low_limit = 5
-				rsi_high_limit = 85
+				ma_intraday_affinity	= 'bear'
+				rsi_low_limit		= 10
+				rsi_high_limit		= 90
+
+			# Check daily affinity
+			if ( cur_daily_ema > cur_daily_sma ):
+				ma_daily_affinity = 'bull'
+			elif ( cur_daily_ema < cur_daily_sma ):
+				ma_daily_affinity = 'bear'
+
+			if ( signal_mode == 'buy' ):
+				if ( ma_daily_affinity == 'bear' and ma_intraday_affinity == 'bear' ):
+					if ( cur_rsi_k > cur_rsi_d and cur_rsi_k - cur_rsi_d < 8 ):
+						with_mfi = True
+
+			elif ( signal_mode == 'short' ):
+				if ( ma_daily_affinity == 'bull' and ma_intraday_affinity == 'bull' ):
+					if ( cur_rsi_k < cur_rsi_d and cur_rsi_d - cur_rsi_k < 8 ):
+						with_mfi = True
+
+
+		# Check the daily and intraday NATR values
+		# Tune the algorithms based on the daily volatility of the stock
+		if ( check_daily_natr == True ):
+			with_mfi	 	= params['with_mfi']
+			with_rsi	 	= params['with_rsi']
+			stochrsi_offset	 	= params['stochrsi_offset']
+
+			if ( cur_natr_daily > 3 ):
+				stochrsi_offset		+= 1
+
+			if ( cur_natr_daily > 5 ):
+				with_mfi		= True
+				with_rsi		= True
+
+			if ( cur_natr_daily > 6 ):
+				stochrsi_offset		+= 1
 
 
 		# BUY mode
@@ -770,41 +1155,52 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				signal_mode = 'short'
 				continue
 
-
 			# Check StochRSI
-			# Signal the primary stochrsi signal if K and D cross the low limit threshold
-			if ( cur_rsi_k < rsi_low_limit and cur_rsi_d < rsi_low_limit ):
-				stochrsi_signal = True
+			stochrsi_signal, stochrsi_crossover_signal, stochrsi_threshold_signal, buy_signal = \
+					get_stoch_signal_long(	cur_rsi_k, cur_rsi_d, prev_rsi_k, prev_rsi_d,
+								stochrsi_signal, stochrsi_crossover_signal, stochrsi_threshold_signal, buy_signal )
 
-				# Monitor if K and D intersect - this must happen below the rsi_low_limit
-				# A buy signal occurs when an increasing %K line crosses above the %D line in the oversold region.
-				#  or if the %K line crosses below the rsi limit
-				if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
-					stochrsi_crossover_signal = True
-
-			# Cancel the crossover signal if K wanders back below D
-			if ( stochrsi_crossover_signal == True ):
-				if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
-					stochrsi_crossover_signal = False
-
-			if ( stochrsi_signal == True ):
-
-				# If stochrsi signal was triggered, monitor K to see if it breaks up above stochrsi_default_low_limit
-				if ( prev_rsi_k < stochrsi_default_low_limit and cur_rsi_k > prev_rsi_k ):
-					if ( cur_rsi_k >= stochrsi_default_low_limit ):
-						stochrsi_threshold_signal = True
-
-				# If the crossover or threshold signals have been triggered, then next test the gap
-				#  between K and D to confirm there is strength to this movement.
-				if ( (stochrsi_crossover_signal == True and nocrossover == False) or
-				     (stochrsi_threshold_signal == True and crossover_only == False) ):
-
-					if ( cur_rsi_k - cur_rsi_d >= stochrsi_offset ):
-						buy_signal = True
-
-			# Reset stochrsi_signal and buy_signal if the stochastic indicator wanders into higher territory
-			if ( cur_rsi_k >= stochrsi_signal_cancel_high_limit and cur_rsi_d >= stochrsi_signal_cancel_high_limit ):
+			if ( cur_rsi_k > stochrsi_signal_cancel_high_limit ):
+				# Reset all signals if the primary stochastic
+				#  indicator wanders into higher territory
 				reset_signals()
+
+
+			# StochRSI with 5-minute candles
+			if ( with_stochrsi_5m == True ):
+				stochrsi_5m_signal, stochrsi_5m_crossover_signal, stochrsi_5m_threshold_signal, stochrsi_5m_final_signal = \
+						get_stoch_signal_long(	cur_rsi_k_5m, cur_rsi_d_5m, prev_rsi_k_5m, prev_rsi_d_5m,
+									stochrsi_5m_signal, stochrsi_5m_crossover_signal, stochrsi_5m_threshold_signal, stochrsi_5m_final_signal )
+
+				if ( cur_rsi_k_5m > stochrsi_signal_cancel_high_limit ):
+					stochrsi_5m_signal		= False
+					stochrsi_5m_crossover_signal	= False
+					stochrsi_5m_threshold_signal	= False
+					stochrsi_5m_final_signal	= False
+
+			# StochMFI
+			if ( with_stochmfi == True ):
+				stochmfi_signal, stochmfi_crossover_signal, stochmfi_threshold_signal, stochmfi_final_signal = \
+						get_stoch_signal_long(	cur_mfi_k, cur_mfi_d, prev_mfi_k, prev_mfi_d,
+									stochmfi_signal, stochmfi_crossover_signal, stochmfi_threshold_signal, stochmfi_final_signal )
+
+				if ( cur_mfi_k > stochrsi_signal_cancel_high_limit ):
+					stochmfi_signal			= False
+					stochmfi_crossover_signal	= False
+					stochmfi_threshold_signal	= False
+					stochmfi_final_signal		= False
+
+			# StochMFI with 5-minute candles
+			if ( with_stochmfi_5m == True ):
+				stochmfi_5m_signal, stochmfi_5m_crossover_signal, stochmfi_5m_threshold_signal, stochmfi_5m_final_signal = \
+						get_stoch_signal_long(	cur_mfi_k_5m, cur_mfi_d_5m, prev_mfi_k_5m, prev_mfi_d_5m,
+									stochmfi_5m_signal, stochmfi_5m_crossover_signal, stochmfi_5m_threshold_signal, stochmfi_5m_final_signal )
+
+				if ( cur_mfi_k_5m > stochrsi_signal_cancel_high_limit ):
+					stochmfi_5m_signal		= False
+					stochmfi_5m_crossover_signal	= False
+					stochmfi_5m_threshold_signal	= False
+					stochmfi_5m_final_signal	= False
 
 
 			# Secondary Indicators
@@ -918,6 +1314,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			elif ( cur_vpt < cur_vpt_sma ):
 				vpt_signal = False
 
+			# Choppiness Index
+			chop_init_signal, chop_signal = get_chop_signal( simple=with_chop_simple,
+									 prev_chop=prev_chop, cur_chop=cur_chop,
+									 chop_init_signal=chop_init_signal, chop_signal=chop_signal )
+
 			# Resistance
 			if ( no_use_resistance == False and buy_signal == True ):
 
@@ -945,6 +1346,23 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						# If average was above PDC then PDC is support
 						if ( avg < prev_day_close ):
 							resistance_signal = False
+
+				# NATR resistance
+				if ( use_natr_resistance == True ):
+					if ( cur_price > prev_day_close ):
+						natr_mod = 1
+						if ( cur_natr_daily >= 8 ):
+							natr_mod = 2
+
+						natr_resistance = ((cur_natr_daily / natr_mod) / 100 + 1) * prev_day_close
+						if ( cur_price > natr_resistance and buy_signal == True ):
+							if ( cur_rsi_k > cur_rsi_d and cur_rsi_k - cur_rsi_d < 12 ):
+								resistance_signal = False
+
+						if ( abs((cur_price / natr_resistance - 1) * 100) <= price_resistance_pct and buy_signal == True ):
+							if ( cur_rsi_k > cur_rsi_d and cur_rsi_k - cur_rsi_d < 10 ):
+								resistance_signal = False
+
 
 				# VWAP
 				if ( resistance_signal == True ):
@@ -1038,6 +1456,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
 			if ( buy_signal == True ):
 				final_buy_signal = True
+
+				if ( with_stochrsi_5m == True and stochrsi_5m_final_signal != True ):
+					final_buy_signal = False
+
+				if ( with_stochmfi == True and stochmfi_final_signal != True ):
+					final_buy_signal = False
+
+				if ( with_stochmfi_5m == True and stochmfi_5m_final_signal != True ):
+					final_buy_signal = False
+
 				if ( with_rsi == True and rsi_signal != True ):
 					final_buy_signal = False
 
@@ -1062,10 +1490,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( with_vpt == True and vpt_signal != True ):
 					final_buy_signal = False
 
+				if ( with_chop_index == True and chop_signal != True ):
+					final_buy_signal = False
+
 				if ( no_use_resistance == False and resistance_signal != True ):
 					final_buy_signal = False
 
-				if ( check_ma_strict == True and ma_affinity != 'bull' ):
+				if ( check_ma_strict == True and ma_intraday_affinity != 'bull' ):
+					final_buy_signal = False
+
+				if ( min_intra_natr != None and cur_natr < min_intra_natr ):
+					final_buy_signal = False
+				if ( max_intra_natr != None and cur_natr > max_intra_natr ):
 					final_buy_signal = False
 
 			# DEBUG
@@ -1093,6 +1529,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
 				print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
 				print('(' + str(ticker) + '): BUY signal: ' + str(buy_signal) + ', Final BUY signal: ' + str(final_buy_signal))
+				print()
 			# DEBUG
 
 
@@ -1104,7 +1541,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				results.append( str(purchase_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
-						str(round(cur_natr,3)) + ',' + str(round(cur_adx,2)) + ',' + str(purchase_time) )
+						str(round(cur_natr,3)) + ',' + str(round(cur_natr_daily,2)) + ',' +
+						str(round(cur_adx,2)) + ',' + str(purchase_time) )
 
 				reset_signals()
 				signal_mode = 'sell'
@@ -1186,7 +1624,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					# sell_price,bool(short),rsi,stochrsi,sell_time
 					results.append( str(sell_price) + ',' + str(short) + ',' +
 							str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
-							str(round(cur_natr,3)) + ',' + str(round(cur_adx,2)) + ',' + str(sell_time) )
+							str(round(cur_natr,3)) + ',' + str(round(cur_natr_daily,2)) + ',' +
+							str(round(cur_adx,2)) + ',' + str(sell_time) )
 
 					# DEBUG
 					if ( debug_all == True ):
@@ -1285,7 +1724,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# sell_price,bool(short),rsi,stochrsi,sell_time
 				results.append( str(sell_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
-						str(round(cur_natr,3)) + ',' + str(round(cur_adx,2)) + ',' + str(sell_time) )
+						str(round(cur_natr,3)) + ',' + str(round(cur_natr_daily,2)) + ',' +
+						str(round(cur_adx,2)) + ',' + str(sell_time) )
 
 				# DEBUG
 				if ( debug_all == True ):
@@ -1327,38 +1767,50 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				continue
 
 			# Monitor StochRSI
-			# Signal the primary stochrsi signal if K and D cross the high limit threshold
-			if ( cur_rsi_k > rsi_high_limit and cur_rsi_d > rsi_high_limit ):
-				stochrsi_signal = True
+			stochrsi_signal, stochrsi_crossover_signal, stochrsi_threshold_signal, short_signal = \
+					get_stoch_signal_short(	cur_rsi_k, cur_rsi_d, prev_rsi_k, prev_rsi_d,
+								stochrsi_signal, stochrsi_crossover_signal, stochrsi_threshold_signal, short_signal )
 
-				# Monitor if K and D intercect - this must happen above the rsi_high_limit
-				# A sell-short signal occurs when a decreasing %K line crosses below the %D line in the overbought region
-				if ( prev_rsi_k > prev_rsi_d and cur_rsi_k <= cur_rsi_d ):
-					stochrsi_crossover_signal = True
-
-			# Cancel the crossover signal if K wanders back above D
-			if ( stochrsi_crossover_signal == True ):
-				if ( prev_rsi_k < prev_rsi_d and cur_rsi_k >= cur_rsi_d ):
-					stochrsi_crossover_signal = False
-
-			if ( stochrsi_signal == True ):
-
-				# If stochrsi signal was triggered, monitor K to see if it breaks down below stochrsi_default_high_limit
-				if ( prev_rsi_k > stochrsi_default_high_limit and cur_rsi_k < prev_rsi_k ):
-					if ( cur_rsi_k <= stochrsi_default_high_limit ):
-						stochrsi_threshold_signal = True
-
-				# If the crossover or threshold signals have been triggered, then next test the gap
-				#  between K and D to confirm there is strength to this movement.
-				if ( (stochrsi_crossover_signal == True and nocrossover == False) or
-				     (stochrsi_threshold_signal == True and crossover_only == False) ):
-
-					if ( abs(cur_rsi_k - cur_rsi_d) >= stochrsi_offset ):
-						short_signal = True
-
-			# Reset stochrsi_signal and buy_signal if the stochastic indicator wanders into low territory
-			if ( cur_rsi_k <= stochrsi_signal_cancel_low_limit and cur_rsi_d <= stochrsi_signal_cancel_low_limit ):
+			if ( cur_rsi_k < stochrsi_signal_cancel_low_limit ):
+				# Reset all signals if the primary stochastic
+				#  indicator wanders into low territory
 				reset_signals()
+
+			# StochRSI with 5-minute candles
+			if ( with_stochrsi_5m == True ):
+				stochrsi_5m_signal, stochrsi_5m_crossover_signal, stochrsi_5m_threshold_signal, stochrsi_5m_final_signal = \
+						get_stoch_signal_short(	cur_rsi_k_5m, cur_rsi_d_5m, prev_rsi_k_5m, prev_rsi_d_5m,
+									stochrsi_5m_signal, stochrsi_5m_crossover_signal, stochrsi_5m_threshold_signal, stochrsi_5m_final_signal )
+
+				if ( cur_rsi_k_5m < stochrsi_signal_cancel_low_limit ):
+					stochrsi_5m_signal		= False
+					stochrsi_5m_crossover_signal	= False
+					stochrsi_5m_threshold_signal	= False
+					stochrsi_5m_final_signal	= False
+
+			# StochMFI
+			if ( with_stochmfi == True ):
+				stochmfi_signal, stochmfi_crossover_signal, stochmfi_threshold_signal, stochmfi_final_signal = \
+						get_stoch_signal_short(	cur_mfi_k, cur_mfi_d, prev_mfi_k, prev_mfi_d,
+									stochmfi_signal, stochmfi_crossover_signal, stochmfi_threshold_signal, stochmfi_final_signal )
+
+				if ( cur_mfi_k < stochrsi_signal_cancel_low_limit ):
+					stochmfi_signal			= False
+					stochmfi_crossover_signal	= False
+					stochmfi_threshold_signal	= False
+					stochmfi_final_signal		= False
+
+			# StochMFI with 5-minute candles
+			if ( with_stochmfi_5m == True ):
+				stochmfi_5m_signal, stochmfi_5m_crossover_signal, stochmfi_5m_threshold_signal, stochmfi_5m_final_signal = \
+						get_stoch_signal_short(	cur_mfi_k_5m, cur_mfi_d_5m, prev_mfi_k_5m, prev_mfi_d_5m,
+									stochmfi_5m_signal, stochmfi_5m_crossover_signal, stochmfi_5m_threshold_signal, stochmfi_5m_final_signal )
+
+				if ( cur_mfi_k_5m < stochrsi_signal_cancel_low_limit ):
+					stochmfi_5m_signal		= False
+					stochmfi_5m_crossover_signal	= False
+					stochmfi_5m_threshold_signal	= False
+					stochmfi_5m_final_signal	= False
 
 
 			# Secondary Indicators
@@ -1453,14 +1905,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					vwap_signal = True
 
 			# VPT
-			if ( with_vpt == True ):
-				# Short signal - VPT crosses below vpt_sma
-				if ( prev_vpt > prev_vpt_sma and cur_vpt < cur_vpt_sma ):
-					vpt_signal = True
+			# Short signal - VPT crosses below vpt_sma
+			if ( prev_vpt > prev_vpt_sma and cur_vpt < cur_vpt_sma ):
+				vpt_signal = True
 
-				# Cancel signal if VPT cross back over
-				elif ( cur_vpt > cur_vpt_sma ):
-					vpt_signal = False
+			# Cancel signal if VPT cross back over
+			elif ( cur_vpt > cur_vpt_sma ):
+				vpt_signal = False
+
+			# Choppiness Index
+			chop_init_signal, chop_signal = get_chop_signal( simple=with_chop_simple,
+									 prev_chop=prev_chop, cur_chop=cur_chop,
+									 chop_init_signal=chop_init_signal, chop_signal=chop_signal )
 
 			# Resistance
 			if ( no_use_resistance == False and short_signal == True ):
@@ -1489,6 +1945,24 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						# If average was above PDC then PDC is support (bad for short)
 						if ( avg > prev_day_close ):
 							resistance_signal = False
+
+				# NATR resistance
+				if ( use_natr_resistance == True ):
+					if ( cur_price < prev_day_close ):
+						natr_mod = 1
+						if ( cur_natr_daily > 8 ):
+							natr_mod = 2
+
+						natr_resistance = ((cur_natr_daily / natr_mod) / 100 + 1) * prev_day_close - prev_day_close
+						natr_resistance = prev_day_close - natr_resistance
+						if ( cur_price < natr_resistance and short_signal == True ):
+							if ( cur_rsi_k < cur_rsi_d and cur_rsi_d - cur_rsi_k < 12 ):
+								resistance_signal = False
+
+						if ( abs((cur_price / natr_resistance - 1) * 100) <= price_resistance_pct and short_signal == True ):
+							if ( cur_rsi_k < cur_rsi_d and cur_rsi_d - cur_rsi_k < 10 ):
+								resistance_signal = False
+
 
 				# VWAP
 				if ( resistance_signal == True ):
@@ -1581,6 +2055,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
 			if ( short_signal == True ):
 				final_short_signal = True
+
+				if ( with_stochrsi_5m == True and stochrsi_5m_final_signal != True ):
+					final_short_signal = False
+
+				if ( with_stochmfi == True and stochmfi_final_signal != True ):
+					final_short_signal = False
+
+				if ( with_stochmfi_5m == True and stochmfi_5m_final_signal != True ):
+					final_short_signal = False
+
 				if ( with_rsi == True and rsi_signal != True ):
 					final_short_signal = False
 
@@ -1605,18 +2089,26 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( with_vpt == True and vpt_signal != True ):
 					final_short_signal = False
 
+				if ( with_chop_index == True and chop_signal != True ):
+					final_short_signal = False
+
 				if ( no_use_resistance == False and resistance_signal != True ):
 					final_short_signal = False
 
-				if ( check_ma_strict == True and ma_affinity != 'bear' ):
-					final_buy_signal = False
+				if ( check_ma_strict == True and ma_intraday_affinity != 'bear' ):
+					final_short_signal = False
+
+				if ( min_intra_natr != None and cur_natr < min_intra_natr ):
+					final_short_signal = False
+				if ( max_intra_natr != None and cur_natr > max_intra_natr ):
+					final_short_signal = False
 
 			# DEBUG
 			if ( debug_all == True ):
 				time_t = datetime.fromtimestamp(int(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S')
 				print(	'(' + str(time_t) + ') '	+
-					'short_signal:'			+ str(buy_signal) +
-					', final_short_signal: '	+ str(final_buy_signal) +
+					'short_signal:'			+ str(short_signal) +
+					', final_short_signal: '	+ str(final_short_signal) +
 					', rsi_signal: '		+ str(rsi_signal) +
 					', mfi_signal: '		+ str(mfi_signal) +
 					', adx_signal: '		+ str(adx_signal) +
@@ -1642,13 +2134,21 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# SHORT SIGNAL
 			if ( short_signal == True and final_short_signal == True ):
+
+				cur_natr_daily = 0
+				try:
+					cur_natr_daily = daily_natr[date.strftime('%Y-%m-%d')]['natr']
+				except:
+					pass
+
 				short_price = float(pricehistory['candles'][idx]['close'])
 				base_price = short_price
 				short_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 				results.append( str(short_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
-						str(round(cur_natr, 3)) + ',' + str(round(cur_adx, 2)) + ',' + str(short_time) )
+						str(round(cur_natr, 3)) + ',' + str(round(cur_natr_daily, 3)) + ',' +
+						str(round(cur_adx, 2)) + ',' + str(short_time) )
 
 				reset_signals()
 
@@ -1730,7 +2230,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 					results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
 							str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
-							str(round(cur_natr,3)) + ',' + str(round(cur_adx,2)) + ',' + str(buy_to_cover_time) )
+							str(round(cur_natr,3)) + ',' + str(round(cur_natr_daily, 3)) + ',' +
+							str(round(cur_adx,2)) + ',' + str(buy_to_cover_time) )
 
 					# DEBUG
 					if ( debug_all == True ):
@@ -1831,7 +2332,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
-						str(round(cur_natr,3)) + ',' + str(round(cur_adx,2)) + ',' + str(buy_to_cover_time) )
+						str(round(cur_natr,3)) + ',' + str(round(cur_natr_daily, 3)) + ',' +
+						str(round(cur_adx,2)) + ',' + str(buy_to_cover_time) )
 
 				# DEBUG
 				if ( debug_all == True ):

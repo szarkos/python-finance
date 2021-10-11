@@ -102,7 +102,7 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 		# SAZ - 2021-08-19 - disable period multiplier. Nice idea but does not function as expected,
 		#  needs more research.
 		stocks[ticker]['period_multiplier'] = 1
-#		if ( args.period_multiplier == 0 ):
+		#if ( args.period_multiplier == 0 ):
 		if ( args.period_multiplier == -999 ):
 
 			num_candles = 0
@@ -343,21 +343,38 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 	# Iterate through the stock tickers, calculate the stochRSI, and make buy/sell decisions
 	for ticker in stocks.keys():
 
+		# Initialize some local variables
+		percent_change	= 0
+		net_change	= 0
+
+		min_intra_natr	= cur_algo['min_intra_natr']
+		max_intra_natr	= cur_algo['max_intra_natr']
+		min_daily_natr	= cur_algo['min_daily_natr']
+		max_daily_natr	= cur_algo['max_daily_natr']
+
+		# Skip this ticker if it has been marked as invalid
 		if ( stocks[ticker]['isvalid'] == False ):
 			continue
 
-		# Initialize some local variables
-		percent_change = 0
-		net_change = 0
+		# Skip this ticker if it is not listed in this algorithm's per-algo valid_tickers[]
+		if ( len(cur_algo['valid_tickers']) != 0 ):
+			if ( ticker not in cur_algo['valid_tickers'] ):
+				continue
+
+		# Skip this ticker if it conflicts with a per-algo min/max_daily_natr configuration
+		if ( min_daily_natr != None and stocks[ticker]['natr_daily'] < min_daily_natr ):
+			continue
+		if ( max_daily_natr != None and stocks[ticker]['natr_daily'] > max_daily_natr ):
+			continue
 
 
 		# Get stochastic RSI
-		t_rsi_period = cur_algo['rsi_period'] * stocks[ticker]['period_multiplier']
-		t_stochrsi_period = cur_algo['stochrsi_period'] * stocks[ticker]['period_multiplier']
-		t_rsi_k_period = cur_algo['rsi_k_period'] * stocks[ticker]['period_multiplier']
+		t_rsi_period		= cur_algo['rsi_period'] * stocks[ticker]['period_multiplier']
+		t_stochrsi_period	= cur_algo['stochrsi_period'] * stocks[ticker]['period_multiplier']
+		t_rsi_k_period		= cur_algo['rsi_k_period'] * stocks[ticker]['period_multiplier']
 
-		t_stochmfi_period = cur_algo['stochmfi_period'] * stocks[ticker]['period_multiplier']
-		t_mfi_k_period = cur_algo['mfi_k_period'] * stocks[ticker]['period_multiplier']
+		t_stochmfi_period	= cur_algo['stochmfi_period'] * stocks[ticker]['period_multiplier']
+		t_mfi_k_period		= cur_algo['mfi_k_period'] * stocks[ticker]['period_multiplier']
 
 		try:
 			if ( cur_algo['primary_stochrsi'] == True ):
@@ -1160,7 +1177,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				if ( (cur_algo['support_resistance'] == True and args.no_use_resistance == False) and resistance_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
-				if ( args.min_intra_natr != None and stocks[ticker]['cur_natr'] < args.min_intra_natr ):
+				if ( min_intra_natr != None and stocks[ticker]['cur_natr'] < min_intra_natr ):
+					stocks[ticker]['final_buy_signal'] = False
+				if ( max_intra_natr != None and stocks[ticker]['cur_natr'] > max_intra_natr ):
 					stocks[ticker]['final_buy_signal'] = False
 
 
@@ -1810,7 +1829,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				if ( (cur_algo['support_resistance'] == True and args.no_use_resistance == False) and resistance_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
 
-				if ( args.min_intra_natr != None and stocks[ticker]['cur_natr'] < args.min_intra_natr ):
+				if ( min_intra_natr != None and stocks[ticker]['cur_natr'] < min_intra_natr ):
+					stocks[ticker]['final_short_signal'] = False
+				if ( max_intra_natr != None and stocks[ticker]['cur_natr'] > max_intra_natr ):
 					stocks[ticker]['final_short_signal'] = False
 
 

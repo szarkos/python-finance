@@ -43,6 +43,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--stocks", help='Stock ticker(s) to watch (comma delimited). Max supported tickers supported by TDA: 300', required=True, type=str)
 parser.add_argument("--stock_usd", help='Amount of money (USD) to invest per trade', default=1000, type=float)
 parser.add_argument("--algos", help='Algorithms to use, comma delimited. Supported options: stochrsi, rsi, adx, dmi, macd, aroonosc, vwap, vpt, support_resistance (Example: --algos=stochrsi,adx --algos=stochrsi,macd)', required=True, nargs="*", action='append', type=str)
+parser.add_argument("--algo_valid_tickers", help='Tickers to use with a particular algorithm (Example: --algo_valid_tickers=algo_id:MSFT,AAPL). If unset all tickers will be used for all algos. Also requires setting "algo_id:algo_name" with --algos=.', action='append', type=str)
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
 parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX_LOGS', default='TX_LOGS', type=str)
@@ -118,9 +119,10 @@ parser.add_argument("--no_use_resistance", help='Do no use the high/low resistan
 parser.add_argument("--keylevel_strict", help='Use strict key level checks to enter trades (Default: False)', action="store_true")
 parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
 parser.add_argument("--use_natr_resistance", help='Enable daily NATR level resistance checks', action="store_true")
+parser.add_argument("--min_intra_natr", help='Minimum intraday NATR value to allow trade entry (Default: None)', default=None, type=float)
+parser.add_argument("--max_intra_natr", help='Maximum intraday NATR value to allow trade entry (Default: None)', default=None, type=float)
 parser.add_argument("--min_daily_natr", help='Do not process tickers with less than this daily NATR value (Default: None)', default=None, type=float)
 parser.add_argument("--max_daily_natr", help='Do not process tickers with more than this daily NATR value (Default: None)', default=None, type=float)
-parser.add_argument("--min_intra_natr", help='Minimum intraday NATR value to allow trade entry (Default: None)', default=None, type=float)
 
 parser.add_argument("--short", help='Enable short selling of stock', action="store_true")
 parser.add_argument("--shortonly", help='Only short sell the stock', action="store_true")
@@ -179,9 +181,9 @@ if ( tda_gobot_helper.tdalogin(passcode) != True ):
 
 # Initialize algos[]
 #
-# args.algos = [[algo1,algo2], [...]]
+# args.algos = [[indicator1,indicator2,...], [...]]
 #
-# algos = [ {'stochrsi':		True,  # For now this cannot be turned off
+# algos = [ {'stochrsi':		False,
 #	   'rsi':			False,
 #	   'mfi':			False,
 #	   'adx':			False,
@@ -195,21 +197,22 @@ if ( tda_gobot_helper.tdalogin(passcode) != True ):
 #	   'support_resistance':	False
 #	}, {...} ]
 print('Initializing algorithms... ')
-
 algos = []
 algo_ids = []
 for algo in args.algos:
 	print(algo)
 	algo = ','.join(algo)
 
-	# Generate a random unique algo_id
-	while True:
-		algo_id = random.randint(1000, 9999)
-		if 'algo_'+str(algo_id) in algo_ids:
-			continue
-		else:
-			algo_ids.append('algo_' + str(algo_id))
-			break
+	algo_id = None
+	if ( re.match('algo_id:', algo) == None ):
+		# Generate a random unique algo_id if needed
+		while True:
+			algo_id = random.randint(1000, 9999)
+			if 'algo_'+str(algo_id) in algo_ids:
+				continue
+			else:
+				algo_ids.append('algo_' + str(algo_id))
+				break
 
 	# Indicators
 	primary_stochrsi = primary_stochmfi = stochrsi_5m = stochmfi = stochmfi_5m = False
@@ -253,9 +256,18 @@ for algo in args.algos:
 	atr_period		= args.atr_period
 	vpt_sma_period		= args.vpt_sma_period
 
+	min_intra_natr		= args.min_intra_natr
+	max_intra_natr		= args.max_intra_natr
+	min_daily_natr		= args.min_daily_natr
+	max_daily_natr		= args.max_daily_natr
+
 	for a in algo.split(','):
 		a = re.sub( '[\s\t]*', '', a )
 
+		# Algo_ID
+		if ( re.match('algo_id:', a) != None ):	algo_id			= a.split(':')[1]
+
+		# Algorithms
 		if ( a == 'primary_stochrsi' ):		primary_stochrsi	= True
 		if ( a == 'primary_stochmfi' ):		primary_stochmfi	= True
 		if ( a == 'stochrsi_5m' ):		stochrsi_5m		= True
@@ -328,6 +340,11 @@ for algo in args.algos:
 		if ( re.match('atr_period:', a)		!= None ):	atr_period		= int( a.split(':')[1] )
 		if ( re.match('vpt_sma_period:', a)	!= None ):	vpt_sma_period		= int( a.split(':')[1] )
 
+		if ( re.match('min_intra_natr:', a)	!= None ):	min_intra_natr		= int( a.split(':')[1] )
+		if ( re.match('max_intra_natr:', a)	!= None ):	max_intra_natr		= int( a.split(':')[1] )
+		if ( re.match('min_daily_natr:', a)	!= None ):	min_daily_natr		= int( a.split(':')[1] )
+		if ( re.match('max_daily_natr:', a)	!= None ):	max_daily_natr		= int( a.split(':')[1] )
+
 	algo_list = {   'algo_id':		algo_id,
 
 			'primary_stochrsi':	primary_stochrsi,
@@ -379,34 +396,61 @@ for algo in args.algos:
 			'aroonosc_period':	aroonosc_period,
 			'di_period':		di_period,
 			'atr_period':		atr_period,
-			'vpt_sma_period':	vpt_sma_period }
+			'vpt_sma_period':	vpt_sma_period,
 
+			'min_intra_natr':	min_intra_natr,
+			'max_intra_natr':	max_intra_natr,
+			'min_daily_natr':	min_daily_natr,
+			'max_daily_natr':	max_daily_natr,
+
+			'valid_tickers':	[]  }
 
 	algos.append(algo_list)
 
-# Cleanup some junk
+# Clean up some junk
 del(primary_stochrsi,primary_stochmfi,stochrsi_5m, stochmfi,stochmfi_5m)
 del(rsi,mfi,adx,dmi,macd,aroonosc,vwap,vpt,support_resistance)
 del(rsi_high_limit,rsi_low_limit,rsi_period,stochrsi_period,stochrsi_5m_period,rsi_k_period,rsi_k_5m_period,rsi_d_period,rsi_slow,stochrsi_offset,stochrsi_5m_offset)
 del(mfi_high_limit,mfi_low_limit,mfi_period,stochmfi_period,stochmfi_5m_period,mfi_k_period,mfi_k_5m_period,mfi_d_period,mfi_slow,stochmfi_offset,stochmfi_5m_offset)
 del(adx_threshold,adx_period,aroonosc_period,di_period,atr_period,vpt_sma_period)
+del(min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr)
 
+# Set valid tickers for each algo, if configured
+for algo in args.algo_valid_tickers:
+	try:
+		algo_id, tickers = algo.split(':')
+
+	except Exception as e:
+		print('Caught exception: error setting algo_valid_tickers (' + str(algo) + '), exiting.', file=sys.stderr)
+		sys.exit(1)
+
+	if ( algo_id in algos ):
+		algos[algo_id]['valid_tickers'] = tickers.split(',')
+
+		# Append this list to the global stock list (duplicates will be filtered later)
+		args.stocks = str(args.stocks) + ',' + str(tickers)
+
+	else:
+		print('Error: algo_id not found in algos{}. Valid algos: (' + str([ a['algo_id'] for a in algos ]) + '), exiting.', file=sys.stderr)
+		sys.exit(1)
 
 # Initialize stocks{}
+stock_list = args.stocks.split(',')
+stock_list = list( dict.fromkeys(stock_list) )
+stock_list = ','.join(stock_list)
+
 print()
-print( 'Initializing stock tickers: ' + str(args.stocks.split(',')) )
+print( 'Initializing stock tickers: ' + str(stock_list) )
 
 # Fix up and sanity check the stock symbol before proceeding
-args.stocks = tda_gobot_helper.fix_stock_symbol(args.stocks)
-args.stocks = tda_gobot_helper.check_stock_symbol(args.stocks)
-if ( isinstance(args.stocks, bool) and args.stocks == False ):
-	print('Error: check_stock_symbol(' + str(args.stocks) + ') returned False, exiting.')
+stock_list = tda_gobot_helper.fix_stock_symbol(stock_list)
+stock_list = tda_gobot_helper.check_stock_symbol(stock_list)
+if ( isinstance(stock_list, bool) and stock_list == False ):
+	print('Error: check_stock_symbol(' + str(stock_list) + ') returned False, exiting.')
 	exit(1)
 
-time.sleep(2)
-
 stocks = OrderedDict()
-for ticker in args.stocks.split(','):
+for ticker in stock_list.split(','):
 
 	if ( ticker == '' ):
 		continue
@@ -584,10 +628,10 @@ if ( len(stocks) == 0 ):
 
 # Get stock_data info about the stock that we can use later (i.e. shortable)
 try:
-	stock_data = tda_gobot_helper.get_quotes(args.stocks)
+	stock_data = tda_gobot_helper.get_quotes(stock_list)
 
 except Exception as e:
-	print('Caught exception: tda_gobot_helper.get_quote(' + str(args.stocks) + '): ' + str(e), file=sys.stderr)
+	print('Caught exception: tda_gobot_helper.get_quote(' + str(stock_list) + '): ' + str(e), file=sys.stderr)
 	sys.exit(1)
 
 # Initialize additional stocks{} values

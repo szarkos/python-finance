@@ -790,6 +790,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	orig_rsi_low_limit		= rsi_low_limit
 	orig_rsi_high_limit		= rsi_high_limit
+<<<<<<< HEAD
 
 	ma_intraday_affinity		= None
 	ma_daily_affinity		= None
@@ -802,6 +803,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	stochrsi_signal_cancel_low_limit  = 60	# Cancel stochrsi short signal at this level
 	stochrsi_signal_cancel_high_limit = 40	# Cancel stochrsi buy signal at this level
+=======
+
+	default_chop_low_limit		= 38.2
+	default_chop_high_limit		= 61.8
+
+	ma_intraday_affinity		= None
+	ma_daily_affinity		= None
+>>>>>>> 5273918330df735cc6487c971cb3aed2647fea10
 
 	first_day			= datetime.fromtimestamp(float(pricehistory['candles'][0]['datetime'])/1000, tz=mytimezone)
 	start_day			= first_day + timedelta( days=1 )

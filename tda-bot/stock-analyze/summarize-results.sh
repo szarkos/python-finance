@@ -308,6 +308,60 @@ if [ "$command" == "all" -o "$command" == "sector" ]; then
 fi
 
 
+# Build a "portfolio" of best stocks for each test type
+if [ "$command" == 'portfolio' ]; then
+
+	echo
+	echo "Portfolio of best trading stocks"
+	echo
+
+	# For each test, iterate across the tickers and find the stocks with most successful trades:
+	#   - wins > loss
+	#   - wins should be at least 6 or more (assuming 3-month backtest)
+	#   - Win rate ((wins / total trades) * 100) should be at least 69%
+	declare -A portfolio
+	for i in $tests; do
+		for t in $tickers; do
+			loss=0
+			wins=0
+			wins=$( grep -e '[0-9]\-[0-9]' "${t}-${i}" | grep  -c 32m )
+			loss=$( grep -e '[0-9]\-[0-9]' "${t}-${i}" | grep  -c 31m )
+
+			if [ $(echo "$wins > $loss" | bc) == "1"  -a  $(echo "$wins > 6" | bc) == "1" ]; then
+				win_rate=$( echo "scale=2; ($wins / ($wins + $loss)) * 100" | bc )
+
+				if [ $(echo "$win_rate >= 69" | bc) == "1"  ]; then
+
+					if [[ -v portfolio["$i"] ]]; then
+						portfolio["$i"]="${portfolio[$i]},${wins}:${t}"
+					else
+						portfolio["$i"]="${wins}:${t}"
+					fi
+				fi
+			fi
+
+		done
+	done
+
+	for i in $tests; do
+		if [[ -v portfolio["$i"] ]]; then
+			tickers=$( echo -n ${portfolio["$i"]} | tr ',' '\n' | sort -nr | tr '\n' ' ' )
+
+			echo "$i"
+			for t in $tickers; do
+				echo $t | awk -F: '{print $2":"$1}'
+			done
+			echo
+
+		else
+			echo "${i}: NONE"
+		fi
+	done
+
+
+fi
+
+
 # Daily test results
 if [ "$command" == "all" -o "$command" == "daily" ]; then
 	echo
@@ -316,5 +370,4 @@ if [ "$command" == "all" -o "$command" == "daily" ]; then
 	./daily_results.sh "$results_dir" "$tests"
 
 fi
-
 

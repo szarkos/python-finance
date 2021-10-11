@@ -818,6 +818,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	def get_chop_signal(simple=False, prev_chop=-1, cur_chop=-1, chop_init_signal=False, chop_signal=False):
 
 		nonlocal chop_high_limit
+		nonlocal chop_low_limit
 		nonlocal default_chop_high_limit
 
 		if ( simple == True ):

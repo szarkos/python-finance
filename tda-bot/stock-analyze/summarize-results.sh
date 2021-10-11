@@ -349,6 +349,11 @@ if [ "$command" == 'portfolio' ]; then
 
 			echo "$i"
 			for t in $tickers; do
+				echo -n $t | awk -F: '{print $2}' | tr '\n' ','
+			done
+
+			echo
+			for t in $tickers; do
 				echo $t | awk -F: '{print $2":"$1}'
 			done
 			echo

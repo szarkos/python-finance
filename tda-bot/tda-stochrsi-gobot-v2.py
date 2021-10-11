@@ -285,27 +285,6 @@ for algo in args.algos:
 		if ( a == 'vpt' ):			vpt			= True
 		if ( a == 'support_resistance' ):	support_resistance	= True
 
-		if ( dmi == True and dmi_simple == True ):
-			dmi_simple = False
-		if ( macd == True and macd_simple == True ):
-			macd_simple = False
-
-		if ( primary_stochrsi == True and primary_stochmfi == True ):
-			print('Error: you can only use primary_stochrsi or primary_stochmfi, but not both. Exiting.')
-			sys.exit(1)
-		elif ( primary_stochrsi == False and primary_stochmfi == False ):
-			print('Error: you must use either primary_stochrsi or primary_stochmfi, but not both. Exiting.')
-			sys.exit(1)
-
-		# Aroon Oscillator with MACD
-		# aroonosc_with_macd_simple implies that if aroonosc is enabled, then macd_simple will be
-		#   enabled or disabled based on the level of the aroon oscillator.
-		if ( args.aroonosc_with_macd_simple == True and aroonosc == True ):
-			if ( macd == True or macd_simple == True ):
-				print('INFO: Aroonosc enabled with --aroonosc_with_macd_simple, disabling macd and macd_simple')
-				macd = False
-				macd_simple = False
-
 		# Modifiers
 		if ( re.match('rsi_high_limit:', a)	!= None ):	rsi_high_limit		= int( a.split(':')[1] )
 		if ( re.match('rsi_low_limit:', a)	!= None ):	rsi_low_limit		= int( a.split(':')[1] )
@@ -344,6 +323,28 @@ for algo in args.algos:
 		if ( re.match('max_intra_natr:', a)	!= None ):	max_intra_natr		= int( a.split(':')[1] )
 		if ( re.match('min_daily_natr:', a)	!= None ):	min_daily_natr		= int( a.split(':')[1] )
 		if ( re.match('max_daily_natr:', a)	!= None ):	max_daily_natr		= int( a.split(':')[1] )
+
+	# Tweak or check the algo config
+	if ( primary_stochrsi == True and primary_stochmfi == True ):
+		print('Error: you can only use primary_stochrsi or primary_stochmfi, but not both. Exiting.')
+		sys.exit(1)
+	elif ( primary_stochrsi == False and primary_stochmfi == False ):
+		print('Error: you must use either primary_stochrsi or primary_stochmfi, but not both. Exiting.')
+		sys.exit(1)
+
+	if ( dmi == True and dmi_simple == True ):
+		dmi_simple = False
+	if ( macd == True and macd_simple == True ):
+		macd_simple = False
+
+	# Aroon Oscillator with MACD
+	# aroonosc_with_macd_simple implies that if aroonosc is enabled, then macd_simple will be
+	#   enabled or disabled based on the level of the aroon oscillator.
+	if ( args.aroonosc_with_macd_simple == True and aroonosc == True ):
+		if ( macd == True or macd_simple == True ):
+			print('INFO: Aroonosc enabled with --aroonosc_with_macd_simple, disabling macd and macd_simple')
+			macd = False
+			macd_simple = False
 
 	algo_list = {   'algo_id':		algo_id,
 
@@ -424,14 +425,17 @@ for algo in args.algo_valid_tickers:
 		print('Caught exception: error setting algo_valid_tickers (' + str(algo) + '), exiting.', file=sys.stderr)
 		sys.exit(1)
 
-	if ( algo_id in algos ):
-		algos[algo_id]['valid_tickers'] = tickers.split(',')
+	valid_ids = [ a['algo_id'] for a in algos ]
+	if ( algo_id in valid_ids ):
+		for a in algos:
+			if ( a['algo_id'] == algo_id ):
+				a['valid_tickers'] = a['valid_tickers'] + tickers.split(',')
 
 		# Append this list to the global stock list (duplicates will be filtered later)
 		args.stocks = str(args.stocks) + ',' + str(tickers)
 
 	else:
-		print('Error: algo_id not found in algos{}. Valid algos: (' + str([ a['algo_id'] for a in algos ]) + '), exiting.', file=sys.stderr)
+		print('Error: algo_id not found in algos{}. Valid algos: (' + str(valid_ids) + '), exiting.', file=sys.stderr)
 		sys.exit(1)
 
 # Initialize stocks{}

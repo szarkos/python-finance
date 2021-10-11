@@ -103,27 +103,52 @@ parser.add_argument("--stochrsi_offset", help='Offset between K and D to determi
 parser.add_argument("--nocrossover", help='Modifies the algorithm so that k and d crossovers will not generate a signal (Default: False)', action="store_true")
 parser.add_argument("--crossover_only", help='Modifies the algorithm so that only k and d crossovers will generate a signal (Default: False)', action="store_true")
 
+parser.add_argument("--stochmfi_period", help='Money Flow Index (MFI) period to use for StochMFI calculation (Default: 14)', default=14, type=int)
+parser.add_argument("--stochmfi_5m_period", help='Money Flow Index (MFI) period to use for StochMFI calculation using 5-minute candles (Default: 14)', default=14, type=int)
+parser.add_argument("--mfi_period", help='Money Flow Index (MFI) period', default=14, type=int)
+parser.add_argument("--mfi_high_limit", help='MFI high limit', default=80, type=int)
+parser.add_argument("--mfi_low_limit", help='MFI low limit', default=20, type=int)
+
+parser.add_argument("--atr_period", help='Average True Range period for intraday calculations', default=14, type=int)
+parser.add_argument("--daily_atr_period", help='Average True Range period for daily calculations', default=14, type=int)
 parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', default=72, type=int)
 parser.add_argument("--adx_period", help='ADX period', default=92, type=int)
 parser.add_argument("--di_period", help='Plus/Minus DI period', default=48, type=int)
 parser.add_argument("--aroonosc_period", help='Aroon Oscillator period', default=24, type=int)
 parser.add_argument("--aroonosc_alt_period", help='Alternate Aroon Oscillator period for higher volatility stocks', default=48, type=int)
 parser.add_argument("--aroonosc_alt_threshold", help='Threshold for enabling the alternate Aroon Oscillator period for higher volatility stocks', default=0.24, type=float)
+<<<<<<< HEAD
+
+parser.add_argument("--chop_period", help='Choppiness Index period', default=14, type=int)
+parser.add_argument("--chop_low_limit", help='Choppiness Index low limit', default=38.2, type=float)
+parser.add_argument("--chop_high_limit", help='Choppiness Index high limit', default=61.8, type=float)
+
+=======
 parser.add_argument("--atr_period", help='Average True Range period for intraday calculations', default=14, type=int)
 parser.add_argument("--daily_atr_period", help='Average True Range period for daily calculations', default=14, type=int)
 parser.add_argument("--chop_period", help='Choppiness Index period', default=14, type=int)
 parser.add_argument("--chop_low_limit", help='Choppiness Index low limit', default=38.2, type=float)
 parser.add_argument("--chop_high_limit", help='Choppiness Index high limit', default=61.8, type=float)
+>>>>>>> a2179310e38a95ad3b5f8c56d382a5b283052803
 parser.add_argument("--macd_short_period", help='MACD short (fast) period', default=48, type=int)
 parser.add_argument("--macd_long_period", help='MACD long (slow) period', default=104, type=int)
 parser.add_argument("--macd_signal_period", help='MACD signal (length) period', default=36, type=int)
 parser.add_argument("--macd_offset", help='MACD offset for signal lines', default=0.006, type=float)
 
+<<<<<<< HEAD
+parser.add_argument("--stochrsi_signal_cancel_low_limit", help='Limit used to cancel StochRSI short signals', default=60, type=int)
+parser.add_argument("--stochrsi_signal_cancel_high_limit", help='Limit used to cancel StochRSI long signals', default=40, type=int)
+parser.add_argument("--rsi_signal_cancel_low_limit", help='Limit used to cancel RSI short signals', default=60, type=int)
+parser.add_argument("--rsi_signal_cancel_high_limit", help='Limit used to cancel RSI long signals', default=40, type=int)
+parser.add_argument("--mfi_signal_cancel_low_limit", help='Limit used to cancel MFI short signals', default=60, type=int)
+parser.add_argument("--mfi_signal_cancel_high_limit", help='Limit used to cancel MFI long signals', default=40, type=int)
+=======
 parser.add_argument("--stochmfi_period", help='Money Flow Index (MFI) period to use for StochMFI calculation (Default: 14)', default=14, type=int)
 parser.add_argument("--stochmfi_5m_period", help='Money Flow Index (MFI) period to use for StochMFI calculation using 5-minute candles (Default: 14)', default=14, type=int)
 parser.add_argument("--mfi_period", help='Money Flow Index (MFI) period', default=14, type=int)
 parser.add_argument("--mfi_high_limit", help='MFI high limit', default=80, type=int)
 parser.add_argument("--mfi_low_limit", help='MFI low limit', default=20, type=int)
+>>>>>>> a2179310e38a95ad3b5f8c56d382a5b283052803
 
 
 
@@ -566,6 +591,16 @@ for algo in args.algo.split(','):
 					'chop_low_limit':			args.chop_low_limit,
 					'chop_high_limit':			args.chop_high_limit,
 
+<<<<<<< HEAD
+					'stochrsi_signal_cancel_low_limit':	args.stochrsi_signal_cancel_low_limit,
+					'stochrsi_signal_cancel_high_limit':	args.stochrsi_signal_cancel_high_limit,
+					'rsi_signal_cancel_low_limit':		args.rsi_signal_cancel_low_limit,
+					'rsi_signal_cancel_high_limit':		args.rsi_signal_cancel_high_limit,
+					'mfi_signal_cancel_low_limit':		args.mfi_signal_cancel_low_limit,
+					'mfi_signal_cancel_high_limit':		args.mfi_signal_cancel_high_limit,
+
+=======
+>>>>>>> a2179310e38a95ad3b5f8c56d382a5b283052803
 					# Resistance indicators
 					'no_use_resistance':			args.no_use_resistance,
 					'price_resistance_pct':			args.price_resistance_pct,

@@ -2366,3 +2366,4 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	# End main loop
 
 	return results
+

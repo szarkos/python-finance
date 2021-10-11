@@ -26,6 +26,7 @@ parser.add_argument("--ifile", help='Use pickle file for pricehistory data rathe
 parser.add_argument("--augment_ifile", help='Pull additional history data and append it to candles imported from ifile', action="store_true")
 parser.add_argument("--weekly_ifile", help='Use pickle file for weekly pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--daily_ifile", help='Use pickle file for daily pricehistory data rather than accessing the API', default=None, type=str)
+
 parser.add_argument("--start_date", help='The day to start trading (i.e. 2021-05-12). Typically useful for verifying history logs.', default=None, type=str)
 parser.add_argument("--stop_date", help='The day to stop trading (i.e. 2021-05-12)', default=None, type=str)
 parser.add_argument("--skip_blacklist", help='Do not process blacklisted tickers.', action="store_true")

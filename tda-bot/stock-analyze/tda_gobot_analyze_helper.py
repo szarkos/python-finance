@@ -194,7 +194,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	chop_low_limit		=	38.2		if ('chop_low_limit' not in params) else params['chop_low_limit']
 	chop_high_limit		=	61.8		if ('chop_high_limit' not in params) else params['chop_high_limit']
 
-<<<<<<< HEAD
 	stochrsi_signal_cancel_low_limit	= 60	if ('stochrsi_signal_cancel_low_limit' not in params) else params['stochrsi_signal_cancel_low_limit']
 	stochrsi_signal_cancel_high_limit	= 40	if ('stochrsi_signal_cancel_high_limit' not in params) else params['stochrsi_signal_cancel_high_limit']
 	rsi_signal_cancel_low_limit		= 40	if ('rsi_signal_cancel_low_limit' not in params) else params['rsi_signal_cancel_low_limit']
@@ -202,8 +201,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	mfi_signal_cancel_low_limit		= 30	if ('mfi_signal_cancel_low_limit' not in params) else params['mfi_signal_cancel_low_limit']
 	mfi_signal_cancel_high_limit		= 70	if ('mfi_signal_cancel_high_limit' not in params) else params['mfi_signal_cancel_high_limit']
 
-=======
->>>>>>> a2179310e38a95ad3b5f8c56d382a5b283052803
 	# Resistance indicators
 	no_use_resistance	=	False		if ('no_use_resistance' not in params) else params['no_use_resistance']
 	price_resistance_pct	=	1		if ('price_resistance_pct' not in params) else params['price_resistance_pct']
@@ -793,26 +790,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	orig_rsi_low_limit		= rsi_low_limit
 	orig_rsi_high_limit		= rsi_high_limit
-<<<<<<< HEAD
 
-	default_chop_low_limit		= 38.2
-	default_chop_high_limit		= 61.8
-=======
 	ma_intraday_affinity		= None
 	ma_daily_affinity		= None
-
-	stochrsi_signal_cancel_low_limit = 60	# Cancel stochrsi short signal at this level
-	stochrsi_signal_cancel_high_limit = 40	# Cancel stochrsi buy signal at this level
 
 	rsi_signal_cancel_low_limit	= 40
 	rsi_signal_cancel_high_limit	= 60
->>>>>>> a2179310e38a95ad3b5f8c56d382a5b283052803
-
-	ma_intraday_affinity		= None
-	ma_daily_affinity		= None
 
 	default_chop_low_limit		= 38.2
 	default_chop_high_limit		= 61.8
+
+	stochrsi_signal_cancel_low_limit  = 60	# Cancel stochrsi short signal at this level
+	stochrsi_signal_cancel_high_limit = 40	# Cancel stochrsi buy signal at this level
 
 	first_day			= datetime.fromtimestamp(float(pricehistory['candles'][0]['datetime'])/1000, tz=mytimezone)
 	start_day			= first_day + timedelta( days=1 )

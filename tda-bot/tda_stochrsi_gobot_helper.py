@@ -754,11 +754,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 		# Loop continuously while after hours if --multiday or --singleday is set
 		# Also re-set --singleday to False when the market opens
-#		if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False ):
-#			if ( args.multiday == True or args.singleday == True ):
-#				continue
-#		else:
-#			args.singleday = False
+		if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False ):
+			if ( args.multiday == True or args.singleday == True ):
+				continue
+		else:
+			args.singleday = False
 
 		# Set some short variables to improve readability :)
 		algo_id		= cur_algo['algo_id']

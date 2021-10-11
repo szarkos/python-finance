@@ -26,6 +26,7 @@ parser.add_argument("--ifile", help='Use pickle file for pricehistory data rathe
 parser.add_argument("--augment_ifile", help='Pull additional history data and append it to candles imported from ifile', action="store_true")
 parser.add_argument("--weekly_ifile", help='Use pickle file for weekly pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--daily_ifile", help='Use pickle file for daily pricehistory data rather than accessing the API', default=None, type=str)
+
 parser.add_argument("--start_date", help='The day to start trading (i.e. 2021-05-12). Typically useful for verifying history logs.', default=None, type=str)
 parser.add_argument("--stop_date", help='The day to stop trading (i.e. 2021-05-12)', default=None, type=str)
 parser.add_argument("--skip_blacklist", help='Do not process blacklisted tickers.', action="store_true")
@@ -133,15 +134,12 @@ parser.add_argument("--rsi_signal_cancel_low_limit", help='Limit used to cancel 
 parser.add_argument("--rsi_signal_cancel_high_limit", help='Limit used to cancel RSI long signals', default=40, type=int)
 parser.add_argument("--mfi_signal_cancel_low_limit", help='Limit used to cancel MFI short signals', default=60, type=int)
 parser.add_argument("--mfi_signal_cancel_high_limit", help='Limit used to cancel MFI long signals', default=40, type=int)
-<<<<<<< HEAD
 
 parser.add_argument("--stochmfi_period", help='Money Flow Index (MFI) period to use for StochMFI calculation (Default: 14)', default=14, type=int)
 parser.add_argument("--stochmfi_5m_period", help='Money Flow Index (MFI) period to use for StochMFI calculation using 5-minute candles (Default: 14)', default=14, type=int)
 parser.add_argument("--mfi_period", help='Money Flow Index (MFI) period', default=14, type=int)
 parser.add_argument("--mfi_high_limit", help='MFI high limit', default=80, type=int)
 parser.add_argument("--mfi_low_limit", help='MFI low limit', default=20, type=int)
-=======
->>>>>>> 5273918330df735cc6487c971cb3aed2647fea10
 
 parser.add_argument("--noshort", help='Disable short selling of stock', action="store_true")
 parser.add_argument("--shortonly", help='Only short sell the stock', action="store_true")

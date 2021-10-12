@@ -2078,6 +2078,203 @@ def get_chop_index(pricehistory=None, period=20, debug=False):
 	return list(chop)
 
 
+# Return the key levels for a stock
+# Preferably uses weekly candle data for pricehistory
+# If filter=True, we use ATR to help filter the data and remove key levels that are
+#  within one ATR from eachother
+def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, debug=False):
+
+	if ( pricehistory == None ):
+		return False, []
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	# Determine if level is a support pivot based on five-candle fractal
+	def is_support(df, i):
+		support = False
+		try:
+			support =	df['low'][i] <= df['low'][i-1] and \
+					df['low'][i] <= df['low'][i+1] and \
+					df['low'][i+1] <= df['low'][i+2] and \
+					df['low'][i-1] <= df['low'][i-2]
+
+		except Exception as e:
+			print('Exception caught: get_keylevels(' + str(ticker) + '): is_support(): ' + str(e) + '. Ignoring level (' + str(df['low'][i]) + ').' )
+			return False, []
+
+		return support
+
+	# Determine if level is a resistance pivot based on five-candle fractal
+	def is_resistance(df, i):
+		resistance = False
+		try:
+			resistance =	df['high'][i] >= df['high'][i-1] and \
+					df['high'][i] >= df['high'][i+1] and \
+					df['high'][i+1] >= df['high'][i+2] and \
+					df['high'][i-1] >= df['high'][i-2]
+		except Exception as e:
+			print('Exception caught: get_keylevels(' + str(ticker) + '): is_resistance(): ' + str(e) + '. Ignoring level (' + str(df['high'][i]) + ').' )
+			return False, []
+
+		return resistance
+
+	# Reduce noise by eliminating levels that are close to levels that
+	#   have already been discovered
+	def check_atr_level( lvl=None, atr=1, levels=[] ):
+		return np.sum( [abs(lvl - x) < atr for x in levels] ) == 0
+
+
+	# Need to massage the data to ensure matplotlib works
+	if ( plot == True ):
+		try:
+			assert mytimezone
+		except:
+			mytimezone = timezone("US/Eastern")
+
+		ph = []
+		for key in pricehistory['candles']:
+
+			d = {	'Date':		datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone),
+				'open':		float( key['open'] ),
+				'high':		float( key['high'] ),
+				'low':		float( key['low'] ),
+				'close':	float( key['close'] ),
+				'volume':	float( key['volume'] ) }
+
+			ph.append(d)
+
+		df = pd.DataFrame(data=ph, columns = ['Date', 'open', 'high', 'low', 'close', 'volume'])
+		df = df.loc[:,['Date', 'open', 'high', 'low', 'close', 'volume']]
+
+	else:
+		df = pd.DataFrame(data=pricehistory['candles'], columns = ['open', 'high', 'low', 'close', 'volume', 'datetime'])
+
+	# Process all candles and check for five-candle fractal levels, and append them to long_support[] or long_resistance[]
+	long_support = []
+	long_resistance = []
+	plot_support_levels = []
+	plot_resistance_levels = []
+	for i in range( 2, df.shape[0]-2 ):
+
+		# SUPPORT
+		if ( is_support(df, i) ):
+			lvl = float( df['low'][i] )
+
+			if ( filter == False ):
+				long_support.append(lvl)
+
+				if ( plot == True ):
+					plot_support_levels.append( (i, lvl) )
+
+				continue
+
+			# Find the average true range for this particular time period, which we
+			#  will pass to check_atr_level() to reduce noise
+			#
+			# Alternative solution:
+			#   atr = np.mean( df['high'] - df['low'] )
+			atr = []
+			tmp_ph = { 'candles': [], 'ticker': ticker }
+			if ( i < atr_period + 1 ):
+				for idx in range( 0, atr_period + 1 ):
+					tmp_ph['candles'].append( pricehistory['candles'][idx] )
+
+			else:
+				for idx in range( 0, i ):
+					tmp_ph['candles'].append( pricehistory['candles'][idx] )
+
+			try:
+				atr, natr = get_atr(pricehistory=tmp_ph, period=atr_period)
+
+			except Exception as e:
+				print('Exception caught: get_keylevels(' + str(ticker) + '): get_atr(): ' + str(e) + '. Falling back to np.mean().')
+				atr.append( np.mean(df['high'] - df['low']) )
+
+			# Check if this level is at least one ATR value away from a previously
+			#   discovered level
+			if ( check_atr_level(lvl, atr[-1], long_support) ):
+				long_support.append(lvl)
+
+				if ( plot == True ):
+					plot_support_levels.append( (i, lvl) )
+
+
+		# RESISTANCE
+		elif ( is_resistance(df, i) ):
+			lvl = float( df['high'][i] )
+
+			if ( filter == False ):
+				long_resistance.append(lvl)
+
+				if ( plot == True ):
+					plot_resistance_levels.append( (i, lvl) )
+
+				continue
+
+			# Find the average true range for this particular time period, which we
+			#  will pass to check_atr_level() to reduce noise
+			#
+			# Alternative solution:
+			#   atr = np.mean( df['high'] - df['low'] )
+			atr = []
+			tmp_ph = { 'candles': [], 'ticker': ticker }
+			if ( i < atr_period + 1 ):
+				for idx in range( 0, atr_period + 1 ):
+					tmp_ph['candles'].append( pricehistory['candles'][idx] )
+			else:
+				for idx in range( 0, i ):
+					tmp_ph['candles'].append( pricehistory['candles'][idx] )
+
+			try:
+				atr, natr = get_atr(pricehistory=tmp_ph, period=atr_period)
+
+			except Exception as e:
+				print('Exception caught: get_keylevels(' + str(ticker) + '): get_atr(): ' + str(e) + '. Falling back to np.mean().')
+				atr.append( np.mean(float(df['high']) - float(df['low'])) )
+
+			# Check if this level is at least one ATR value away from a previously
+			#   discovered level
+			if ( check_atr_level(lvl, atr[-1], long_resistance) ):
+				long_resistance.append(lvl)
+
+				if ( plot == True ):
+					plot_resistance_levels.append( (i, lvl) )
+
+
+	if ( plot == True ):
+		from mplfinance.original_flavor import candlestick_ohlc
+		import matplotlib.dates as mpl_dates
+		import matplotlib.pyplot as plt
+
+		plt.rcParams['figure.figsize'] = [12, 7]
+		plt.rc('font', size=14)
+
+		df['Date'] = df['Date'].apply(mpl_dates.date2num)
+
+		fig, ax = plt.subplots()
+		candlestick_ohlc( ax, df.values, width=0.6, colorup='green', colordown='red', alpha=0.8 )
+
+		date_format = mpl_dates.DateFormatter('%d-%m-%Y')
+		ax.xaxis.set_major_formatter(date_format)
+		fig.autofmt_xdate()
+
+		fig.tight_layout()
+
+		for level in plot_support_levels:
+			plt.hlines(level[1], xmin=df['Date'][level[0]], xmax=max(df['Date']), colors='blue')
+		for level in plot_resistance_levels:
+			plt.hlines(level[1], xmin=df['Date'][level[0]], xmax=max(df['Date']), colors='red')
+
+		plt.show()
+
+
+	return long_support, long_resistance
+
+
 # Purchase a stock at Market price
 #  Ticker = stock ticker
 #  Quantity = amount of stock to purchase
@@ -2544,202 +2741,5 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 		print('buytocover_stock_marketprice(' + str(ticker) + '): Order completed (Order ID:' + str(order_id) + ')')
 
 	return data
-
-
-# Return the key levels for a stock
-# Preferably uses weekly candle data for pricehistory
-# If filter=True, we use ATR to help filter the data and remove key levels that are
-#  within one ATR from eachother
-def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, debug=False):
-
-	if ( pricehistory == None ):
-		return False, []
-
-	ticker = ''
-	try:
-		ticker = pricehistory['symbol']
-	except:
-		pass
-
-	# Determine if level is a support pivot based on five-candle fractal
-	def is_support(df, i):
-		support = False
-		try:
-			support =	df['low'][i] <= df['low'][i-1] and \
-					df['low'][i] <= df['low'][i+1] and \
-					df['low'][i+1] <= df['low'][i+2] and \
-					df['low'][i-1] <= df['low'][i-2]
-
-		except Exception as e:
-			print('Exception caught: get_keylevels(' + str(ticker) + '): is_support(): ' + str(e) + '. Ignoring level (' + str(df['low'][i]) + ').' )
-			return False, []
-
-		return support
-
-	# Determine if level is a resistance pivot based on five-candle fractal
-	def is_resistance(df, i):
-		resistance = False
-		try:
-			resistance =	df['high'][i] >= df['high'][i-1] and \
-					df['high'][i] >= df['high'][i+1] and \
-					df['high'][i+1] >= df['high'][i+2] and \
-					df['high'][i-1] >= df['high'][i-2]
-		except Exception as e:
-			print('Exception caught: get_keylevels(' + str(ticker) + '): is_resistance(): ' + str(e) + '. Ignoring level (' + str(df['high'][i]) + ').' )
-			return False, []
-
-		return resistance
-
-	# Reduce noise by eliminating levels that are close to levels that
-	#   have already been discovered
-	def check_atr_level( lvl=None, atr=1, levels=[] ):
-		return np.sum( [abs(lvl - x) < atr for x in levels] ) == 0
-
-
-	# Need to massage the data to ensure matplotlib works
-	if ( plot == True ):
-		try:
-			assert mytimezone
-		except:
-			mytimezone = timezone("US/Eastern")
-
-		ph = []
-		for key in pricehistory['candles']:
-
-			d = {	'Date':		datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone),
-				'open':		float( key['open'] ),
-				'high':		float( key['high'] ),
-				'low':		float( key['low'] ),
-				'close':	float( key['close'] ),
-				'volume':	float( key['volume'] ) }
-
-			ph.append(d)
-
-		df = pd.DataFrame(data=ph, columns = ['Date', 'open', 'high', 'low', 'close', 'volume'])
-		df = df.loc[:,['Date', 'open', 'high', 'low', 'close', 'volume']]
-
-	else:
-		df = pd.DataFrame(data=pricehistory['candles'], columns = ['open', 'high', 'low', 'close', 'volume', 'datetime'])
-
-	# Process all candles and check for five-candle fractal levels, and append them to long_support[] or long_resistance[]
-	long_support = []
-	long_resistance = []
-	plot_support_levels = []
-	plot_resistance_levels = []
-	for i in range( 2, df.shape[0]-2 ):
-
-		# SUPPORT
-		if ( is_support(df, i) ):
-			lvl = float( df['low'][i] )
-
-			if ( filter == False ):
-				long_support.append(lvl)
-
-				if ( plot == True ):
-					plot_support_levels.append( (i, lvl) )
-
-				continue
-
-			# Find the average true range for this particular time period, which we
-			#  will pass to check_atr_level() to reduce noise
-			#
-			# Alternative solution:
-			#   atr = np.mean( df['high'] - df['low'] )
-			atr = []
-			tmp_ph = { 'candles': [], 'ticker': ticker }
-			if ( i < atr_period + 1 ):
-				for idx in range( 0, atr_period + 1 ):
-					tmp_ph['candles'].append( pricehistory['candles'][idx] )
-
-			else:
-				for idx in range( 0, i ):
-					tmp_ph['candles'].append( pricehistory['candles'][idx] )
-
-			try:
-				atr, natr = get_atr(pricehistory=tmp_ph, period=atr_period)
-
-			except Exception as e:
-				print('Exception caught: get_keylevels(' + str(ticker) + '): get_atr(): ' + str(e) + '. Falling back to np.mean().')
-				atr.append( np.mean(df['high'] - df['low']) )
-
-			# Check if this level is at least one ATR value away from a previously
-			#   discovered level
-			if ( check_atr_level(lvl, atr[-1], long_support) ):
-				long_support.append(lvl)
-
-				if ( plot == True ):
-					plot_support_levels.append( (i, lvl) )
-
-
-		# RESISTANCE
-		elif ( is_resistance(df, i) ):
-			lvl = float( df['high'][i] )
-
-			if ( filter == False ):
-				long_resistance.append(lvl)
-
-				if ( plot == True ):
-					plot_resistance_levels.append( (i, lvl) )
-
-				continue
-
-			# Find the average true range for this particular time period, which we
-			#  will pass to check_atr_level() to reduce noise
-			#
-			# Alternative solution:
-			#   atr = np.mean( df['high'] - df['low'] )
-			atr = []
-			tmp_ph = { 'candles': [], 'ticker': ticker }
-			if ( i < atr_period + 1 ):
-				for idx in range( 0, atr_period + 1 ):
-					tmp_ph['candles'].append( pricehistory['candles'][idx] )
-			else:
-				for idx in range( 0, i ):
-					tmp_ph['candles'].append( pricehistory['candles'][idx] )
-
-			try:
-				atr, natr = get_atr(pricehistory=tmp_ph, period=atr_period)
-
-			except Exception as e:
-				print('Exception caught: get_keylevels(' + str(ticker) + '): get_atr(): ' + str(e) + '. Falling back to np.mean().')
-				atr.append( np.mean(float(df['high']) - float(df['low'])) )
-
-			# Check if this level is at least one ATR value away from a previously
-			#   discovered level
-			if ( check_atr_level(lvl, atr[-1], long_resistance) ):
-				long_resistance.append(lvl)
-
-				if ( plot == True ):
-					plot_resistance_levels.append( (i, lvl) )
-
-
-	if ( plot == True ):
-		from mplfinance.original_flavor import candlestick_ohlc
-		import matplotlib.dates as mpl_dates
-		import matplotlib.pyplot as plt
-
-		plt.rcParams['figure.figsize'] = [12, 7]
-		plt.rc('font', size=14)
-
-		df['Date'] = df['Date'].apply(mpl_dates.date2num)
-
-		fig, ax = plt.subplots()
-		candlestick_ohlc( ax, df.values, width=0.6, colorup='green', colordown='red', alpha=0.8 )
-
-		date_format = mpl_dates.DateFormatter('%d-%m-%Y')
-		ax.xaxis.set_major_formatter(date_format)
-		fig.autofmt_xdate()
-
-		fig.tight_layout()
-
-		for level in plot_support_levels:
-			plt.hlines(level[1], xmin=df['Date'][level[0]], xmax=max(df['Date']), colors='blue')
-		for level in plot_resistance_levels:
-			plt.hlines(level[1], xmin=df['Date'][level[0]], xmax=max(df['Date']), colors='red')
-
-		plt.show()
-
-
-	return long_support, long_resistance
 
 

@@ -179,6 +179,8 @@ def reset_signals(ticker=None, id=None, signal_mode=None):
 		stocks[ticker]['algo_signals'][algo_id]['dmi_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['macd_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['aroonosc_signal']		= False
+		stocks[ticker]['algo_signals'][algo_id]['chop_init_signal']		= False
+		stocks[ticker]['algo_signals'][algo_id]['chop_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['vwap_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['vpt_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['resistance_signal']		= False
@@ -338,6 +340,46 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					final_signal = True
 
 		return stoch_signal, crossover_signal, threshold_signal, final_signal
+
+
+	# Chop Index algorithm
+	def get_chop_signal(simple=False, prev_chop=-1, cur_chop=-1, chop_init_signal=False, chop_signal=False):
+
+		nonlocal cur_algo
+
+		chop_high_limit = cur_algo['chop_high_limit']
+		chop_low_limit = cur_algo['chop_low_limit']
+
+		if ( simple == True ):
+			# Chop simple algo can be used as a weak signal to help confirm trendiness,
+			#  but no crossover from high->low is required
+			if ( cur_chop < chop_high_limit and cur_chop > chop_low_limit ):
+				chop_init_signal = True
+				chop_signal = True
+			elif ( cur_chop > chop_high_limit or cur_chop < chop_low_limit ):
+				chop_init_signal = False
+				chop_signal = False
+
+		else:
+			if ( prev_chop > chop_high_limit and cur_chop <= chop_high_limit ):
+				chop_init_signal = True
+
+			if ( chop_init_signal == True and chop_signal == False ):
+				if ( cur_chop <= default_chop_high_limit ):
+					chop_signal = True
+
+			if ( chop_signal == True ):
+				if ( cur_chop > default_chop_high_limit ):
+					chop_init_signal = False
+					chop_signal = False
+
+				elif ( prev_chop < chop_low_limit and cur_chop < chop_low_limit ):
+					if ( cur_chop > prev_chop ):
+						# Trend may be reversing, cancel the signal
+						chop_init_signal = False
+						chop_signal = False
+
+		return chop_init_signal, chop_signal
 
 
 	# Iterate through the stock tickers, calculate the stochRSI, and make buy/sell decisions
@@ -568,9 +610,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			macd_signal = []
 			macd_histogram = []
 
-			t_macd_short_period = macd_short_period * stocks[ticker]['period_multiplier']
-			t_macd_long_period = macd_long_period * stocks[ticker]['period_multiplier']
-			t_macd_signal_period = macd_signal_period * stocks[ticker]['period_multiplier']
+			t_macd_short_period = cur_algo['macd_short_period'] * stocks[ticker]['period_multiplier']
+			t_macd_long_period = cur_algo['macd_long_period'] * stocks[ticker]['period_multiplier']
+			t_macd_signal_period = cur_algo['macd_signal_period'] * stocks[ticker]['period_multiplier']
 
 			try:
 				macd, macd_avg, macd_histogram = tda_gobot_helper.get_macd(stocks[ticker]['pricehistory'], short_period=t_macd_short_period, long_period=t_macd_long_period, signal_period=t_macd_signal_period)
@@ -583,6 +625,19 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			stocks[ticker]['cur_macd_avg']	= float( macd_avg[-1] )
 			stocks[ticker]['prev_macd']	= float( macd[-2] )
 			stocks[ticker]['prev_macd_avg']	= float( macd_avg[-2] )
+
+		# Chop Index
+		if ( cur_algo['chop_index'] == True or cur_algo['chop_simple'] == True ):
+			chop = []
+			try:
+				chop = tda_gobot_helper.get_chop_index(stocks[ticker]['pricehistory'], period=cur_algo['chop_period'])
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(): get_chop_index' + str(ticker) + '): ' + str(e))
+				continue
+
+			stocks[ticker]['cur_chop']	= float( chop[-1] )
+			stocks[ticker]['prev_chop']	= float( chop[-2] )
 
 		# VWAP
 		# Calculate vwap to use as entry or exit algorithm
@@ -668,6 +723,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			if ( cur_algo['aroonosc'] == True ):
 				print('(' + str(ticker) + ') Current AroonOsc: ' + str(round(stocks[ticker]['cur_aroonosc'], 2)))
 
+			# Chop Index
+			if ( cur_algo['chop_index'] == True or cur_algo['chop_simple'] ):
+				print('(' + str(ticker) + ') Current Chop Index: ' + str(round(stocks[ticker]['cur_chop'], 2)) +
+							' / Previous Chop Index: ' + str(round(stocks[ticker]['prev_chop'], 2)))
+
 			# VWAP
 			if ( cur_algo['vwap'] == True or cur_algo['support_resistance'] == True ):
 				print('(' + str(ticker) + ') Current VWAP: ' + str(round(stocks[ticker]['cur_vwap'], 2)) +
@@ -749,6 +809,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		prev_macd_avg	= stocks[ticker]['prev_macd_avg']
 
 		cur_aroonosc	= stocks[ticker]['cur_aroonosc']
+
+		cur_chop	= stocks[ticker]['cur_chop']
+		prev_chop	= stocks[ticker]['prev_chop']
 
 		cur_vwap	= stocks[ticker]['cur_vwap']
 		cur_vwap_up	= stocks[ticker]['cur_vwap_up']
@@ -963,11 +1026,18 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['algo_signals'][algo_id]['macd_avg_crossover'] = True
 
 				stocks[ticker]['algo_signals'][algo_id]['macd_signal'] = False
-				if ( cur_macd > cur_macd_avg and cur_macd - cur_macd_avg > macd_offset ):
+				if ( cur_macd > cur_macd_avg and cur_macd - cur_macd_avg > cur_algo['macd_offset'] ):
 					if ( cur_algo['macd_simple'] == True ):
 						stocks[ticker]['algo_signals'][algo_id]['macd_signal'] = True
 					elif ( stocks[ticker]['algo_signals'][algo_id]['macd_crossover'] == True ):
 						stocks[ticker]['algo_signals'][algo_id]['macd_signal'] = True
+
+			# Chop Index
+			stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
+			stocks[ticker]['algo_signals'][algo_id]['chop_signal'] = get_chop_signal( simple=cur_algo['chop_simple'],
+												  prev_chop=prev_chop, cur_chop=cur_chop,
+												  chop_init_signal=stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
+												  chop_signal=stocks[ticker]['algo_signals'][algo_id]['chop_signal'] )
 
 			# VWAP signal
 			# This is the most simple/pessimistic approach right now
@@ -1135,6 +1205,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				dmi_signal		= stocks[ticker]['algo_signals'][algo_id]['dmi_signal']
 				aroonosc_signal		= stocks[ticker]['algo_signals'][algo_id]['aroonosc_signal']
 				macd_signal		= stocks[ticker]['algo_signals'][algo_id]['macd_signal']
+				chop_signal		= stocks[ticker]['algo_signals'][algo_id]['chop_signal']
 				vwap_signal		= stocks[ticker]['algo_signals'][algo_id]['vwap_signal']
 				vpt_signal		= stocks[ticker]['algo_signals'][algo_id]['vpt_signal']
 				resistance_signal	= stocks[ticker]['algo_signals'][algo_id]['resistance_signal']
@@ -1166,6 +1237,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['final_buy_signal'] = False
 
 				if ( (cur_algo['macd'] == True or cur_algo['macd_simple'] == True) and macd_signal != True ):
+					stocks[ticker]['final_buy_signal'] = False
+
+				if ( (cur_algo['chop_index'] == True or cur_algo['chop_simple'] == True) and chop_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
 				if ( cur_algo['vwap'] == True and vwap_signal != True ):
@@ -1631,11 +1705,18 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['algo_signals'][algo_id]['macd_avg_crossover'] = True
 
 				stocks[ticker]['algo_signals'][algo_id]['macd_signal'] = False
-				if ( cur_macd < cur_macd_avg and cur_macd_avg - cur_macd > macd_offset ):
+				if ( cur_macd < cur_macd_avg and cur_macd_avg - cur_macd > cur_algo['macd_offset'] ):
 					if ( cur_algo['macd_simple'] == True ):
 						stocks[ticker]['algo_signals'][algo_id]['macd_signal'] = True
 					elif ( stocks[ticker]['algo_signals'][algo_id]['macd_avg_crossover'] == True ):
 						stocks[ticker]['algo_signals'][algo_id]['macd_signal'] = True
+
+			# Chop Index
+			stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
+			stocks[ticker]['algo_signals'][algo_id]['chop_signal'] = get_chop_signal( simple=cur_algo['chop_simple'],
+												  prev_chop=prev_chop, cur_chop=cur_chop,
+												  chop_init_signal=stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
+												  chop_signal=stocks[ticker]['algo_signals'][algo_id]['chop_signal'] )
 
 			# VWAP signal
 			# This is the most simple/pessimistic approach right now
@@ -1787,6 +1868,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				dmi_signal		= stocks[ticker]['algo_signals'][algo_id]['dmi_signal']
 				aroonosc_signal		= stocks[ticker]['algo_signals'][algo_id]['aroonosc_signal']
 				macd_signal		= stocks[ticker]['algo_signals'][algo_id]['macd_signal']
+				chop_signal		= stocks[ticker]['algo_signals'][algo_id]['chop_signal']
 				vwap_signal		= stocks[ticker]['algo_signals'][algo_id]['vwap_signal']
 				vpt_signal		= stocks[ticker]['algo_signals'][algo_id]['vpt_signal']
 				resistance_signal	= stocks[ticker]['algo_signals'][algo_id]['resistance_signal']
@@ -1818,6 +1900,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['final_short_signal'] = False
 
 				if ( (cur_algo['macd'] == True or cur_algo['macd_simple'] == True) and macd_signal != True ):
+					stocks[ticker]['final_short_signal'] = False
+
+				if ( (cur_algo['chop_index'] == True or cur_algo['chop_simple'] == True) and chop_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
 
 				if ( cur_algo['vwap'] == True and vwap_signal != True ):

@@ -40,7 +40,6 @@ parser.add_argument("--keylevel_use_daily", help='Use daily candles to determine
 parser.add_argument("--price_resistance_pct", help='Resistance indicators will come into effect if price is within this percentage of a known support/resistance line', default=1, type=float)
 parser.add_argument("--price_support_pct", help='Support indicators will come into effect if price is within this percentage of a known support/resistance line', default=1, type=float)
 parser.add_argument("--use_natr_resistance", help='Enable the daily NATR resistance check', action="store_true")
-parser.add_argument("--check_daily_natr", help='Check daily NATR values and tailor algorithm accordingly', action="store_true")
 parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
 parser.add_argument("--check_ma", help='Tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior', action="store_true")
 parser.add_argument("--check_ma_strict", help='Check SMA and EMA to enable/disable the longing or shorting of stock', action="store_true")
@@ -611,7 +610,6 @@ for algo in args.algo.split(','):
 					'keylevel_strict':			args.keylevel_strict,
 					'keylevel_use_daily':			args.keylevel_use_daily,
 					'use_natr_resistance':			args.use_natr_resistance,
-					'check_daily_natr':			args.check_daily_natr,
 					'check_ma':				args.check_ma,
 					'check_ma_strict':			args.check_ma_strict,
 

@@ -209,7 +209,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	lod_hod_check		=	False		if ('lod_hod_check' not in params) else params['lod_hod_check']
 	keylevel_strict		=	False		if ('keylevel_strict' not in params) else params['keylevel_strict']
 	keylevel_use_daily	=	False		if ('keylevel_use_daily' not in params) else params['keylevel_use_daily']
-	check_daily_natr	=	False		if ('check_daily_natr' not in params) else params['check_daily_natr']
 	check_ma_strict		=	False		if ('check_ma_strict' not in params) else params['check_ma_strict']
 	check_ma		=	False		if ('check_ma' not in params) else params['check_ma']
 	check_ma		=	True		if (check_ma_strict == True ) else check_ma ; params['check_ma'] = check_ma
@@ -1182,7 +1181,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		if ( check_etf_indicators == True ):
 			etf_affinity = None
 
-			# floor the current datetime to the lower 5-min
+			# Floor the current datetime to the lower 5-min
+			# This produces and even 5-minute timestamp, with seconds/microseconds=0,
+			#  which happens to be what I get from the API.
 			cur_dt = date - timedelta(minutes=date.minute % 5, seconds=date.second, microseconds=date.microsecond)
 			cur_dt = int( cur_dt.timestamp() * 1000 )
 
@@ -1193,24 +1194,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				etf_affinity = 'bull'
 			elif ( cur_etf_ema < cur_etf_sma ):
 				etf_affinity = 'bear'
-
-
-		# Check the daily and intraday NATR values
-		# Tune the algorithms based on the daily volatility of the stock
-		if ( check_daily_natr == True ):
-			with_mfi	 	= params['with_mfi']
-			with_rsi	 	= params['with_rsi']
-			stochrsi_offset	 	= params['stochrsi_offset']
-
-			if ( cur_natr_daily > 3 ):
-				stochrsi_offset		+= 1
-
-			if ( cur_natr_daily > 5 ):
-				with_mfi		= True
-				with_rsi		= True
-
-			if ( cur_natr_daily > 6 ):
-				stochrsi_offset		+= 1
 
 
 		# BUY mode

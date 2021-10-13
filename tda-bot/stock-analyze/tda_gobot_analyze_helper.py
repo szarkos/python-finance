@@ -216,6 +216,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	sma_period		=	5		if ('sma_period' not in params) else params['sma_period']
 	ema_period		=	5		if ('ema_period' not in params) else params['ema_period']
 
+	check_etf_indicators	=	False		if ('check_etf_indicators' not in params) else params['check_etf_indicators']
+	etf_tickers		=  ['SPY','QQQ','DIA']	if ('etf_tickers' not in params) else params['etf_tickers']
+	etf_indicators		=	{}		if ('etf_indicators' not in params) else params['etf_indicators']
 	# End params{} configuration
 
 
@@ -472,6 +475,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_chop_index(): ' + str(e))
 		return False
 
+	# VPT - Volume Price Trend
+	vpt = []
+	vpt_sma = []
+	try:
+		vpt, vpt_sma = tda_gobot_helper.get_vpt(pricehistory, period=vpt_sma_period)
+
+	except Exception as e:
+		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_vpt(): ' + str(e))
+		return False
 
 	# Calculate daily volume from the 1-minute candles that we have
 	if ( check_volume == True ):
@@ -576,16 +588,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							'vwap_up': float(vwap_up[idx]),
 							'vwap_down': float(vwap_down[idx]) }
 						} )
-
-	# VPT - Volume Price Trend
-	vpt = []
-	vpt_sma = []
-	try:
-		vpt, vpt_sma = tda_gobot_helper.get_vpt(pricehistory, period=vpt_sma_period)
-
-	except Exception as e:
-		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_vpt(): ' + str(e))
-		return False
 
 	# Resistance / Support
 	if ( no_use_resistance == False ):
@@ -706,6 +708,57 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			daily_ma[day] = { 'sma': daily_sma[idx], 'ema': daily_ema[idx] }
 
 	# End SMA/EMA
+
+	# Populate SMA/EMA for etf indicators
+	if ( check_etf_indicators == True ):
+		if ( len(etf_indicators) == 0 ):
+			print('Error: etf_indicators{} is empty, exiting.')
+			sys.exit(1)
+
+		all_datetime = []
+		for t in etf_tickers:
+			etf_indicators[t]['sma'] = {}
+			etf_indicators[t]['ema'] = {}
+
+			sma = []
+			ema = []
+			try:
+				sma = tda_gobot_helper.get_sma( etf_indicators[t]['pricehistory'], period=sma_period, type='hlc3' )
+				ema = tda_gobot_helper.get_ema( etf_indicators[t]['pricehistory'], period=ema_period )
+
+			except Exception as e:
+				print('Error, unable to calculate SMA/EMA for ticker ' + str(t) + ': ' + str(e))
+				sys.exit(1)
+
+			# Note:
+			#  len(sma) = len(pricehistory) - sma_period-1
+			#  len(ema) = len(pricehistory)
+			for i in range( 0, len(sma) ):
+				# Format:
+				#  etf_indicators[t]['sma'] = { cur_datetime: cur_sma, ... }
+				cur_datetime = int( etf_indicators[t]['pricehistory']['candles'][i+sma_period-1]['datetime'] )
+				etf_indicators[t]['sma'][cur_datetime] = sma[i]
+				etf_indicators[t]['ema'][cur_datetime] = ema[i+sma_period-1]
+
+			all_datetime = all_datetime + list( etf_indicators[t]['sma'].keys() )
+
+		all_datetime = list(dict.fromkeys(all_datetime))
+		etf_indicators['sma_avg'] = {}
+		etf_indicators['ema_avg'] = {}
+		for i in all_datetime:
+			found = 0
+			etf_indicators['sma_avg'][i] = 0
+			etf_indicators['ema_avg'][i] = 0
+			for t in etf_tickers:
+				if ( i not in etf_indicators[t]['sma'] ):
+					continue
+
+				found += 1
+				etf_indicators['sma_avg'][i] += etf_indicators[t]['sma'][i]
+				etf_indicators['ema_avg'][i] += etf_indicators[t]['ema'][i]
+
+			etf_indicators['sma_avg'][i] = etf_indicators['sma_avg'][i] / found
+			etf_indicators['ema_avg'][i] = etf_indicators['ema_avg'][i] / found
 
 
 	# Run through the RSI values and log the results
@@ -1125,6 +1178,22 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					if ( cur_rsi_k < cur_rsi_d and cur_rsi_d - cur_rsi_k < 8 ):
 						with_mfi = True
 
+		# Check the moving average of the main ETF tickers
+		if ( check_etf_indicators == True ):
+			etf_affinity = None
+
+			# floor the current datetime to the lower 5-min
+			cur_dt = date - timedelta(minutes=date.minute % 5, seconds=date.second, microseconds=date.microsecond)
+			cur_dt = int( cur_dt.timestamp() * 1000 )
+
+			cur_etf_sma = etf_indicators['sma_avg'][cur_dt]
+			cur_etf_ema = etf_indicators['ema_avg'][cur_dt]
+
+			if ( cur_etf_ema > cur_etf_sma ):
+				etf_affinity = 'bull'
+			elif ( cur_etf_ema < cur_etf_sma ):
+				etf_affinity = 'bear'
+
 
 		# Check the daily and intraday NATR values
 		# Tune the algorithms based on the daily volatility of the stock
@@ -1508,6 +1577,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( min_intra_natr != None and cur_natr < min_intra_natr ):
 					final_buy_signal = False
 				if ( max_intra_natr != None and cur_natr > max_intra_natr ):
+					final_buy_signal = False
+
+				if ( check_etf_indicators == True and etf_affinity == 'bear' ):
 					final_buy_signal = False
 
 			# DEBUG
@@ -2107,6 +2179,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( min_intra_natr != None and cur_natr < min_intra_natr ):
 					final_short_signal = False
 				if ( max_intra_natr != None and cur_natr > max_intra_natr ):
+					final_short_signal = False
+
+				if ( check_etf_indicators == True and etf_affinity == 'bull' ):
 					final_short_signal = False
 
 			# DEBUG

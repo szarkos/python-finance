@@ -44,6 +44,8 @@ parser.add_argument("--check_daily_natr", help='Check daily NATR values and tail
 parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
 parser.add_argument("--check_ma", help='Tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior', action="store_true")
 parser.add_argument("--check_ma_strict", help='Check SMA and EMA to enable/disable the longing or shorting of stock', action="store_true")
+parser.add_argument("--check_etf_indicators", help='Tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior of key ETFs (SPY, QQQ, DIA)', action="store_true")
+parser.add_argument("--etf_tickers", help='List of tickers to use with -check_etf_indicators (Default: SPY,QQQ,DIA)', default='SPY,QQQ,DIA', type=str)
 
 parser.add_argument("--primary_stoch_indicator", help='Use this indicator as the primary stochastic indicator (Default: stochrsi)', default='stochrsi', type=str)
 parser.add_argument("--with_stoch_5m", help='Use 5-minute candles with the --primary_stoch_indicator', action="store_true")
@@ -380,6 +382,26 @@ for algo in args.algo.split(','):
 			print('Error opening file ' + str(args.daily_ifile) + ': ' + str(e))
 			exit(1)
 
+	# ETF Indicators
+	etf_tickers = args.etf_tickers.split(',')
+	etf_indicators = { 'SPY': { 'sma': {}, 'ema': {}, 'pricehistory': {} },
+			   'QQQ': { 'sma': {}, 'ema': {}, 'pricehistory': {} },
+			   'DIA': { 'sma': {}, 'ema': {}, 'pricehistory': {} } }
+
+	if ( args.check_etf_indicators == True ):
+		for t in etf_tickers:
+			etf_data = None
+			try:
+				with open('monthly-5min-csv/' + str(t) + '.pickle', 'rb') as handle:
+					etf_data = handle.read()
+					etf_data = pickle.loads(etf_data)
+
+			except Exception as e:
+				print('Error opening file monthly-5min-csv/' + str(t) + '.pickle: ' + str(e))
+				exit(1)
+
+			etf_indicators[t]['pricehistory'] = etf_data
+
 
 	# Print results for the most recent 10 and 5 days of data
 	for days in str(args.days).split(','):
@@ -592,6 +614,10 @@ for algo in args.algo.split(','):
 					'check_daily_natr':			args.check_daily_natr,
 					'check_ma':				args.check_ma,
 					'check_ma_strict':			args.check_ma_strict,
+
+					'check_etf_indicators':			args.check_etf_indicators,
+					'etf_tickers':				etf_tickers,
+					'etf_indicators':			etf_indicators,
 			}
 
 			# Call stochrsi_analyze_new() with test_params{} to run the backtest

@@ -44,6 +44,7 @@ parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high 
 parser.add_argument("--check_ma", help='Tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior', action="store_true")
 parser.add_argument("--check_ma_strict", help='Check SMA and EMA to enable/disable the longing or shorting of stock', action="store_true")
 parser.add_argument("--check_etf_indicators", help='Tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior of key ETFs (SPY, QQQ, DIA)', action="store_true")
+parser.add_argument("--check_etf_indicators_strict", help='Do not allow trade unless the 5-minute SMA/EMA behavior of key ETFs (SPY, QQQ, DIA) agree with direction', action="store_true")
 parser.add_argument("--etf_tickers", help='List of tickers to use with -check_etf_indicators (Default: SPY,QQQ,DIA)', default='SPY,QQQ,DIA', type=str)
 
 parser.add_argument("--primary_stoch_indicator", help='Use this indicator as the primary stochastic indicator (Default: stochrsi)', default='stochrsi', type=str)
@@ -66,6 +67,9 @@ parser.add_argument("--with_vwap", help='Use VWAP as secondary indicator to advi
 parser.add_argument("--with_vpt", help='Use VPT as secondary indicator to advise trade entries (Default: False)', action="store_true")
 parser.add_argument("--with_chop_index", help='Use the Choppiness Index as secondary indicator to advise trade entries (Default: False)', action="store_true")
 parser.add_argument("--with_chop_simple", help='Use a simple version Choppiness Index as secondary indicator to advise on trade entries (Default: False)', action="store_true")
+parser.add_argument("--with_supertrend", help='Use the Supertrend indicator as secondary indicator to advise on trade entries (Default: False)', action="store_true")
+parser.add_argument("--supertrend_atr_period", help='ATR period to use for the supertrend indicator (Default: 128)', default=128, type=int)
+parser.add_argument("--supertrend_min_natr", help='Minimum daily NATR a stock must have to enable supertrend indicator (Default: 5)', default=5, type=float)
 
 parser.add_argument("--aroonosc_with_macd_simple", help='When using Aroon Oscillator, use macd_simple as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
 parser.add_argument("--aroonosc_with_vpt", help='When using Aroon Oscillator, use vpt as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
@@ -139,6 +143,7 @@ parser.add_argument("--mfi_signal_cancel_high_limit", help='Limit used to cancel
 parser.add_argument("--noshort", help='Disable short selling of stock', action="store_true")
 parser.add_argument("--shortonly", help='Only short sell the stock', action="store_true")
 
+parser.add_argument("--experimental", help='Enable experimental features (Default: False)', action="store_true")
 parser.add_argument("--verbose", help='Print additional information about each transaction (Default: False)', action="store_true")
 parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
 parser.add_argument("--debug_all", help='Enable extra debugging output', action="store_true")
@@ -383,11 +388,11 @@ for algo in args.algo.split(','):
 
 	# ETF Indicators
 	etf_tickers = args.etf_tickers.split(',')
-	etf_indicators = { 'SPY': { 'sma': {}, 'ema': {}, 'pricehistory': {} },
-			   'QQQ': { 'sma': {}, 'ema': {}, 'pricehistory': {} },
-			   'DIA': { 'sma': {}, 'ema': {}, 'pricehistory': {} } }
+	etf_indicators = {}
+	for t in etf_tickers:
+		etf_indicators[t] = { 'sma': {}, 'ema': {}, 'pricehistory': {} }
 
-	if ( args.check_etf_indicators == True ):
+	if ( args.check_etf_indicators == True or args.check_etf_indicators_strict == True ):
 		for t in etf_tickers:
 			etf_data = None
 			try:
@@ -551,6 +556,10 @@ for algo in args.algo.split(','):
 					'with_chop_index':			args.with_chop_index,
 					'with_chop_simple':			args.with_chop_simple,
 
+					'with_supertrend':			args.with_supertrend,
+					'supertrend_atr_period':		args.supertrend_atr_period,
+					'supertrend_min_natr':			args.supertrend_min_natr,
+
  					# Indicator parameters and modifiers
 					'stochrsi_period':			args.stochrsi_period,
 					'stochrsi_5m_period':			args.stochrsi_5m_period,
@@ -614,8 +623,11 @@ for algo in args.algo.split(','):
 					'check_ma_strict':			args.check_ma_strict,
 
 					'check_etf_indicators':			args.check_etf_indicators,
+					'check_etf_indicators_strict':		args.check_etf_indicators_strict,
 					'etf_tickers':				etf_tickers,
 					'etf_indicators':			etf_indicators,
+
+					'experimental':				args.experimental,
 			}
 
 			# Call stochrsi_analyze_new() with test_params{} to run the backtest

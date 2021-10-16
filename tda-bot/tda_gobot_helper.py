@@ -2078,6 +2078,104 @@ def get_chop_index(pricehistory=None, period=20, debug=False):
 	return list(chop)
 
 
+# Supertrend index
+def get_supertrend(pricehistory=None, multiplier=3, atr_period=128):
+
+	if ( pricehistory == None ):
+		return False
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	atr	= []
+	natr	= []
+	try:
+		atr, natr = get_atr(pricehistory=pricehistory, period=atr_period)
+
+	except Exception as e:
+		print('Caught exception: get_supertrend(' + str(ticker) + '): ' + str(e))
+		return False
+
+	# Ensure length of atr[] matches length of pricehistory['candles']
+	atr = list(atr)
+	filler = len(pricehistory['candles']) - len(atr)
+	for i in range(filler):
+		atr.insert(0,0)
+
+	# Calculate the initial upper/lower bands
+	avg_price	= 0
+	upper_band	= []
+	lower_band	= []
+	for i in range(0, len(pricehistory['candles'])):
+		cur_high = float( pricehistory['candles'][i]['high'] )
+		cur_low = float( pricehistory['candles'][i]['low'] )
+
+		# Average Price
+		avg_price = (cur_high + cur_low) / 2
+
+		# Basic Upper Band
+		upper_band.append( avg_price + (multiplier * atr[i]) )
+
+		# Lower Band
+		lower_band.append( avg_price - (multiplier * atr[i]) )
+
+	# Final Upper Band
+	final_upper = []
+	for i in range(0, len(pricehistory['candles'])):
+		prev_close = float( pricehistory['candles'][i-1]['close'] )
+
+		if ( i == 0 ):
+			final_upper.append(0)
+
+		else:
+			if ( upper_band[i] < final_upper[i-1] or prev_close > final_upper[i-1] ):
+				final_upper.append( upper_band[i] )
+
+			else:
+				final_upper.append( final_upper[i-1] )
+
+	# Final Lower Band
+	final_lower = []
+	for i in range(0, len(pricehistory['candles'])):
+		prev_close = float( pricehistory['candles'][i-1]['close'] )
+
+		if ( i == 0 ):
+			final_lower.append(0)
+
+		else:
+			if ( lower_band[i] > final_lower[i-1] or prev_close < final_lower[i-1] ):
+				final_lower.append(lower_band[i])
+
+			else:
+				final_lower.append(final_lower[i-1])
+
+	# SuperTrend
+	supertrend = []
+	for i in range(0, len(pricehistory['candles'])):
+		cur_close = float( pricehistory['candles'][i]['close'] )
+
+		if ( i == 0 ):
+			supertrend.append(0)
+
+		elif ( supertrend[i-1] == final_upper[i-1] and cur_close <= final_upper[i] ):
+			supertrend.append(final_upper[i])
+
+		elif ( supertrend[i-1] == final_upper[i-1] and cur_close > final_upper[i] ):
+			supertrend.append(final_lower[i])
+
+		elif ( supertrend[i-1] == final_lower[i-1] and cur_close >= final_lower[i] ):
+			supertrend.append(final_lower[i])
+
+		elif ( supertrend[i-1] == final_lower[i-1] and cur_close < final_lower[i] ):
+			 supertrend.append(final_upper[i])
+
+
+	return supertrend
+
+
 # Return the key levels for a stock
 # Preferably uses weekly candle data for pricehistory
 # If filter=True, we use ATR to help filter the data and remove key levels that are
@@ -2741,5 +2839,4 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 		print('buytocover_stock_marketprice(' + str(ticker) + '): Order completed (Order ID:' + str(order_id) + ')')
 
 	return data
-
 

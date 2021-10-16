@@ -76,6 +76,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal macd_crossover			; macd_crossover		= False
 		nonlocal macd_avg_crossover		; macd_avg_crossover		= False
 
+		nonlocal experimental_signal		; experimental_signal		= False
+		nonlocal supertrend_signal		; supertrend_signal		= False
+
 		return True
 
 	# END reset_signals
@@ -150,6 +153,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	with_chop_index		=	False		if ('with_chop_index' not in params) else params['with_chop_index']
 	with_chop_simple	=	False		if ('with_chop_simple' not in params) else params['with_chop_simple']
 
+	with_supertrend		=	False		if ('with_supertrend' not in params) else params['with_supertrend']
+	supertrend_min_natr	=	5		if ('supertrend_min_natr' not in params) else params['supertrend_min_natr']
+	supertrend_atr_period	=	128		if ('supertrend_atr_period' not in params) else params['supertrend_atr_period']
+
 	# Indicator parameters and modifiers
 	stochrsi_period		=	128		if ('stochrsi_period' not in params) else params['stochrsi_period']
 	stochrsi_5m_period	=	28		if ('stochrsi_5m_period' not in params) else params['stochrsi_5m_period']
@@ -215,9 +222,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	sma_period		=	5		if ('sma_period' not in params) else params['sma_period']
 	ema_period		=	5		if ('ema_period' not in params) else params['ema_period']
 
+	check_etf_indicators_strict =	False		if ('check_etf_indicators_strict' not in params) else params['check_etf_indicators_strict']
 	check_etf_indicators	=	False		if ('check_etf_indicators' not in params) else params['check_etf_indicators']
+	check_etf_indicators	=	True		if (check_etf_indicators_strict == True ) else check_etf_indicators ; params['check_etf_indicators'] = check_etf_indicators
 	etf_tickers		=  ['SPY','QQQ','DIA']	if ('etf_tickers' not in params) else params['etf_tickers']
 	etf_indicators		=	{}		if ('etf_indicators' not in params) else params['etf_indicators']
+
+	experimental		=	False		if ('experimental' not in params) else params['experimental']
 	# End params{} configuration
 
 
@@ -483,6 +494,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	except Exception as e:
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_vpt(): ' + str(e))
 		return False
+
+	# Supertrend indicator
+	supertrend = []
+	try:
+		supertrend = tda_gobot_helper.get_supertrend(pricehistory=pricehistory, atr_period=supertrend_atr_period)
+
+	except Exception as e:
+		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_supertrend(): ' + str(e))
+		return False
+
 
 	# Calculate daily volume from the 1-minute candles that we have
 	if ( check_volume == True ):
@@ -831,6 +852,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	macd_crossover			= False
 	macd_avg_crossover		= False
 
+	experimental_signal		= False
+	supertrend_signal		= False
+
 	default_incr_threshold		= incr_threshold
 	default_decr_threshold		= decr_threshold
 	orig_incr_threshold		= incr_threshold
@@ -990,6 +1014,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					final_signal = True
 
 		return stoch_signal, crossover_signal, threshold_signal, final_signal
+
+
+	##################################################################################################################
+	# Experimental
+	if ( experimental == True ):
+		import pattern_helper
+
+		diff_signals = pattern_helper.pattern_differential(pricehistory)
+		anti_diff_signals = pattern_helper.pattern_anti_differential(pricehistory)
+		fib_signals = pattern_helper.pattern_fibonacci_timing(pricehistory)
 
 
 	##################################################################################################################
@@ -1191,9 +1225,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			cur_etf_ema = etf_indicators['ema_avg'][cur_dt]
 
 			if ( cur_etf_ema > cur_etf_sma ):
-				etf_affinity = 'bull'
+				etf_affinity	= 'bull'
+				rsi_low_limit	= 15
+				rsi_high_limit	= 95
+
 			elif ( cur_etf_ema < cur_etf_sma ):
-				etf_affinity = 'bear'
+				etf_affinity	= 'bear'
+				rsi_low_limit	= 5
+				rsi_high_limit	= 85
 
 
 		# BUY mode
@@ -1377,6 +1416,24 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 									 prev_chop=prev_chop, cur_chop=cur_chop,
 									 chop_init_signal=chop_init_signal, chop_signal=chop_signal )
 
+			# Supertrend Indicator
+			if ( with_supertrend == True ):
+
+				# Supertrend falls over with stocks that are flat/not moving or trending
+				if ( cur_natr_daily < supertrend_min_natr ):
+					supertrend_signal = True
+				else:
+
+					# Short signal
+					if ( supertrend[idx-1] <= float(pricehistory['candles'][idx-1]['close']) and \
+						supertrend[idx] > float(pricehistory['candles'][idx]['close']) ):
+						supertrend_signal = False
+
+					# Long signal
+					elif ( supertrend[idx-1] >= float(pricehistory['candles'][idx-1]['close']) and \
+						supertrend[idx] < float(pricehistory['candles'][idx]['close']) ):
+						supertrend_signal = True
+
 			# Resistance
 			if ( no_use_resistance == False and buy_signal == True ):
 
@@ -1511,6 +1568,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 #					# Current high is within price_resistance_pct of 20-week high, not a good bet
 #					resistance_signal = False
 
+			if ( experimental == True ):
+				if ( cur_natr_daily > 6 ):
+					#if ( (diff_signals[idx] == 'buy' or anti_diff_signals[idx] == 'buy') and fib_signals[idx]['bull_signal'] <= -8 ):
+					if ( fib_signals[idx]['bull_signal'] <= -8 ):
+						experimental_signal = True
+				else:
+					experimental_signal = True
+
+
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
 			if ( buy_signal == True ):
 				final_buy_signal = True
@@ -1551,10 +1617,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( with_chop_index == True and chop_signal != True ):
 					final_buy_signal = False
 
-				if ( no_use_resistance == False and resistance_signal != True ):
+				if ( with_supertrend == True and supertrend_signal != True ):
 					final_buy_signal = False
 
-				if ( check_ma_strict == True and ma_intraday_affinity != 'bull' ):
+				if ( no_use_resistance == False and resistance_signal != True ):
 					final_buy_signal = False
 
 				if ( min_intra_natr != None and cur_natr < min_intra_natr ):
@@ -1562,7 +1628,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( max_intra_natr != None and cur_natr > max_intra_natr ):
 					final_buy_signal = False
 
-				if ( check_etf_indicators == True and etf_affinity == 'bear' ):
+				# Experimental indicators here
+				if ( check_ma_strict == True and ma_intraday_affinity != 'bull' ):
+					final_buy_signal = False
+				if ( check_etf_indicators_strict == True and etf_affinity == 'bear' ):
+					final_buy_signal = False
+				if ( experimental == True and experimental_signal != True ):
 					final_buy_signal = False
 
 			# DEBUG
@@ -1979,6 +2050,23 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 									 prev_chop=prev_chop, cur_chop=cur_chop,
 									 chop_init_signal=chop_init_signal, chop_signal=chop_signal )
 
+			# Supertrend indicator
+			if ( with_supertrend == True ):
+
+				# Supertrend falls over with stocks that are flat/not moving or trending
+				if ( cur_natr_daily < supertrend_min_natr ):
+					supertrend_signal = True
+				else:
+					# Short signal
+					if ( supertrend[idx-1] <= float(pricehistory['candles'][idx-1]['close']) and \
+						supertrend[idx] > float(pricehistory['candles'][idx]['close']) ):
+						supertrend_signal = True
+
+					# Long signal
+					elif ( supertrend[idx-1] >= float(pricehistory['candles'][idx-1]['close']) and \
+						supertrend[idx] < float(pricehistory['candles'][idx]['close']) ):
+						supertrend_signal = False
+
 			# Resistance
 			if ( no_use_resistance == False and short_signal == True ):
 
@@ -2113,6 +2201,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 #					# Current low is within price_support_pct of 20-week low, not a good bet
 #					resistance_signal = False
 
+			if ( experimental == True ):
+				if ( cur_natr_daily > 6 ):
+					#if ( (diff_signals[idx] == 'short' or anti_diff_signals[idx] == 'short') and fib_signals[idx]['bear_signal'] >= 8 ):
+					if ( fib_signals[idx]['bear_signal'] >= 8 ):
+						experimental_signal = True
+				else:
+					experimental_signal = True
+
+
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
 			if ( short_signal == True ):
 				final_short_signal = True
@@ -2153,10 +2250,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( with_chop_index == True and chop_signal != True ):
 					final_short_signal = False
 
-				if ( no_use_resistance == False and resistance_signal != True ):
+				if ( with_supertrend == True and supertrend_signal != True ):
 					final_short_signal = False
 
-				if ( check_ma_strict == True and ma_intraday_affinity != 'bear' ):
+				if ( no_use_resistance == False and resistance_signal != True ):
 					final_short_signal = False
 
 				if ( min_intra_natr != None and cur_natr < min_intra_natr ):
@@ -2164,7 +2261,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( max_intra_natr != None and cur_natr > max_intra_natr ):
 					final_short_signal = False
 
-				if ( check_etf_indicators == True and etf_affinity == 'bull' ):
+				# Experimental
+				if ( check_ma_strict == True and ma_intraday_affinity != 'bear' ):
+					final_short_signal = False
+				if ( check_etf_indicators_strict == True and etf_affinity == 'bull' ):
+					final_short_signal = False
+				if ( experimental == True and experimental_signal != True ):
 					final_short_signal = False
 
 			# DEBUG

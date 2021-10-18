@@ -181,6 +181,7 @@ def reset_signals(ticker=None, id=None, signal_mode=None):
 		stocks[ticker]['algo_signals'][algo_id]['aroonosc_signal']		= False
 		stocks[ticker]['algo_signals'][algo_id]['chop_init_signal']		= False
 		stocks[ticker]['algo_signals'][algo_id]['chop_signal']			= False
+		stocks[ticker]['algo_signals'][algo_id]['supertrend_signal']		= False
 		stocks[ticker]['algo_signals'][algo_id]['vwap_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['vpt_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['resistance_signal']		= False
@@ -382,6 +383,21 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		return chop_init_signal, chop_signal
 
 
+	# Supertrend Indicator
+	def get_supertrend_signal(short=False, cur_close=-1, prev_close=-1, cur_supertrend=-1, prev_supertrend=-1, supertrend_signal=False):
+
+		# Short signal
+		if ( prev_supertrend <= prev_close and cur_supertrend > cur_close ):
+			supertrend_signal = False if ( short==False ) else True
+
+		# Long signal
+		elif ( prev_supertrend >= prev_close and cur_supertrend < cur_close ):
+			supertrend_signal = True if ( short==False ) else False
+
+		return supertrend_signal
+
+
+	##########################################################################################
 	# Iterate through the stock tickers, calculate the stochRSI, and make buy/sell decisions
 	for ticker in stocks.keys():
 
@@ -639,6 +655,18 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			stocks[ticker]['cur_chop']	= float( chop[-1] )
 			stocks[ticker]['prev_chop']	= float( chop[-2] )
 
+		# Supertrend Indicator
+		if ( cur_algo['supertrend'] == True ):
+			supertrend = []
+			try:
+				supertrend = tda_gobot_helper.get_supertrend(pricehistory=stocks[ticker]['pricehistory'], atr_period=cur_algo['supertrend_atr_period'])
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(): get_supertrend' + str(ticker) + '): ' + str(e))
+
+			stocks[ticker]['cur_supertrend']	= float( supertrend[-1] )
+			stocks[ticker]['prev_supertrend']	= float( supertrend[-2] )
+
 		# VWAP
 		# Calculate vwap to use as entry or exit algorithm
 		if ( cur_algo['vwap'] or args.vwap_exit == True or cur_algo['support_resistance'] == True ):
@@ -687,13 +715,15 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# RSI
 			if ( cur_algo['rsi'] == True ):
-				print('(' + str(ticker) + ') Current RSI: ' + str(round(stocks[ticker]['cur_rsi'], 2)))
+				print('(' + str(ticker) + ') Current RSI: ' + str(round(stocks[ticker]['cur_rsi'], 2)) +
+						' / RSI Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['rsi_signal']) )
 
 			# MFI
 			if ( cur_algo['mfi'] == True ):
 				print('(' + str(ticker) + ') Current MFI: ' + str(round(stocks[ticker]['cur_mfi'], 2)) +
 							' / Previous MFI: ' + str(round(stocks[ticker]['prev_mfi'], 2)) +
-							' / High Limit|Low Limit: ' + str(cur_algo['mfi_high_limit']) + '|' + str(cur_algo['mfi_low_limit']) )
+							' / High Limit|Low Limit: ' + str(cur_algo['mfi_high_limit']) + '|' + str(cur_algo['mfi_low_limit']) +
+							' / MFI Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['mfi_signal']) )
 
 			# ATR/NATR
 			print('(' + str(ticker) + ') Current ATR/NATR: ' + str(round(stocks[ticker]['cur_atr'], 3)) + ' / ' + str(round(stocks[ticker]['cur_natr'], 3)) +
@@ -703,43 +733,56 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			if ( cur_algo['adx'] == True ):
 				print('(' + str(ticker) + ') Current ADX: ' + str(round(stocks[ticker]['cur_adx'], 2)) +
 							' / ADX Period: ' + str(cur_algo['adx_period']) +
-							' / ADX Threshold: ' + str(cur_algo['adx_threshold']) )
+							' / ADX Threshold: ' + str(cur_algo['adx_threshold']) +
+							' / ADX Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['adx_signal']) )
 
 			# PLUS/MINUS DI
 			if ( cur_algo['dmi'] == True or cur_algo['dmi_simple'] == True ):
 				print('(' + str(ticker) + ') Current PLUS_DI: ' + str(round(stocks[ticker]['cur_plus_di'], 2)) +
 							' / Previous PLUS_DI: ' + str(round(stocks[ticker]['prev_plus_di'], 2)))
 				print('(' + str(ticker) + ') Current MINUS_DI: ' + str(round(stocks[ticker]['cur_minus_di'], 2)) +
-							' / Previous MINUS_DI: ' + str(round(stocks[ticker]['prev_minus_di'], 2)))
+							' / Previous MINUS_DI: ' + str(round(stocks[ticker]['prev_minus_di'], 2)) +
+							' / DMI Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['dmi_signal']) )
 
 			# MACD
 			if ( cur_algo['macd'] == True or cur_algo['macd_simple'] ):
 				print('(' + str(ticker) + ') Current MACD: ' + str(round(stocks[ticker]['cur_macd'], 2)) +
 							' / Previous MACD: ' + str(round(stocks[ticker]['prev_macd'], 2)))
 				print('(' + str(ticker) + ') Current MACD_AVG: ' + str(round(stocks[ticker]['cur_macd_avg'], 2)) +
-							' / Previous MACD_AVG: ' + str(round(stocks[ticker]['prev_macd_avg'], 2)))
+							' / Previous MACD_AVG: ' + str(round(stocks[ticker]['prev_macd_avg'], 2)) +
+							' / MACD Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['macd_signal']) )
 
 			# AroonOsc
 			if ( cur_algo['aroonosc'] == True ):
-				print('(' + str(ticker) + ') Current AroonOsc: ' + str(round(stocks[ticker]['cur_aroonosc'], 2)))
+				print('(' + str(ticker) + ') Current AroonOsc: ' + str(round(stocks[ticker]['cur_aroonosc'], 2)) +
+							' / AroonOsc Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['aroonosc_signal']) )
 
 			# Chop Index
 			if ( cur_algo['chop_index'] == True or cur_algo['chop_simple'] ):
 				print('(' + str(ticker) + ') Current Chop Index: ' + str(round(stocks[ticker]['cur_chop'], 2)) +
-							' / Previous Chop Index: ' + str(round(stocks[ticker]['prev_chop'], 2)))
+							' / Previous Chop Index: ' + str(round(stocks[ticker]['prev_chop'], 2)) +
+							' / Chop Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['chop_signal']) )
+
+			# Supertrend
+			if ( cur_algo['supertrend'] == True ):
+				print('(' + str(ticker) + ') Current Supertrend: ' + str(round(stocks[ticker]['cur_supertrend'], 2)) +
+							' / Previous Supertrend: ' + str(round(stocks[ticker]['prev_supertrend'], 2)) +
+							' / Supertrend Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['supertrend_signal']) )
 
 			# VWAP
 			if ( cur_algo['vwap'] == True or cur_algo['support_resistance'] == True ):
 				print('(' + str(ticker) + ') Current VWAP: ' + str(round(stocks[ticker]['cur_vwap'], 2)) +
 							' / Current VWAP_UP: ' + str(round(stocks[ticker]['cur_vwap_up'], 2)) +
-							' / Current VWAP_DOWN: ' + str(round(stocks[ticker]['cur_vwap_down'], 2)))
+							' / Current VWAP_DOWN: ' + str(round(stocks[ticker]['cur_vwap_down'], 2)) +
+							' / VWAP Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['vwap_signal']) )
 
 			# VPT
 			if ( cur_algo['vpt'] == True ):
 				print('(' + str(ticker) + ') Current VPT: ' + str(round(stocks[ticker]['cur_vpt'], 2)) +
 							' / Previous VPT: ' + str(round(stocks[ticker]['prev_vpt'], 2)))
 				print('(' + str(ticker) + ') Current VPT_SMA: ' + str(round(stocks[ticker]['cur_vpt_sma'], 2)) +
-							' / Previous VPT_SMA: ' + str(round(stocks[ticker]['prev_vpt_sma'], 2)))
+							' / Previous VPT_SMA: ' + str(round(stocks[ticker]['prev_vpt_sma'], 2)) +
+							' / VPT Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['vpt_signal']) )
 
 			print('(' + str(ticker) + ') Period Multiplier: ' + str(stocks[ticker]['period_multiplier']))
 
@@ -761,66 +804,69 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			args.singleday = False
 
 		# Set some short variables to improve readability :)
-		algo_id		= cur_algo['algo_id']
-		signal_mode	= stocks[ticker]['algo_signals'][algo_id]['signal_mode']
+		algo_id			= cur_algo['algo_id']
+		signal_mode		= stocks[ticker]['algo_signals'][algo_id]['signal_mode']
 
 		# StochRSI
-		cur_rsi_k	= stocks[ticker]['cur_rsi_k']
-		prev_rsi_k	= stocks[ticker]['prev_rsi_k']
-		cur_rsi_d	= stocks[ticker]['cur_rsi_d']
-		prev_rsi_d	= stocks[ticker]['prev_rsi_d']
+		cur_rsi_k		= stocks[ticker]['cur_rsi_k']
+		prev_rsi_k		= stocks[ticker]['prev_rsi_k']
+		cur_rsi_d		= stocks[ticker]['cur_rsi_d']
+		prev_rsi_d		= stocks[ticker]['prev_rsi_d']
 
-		cur_rsi_k_5m	= stocks[ticker]['cur_rsi_k_5m']
-		prev_rsi_k_5m	= stocks[ticker]['prev_rsi_k_5m']
-		cur_rsi_d_5m	= stocks[ticker]['cur_rsi_d_5m']
-		prev_rsi_d_5m	= stocks[ticker]['prev_rsi_d_5m']
+		cur_rsi_k_5m		= stocks[ticker]['cur_rsi_k_5m']
+		prev_rsi_k_5m		= stocks[ticker]['prev_rsi_k_5m']
+		cur_rsi_d_5m		= stocks[ticker]['cur_rsi_d_5m']
+		prev_rsi_d_5m		= stocks[ticker]['prev_rsi_d_5m']
 
 		# StochMFI
-		cur_mfi_k	= stocks[ticker]['cur_mfi_k']
-		prev_mfi_k	= stocks[ticker]['prev_mfi_k']
-		cur_mfi_d	= stocks[ticker]['cur_mfi_d']
-		prev_mfi_d	= stocks[ticker]['prev_mfi_d']
+		cur_mfi_k		= stocks[ticker]['cur_mfi_k']
+		prev_mfi_k		= stocks[ticker]['prev_mfi_k']
+		cur_mfi_d		= stocks[ticker]['cur_mfi_d']
+		prev_mfi_d		= stocks[ticker]['prev_mfi_d']
 
-		cur_mfi_k_5m	= stocks[ticker]['cur_mfi_k_5m']
-		prev_mfi_k_5m	= stocks[ticker]['prev_mfi_k_5m']
-		cur_mfi_d_5m	= stocks[ticker]['cur_mfi_d_5m']
-		prev_mfi_d_5m	= stocks[ticker]['prev_mfi_d_5m']
+		cur_mfi_k_5m		= stocks[ticker]['cur_mfi_k_5m']
+		prev_mfi_k_5m		= stocks[ticker]['prev_mfi_k_5m']
+		cur_mfi_d_5m		= stocks[ticker]['cur_mfi_d_5m']
+		prev_mfi_d_5m		= stocks[ticker]['prev_mfi_d_5m']
 
 		# Additional Indicators
-		cur_rsi		= stocks[ticker]['cur_rsi']
-		prev_rsi	= stocks[ticker]['prev_rsi']
+		cur_rsi			= stocks[ticker]['cur_rsi']
+		prev_rsi		= stocks[ticker]['prev_rsi']
 
-		cur_atr		= stocks[ticker]['cur_atr']
-		cur_natr	= stocks[ticker]['cur_natr']
+		cur_atr			= stocks[ticker]['cur_atr']
+		cur_natr		= stocks[ticker]['cur_natr']
 
-		cur_mfi		= stocks[ticker]['cur_mfi']
-		prev_mfi	= stocks[ticker]['prev_mfi']
+		cur_mfi			= stocks[ticker]['cur_mfi']
+		prev_mfi		= stocks[ticker]['prev_mfi']
 
-		cur_adx		= stocks[ticker]['cur_adx']
+		cur_adx			= stocks[ticker]['cur_adx']
 
-		cur_plus_di	= stocks[ticker]['cur_plus_di']
-		prev_plus_di	= stocks[ticker]['prev_plus_di']
-		cur_minus_di	= stocks[ticker]['cur_minus_di']
-		prev_minus_di	= stocks[ticker]['prev_minus_di']
+		cur_plus_di		= stocks[ticker]['cur_plus_di']
+		prev_plus_di		= stocks[ticker]['prev_plus_di']
+		cur_minus_di		= stocks[ticker]['cur_minus_di']
+		prev_minus_di		= stocks[ticker]['prev_minus_di']
 
-		cur_macd	= stocks[ticker]['cur_macd']
-		prev_macd	= stocks[ticker]['prev_macd']
-		cur_macd_avg	= stocks[ticker]['cur_macd_avg']
-		prev_macd_avg	= stocks[ticker]['prev_macd_avg']
+		cur_macd		= stocks[ticker]['cur_macd']
+		prev_macd		= stocks[ticker]['prev_macd']
+		cur_macd_avg		= stocks[ticker]['cur_macd_avg']
+		prev_macd_avg		= stocks[ticker]['prev_macd_avg']
 
-		cur_aroonosc	= stocks[ticker]['cur_aroonosc']
+		cur_aroonosc		= stocks[ticker]['cur_aroonosc']
 
-		cur_chop	= stocks[ticker]['cur_chop']
-		prev_chop	= stocks[ticker]['prev_chop']
+		cur_chop		= stocks[ticker]['cur_chop']
+		prev_chop		= stocks[ticker]['prev_chop']
 
-		cur_vwap	= stocks[ticker]['cur_vwap']
-		cur_vwap_up	= stocks[ticker]['cur_vwap_up']
-		cur_vwap_down	= stocks[ticker]['cur_vwap_down']
+		cur_supertrend		= stocks[ticker]['cur_supertrend']
+		prev_supertrend		= stocks[ticker]['prev_supertrend']
 
-		cur_vpt		= stocks[ticker]['cur_vpt']
-		prev_vpt	= stocks[ticker]['prev_vpt']
-		cur_vpt_sma	= stocks[ticker]['cur_vpt_sma']
-		prev_vpt_sma	= stocks[ticker]['prev_vpt_sma']
+		cur_vwap		= stocks[ticker]['cur_vwap']
+		cur_vwap_up		= stocks[ticker]['cur_vwap_up']
+		cur_vwap_down		= stocks[ticker]['cur_vwap_down']
+
+		cur_vpt			= stocks[ticker]['cur_vpt']
+		prev_vpt		= stocks[ticker]['prev_vpt']
+		cur_vpt_sma		= stocks[ticker]['cur_vpt_sma']
+		prev_vpt_sma		= stocks[ticker]['prev_vpt_sma']
 
 		# Algo modifiers
 		stoch_high_limit	= cur_algo['rsi_high_limit']
@@ -1033,11 +1079,26 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						stocks[ticker]['algo_signals'][algo_id]['macd_signal'] = True
 
 			# Chop Index
-			stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
-			stocks[ticker]['algo_signals'][algo_id]['chop_signal'] = get_chop_signal( simple=cur_algo['chop_simple'],
-												  prev_chop=prev_chop, cur_chop=cur_chop,
-												  chop_init_signal=stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
-												  chop_signal=stocks[ticker]['algo_signals'][algo_id]['chop_signal'] )
+			if ( cur_algo['chop_index'] == True or cur_algo['chop_simple'] == True ):
+				stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
+				stocks[ticker]['algo_signals'][algo_id]['chop_signal'] = get_chop_signal( simple=cur_algo['chop_simple'],
+													  prev_chop=prev_chop, cur_chop=cur_chop,
+													  chop_init_signal=stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
+													  chop_signal=stocks[ticker]['algo_signals'][algo_id]['chop_signal'] )
+
+			# Supertrend Indicator
+			if ( cur_algo['supertrend'] == True ):
+
+				# Skip supertrend signal if the stock's daily NATR is too low
+				if ( stocks[ticker]['natr_daily'] < cur_algo['supertrend_min_natr'] ):
+					stocks[ticker]['algo_signals'][algo_id]['supertrend_signal'] = True
+
+				else:
+					cur_close	= float( stocks[ticker]['pricehistory'][-1]['close'] )
+					prev_close	= float( stocks[ticker]['pricehistory'][-2]['close'] )
+					stocks[ticker]['algo_signals'][algo_id]['supertrend_signal'] = get_supertrend_signal(	short=False, cur_close=cur_close, prev_close=prev_close,
+																cur_supertrend=cur_supertrend, prev_supertrend=prev_supertrend,
+																supertrend_signal=stocks[ticker]['algo_signals'][algo_id]['supertrend_signal'] )
 
 			# VWAP signal
 			# This is the most simple/pessimistic approach right now
@@ -1240,6 +1301,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['final_buy_signal'] = False
 
 				if ( (cur_algo['chop_index'] == True or cur_algo['chop_simple'] == True) and chop_signal != True ):
+					stocks[ticker]['final_buy_signal'] = False
+
+				if ( cur_algo['supertrend'] == True and supertrend_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
 				if ( cur_algo['vwap'] == True and vwap_signal != True ):
@@ -1712,11 +1776,26 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						stocks[ticker]['algo_signals'][algo_id]['macd_signal'] = True
 
 			# Chop Index
-			stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
-			stocks[ticker]['algo_signals'][algo_id]['chop_signal'] = get_chop_signal( simple=cur_algo['chop_simple'],
-												  prev_chop=prev_chop, cur_chop=cur_chop,
-												  chop_init_signal=stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
-												  chop_signal=stocks[ticker]['algo_signals'][algo_id]['chop_signal'] )
+			if ( cur_algo['chop_index'] == True or cur_algo['chop_simple'] == True ):
+				stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
+				stocks[ticker]['algo_signals'][algo_id]['chop_signal'] = get_chop_signal( simple=cur_algo['chop_simple'],
+													  prev_chop=prev_chop, cur_chop=cur_chop,
+													  chop_init_signal=stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
+													  chop_signal=stocks[ticker]['algo_signals'][algo_id]['chop_signal'] )
+
+			# Supertrend Indicator
+			if ( cur_algo['supertrend'] == True ):
+
+				# Skip supertrend signal if the stock's daily NATR is too low
+				if ( stocks[ticker]['natr_daily'] < cur_algo['supertrend_min_natr'] ):
+					stocks[ticker]['algo_signals'][algo_id]['supertrend_signal'] = True
+
+				else:
+					cur_close	= float( stocks[ticker]['pricehistory'][-1]['close'] )
+					prev_close	= float( stocks[ticker]['pricehistory'][-2]['close'] )
+					stocks[ticker]['algo_signals'][algo_id]['supertrend_signal'] = get_supertrend_signal(	short=True, cur_close=cur_close, prev_close=prev_close,
+																cur_supertrend=cur_supertrend, prev_supertrend=prev_supertrend,
+																supertrend_signal=stocks[ticker]['algo_signals'][algo_id]['supertrend_signal'] )
 
 			# VWAP signal
 			# This is the most simple/pessimistic approach right now
@@ -1903,6 +1982,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['final_short_signal'] = False
 
 				if ( (cur_algo['chop_index'] == True or cur_algo['chop_simple'] == True) and chop_signal != True ):
+					stocks[ticker]['final_short_signal'] = False
+
+				if ( cur_algo['supertrend'] == True and supertrend_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
 
 				if ( cur_algo['vwap'] == True and vwap_signal != True ):

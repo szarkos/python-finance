@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Test scenario to use (must also be listed in gobot-test.py)
+test_scenario='stochrsi_standard_daily_test'
+
 # By default, $start_date is three weeks ago from today
 start_date=${1-$(date +'%Y-%m-%d' --date='-3 weeks')}
 
@@ -10,8 +13,7 @@ cd "${parent_path}/.."
 algo1_gain_threshold="0.2"
 
 # First, refresh all the 3-month data
-./cron/refresh-data.sh
-
+#./scripts/refresh-data.sh
 
 # Run the test script for each ticker
 source ./tickers.conf
@@ -31,25 +33,22 @@ fi
 end_date=$( echo -n "$tickers" | awk '{print $1}' )
 end_date=$( ls monthly-1min-csv/${end_date}-3months-*.pickle | sed "s/monthly\-1min\-csv\/$end_date\-3months\-//" | sed 's/\.pickle//' )
 
-rm -f ./results/*
-cd ../
-for t in $tickers; do
-
-	echo $t;
-	./gobot-test.py --all --ifile=stock-analyze/monthly-1min-csv/${t}-3months-${end_date}.pickle --ofile=stock-analyze/results/${t} \
-		--opts=" --weekly_ifile=stock-analyze/weekly-csv/${t}-weekly-2019-2021.pickle --daily_ifile=./daily-csv/${t}-daily-2019-2021.pickle \
-		--skip_blacklist $startdate " --scenarios=standard_daily_test
-
-done
-cd "${parent_path}/.."
+#rm -f ./results/*
+#for t in $tickers; do
+#
+#	echo $t;
+#	./gobot-test.py --ifile=./monthly-1min-csv/${t}-3months-${end_date}.pickle --ofile=./results/${t} \
+#		--opts=" --weekly_ifile=./weekly-csv/${t}-weekly-2019-2021.pickle --daily_ifile=./daily-csv/${t}-daily-2019-2021.pickle \
+#		--skip_blacklist $startdate " --scenarios=${test_scenario}
+#
+#done
 
 # Generate results summary
-data=$( ./summarize-results.sh ticker-net-gain )
+data=$( ./summarize-results.sh results ticker-net-gain $test_scenario )
 
 # Parse and sort results
 algo1=$( for i in "$data"; do echo "$i" | awk -F ',' '{print $1","$4}'; done )
 algo1=$( echo "$algo1" | sort -bt ',' -k1,2 )
-
 
 # Create list of tickers that lost money
 loss_list=""
@@ -65,7 +64,6 @@ for i in $algo1_loss ; do
 		loss_list="$loss_list "$(echo $i | awk -F, '{print $1}')
 	fi
 done
-
 
 # Initialize final list of stock tickers
 list=""
@@ -101,9 +99,9 @@ done
 
 list=$( echo "$list" | sed 's/^\s//' | sed 's/ /\n/g' | sort | uniq )
 
-
 # Write CUR_SET to tickers.conf
 echo -e "\n# "$(date +%Y-%m-%d) >> tickers.conf
 echo -en "CUR_SET='" >> tickers.conf
 echo -n "$list" | tr '\n' ',' | sed 's/^,//' | sed 's/,$//' >> tickers.conf
 echo -e "'\n" >> tickers.conf
+

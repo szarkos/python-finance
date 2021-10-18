@@ -23,11 +23,11 @@ mytimezone = pytz.timezone("US/Eastern")
 
 # Standard options for all scenarios
 std_opts = ' --algo=stochrsi-new --stoploss --skip_check --incr_threshold=0.5 --decr_threshold=0.4 --exit_percent=1 --verbose --stock_usd=5000 ' + \
-		' --variable_exit --lod_hod_check --use_natr_resistance '
+		' --variable_exit --lod_hod_check --use_natr_resistance --check_volume '
 
 # Test Scenarios
 scenarios = {	# Daily test, called from automation. Comment to disable the automation.
-		'standard_daily_test':						'--rsi_high_limit=85 --rsi_low_limit=15 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 --stochrsi_offset=6 --daily_atr_period=3 --min_intra_natr=0.15 --min_daily_natr=1.5 --with_supertrend --supertrend_min_natr=2 --supertrend_atr_period=70',
+		'standard_daily_test':		'--rsi_high_limit=85 --rsi_low_limit=15 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 --stochrsi_offset=6 --daily_atr_period=3 --min_intra_natr=0.15 --min_daily_natr=1.5 --with_supertrend --supertrend_min_natr=2 --supertrend_atr_period=70',
 
 
 		# Loud, not used but good baseline

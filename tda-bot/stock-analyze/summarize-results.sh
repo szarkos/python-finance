@@ -70,7 +70,7 @@ if [ "$command" == "all" -o "$command" == "gain-loss" ]; then
 
 	# Total gain/loss for each test type
 	echo
-	echo "Test,Total Gain,Total Loss,Total Return"
+	echo "Test,Gain / Share,Loss / Share,Total Return"
 	for t in $tests; do
 		gain=$( cat *-${t} | grep 'Net gain\:' | sed 's/Net gain: //' | sed 's/ \/.*//' | sed -z 's/\n/ + /g' | perl -e '$a=<>; $a =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$a 0\n" ' | bc )
 		loss=$( cat *-${t} | grep 'Net loss\:' | sed 's/Net loss: //' | sed 's/ \/.*//' | sed -z 's/\n/ + /g' | perl -e '$a=<>; $a =~ s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g; print "$a 0\n" ' | bc )

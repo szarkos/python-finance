@@ -1586,7 +1586,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					if ( keylevel_strict == True and near_keylevel == False ):
 						resistance_signal = False
 
-					# End Key Levels
+				# End Key Levels
 
 
 				# 20-week high
@@ -2107,7 +2107,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				resistance_signal	= True
 
 				# PDC
-				prev_day_close = 0
+				prev_day_close = -1
 				if ( today in pdc ):
 					prev_day_close = pdc[today]['pdc']
 
@@ -2221,7 +2221,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					if ( keylevel_strict == True and near_keylevel == False ):
 						resistance_signal = False
 
-					# End Key Levels
+				# End Key Levels
 
 				# High / low resistance
 #				short_price = float(pricehistory['candles'][idx]['close'])

@@ -650,25 +650,60 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	if ( no_use_resistance == False ):
 
 		# Day stats
+
+		# Find the first day from the 1-min pricehistory. We might need this to warn if the PDC
+		#  is not available within the test timeframe.
+		first_day = datetime.fromtimestamp(int(pricehistory['candles'][0]['datetime'])/1000, tz=mytimezone)
+
 		pdc = OrderedDict()
 		for key in daily_ph['candles']:
 
-			today		= datetime.fromtimestamp(int(key['datetime'])/1000, tz=mytimezone)
-			yesterday	= today - timedelta(days=1)
-			yesterday	= tda_gobot_helper.fix_timestamp(yesterday, check_day_only=True)
+			today_dt	= datetime.fromtimestamp(int(key['datetime'])/1000, tz=mytimezone)
+			yesterday_dt	= today_dt - timedelta(days=1)
+			yesterday_dt	= tda_gobot_helper.fix_timestamp(yesterday_dt, check_day_only=True)
 
-			today		= today.strftime('%Y-%m-%d')
-			yesterday	= yesterday.strftime('%Y-%m-%d')
+			today		= today_dt.strftime('%Y-%m-%d')
+			yesterday	= yesterday_dt.strftime('%Y-%m-%d')
 
 			pdc[today] = {  'open':		float( key['open'] ),
 					'high':		float( key['high'] ),
 					'low':		float( key['low'] ),
 					'close':	float( key['close'] ),
 					'volume':	int( key['volume'] ),
-					'pdc':		0 }
+					'pdc':		-1
+			}
 
 			if ( yesterday in pdc ):
-				pdc[today]['pdc'] = float(pdc[yesterday]['close'])
+				pdc[today]['pdc'] = float( pdc[yesterday]['close'] )
+			else:
+				# This may not be abnormal as daily_ph includes 2-years worth of data, but
+				#   fix_timestamp()->ismarketopen_US() only knows about this years' holidays.
+				pdc[today]['pdc'] = float( key['open'] )
+
+				# Only warn if the missing PDC data falls within the bounds of the test data
+				if ( today_dt > first_day ):
+					print('Warning: PDC for ' + str(yesterday) + 'not found!')
+
+		# Check pdc[] in case daily history does not match up exactly with 1-min pricehistory
+		for key in pricehistory['candles']:
+			today_dt	= datetime.fromtimestamp(int(key['datetime'])/1000, tz=mytimezone)
+			yesterday_dt	= today_dt - timedelta(days=1)
+			yesterday_dt	= tda_gobot_helper.fix_timestamp(yesterday_dt, check_day_only=True)
+
+			today		= today_dt.strftime('%Y-%m-%d')
+			yesterday	= yesterday_dt.strftime('%Y-%m-%d')
+
+			if ( today not in pdc ):
+				try:
+					pdc[today]['pdc'] = pdc[yesterday]['close']
+				except Exception as e:
+					print('Warning: daily and 1-min candles mismatch on ' + str(today))
+					pdc[today] = {  'open':		-1,
+							'high':		-1,
+							'low':		-1,
+							'close':	-1,
+							'volume':	-1,
+							'pdc':		-1 }
 
 		# Key levels
 		klfilter = False
@@ -1434,12 +1469,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Resistance
 			if ( no_use_resistance == False and buy_signal == True ):
 
-				today			= datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d')
+				today			= date.strftime('%Y-%m-%d')
 				cur_price		= float( pricehistory['candles'][idx]['close'] )
 				resistance_signal	= True
 
 				# PDC
-				prev_day_close = 0
+				prev_day_close = -1
 				if ( today in pdc ):
 					prev_day_close = pdc[today]['pdc']
 

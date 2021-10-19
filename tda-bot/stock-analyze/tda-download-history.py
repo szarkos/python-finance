@@ -16,7 +16,7 @@ parser.add_argument("--chart_freq", help='Frequency of chart data (daily, weekly
 parser.add_argument("--period_type", help='Period type (typicaly "year")', default='year', type=str)
 parser.add_argument("--periods", help='Number of periods (Default: 2)', default='2', type=str)
 parser.add_argument("--extended_hours", help='Obtain extended trading hour data if available', action="store_true")
-parser.add_argument("--ofile", help='File to output', default=None, type=str)
+parser.add_argument("--odir", help='Directory to store output files', default=None, type=str)
 args = parser.parse_args()
 
 # Log into TDA
@@ -44,8 +44,8 @@ freq	= '1'
 
 if ( args.chart_freq == 'weekly' ):
 	f_type = 'weekly'
-elif ( args.chart_freq == 'yearly' ):
-	f_type = 'yearly'
+elif ( args.chart_freq == 'daily' ):
+	f_type = 'daily'
 else:
 	print('Error: unknown chart frequency "' + str(args.chart_freq) + '"', file=sys.stderr)
 	sys.exit(1)
@@ -53,6 +53,8 @@ else:
 
 # Iterate over tickers and download data from TDA
 for ticker in args.stocks.split(','):
+	print('Downloading ' + str(args.chart_freq) + ' data for ticker ' + str(ticker))
+	time.sleep(1) # Try to avoid throttling
 
 	data_ph	= []
 	ep	= []
@@ -73,27 +75,29 @@ for ticker in args.stocks.split(','):
 		sys.exit(1)
 
 	# Dump pickle data if requested
-	if ( args.ofile != None ):
+	if ( args.odir != None ):
+		outfile = args.odir + '/' + str(ticker) + '-weekly-2019-2021'
 		try:
-			file = open(args.ofile + '.pickle', "wb")
+			file = open(str(outfile) + '.pickle', "wb")
 			pickle.dump(data_ph, file)
 			file.close()
 
 		except Exception as e:
-			print('Error: Unable to write to file ' + str(args.ofile) + ': ' + str(e))
+			print('Error: Unable to write to file ' + str(outfile) + '.pickle: ' + str(e))
 			sys.exit(1)
 
 		try:
-			file = open(args.ofile + '.json', 'wt')
-			json.dump(data_ph, file)
+			file = open(str(outfile) + '.json', 'wt')
+			data_ph = json.dumps(data_ph, indent=4)
+			print(data_ph, file=file, flush=True)
 			file.close()
 
 		except Exception as e:
-			print('Error: Unable to write to file ' + str(args.ofile) + ': ' + str(e))
+			print('Error: Unable to write to file ' + str(outfile) + '.json: ' + str(e))
 			sys.exit(1)
 
 	else:
-		# If no ofile then dump the data to the screen I guess
+		# If no odir then dump the data to the screen I guess
 		data_ph = json.dumps(data_ph, indent=4)
 		print(data_ph)
 

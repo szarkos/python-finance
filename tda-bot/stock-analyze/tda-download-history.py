@@ -64,6 +64,7 @@ for ticker in args.stocks.split(','):
 		data_ph, ep = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, needExtendedHoursData=args.extended_hours)
 		if ( isinstance(data_ph, bool) and data_ph == False ):
 			print('Error: get_pricehistory(' + str(ticker) + '): attempt ' + str(tries) + ' returned False, retrying...', file=sys.stderr)
+			tda_gobot_helper.tdalogin(passcode)
 			time.sleep(5)
 		else:
 			break

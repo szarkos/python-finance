@@ -43,7 +43,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--stocks", help='Stock ticker(s) to watch (comma delimited). Max supported tickers supported by TDA: 300', required=True, type=str)
 parser.add_argument("--stock_usd", help='Amount of money (USD) to invest per trade', default=1000, type=float)
 parser.add_argument("--algos", help='Algorithms to use, comma delimited. Supported options: stochrsi, rsi, adx, dmi, macd, aroonosc, vwap, vpt, support_resistance (Example: --algos=stochrsi,adx --algos=stochrsi,macd)', required=True, nargs="*", action='append', type=str)
-parser.add_argument("--algo_valid_tickers", help='Tickers to use with a particular algorithm (Example: --algo_valid_tickers=algo_id:MSFT,AAPL). If unset all tickers will be used for all algos. Also requires setting "algo_id:algo_name" with --algos=.', action='append', type=str)
+parser.add_argument("--algo_valid_tickers", help='Tickers to use with a particular algorithm (Example: --algo_valid_tickers=algo_id:MSFT,AAPL). If unset all tickers will be used for all algos. Also requires setting "algo_id:algo_name" with --algos=.', action='append', default=None, type=str)
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
 parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX_LOGS', default='TX_LOGS', type=str)
@@ -277,7 +277,6 @@ for algo in args.algos:
 	chop_low_limit		= args.chop_low_limit
 	chop_high_limit		= args.chop_high_limit
 
-	supertrend		= args.supertrend
 	supertrend_atr_period	= args.supertrend_atr_period
 	supertrend_min_natr	= args.supertrend_min_natr
 
@@ -473,26 +472,27 @@ del(chop_period,chop_low_limit,chop_high_limit,supertrend_atr_period,supertrend_
 del(min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr)
 
 # Set valid tickers for each algo, if configured
-for algo in args.algo_valid_tickers:
-	try:
-		algo_id, tickers = algo.split(':')
+if ( args.algo_valid_tickers != None ):
+	for algo in args.algo_valid_tickers:
+		try:
+			algo_id, tickers = algo.split(':')
 
-	except Exception as e:
-		print('Caught exception: error setting algo_valid_tickers (' + str(algo) + '), exiting.', file=sys.stderr)
-		sys.exit(1)
+		except Exception as e:
+			print('Caught exception: error setting algo_valid_tickers (' + str(algo) + '), exiting.', file=sys.stderr)
+			sys.exit(1)
 
-	valid_ids = [ a['algo_id'] for a in algos ]
-	if ( algo_id in valid_ids ):
-		for a in algos:
-			if ( a['algo_id'] == algo_id ):
-				a['valid_tickers'] = a['valid_tickers'] + tickers.split(',')
+		valid_ids = [ a['algo_id'] for a in algos ]
+		if ( algo_id in valid_ids ):
+			for a in algos:
+				if ( a['algo_id'] == algo_id ):
+					a['valid_tickers'] = a['valid_tickers'] + tickers.split(',')
 
-		# Append this list to the global stock list (duplicates will be filtered later)
-		args.stocks = str(args.stocks) + ',' + str(tickers)
+			# Append this list to the global stock list (duplicates will be filtered later)
+			args.stocks = str(args.stocks) + ',' + str(tickers)
 
-	else:
-		print('Error: algo_id not found in algos{}. Valid algos: (' + str(valid_ids) + '), exiting.', file=sys.stderr)
-		sys.exit(1)
+		else:
+			print('Error: algo_id not found in algos{}. Valid algos: (' + str(valid_ids) + '), exiting.', file=sys.stderr)
+			sys.exit(1)
 
 # Initialize stocks{}
 stock_list = args.stocks.split(',')
@@ -1171,15 +1171,15 @@ while True:
 		continue
 
 	# Call read_stream():stream_client.handle_message() to read from the stream continuously
-	try:
-		asyncio.run(read_stream())
+#	try:
+	asyncio.run(read_stream())
 
-	except KeyboardInterrupt:
-		graceful_exit(None, None)
-		sys.exit(0)
-
-	except Exception as e:
-		print('Exception caught: read_stream(): ' + str(e) + ': retrying...')
+#	except KeyboardInterrupt:
+#		graceful_exit(None, None)
+#		sys.exit(0)
+#
+#	except Exception as e:
+#		print('Exception caught: read_stream(): ' + str(e) + ': retrying...')
 
 
 sys.exit(0)

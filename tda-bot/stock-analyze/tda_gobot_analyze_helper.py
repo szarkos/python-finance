@@ -274,6 +274,31 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	del(open_p, high, low, close, volume, newcandle)
 
+	# Daily candles
+	if ( daily_ph == None ):
+
+		# get_pricehistory() variables
+		p_type	= 'year'
+		period	= '2'
+		freq	= '1'
+		f_type	= 'daily'
+
+		tries	= 0
+		while ( tries < 3 ):
+			daily_ph, ep = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, needExtendedHoursData=False)
+			if ( isinstance(daily_ph, bool) and daly_ph == False ):
+				print('Error: daily get_pricehistory(' + str(ticker) + '): attempt ' + str(tries) + ' returned False, retrying...', file=sys.stderr)
+				time.sleep(5)
+			else:
+				break
+
+			tries += 1
+
+		if ( isinstance(daily_ph, bool) and daly_ph == False ):
+			print('Error: get_pricehistory(' + str(ticker) + '): unable to retrieve daily data, exiting...', file=sys.stderr)
+			sys.exit(1)
+
+
 	# Get stochastic RSI/MFI
 	stochrsi	= []
 	rsi_k		= []
@@ -387,25 +412,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		return False
 
 	# Daily ATR/NATR
-	if ( daily_ph == None ):
-
-		# get_pricehistory() variables
-		p_type	= 'year'
-		period	= '2'
-		freq	= '1'
-		f_type	= 'daily'
-
-		tries	= 0
-		while ( tries < 3 ):
-			daily_ph, ep = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, needExtendedHoursData=False)
-			if ( isinstance(daily_ph, bool) and daly_ph == False ):
-				print('Error: get_pricehistory(' + str(ticker) + '): attempt ' + str(tries) + ' returned False, retrying...', file=sys.stderr)
-				time.sleep(5)
-			else:
-				break
-
-			tries += 1
-
 	atr_d	= []
 	natr_d	= []
 	try:
@@ -614,38 +620,24 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 		# Day stats
 		pdc = OrderedDict()
-		for key in pricehistory['candles']:
+		for key in daily_ph['candles']:
 
-			today = datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone)
-			time = today.strftime('%H:%M')
+			today		= datetime.fromtimestamp(int(key['datetime'])/1000, tz=mytimezone)
+			yesterday	= today - timedelta(days=1)
+			yesterday	= tda_gobot_helper.fix_timestamp(yesterday, check_day_only=True)
 
-			yesterday = today - timedelta(days=1)
-			yesterday = tda_gobot_helper.fix_timestamp(yesterday)
+			today		= today.strftime('%Y-%m-%d')
+			yesterday	= yesterday.strftime('%Y-%m-%d')
 
-			today = today.strftime('%Y-%m-%d')
-			yesterday = yesterday.strftime('%Y-%m-%d')
-
-			if ( today not in pdc ):
-				pdc[today] = {  'open':		0,
-						'high':		0,
-						'low':		100000,
-						'close':	0,
-						'pdc':		0 }
+			pdc[today] = {  'open':		float( key['open'] ),
+					'high':		float( key['high'] ),
+					'low':		float( key['low'] ),
+					'close':	float( key['close'] ),
+					'volume':	int( key['volume'] ),
+					'pdc':		0 }
 
 			if ( yesterday in pdc ):
 				pdc[today]['pdc'] = float(pdc[yesterday]['close'])
-
-			if ( float(key['close']) > pdc[today]['high'] ):
-				pdc[today]['high'] = float(key['close'])
-
-			if ( float(key['close']) < pdc[today]['low'] ):
-				pdc[today]['low'] = float(key['close'])
-
-			if ( time == '09:30'):
-				pdc[today]['open'] = float(key['open'])
-
-			elif ( time == '16:00'):
-				pdc[today]['close'] = float(key['close'])
 
 		# Key levels
 		klfilter = False
@@ -1545,7 +1537,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 							# If average was below key level then key level is resistance
 							# Therefore this is not a great buy
-							if ( avg < lvl ):
+							if ( avg < lvl or abs((avg / lvl - 1) * 100) <= price_resistance_pct / 3 ):
 								resistance_signal = False
 								break
 
@@ -2104,6 +2096,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 						natr_resistance = ((cur_natr_daily / natr_mod) / 100 + 1) * prev_day_close - prev_day_close
 						natr_resistance = prev_day_close - natr_resistance
+
 						if ( cur_price < natr_resistance and short_signal == True ):
 							if ( cur_rsi_k < cur_rsi_d and cur_rsi_d - cur_rsi_k < 12 ):
 								resistance_signal = False
@@ -2178,8 +2171,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							avg = avg / 15
 
 							# If average was above key level then key level is support
-							# Therefore this is not a good short
-							if ( avg > lvl ):
+							# If average is still within 1/2 of price_resistance_pct then it is also still risky
+							if ( avg > lvl or abs((avg / lvl - 1) * 100) <= price_resistance_pct / 3 ):
 								resistance_signal = False
 								break
 

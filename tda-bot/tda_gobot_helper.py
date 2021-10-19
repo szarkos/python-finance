@@ -80,7 +80,7 @@ def isnewday():
 
 # Returns True the US markets are open
 # Nasdaq and NYSE open at 9:30AM and close at 4:00PM, Monday-Friday
-def ismarketopen_US(date=None, safe_open=False):
+def ismarketopen_US(date=None, safe_open=False, check_day_only=False):
 	eastern = timezone('US/Eastern') # Observes EST and EDT
 
 	if ( date == None ):
@@ -119,6 +119,8 @@ def ismarketopen_US(date=None, safe_open=False):
 
 	if ( est_time.strftime('%Y-%m-%d') ) in holidays:
 		return False
+	elif ( check_day_only == True ):
+		return True
 
 	if ( int(est_time.strftime('%w')) != 0 and int(est_time.strftime('%w')) != 6 ): # 0=Sunday, 6=Saturday
 		if ( int(est_time.strftime('%-H')) >= 9 ):
@@ -658,7 +660,7 @@ def get_quotes(stock=None):
 # Fix the timestamp for get_pricehistory()
 # TDA API is very picky and may reject requests with timestamps that are
 #  outside normal or extended hours
-def fix_timestamp(date=None, debug=False):
+def fix_timestamp(date=None, check_day_only=False, debug=False):
 
 	if ( date == None or isinstance(date, datetime) == False ):
 		return None
@@ -679,7 +681,7 @@ def fix_timestamp(date=None, debug=False):
 		date = date - timedelta( days=2 )
 	elif ( day == 6 ):
 		date = date - timedelta( days=1 )
-	elif ( day == 1 and ismarketopen_US(date) == False ):
+	elif ( day == 1 and ismarketopen_US(date=date, check_day_only=check_day_only) == False ):
 		# It Monday, but market is closed (i.e. Labor Day),
 		#  move timestamp back to previous Friday
 		date = date - timedelta( days=3 )

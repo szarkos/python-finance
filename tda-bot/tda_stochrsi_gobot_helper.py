@@ -1236,7 +1236,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 							# If average was below key level then key level is resistance
 							# Therefore this is not a great buy
-							if ( avg < lvl ):
+							if ( avg < lvl or abs((avg / lvl - 1) * 100) <= price_resistance_pct / 3 ):
 								if ( debug == True and stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
 									print( '(' + str(ticker) + ') BUY SIGNAL stalled due to Key Level resistance - KL: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
 
@@ -1917,7 +1917,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 							# If average was above key level then key level is support
 							# Therefore this is not a good short
-							if ( avg > lvl ):
+							if ( avg > lvl or abs((avg / lvl - 1) * 100) <= price_resistance_pct / 3 ):
 								if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True and debug == True ):
 									print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to Key Level resistance - KL: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
 

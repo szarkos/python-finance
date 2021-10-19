@@ -11,11 +11,11 @@ import tda_gobot_helper
 def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 
 	if not isinstance(stream, dict):
-		print('Error:')
+		print('Error: stochrsi_gobot_run() called without valid stream{} data.', file=sys.stderr)
 		return False
 
 	if not isinstance(algos, list):
-		print('Error:')
+		print('Error: stochrsi_gobot_run() called without valid algos[] list', file=sys.stderr)
 		return False
 
 	# Example stream:
@@ -126,7 +126,7 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 	for algo_list in algos:
 		ret = stochrsi_gobot( cur_algo=algo_list, debug=debug )
 		if ( ret == False ):
-			print('Error: stochrsi_gobot_start(): stochrsi_gobot(' + str(algo) + '): returned False')
+			print('Error: stochrsi_gobot_start(): stochrsi_gobot(' + str(algo) + '): returned False', file=sys.stderr)
 
 	return True
 
@@ -217,7 +217,7 @@ def export_pricehistory():
 				pickle.dump(stocks[ticker]['pricehistory'], handle)
 
 		except Exception as e:
-			print('Error: Unable to write to file ' + str(fname) + ': ' + str(e))
+			print('Warning: Unable to write to file ' + str(fname) + ': ' + str(e), file=sys.stderr)
 			pass
 
 		# Export 5-minute pricehistory
@@ -227,7 +227,7 @@ def export_pricehistory():
 				pickle.dump(stocks[ticker]['pricehistory_5m'], handle)
 
 		except Exception as e:
-			print('Error: Unable to write to file ' + str(fname) + ': ' + str(e))
+			print('Warning: Unable to write to file ' + str(fname) + ': ' + str(e), file=sys.stderr)
 			pass
 
 	return True
@@ -238,8 +238,18 @@ def export_pricehistory():
 def stochrsi_gobot( cur_algo=None, debug=False ):
 
 	if not isinstance(cur_algo, dict):
-		print('Error:')
+		print('Error: stochrsi_gobot() called without valid cur_algo parameter, stochrsi_gobot() cannot continue.', file=sys.stderr)
 		return False
+
+	else:
+		# Make sure cur_algo contains an algo_id, which is needed foe the indicator
+		#  signals and used everywhere.
+		try:
+			algo_id	= cur_algo['algo_id']
+
+		except Exception as e:
+			print('Error: algo_id not found in cur_algo dictionary, stochrsi_gobot() cannot continue.', file=sys.stderr)
+			return False
 
 	# Exit of there are no more tickers marked as valid
 	valid = 0
@@ -448,7 +458,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				return False
 
 		except Exception as e:
-			print('Error: stochrsi_gobot(): get_stochrsi(' + str(ticker) + '): ' + str(e))
+			print('Error: stochrsi_gobot(): get_stochrsi(' + str(ticker) + '): ' + str(e), file=sys.stderr)
 
 		if ( isinstance(stochrsi, bool) and stochrsi == False ):
 			print('Error: stochrsi_gobot(): get_stochrsi(' + str(ticker) + ') returned false - no data', file=sys.stderr)
@@ -471,7 +481,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 												 rsi_k_period=cur_algo['rsi_k_5m_period'], rsi_d_period=cur_algo['rsi_d_period'], debug=False )
 
 			except Exception as e:
-				print('Error: stochrsi_gobot(): get_stochrsi(' + str(ticker) + '): ' + str(e))
+				print('Error: stochrsi_gobot(): get_stochrsi(' + str(ticker) + '): ' + str(e), file=sys.stderr)
 
 			if ( isinstance(stochrsi_5m, bool) and stochrsi_5m == False ):
 				print('Error: stochrsi_gobot(): get_stochrsi(' + str(ticker) + ') returned false - no data', file=sys.stderr)
@@ -491,7 +501,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 									      slow_period=cur_algo['mfi_slow'], mfi_d_period=cur_algo['mfi_d_period'], debug=False )
 
 			except Exception as e:
-				print('Error: stochrsi_gobot(): get_stochmfi(' + str(ticker) + '): ' + str(e))
+				print('Error: stochrsi_gobot(): get_stochmfi(' + str(ticker) + '): ' + str(e), file=sys.stderr)
 
 			if ( isinstance(mfi_k, bool) and mfi_k == False ):
 				print('Error: stochrsi_gobot(): get_stochmfi(' + str(ticker) + ') returned false - no data', file=sys.stderr)
@@ -511,7 +521,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 										    slow_period=cur_algo['mfi_slow'], mfi_d_period=cur_algo['mfi_d_period'], debug=False )
 
 			except Exception as e:
-				print('Error: stochrsi_gobot(): get_stochmfi(' + str(ticker) + '): ' + str(e))
+				print('Error: stochrsi_gobot(): get_stochmfi(' + str(ticker) + '): ' + str(e), file=sys.stderr)
 
 			if ( isinstance(mfi_k_5m, bool) and mfi_k_5m == False ):
 				print('Error: stochrsi_gobot(): get_stochmfi(' + str(ticker) + ') returned false - no data', file=sys.stderr)
@@ -531,7 +541,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				rsi = tda_gobot_helper.get_rsi(stocks[ticker]['pricehistory'], t_rsi_period, rsi_type, debug=False)
 
 			except Exception as e:
-				print('Error: stochrsi_gobot(): get_rsi(' + str(ticker) + '): ' + str(e))
+				print('Error: stochrsi_gobot(): get_rsi(' + str(ticker) + '): ' + str(e), file=sys.stderr)
 
 			if ( isinstance(rsi, bool) and rsi == False ):
 				print('Error: stochrsi_gobot(): get_rsi(' + str(ticker) + ') returned false - no data', file=sys.stderr)
@@ -547,7 +557,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			atr, natr = tda_gobot_helper.get_atr( pricehistory=stocks[ticker]['pricehistory_5m'], period=cur_algo['atr_period'] )
 
 		except Exception as e:
-			print('Error: stochrsi_gobot(' + str(ticker) + '): get_atr(): ' + str(e))
+			print('Error: stochrsi_gobot(' + str(ticker) + '): get_atr(): ' + str(e), file=sys.stderr)
 			continue
 
 		stocks[ticker]['cur_atr']  = float( atr[-1] )
@@ -563,7 +573,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				mfi = tda_gobot_helper.get_mfi(stocks[ticker]['pricehistory'], period=t_mfi_period)
 
 			except Exception as e:
-				print('Error: stochrsi_gobot(' + str(ticker) + '): get_mfi(): ' + str(e))
+				print('Error: stochrsi_gobot(' + str(ticker) + '): get_mfi(): ' + str(e), file=sys.stderr)
 				continue
 
 			stocks[ticker]['cur_mfi']  = float( mfi[-1] )
@@ -584,7 +594,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				adx, plus_di_adx, minus_di_adx = tda_gobot_helper.get_adx(stocks[ticker]['pricehistory'], period=t_adx_period)
 
 			except Exception as e:
-				print('Error: stochrsi_gobot(' + str(ticker) + '): get_adx(): ' + str(e))
+				print('Error: stochrsi_gobot(' + str(ticker) + '): get_adx(): ' + str(e), file=sys.stderr)
 				continue
 
 			stocks[ticker]['cur_adx']	= float( adx[-1] )
@@ -609,7 +619,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				aroonosc = tda_gobot_helper.get_aroon_osc(stocks[ticker]['pricehistory'], period=t_aroonosc_period)
 
 			except Exception as e:
-				print('Error: stochrsi_gobot(): get_aroon_osc(' + str(ticker) + '): ' + str(e))
+				print('Error: stochrsi_gobot(): get_aroon_osc(' + str(ticker) + '): ' + str(e), file=sys.stderr)
 				continue
 
 			stocks[ticker]['cur_aroonosc'] = float( aroonosc[-1] )
@@ -634,7 +644,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				macd, macd_avg, macd_histogram = tda_gobot_helper.get_macd(stocks[ticker]['pricehistory'], short_period=t_macd_short_period, long_period=t_macd_long_period, signal_period=t_macd_signal_period)
 
 			except Exception as e:
-				print('Error: stochrsi_gobot(): get_macd(' + str(ticker) + '): ' + str(e))
+				print('Error: stochrsi_gobot(): get_macd(' + str(ticker) + '): ' + str(e), file=sys.stderr)
 				continue
 
 			stocks[ticker]['cur_macd']	= float( macd[-1] )
@@ -649,7 +659,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				chop = tda_gobot_helper.get_chop_index(stocks[ticker]['pricehistory'], period=cur_algo['chop_period'])
 
 			except Exception as e:
-				print('Error: stochrsi_gobot(): get_chop_index' + str(ticker) + '): ' + str(e))
+				print('Error: stochrsi_gobot(): get_chop_index' + str(ticker) + '): ' + str(e), file=sys.stderr)
 				continue
 
 			stocks[ticker]['cur_chop']	= float( chop[-1] )
@@ -662,7 +672,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				supertrend = tda_gobot_helper.get_supertrend(pricehistory=stocks[ticker]['pricehistory'], atr_period=cur_algo['supertrend_atr_period'])
 
 			except Exception as e:
-				print('Error: stochrsi_gobot(): get_supertrend' + str(ticker) + '): ' + str(e))
+				print('Error: stochrsi_gobot(): get_supertrend' + str(ticker) + '): ' + str(e), file=sys.stderr)
 
 			stocks[ticker]['cur_supertrend']	= float( supertrend[-1] )
 			stocks[ticker]['prev_supertrend']	= float( supertrend[-2] )
@@ -677,7 +687,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				vwap, vwap_up, vwap_down = tda_gobot_helper.get_vwap( stocks[ticker]['pricehistory'] )
 
 			except Exception as e:
-				print('Error: stochrsi_gobot(): get_vwap(' + str(ticker) + '): ' + str(e))
+				print('Error: stochrsi_gobot(): get_vwap(' + str(ticker) + '): ' + str(e), file=sys.stderr)
 
 			stocks[ticker]['cur_vwap']	= float( vwap[-1] )
 			stocks[ticker]['cur_vwap_up']	= float( vwap_up[-1] )
@@ -693,7 +703,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				vpt, vpt_sma = tda_gobot_helper.get_vpt(stocks[ticker]['pricehistory'], period=t_vpt_sma_period)
 
 			except Exception as e:
-				print('Error: stochrsi_gobot(): get_vpt(' + str(ticker) + '): ' + str(e))
+				print('Error: stochrsi_gobot(): get_vpt(' + str(ticker) + '): ' + str(e), file=sys.stderr)
 
 			stocks[ticker]['cur_vpt']	= float( vpt[-1] )
 			stocks[ticker]['prev_vpt']	= float( vpt[-2] )
@@ -804,7 +814,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			args.singleday = False
 
 		# Set some short variables to improve readability :)
-		algo_id			= cur_algo['algo_id']
 		signal_mode		= stocks[ticker]['algo_signals'][algo_id]['signal_mode']
 
 		# StochRSI
@@ -1227,7 +1236,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 							# If average was below key level then key level is resistance
 							# Therefore this is not a great buy
-							if ( avg < lvl ):
+							if ( avg < lvl or abs((avg / lvl - 1) * 100) <= price_resistance_pct / 3 ):
 								if ( debug == True and stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
 									print( '(' + str(ticker) + ') BUY SIGNAL stalled due to Key Level resistance - KL: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
 
@@ -1407,7 +1416,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				tda_gobot_helper.tdalogin(passcode)
 				last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
 				if ( isinstance(last_price, bool) and last_price == False ):
-					print('Error: get_lastprice(' + str(ticker) + ') returned False, falling back to latest candle')
+					print('Warning: get_lastprice(' + str(ticker) + ') returned False, falling back to latest candle')
 					last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 
 			net_change = round( (last_price - stocks[ticker]['orig_base_price']) * stocks[ticker]['stock_qty'], 3 )
@@ -1908,7 +1917,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 							# If average was above key level then key level is support
 							# Therefore this is not a good short
-							if ( avg > lvl ):
+							if ( avg > lvl or abs((avg / lvl - 1) * 100) <= price_resistance_pct / 3 ):
 								if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True and debug == True ):
 									print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to Key Level resistance - KL: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
 
@@ -2104,7 +2113,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				tda_gobot_helper.tdalogin(passcode)
 				last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
 				if ( isinstance(last_price, bool) and last_price == False ):
-					print('Error: get_lastprice(' + str(ticker) + ') returned False, falling back to latest candle')
+					print('Warning: get_lastprice(' + str(ticker) + ') returned False, falling back to latest candle')
 					last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 
 			net_change = round( (last_price - stocks[ticker]['orig_base_price']) * stocks[ticker]['stock_qty'], 3 )
@@ -2311,7 +2320,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 		# Undefined mode - this shouldn't happen
 		else:
-			print('Error: undefined signal_mode: ' + str(signal_mode))
+			print('Error: undefined signal_mode: ' + str(signal_mode), file=sys.stderr)
 
 		print() # Make debug log easier to read
 
@@ -2330,7 +2339,7 @@ def sell_stocks():
 
 	# Make sure we are logged into TDA
 	if ( tda_gobot_helper.tdalogin(passcode) != True ):
-		print('Error: sell_stocks(): tdalogin(): login failure')
+		print('Error: sell_stocks(): tdalogin(): login failure', file=sys.stderr)
 		return False
 
 	# Run through the stocks we are watching and sell/buy-to-cover any open positions

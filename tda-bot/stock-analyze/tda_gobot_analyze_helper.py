@@ -286,7 +286,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		tries	= 0
 		while ( tries < 3 ):
 			daily_ph, ep = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, needExtendedHoursData=False)
-			if ( isinstance(daily_ph, bool) and daly_ph == False ):
+			if ( isinstance(daily_ph, bool) and daily_ph == False ):
 				print('Error: daily get_pricehistory(' + str(ticker) + '): attempt ' + str(tries) + ' returned False, retrying...', file=sys.stderr)
 				time.sleep(5)
 			else:
@@ -294,8 +294,39 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			tries += 1
 
-		if ( isinstance(daily_ph, bool) and daly_ph == False ):
+		if ( isinstance(daily_ph, bool) and daily_ph == False ):
 			print('Error: get_pricehistory(' + str(ticker) + '): unable to retrieve daily data, exiting...', file=sys.stderr)
+			sys.exit(1)
+
+	# Weekly candles
+	if ( weekly_ph == None ):
+
+		# get_pricehistory() variables
+		p_type	= 'year'
+		period	= '2'
+		freq	= '1'
+		f_type	= 'weekly'
+
+		if ( keylevel_use_daily == True ):
+			f_type = 'daily'
+
+			klfilter = True
+			if ( keylevel_strict == True ):
+				klfilter = False
+
+		tries = 0
+		while ( tries < 3 ):
+			weekly_ph, ep = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, needExtendedHoursData=False)
+			if ( isinstance(weekly_ph, bool) and weekly_ph == False ):
+				print('Error: get_pricehistory(' + str(ticker) + '): attempt ' + str(tries) + ' returned False, retrying...', file=sys.stderr)
+				time.sleep(5)
+			else:
+				break
+
+			tries += 1
+
+		if ( isinstance(weekly_ph, bool) and weekly_ph == False ):
+			print('Error: get_pricehistory(' + str(ticker) + '): unable to retrieve weekly data, exiting...', file=sys.stderr)
 			sys.exit(1)
 
 
@@ -641,32 +672,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 		# Key levels
 		klfilter = False
-		if ( weekly_ph == None ):
-
-			# get_pricehistory() variables
-			p_type = 'year'
-			period = '2'
-			freq = '1'
-			f_type = 'weekly'
-
-			if ( keylevel_use_daily == True ):
-				f_type = 'daily'
-
-				klfilter = True
-				if ( keylevel_strict == True ):
-					klfilter = False
-
-			tries = 0
-			while ( tries < 3 ):
-				weekly_ph, ep = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, needExtendedHoursData=False)
-				if ( isinstance(weekly_ph, bool) and weekly_ph == False ):
-					print('Error: get_pricehistory(' + str(ticker) + '): attempt ' + str(tries) + ' returned False, retrying...', file=sys.stderr)
-					time.sleep(5)
-				else:
-					break
-
-				tries += 1
-
 		long_support, long_resistance = tda_gobot_helper.get_keylevels(weekly_ph, filter=klfilter)
 
 		# Three/Twenty week high/low

@@ -77,7 +77,7 @@ for ticker in args.stocks.split(','):
 
 	# Dump pickle data if requested
 	if ( args.odir != None ):
-		outfile = args.odir + '/' + str(ticker) + '-weekly-2019-2021'
+		outfile = args.odir + '/' + str(ticker) + '-' + str(f_type) + '-2019-2021'
 		try:
 			file = open(str(outfile) + '.pickle', "wb")
 			pickle.dump(data_ph, file)

@@ -718,10 +718,15 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				' / High Limit|Low Limit: ' + str(cur_algo['rsi_high_limit']) + '|' + str(cur_algo['rsi_low_limit']) )
 
 			# StochRSI
-			print('(' + str(ticker) + ') Current StochRSI K: ' + str(round(stocks[ticker]['cur_rsi_k'], 2)) +
+			print( '(' + str(ticker) + ') Current StochRSI K: ' + str(round(stocks[ticker]['cur_rsi_k'], 2)) +
 						' / Previous StochRSI K: ' + str(round(stocks[ticker]['prev_rsi_k'], 2)))
-			print('(' + str(ticker) + ') Current StochRSI D: ' + str(round(stocks[ticker]['cur_rsi_d'], 2)) +
+			print( '(' + str(ticker) + ') Current StochRSI D: ' + str(round(stocks[ticker]['cur_rsi_d'], 2)) +
 						' / Previous StochRSI D: ' + str(round(stocks[ticker]['prev_rsi_d'], 2)))
+			print( '(' + str(ticker) + ') Primary Stochastic Signals: ' +
+						str(stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal']) + ' / ' +
+						str(stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal']) + ' / ' +
+						str(stocks[ticker]['algo_signals'][algo_id]['stochrsi_threshold_signal']) + ' / ' +
+						str(stocks[ticker]['algo_signals'][algo_id]['buy_signal']) )
 
 			# RSI
 			if ( cur_algo['rsi'] == True ):
@@ -794,7 +799,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							' / Previous VPT_SMA: ' + str(round(stocks[ticker]['prev_vpt_sma'], 2)) +
 							' / VPT Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['vpt_signal']) )
 
-			print('(' + str(ticker) + ') Period Multiplier: ' + str(stocks[ticker]['period_multiplier']))
+			# Signal mode and multiplier
+			print( '(' + str(ticker) + ') Signal Mode: ' + str(stocks[ticker]['algo_signals'][algo_id]['signal_mode']) +
+							' / Period Multiplier: ' + str(stocks[ticker]['period_multiplier']) )
 
 			# Timestamp check
 			print('(' + str(ticker) + ') Time now: ' + time_now.strftime('%Y-%m-%d %H:%M:%S') +
@@ -919,7 +926,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				stocks[ticker]['algo_signals'][algo_id]['signal_mode'] = 'short'
 				signal_mode = 'short'
 
-			if (args.short == False ):
+			elif ( args.shortonly == False and args.short == False ):
 				stocks[ticker]['algo_signals'][algo_id]['signal_mode'] = 'buy'
 				signal_mode = 'buy'
 
@@ -937,16 +944,16 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				continue
 
 			# PRIMARY STOCHRSI MONITOR
-			stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal'],
-			stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal'],
-			stocks[ticker]['algo_signals'][algo_id]['stochrsi_threshold_signal'],
-			stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = get_stoch_signal_long( 'StochRSI', ticker,
-													cur_rsi_k, cur_rsi_d, prev_rsi_k, prev_rsi_d,
-													cur_algo['stochrsi_offset'],
-													stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal'],
-													stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal'],
-													stocks[ticker]['algo_signals'][algo_id]['stochrsi_threshold_signal'],
-													stocks[ticker]['algo_signals'][algo_id]['buy_signal'] )
+			( stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal'],
+			  stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal'],
+			  stocks[ticker]['algo_signals'][algo_id]['stochrsi_threshold_signal'],
+			  stocks[ticker]['algo_signals'][algo_id]['buy_signal'] ) = get_stoch_signal_long( 'StochRSI', ticker,
+													    cur_rsi_k, cur_rsi_d, prev_rsi_k, prev_rsi_d,
+													    cur_algo['stochrsi_offset'],
+													    stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal'],
+													    stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal'],
+													    stocks[ticker]['algo_signals'][algo_id]['stochrsi_threshold_signal'],
+													    stocks[ticker]['algo_signals'][algo_id]['buy_signal'] )
 
 			# Reset the buy signal if rsi has wandered back above stoch_high_limit
 			if ( cur_rsi_k > stoch_signal_cancel_high_limit ):
@@ -957,10 +964,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# STOCHRSI with 5-minute candles
 			if ( cur_algo['stochrsi_5m'] == True ):
-				stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_crossover_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_threshold_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_final_signal'] = get_stoch_signal_long( 'StochRSI_5m', ticker,
+				( stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_crossover_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_threshold_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_final_signal'] ) = get_stoch_signal_long( 'StochRSI_5m', ticker,
 														cur_rsi_k_5m, cur_rsi_d_5m, prev_rsi_k_5m, prev_rsi_d_5m,
 														cur_algo['stochrsi_5m_offset'],
 														stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_signal'],
@@ -976,10 +983,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# STOCHMFI MONITOR
 			if ( cur_algo['stochmfi'] == True ):
-				stocks[ticker]['algo_signals'][algo_id]['stochmfi_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['stochmfi_crossover_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['stochmfi_threshold_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['stochmfi_final_signal'] = get_stoch_signal_long( 'StochMFI', ticker,
+				( stocks[ticker]['algo_signals'][algo_id]['stochmfi_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['stochmfi_crossover_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['stochmfi_threshold_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['stochmfi_final_signal'] ) = get_stoch_signal_long( 'StochMFI', ticker,
 														cur_mfi_k, cur_mfi_d, prev_mfi_k, prev_mfi_d,
 														cur_algo['stochmfi_offset'],
 														stocks[ticker]['algo_signals'][algo_id]['stochmfi_signal'],
@@ -995,10 +1002,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# STOCHMFI with 5-minute candles
 			if ( cur_algo['stochmfi_5m'] == True ):
-				stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_crossover_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_threshold_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_final_signal'] = get_stoch_signal_long( 'StochMFI_5m', ticker,
+				( stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_crossover_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_threshold_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_final_signal'] ) = get_stoch_signal_long( 'StochMFI_5m', ticker,
 														cur_mfi_k_5m, cur_mfi_d_5m, prev_mfi_k_5m, prev_mfi_d_5m,
 														cur_algo['stochmfi_offset'],
 														stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_signal'],
@@ -1089,11 +1096,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# Chop Index
 			if ( cur_algo['chop_index'] == True or cur_algo['chop_simple'] == True ):
-				stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['chop_signal'] = get_chop_signal( simple=cur_algo['chop_simple'],
-													  prev_chop=prev_chop, cur_chop=cur_chop,
-													  chop_init_signal=stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
-													  chop_signal=stocks[ticker]['algo_signals'][algo_id]['chop_signal'] )
+				( stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['chop_signal'] ) = get_chop_signal(	simple=cur_algo['chop_simple'],
+														prev_chop=prev_chop, cur_chop=cur_chop,
+														chop_init_signal=stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
+														chop_signal=stocks[ticker]['algo_signals'][algo_id]['chop_signal'] )
 
 			# Supertrend Indicator
 			if ( cur_algo['supertrend'] == True ):
@@ -1628,24 +1635,23 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			#  does a full loop again before acting on it.
 			if ( cur_rsi_k < stoch_default_low_limit and cur_rsi_d < stoch_default_low_limit and args.shortonly == False ):
 				print('(' + str(ticker) + ') StochRSI K and D values already below ' + str(stoch_default_low_limit) + ', switching to buy mode.')
-
 				reset_signals(ticker, id=algo_id, signal_mode='buy')
 				continue
 
 			# StochRSI MONITOR
 			# PRIMARY STOCHRSI MONITOR
-			stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal'],
-			stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal'],
-			stocks[ticker]['algo_signals'][algo_id]['stochrsi_threshold_signal'],
-			stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = get_stoch_signal_short( 'StochRSI', ticker,
+			( stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal'],
+			  stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal'],
+			  stocks[ticker]['algo_signals'][algo_id]['stochrsi_threshold_signal'],
+			  stocks[ticker]['algo_signals'][algo_id]['short_signal'] ) = get_stoch_signal_short( 'StochRSI', ticker,
 													cur_rsi_k, cur_rsi_d, prev_rsi_k, prev_rsi_d,
 													cur_algo['stochrsi_offset'],
 													stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal'],
 													stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal'],
 													stocks[ticker]['algo_signals'][algo_id]['stochrsi_threshold_signal'],
-													stocks[ticker]['algo_signals'][algo_id]['buy_signal'] )
+													stocks[ticker]['algo_signals'][algo_id]['short_signal'] )
 
-			# Reset the buy signal if rsi has wandered back below stoch_low_limit
+			# Reset the short signal if rsi has wandered back below stoch_low_limit
 			if ( cur_rsi_k < stoch_signal_cancel_low_limit ):
 				if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True ):
 					print( '(' + str(ticker) + ') SHORT SIGNAL CANCELED: RSI moved back below stoch_low_limit' )
@@ -1654,10 +1660,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# STOCHRSI with 5-minute candles
 			if ( cur_algo['stochrsi_5m'] == True ):
-				stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_crossover_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_threshold_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_final_signal'] = get_stoch_signal_short( 'StochRSI_5m', ticker,
+				( stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_crossover_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_threshold_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_final_signal'] ) = get_stoch_signal_short( 'StochRSI_5m', ticker,
 														cur_rsi_k_5m, cur_rsi_d_5m, prev_rsi_k_5m, prev_rsi_d_5m,
 														cur_algo['stochrsi_5m_offset'],
 														stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_signal'],
@@ -1673,10 +1679,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# STOCHMFI MONITOR
 			if ( cur_algo['stochmfi'] == True ):
-				stocks[ticker]['algo_signals'][algo_id]['stochmfi_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['stochmfi_crossover_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['stochmfi_threshold_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['stochmfi_final_signal'] = get_stoch_signal_short( 'StochMFI', ticker,
+				( stocks[ticker]['algo_signals'][algo_id]['stochmfi_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['stochmfi_crossover_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['stochmfi_threshold_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['stochmfi_final_signal'] ) = get_stoch_signal_short( 'StochMFI', ticker,
 														cur_mfi_k, cur_mfi_d, prev_mfi_k, prev_mfi_d,
 														cur_algo['stochmfi_offset'],
 														stocks[ticker]['algo_signals'][algo_id]['stochmfi_signal'],
@@ -1692,10 +1698,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# STOCHMFI with 5-minute candles
 			if ( cur_algo['stochmfi_5m'] == True ):
-				stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_crossover_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_threshold_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_final_signal'] = get_stoch_signal_short( 'StochMFI_5m', ticker,
+				( stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_crossover_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_threshold_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_final_signal'] ) = get_stoch_signal_short( 'StochMFI_5m', ticker,
 														cur_mfi_k_5m, cur_mfi_d_5m, prev_mfi_k_5m, prev_mfi_d_5m,
 														cur_algo['stochmfi_offset'],
 														stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_signal'],
@@ -1786,11 +1792,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# Chop Index
 			if ( cur_algo['chop_index'] == True or cur_algo['chop_simple'] == True ):
-				stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
-				stocks[ticker]['algo_signals'][algo_id]['chop_signal'] = get_chop_signal( simple=cur_algo['chop_simple'],
-													  prev_chop=prev_chop, cur_chop=cur_chop,
-													  chop_init_signal=stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
-													  chop_signal=stocks[ticker]['algo_signals'][algo_id]['chop_signal'] )
+				( stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['chop_signal'] ) = get_chop_signal(   simple=cur_algo['chop_simple'],
+														prev_chop=prev_chop, cur_chop=cur_chop,
+														chop_init_signal=stocks[ticker]['algo_signals'][algo_id]['chop_init_signal'],
+														chop_signal=stocks[ticker]['algo_signals'][algo_id]['chop_signal'] )
 
 			# Supertrend Indicator
 			if ( cur_algo['supertrend'] == True ):
@@ -1944,7 +1950,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 #					# Current low is within 1% of 20-week low, not a good bet
 #					stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
-			# Resolve the primary stochrsi buy_signal with the secondary indicators
+			# Resolve the primary stochrsi short_signal with the secondary indicators
 			if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True ):
 
 				stochrsi_5m_signal	= stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_final_signal']

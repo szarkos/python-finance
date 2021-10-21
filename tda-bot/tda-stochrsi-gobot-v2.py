@@ -1171,15 +1171,15 @@ while True:
 		continue
 
 	# Call read_stream():stream_client.handle_message() to read from the stream continuously
-#	try:
-	asyncio.run(read_stream())
+	try:
+		asyncio.run(read_stream())
 
-#	except KeyboardInterrupt:
-#		graceful_exit(None, None)
-#		sys.exit(0)
-#
-#	except Exception as e:
-#		print('Exception caught: read_stream(): ' + str(e) + ': retrying...')
+	except KeyboardInterrupt:
+		graceful_exit(None, None)
+		sys.exit(0)
+
+	except Exception as e:
+		print('Exception caught: read_stream(): ' + str(e) + ': retrying...')
 
 
 sys.exit(0)

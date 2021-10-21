@@ -174,6 +174,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	di_period		=	48		if ('di_period' not in params) else params['di_period']
 	adx_period		=	92		if ('adx_period' not in params) else params['adx_period']
 	adx_threshold		=	25		if ('adx_threshold' not in params) else params['adx_threshold']
+	dmi_with_adx		=	False		if ('dmi_with_adx' not in params) else params['dmi_with_adx']
 
 	macd_short_period	=	48		if ('macd_short_period' not in params) else params['macd_short_period']
 	macd_long_period	=	104		if ('macd_long_period' not in params) else params['macd_long_period']
@@ -330,6 +331,52 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			sys.exit(1)
 
 
+	# Average True Range (ATR)
+	# Calculate this first as we might use daily or intraday NATR to modify the indicators below
+	atr	= []
+	natr	= []
+	try:
+		atr, natr = tda_gobot_helper.get_atr( pricehistory=pricehistory_5m, period=atr_period )
+#		atr, natr = tda_gobot_helper.get_atr( pricehistory=pricehistory, period=atr_period )
+
+	except Exception as e:
+		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_atr(): ' + str(e))
+		return False
+
+	# Daily ATR/NATR
+	atr_d	= []
+	natr_d	= []
+	try:
+		atr_d, natr_d = tda_gobot_helper.get_atr( pricehistory=daily_ph, period=daily_atr_period )
+
+	except Exception as e:
+		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_atr(): ' + str(e))
+		return False
+
+	if ( min_ticker_age != None ):
+		if ( len(atr_d) + daily_atr_period < min_ticker_age ):
+			print('Error: ' + str(ticker) + ' appears to be younger than min_ticker_age (' + str(len(atr_d)+daily_atr_period) + '), exiting.')
+			sys.exit(1)
+
+	daily_natr = OrderedDict()
+	for idx in range(-1, -len(atr_d), -1):
+		day = datetime.fromtimestamp(int(daily_ph['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d')
+		if day not in daily_natr:
+			daily_natr[day] = { 'atr': atr_d[idx], 'natr': natr_d[idx] }
+
+	# End ATR
+
+	##################################################################################################################
+	# Experimental
+	if ( experimental == True ):
+		import pattern_helper
+
+		diff_signals = pattern_helper.pattern_differential(pricehistory)
+		anti_diff_signals = pattern_helper.pattern_anti_differential(pricehistory)
+		fib_signals = pattern_helper.pattern_fibonacci_timing(pricehistory)
+	##################################################################################################################
+
+
 	# Get stochastic RSI/MFI
 	stochrsi	= []
 	rsi_k		= []
@@ -432,49 +479,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	except Exception as e:
 		print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_mfi(): ' + str(e))
 
-	# Average True Range (ATR)
-	atr	= []
-	natr	= []
-	try:
-		atr, natr = tda_gobot_helper.get_atr( pricehistory=pricehistory_5m, period=atr_period )
-
-	except Exception as e:
-		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_atr(): ' + str(e))
-		return False
-
-	# Daily ATR/NATR
-	atr_d	= []
-	natr_d	= []
-	try:
-		atr_d, natr_d = tda_gobot_helper.get_atr( pricehistory=daily_ph, period=daily_atr_period )
-
-	except Exception as e:
-		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_atr(): ' + str(e))
-		return False
-
-	if ( min_ticker_age != None ):
-		if ( len(atr_d) + daily_atr_period < min_ticker_age ):
-			print('Error: ' + str(ticker) + ' appears to be younger than min_ticker_age (' + str(len(atr_d)+daily_atr_period) + '), exiting.')
-			sys.exit(1)
-
-	daily_natr = OrderedDict()
-	for idx in range(-1, -len(atr_d), -1):
-		day = datetime.fromtimestamp(int(daily_ph['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d')
-		if day not in daily_natr:
-			daily_natr[day] = { 'atr': atr_d[idx], 'natr': natr_d[idx] }
-
-	# End ATR
-
 	# ADX, +DI, -DI
 	# We now use different periods for adx and plus/minus_di
 	if ( with_dmi == True and with_dmi_simple == True ):
 		with_dmi_simple = False
 
 	adx = []
+	di_adx = []
 	plus_di = []
 	minus_di = []
 	try:
-		adx, plus_di, minus_di = tda_gobot_helper.get_adx(pricehistory, period=di_period)
+		di_adx, plus_di, minus_di = tda_gobot_helper.get_adx(pricehistory, period=di_period)
 		adx, plus_di_adx, minus_di_adx = tda_gobot_helper.get_adx(pricehistory, period=adx_period)
 
 	except Exception as e:
@@ -650,12 +665,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	if ( no_use_resistance == False ):
 
 		# Day stats
+		cur_day_stats = { 'hod': [], 'lod': [], 'counter': 0 }
 
 		# Find the first day from the 1-min pricehistory. We might need this to warn if the PDC
 		#  is not available within the test timeframe.
 		first_day = datetime.fromtimestamp(int(pricehistory['candles'][0]['datetime'])/1000, tz=mytimezone)
 
-		pdc = OrderedDict()
+		day_stats = OrderedDict()
 		for key in daily_ph['candles']:
 
 			today_dt	= datetime.fromtimestamp(int(key['datetime'])/1000, tz=mytimezone)
@@ -665,26 +681,31 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			today		= today_dt.strftime('%Y-%m-%d')
 			yesterday	= yesterday_dt.strftime('%Y-%m-%d')
 
-			pdc[today] = {  'open':		float( key['open'] ),
-					'high':		float( key['high'] ),
-					'low':		float( key['low'] ),
-					'close':	float( key['close'] ),
-					'volume':	int( key['volume'] ),
-					'pdc':		-1
+			day_stats[today] = { 'open':		float( key['open'] ),
+					     'high':		float( key['high'] ),
+					     'low':		float( key['low'] ),
+					     'close':		float( key['close'] ),
+					     'volume':		int( key['volume'] ),
+					     'pdh':		-1,
+					     'pdl':		-1,
+					     'pdc':		-1
 			}
 
-			if ( yesterday in pdc ):
-				pdc[today]['pdc'] = float( pdc[yesterday]['close'] )
+			if ( yesterday in day_stats ):
+				day_stats[today]['pdh'] = float( day_stats[yesterday]['high'] )
+				day_stats[today]['pdl'] = float( day_stats[yesterday]['low'] )
+				day_stats[today]['pdc'] = float( day_stats[yesterday]['close'] )
+
 			else:
 				# This may not be abnormal as daily_ph includes 2-years worth of data, but
 				#   fix_timestamp()->ismarketopen_US() only knows about this years' holidays.
-				pdc[today]['pdc'] = float( key['open'] )
+				day_stats[today]['pdc'] = float( key['open'] )
 
 				# Only warn if the missing PDC data falls within the bounds of the test data
 				if ( today_dt > first_day ):
 					print('Warning: PDC for ' + str(yesterday) + 'not found!')
 
-		# Check pdc[] in case daily history does not match up exactly with 1-min pricehistory
+		# Check day_stats[] in case daily history does not match up exactly with 1-min pricehistory
 		for key in pricehistory['candles']:
 			today_dt	= datetime.fromtimestamp(int(key['datetime'])/1000, tz=mytimezone)
 			yesterday_dt	= today_dt - timedelta(days=1)
@@ -693,17 +714,22 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			today		= today_dt.strftime('%Y-%m-%d')
 			yesterday	= yesterday_dt.strftime('%Y-%m-%d')
 
-			if ( today not in pdc ):
+			if ( today not in day_stats ):
 				try:
-					pdc[today]['pdc'] = pdc[yesterday]['close']
+					day_stats[today]['pdh']		= day_stats[yesterday]['high']
+					day_stats[today]['pdl']		= day_stats[yesterday]['low']
+					pday_stats[today]['pdc']	= day_stats[yesterday]['close']
+
 				except Exception as e:
 					print('Warning: daily and 1-min candles mismatch on ' + str(today))
-					pdc[today] = {  'open':		-1,
-							'high':		-1,
-							'low':		-1,
-							'close':	-1,
-							'volume':	-1,
-							'pdc':		-1 }
+					day_stats[today] = {	'open':		-1,
+								'high':		-1,
+								'low':		-1,
+								'close':	-1,
+								'volume':	-1,
+								'pdh':		-1,
+								'pdl':		-1,
+								'pdc':		-1 }
 
 		# Key levels
 		klfilter = False
@@ -828,7 +854,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	rsi_idx				= len(pricehistory['candles']) - len(rsi)
 	mfi_idx				= len(pricehistory['candles']) - len(mfi)
+
 	adx_idx				= len(pricehistory['candles']) - len(adx)
+	di_adx_idx			= len(pricehistory['candles']) - len(di_adx)
 	di_idx				= len(pricehistory['candles']) - len(plus_di)
 	aroonosc_idx			= len(pricehistory['candles']) - len(aroonosc)
 	aroonosc_alt_idx		= len(pricehistory['candles']) - len(aroonosc_alt)
@@ -907,9 +935,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	default_chop_low_limit		= 38.2
 	default_chop_high_limit		= 61.8
-
-	stochrsi_signal_cancel_low_limit  = 60	# Cancel stochrsi short signal at this level
-	stochrsi_signal_cancel_high_limit = 40	# Cancel stochrsi buy signal at this level
 
 	first_day			= datetime.fromtimestamp(float(pricehistory['candles'][0]['datetime'])/1000, tz=mytimezone)
 	start_day			= first_day + timedelta( days=1 )
@@ -1049,16 +1074,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 
 	##################################################################################################################
-	# Experimental
-	if ( experimental == True ):
-		import pattern_helper
-
-		diff_signals = pattern_helper.pattern_differential(pricehistory)
-		anti_diff_signals = pattern_helper.pattern_anti_differential(pricehistory)
-		fib_signals = pattern_helper.pattern_fibonacci_timing(pricehistory)
-
-
-	##################################################################################################################
 	# Main loop
 	for idx,key in enumerate(pricehistory['candles']):
 
@@ -1119,6 +1134,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		prev_mfi		= mfi[idx - mfi_idx - 1]
 
 		cur_adx			= adx[idx - adx_idx]
+		prev_adx		= adx[idx - adx_idx - 1]
+
+		cur_di_adx		= di_adx[idx - di_adx_idx]
+		prev_di_adx		= di_adx[idx - di_adx_idx - 1]
 		cur_plus_di		= plus_di[idx - di_idx]
 		prev_plus_di		= plus_di[idx - di_idx - 1]
 		cur_minus_di		= minus_di[idx - di_idx]
@@ -1273,6 +1292,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
 			if ( hold_overnight == False and tda_gobot_helper.isendofday(75, date) ):
+
+				# Reset cur_day_stats
+				cur_day_stats = { 'hod': [], 'lod': [], 'counter': 0 }
+
 				reset_signals()
 				continue
 
@@ -1362,11 +1385,30 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				minus_di_crossover = True
 
 			dmi_signal = False
-			if ( cur_plus_di > cur_minus_di ):
-				if ( with_dmi_simple == True ):
-					dmi_signal = True
-				elif ( plus_di_crossover == True ):
-					dmi_signal = True
+			if ( cur_plus_di > cur_minus_di ): # Bullish signal
+				if ( dmi_with_adx == True ):
+
+					# Require that ADX is above cur_minus_di to confirm bullish momentum
+					# If ADX is above both plus/minus DI, then set the DMI signal
+					# IF ADX is only above minus DI, then ADX must be rising
+					if ( cur_di_adx > cur_minus_di and cur_di_adx > cur_plus_di ):
+
+						# Make sure there is some gap between cur_di_adx and cur_plus_di, and
+						#  if not at least make sure di_adx is rising
+						if ( cur_di_adx - cur_plus_di > 6 ):
+							dmi_signal = True
+						elif ( cur_di_adx > prev_di_adx ):
+							dmi_signal = True
+
+					elif ( cur_di_adx > cur_minus_di and cur_di_adx < cur_plus_di ):
+						if ( cur_di_adx > prev_di_adx ):
+							dmi_signal = True
+
+				else:
+					if ( with_dmi_simple == True ):
+						dmi_signal = True
+					elif ( plus_di_crossover == True ):
+						dmi_signal = True
 
 			# Aroon oscillator signals
 			# Values closer to 100 indicate an uptrend
@@ -1475,8 +1517,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				# PDC
 				prev_day_close = -1
-				if ( today in pdc ):
-					prev_day_close = pdc[today]['pdc']
+				if ( today in day_stats ):
+					prev_day_close = day_stats[today]['pdc']
 
 				if ( prev_day_close != 0 ):
 
@@ -1687,7 +1729,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				print('(' + str(ticker) + '): ' + str(signal_mode).upper() + ' / ' + str(time_t) + ' (' + str(pricehistory['candles'][idx]['datetime']) + ')')
 				print('(' + str(ticker) + '): StochRSI K/D: ' + str(round(cur_rsi_k, 3)) + ' / ' + str(round(cur_rsi_d,3)))
 				print('(' + str(ticker) + '): MFI: ' + str(round(cur_mfi, 2)) + ' signal: ' + str(mfi_signal))
-				print('(' + str(ticker) + '): DI+/-: ' + str(round(cur_plus_di, 3)) + ' / ' + str(round(cur_minus_di,3)) + ' signal: ' + str(dmi_signal))
+				print('(' + str(ticker) + '): DI+/-: ' + str(round(cur_plus_di, 3)) + ' / ' + str(round(cur_minus_di,3)) +
+								', Cur/Prev DI_ADX: ' + str(round(cur_di_adx,3)) + ' / ' + str(round(prev_di_adx,3)) + ' signal: ' + str(dmi_signal))
 				print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
 				print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
 				print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
@@ -1921,6 +1964,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
 			if ( hold_overnight == False and tda_gobot_helper.isendofday(75, date) ):
+
+				# Reset cur_day_stats
+				cur_day_stats = { 'hod': [], 'lod': [], 'counter': 0 }
+
 				reset_signals()
 				continue
 
@@ -2007,11 +2054,30 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				minus_di_crossover = True
 
 			dmi_signal = False
-			if ( cur_plus_di < cur_minus_di ):
-				if ( with_dmi_simple == True ):
-					dmi_signal = True
-				elif ( minus_di_crossover == True ):
-					dmi_signal = True
+			if ( cur_plus_di < cur_minus_di ): # Bearish signal
+				if ( dmi_with_adx == True ):
+
+					# Require that ADX is above cur_plus_di to confirm bullish momentum
+					# If ADX is above both plus/minus DI, then set the DMI signal
+					# IF ADX is only above plus DI, then ADX must be rising
+					if ( cur_di_adx > cur_plus_di and cur_di_adx > cur_minus_di ):
+
+						# Make sure there is some gap between cur_di_adx and cur_minus_di, and
+						#  if not at least make sure di_adx is rising
+						if ( cur_di_adx - cur_minus_di > 6 ):
+							dmi_signal = True
+						elif ( cur_di_adx > prev_di_adx ):
+							dmi_signal = True
+
+					elif ( cur_di_adx > cur_plus_di and cur_di_adx < cur_minus_di ):
+						if ( cur_di_adx > prev_di_adx ):
+							dmi_signal = True
+
+				else:
+					if ( with_dmi_simple == True ):
+						dmi_signal = True
+					elif ( plus_di_crossover == True ):
+						dmi_signal = True
 
 			# Aroon oscillator signals
 			# Values closer to -100 indicate a downtrend
@@ -2108,8 +2174,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				# PDC
 				prev_day_close = -1
-				if ( today in pdc ):
-					prev_day_close = pdc[today]['pdc']
+				if ( today in day_stats ):
+					prev_day_close = day_stats[today]['pdc']
 
 				if ( prev_day_close != 0 ):
 
@@ -2321,7 +2387,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				print('(' + str(ticker) + '): ' + str(signal_mode).upper() + ' / ' + str(time_t) + ' (' + str(pricehistory['candles'][idx]['datetime']) + ')')
 				print('(' + str(ticker) + '): StochRSI K/D: ' + str(round(cur_rsi_k, 3)) + ' / ' + str(round(cur_rsi_d,3)))
 				print('(' + str(ticker) + '): MFI: ' + str(round(cur_mfi, 2)) + ' signal: ' + str(mfi_signal))
-				print('(' + str(ticker) + '): DI+/-: ' + str(round(cur_plus_di, 3)) + ' / ' + str(round(cur_minus_di,3)) + ' signal: ' + str(dmi_signal))
+				print('(' + str(ticker) + '): DI+/-: ' + str(round(cur_plus_di, 3)) + ' / ' + str(round(cur_minus_di,3)) +
+								', Cur/Prev DI_ADX: ' + str(round(cur_di_adx,3)) + ' / ' + str(round(prev_di_adx,3)) + ' signal: ' + str(dmi_signal))
 				print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
 				print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
 				print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))

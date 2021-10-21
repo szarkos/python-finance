@@ -41,11 +41,16 @@ parser.add_argument("--price_resistance_pct", help='Resistance indicators will c
 parser.add_argument("--price_support_pct", help='Support indicators will come into effect if price is within this percentage of a known support/resistance line', default=1, type=float)
 parser.add_argument("--use_natr_resistance", help='Enable the daily NATR resistance check', action="store_true")
 parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
+
+# Experimental
 parser.add_argument("--check_ma", help='Tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior', action="store_true")
 parser.add_argument("--check_ma_strict", help='Check SMA and EMA to enable/disable the longing or shorting of stock', action="store_true")
 parser.add_argument("--check_etf_indicators", help='Tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior of key ETFs (SPY, QQQ, DIA)', action="store_true")
 parser.add_argument("--check_etf_indicators_strict", help='Do not allow trade unless the 5-minute SMA/EMA behavior of key ETFs (SPY, QQQ, DIA) agree with direction', action="store_true")
 parser.add_argument("--etf_tickers", help='List of tickers to use with -check_etf_indicators (Default: SPY,QQQ,DIA)', default='SPY,QQQ,DIA', type=str)
+parser.add_argument("--experimental", help='Enable experimental features (Default: False)', action="store_true")
+parser.add_argument("--experimental2", help='Enable experimental features (Default: False)', action="store_true")
+# Experimental
 
 parser.add_argument("--primary_stoch_indicator", help='Use this indicator as the primary stochastic indicator (Default: stochrsi)', default='stochrsi', type=str)
 parser.add_argument("--with_stoch_5m", help='Use 5-minute candles with the --primary_stoch_indicator', action="store_true")
@@ -75,6 +80,7 @@ parser.add_argument("--aroonosc_with_macd_simple", help='When using Aroon Oscill
 parser.add_argument("--aroonosc_with_vpt", help='When using Aroon Oscillator, use vpt as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
 parser.add_argument("--aroonosc_secondary_threshold", help='AroonOsc threshold for when to enable macd_simple when --aroonosc_with_macd_simple is enabled (Default: 70)', default=72, type=float)
 parser.add_argument("--adx_threshold", help='ADX threshold for when to trigger the ADX signal (Default: 25)', default=25, type=float)
+parser.add_argument("--dmi_with_adx", help='Use ADX when confirming DI signal (Default: False)', action="store_true")
 
 parser.add_argument("--days", help='Number of days to test. Separate with a comma to test multiple days.', default='10', type=str)
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
@@ -143,7 +149,6 @@ parser.add_argument("--mfi_signal_cancel_high_limit", help='Limit used to cancel
 parser.add_argument("--noshort", help='Disable short selling of stock', action="store_true")
 parser.add_argument("--shortonly", help='Only short sell the stock', action="store_true")
 
-parser.add_argument("--experimental", help='Enable experimental features (Default: False)', action="store_true")
 parser.add_argument("--verbose", help='Print additional information about each transaction (Default: False)', action="store_true")
 parser.add_argument("-d", "--debug", help='Enable debug output', action="store_true")
 parser.add_argument("--debug_all", help='Enable extra debugging output', action="store_true")
@@ -577,6 +582,7 @@ for algo in args.algo.split(','):
 					'di_period':				args.di_period,
 					'adx_period':				args.adx_period,
 					'adx_threshold':			args.adx_threshold,
+					'dmi_with_adx':				args.dmi_with_adx,
 
 					'macd_short_period':			args.macd_short_period,
 					'macd_long_period':			args.macd_long_period,
@@ -628,6 +634,7 @@ for algo in args.algo.split(','):
 					'etf_indicators':			etf_indicators,
 
 					'experimental':				args.experimental,
+					'experimental2':			args.experimental2,
 			}
 
 			# Call stochrsi_analyze_new() with test_params{} to run the backtest

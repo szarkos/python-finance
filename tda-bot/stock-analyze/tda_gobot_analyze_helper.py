@@ -1316,7 +1316,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# Reset all signals if the primary stochastic
 				#  indicator wanders into higher territory
 				reset_signals()
-
+				continue
 
 			# StochRSI with 5-minute candles
 			if ( with_stochrsi_5m == True ):
@@ -1986,6 +1986,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# Reset all signals if the primary stochastic
 				#  indicator wanders into low territory
 				reset_signals()
+				continue
 
 			# StochRSI with 5-minute candles
 			if ( with_stochrsi_5m == True ):

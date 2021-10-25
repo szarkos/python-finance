@@ -33,15 +33,15 @@ fi
 end_date=$( echo -n "$tickers" | awk '{print $1}' )
 end_date=$( ls monthly-1min-csv/${end_date}-3months-*.pickle | sed "s/monthly\-1min\-csv\/$end_date\-3months\-//" | sed 's/\.pickle//' )
 
-#rm -f ./results/*
-#for t in $tickers; do
-#
-#	echo $t;
-#	./gobot-test.py --ifile=./monthly-1min-csv/${t}-3months-${end_date}.pickle --ofile=./results/${t} \
-#		--opts=" --weekly_ifile=./weekly-csv/${t}-weekly-2019-2021.pickle --daily_ifile=./daily-csv/${t}-daily-2019-2021.pickle \
-#		--skip_blacklist $startdate " --scenarios=${test_scenario}
-#
-#done
+rm -f ./results/*
+for t in $tickers; do
+
+	echo $t;
+	./gobot-test.py --ifile=./monthly-1min-csv/${t}-3months-${end_date}.pickle --ofile=./results/${t} \
+		--opts=" --weekly_ifile=./weekly-csv/${t}-weekly-2019-2021.pickle --daily_ifile=./daily-csv/${t}-daily-2019-2021.pickle \
+		--skip_blacklist $startdate " --scenarios=${test_scenario}
+
+done
 
 # Generate results summary
 data=$( ./summarize-results.sh results ticker-net-gain $test_scenario )

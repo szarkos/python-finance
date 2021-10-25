@@ -3,6 +3,7 @@
 results_dir=${1-'results'}
 command=${2-'all'} # tx-stats, gain-loss, ticker-net-gain, daily
 tests=${3-''}
+stock_usd=${4-'5000'}
 
 # This is our main working directory (typically tda-bot/stock-analyze/)
 source_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
@@ -372,7 +373,7 @@ if [ "$command" == "all" -o "$command" == "daily" ]; then
 	echo
 
 	cd ${source_dir}
-	./daily_results.sh "$results_dir" "$tests"
+	./daily_results.sh "$results_dir" "$tests" "$stock_usd"
 
 fi
 

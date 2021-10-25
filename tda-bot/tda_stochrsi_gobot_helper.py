@@ -2289,7 +2289,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
-				if ( stochrsi_signal == True ):
+				if ( stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal'] == True ):
 					if ( prev_rsi_k < stoch_default_low_limit and cur_rsi_k >= stoch_default_low_limit ):
 						print(  '(' + str(ticker) + ') BUY_TO_COVER SIGNAL: StochRSI K value passed above the low_limit threshold (' +
 							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )

@@ -371,6 +371,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	##################################################################################################################
 	# Experimental
 	if ( experimental == True ):
+		sys.path.append(parent_path + '/../candle_patterns/')
 		import pattern_helper
 
 		diff_signals = pattern_helper.pattern_differential(pricehistory)

@@ -1110,8 +1110,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['algo_signals'][algo_id]['supertrend_signal'] = True
 
 				else:
-					cur_close	= float( stocks[ticker]['pricehistory'][-1]['close'] )
-					prev_close	= float( stocks[ticker]['pricehistory'][-2]['close'] )
+					cur_close	= float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+					prev_close	= float( stocks[ticker]['pricehistory']['candles'][-2]['close'] )
 					stocks[ticker]['algo_signals'][algo_id]['supertrend_signal'] = get_supertrend_signal(	short=False, cur_close=cur_close, prev_close=prev_close,
 																cur_supertrend=cur_supertrend, prev_supertrend=prev_supertrend,
 																supertrend_signal=stocks[ticker]['algo_signals'][algo_id]['supertrend_signal'] )
@@ -1806,8 +1806,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['algo_signals'][algo_id]['supertrend_signal'] = True
 
 				else:
-					cur_close	= float( stocks[ticker]['pricehistory'][-1]['close'] )
-					prev_close	= float( stocks[ticker]['pricehistory'][-2]['close'] )
+					cur_close	= float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+					prev_close	= float( stocks[ticker]['pricehistory']['candles'][-2]['close'] )
 					stocks[ticker]['algo_signals'][algo_id]['supertrend_signal'] = get_supertrend_signal(	short=True, cur_close=cur_close, prev_close=prev_close,
 																cur_supertrend=cur_supertrend, prev_supertrend=prev_supertrend,
 																supertrend_signal=stocks[ticker]['algo_signals'][algo_id]['supertrend_signal'] )

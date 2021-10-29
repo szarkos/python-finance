@@ -1,0 +1,46 @@
+{
+    "candles": [
+        {
+            "open": 25.0,
+            "high": 26.5,
+            "low": 22.84,
+            "close": 22.9,
+            "volume": 46814792,
+            "datetime": 1632718800000
+        },
+        {
+            "open": 23.6999,
+            "high": 27.74,
+            "low": 22.93,
+            "close": 25.51,
+            "volume": 32581225,
+            "datetime": 1633323600000
+        },
+        {
+            "open": 25.76,
+            "high": 26.05,
+            "low": 23.74,
+            "close": 24.85,
+            "volume": 6241406,
+            "datetime": 1633928400000
+        },
+        {
+            "open": 25.0,
+            "high": 29.8,
+            "low": 24.2985,
+            "close": 29.0,
+            "volume": 10725829,
+            "datetime": 1634533200000
+        },
+        {
+            "open": 29.46,
+            "high": 29.78,
+            "low": 24.92,
+            "close": 26.18,
+            "volume": 8137089,
+            "datetime": 1635138000000
+        }
+    ],
+    "symbol": "OLPX",
+    "empty": false
+}

@@ -1,0 +1,22 @@
+{
+    "candles": [
+        {
+            "open": 27.0,
+            "high": 31.9,
+            "low": 23.35,
+            "close": 25.36,
+            "volume": 11665080,
+            "datetime": 1634533200000
+        },
+        {
+            "open": 26.1,
+            "high": 28.1442,
+            "low": 25.6375,
+            "close": 26.86,
+            "volume": 2302853,
+            "datetime": 1635138000000
+        }
+    ],
+    "symbol": "SDIG",
+    "empty": false
+}

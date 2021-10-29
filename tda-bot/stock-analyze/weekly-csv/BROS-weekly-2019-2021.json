@@ -1,0 +1,62 @@
+{
+    "candles": [
+        {
+            "open": 32.5,
+            "high": 54.39,
+            "low": 32.42,
+            "close": 43.55,
+            "volume": 37910966,
+            "datetime": 1631509200000
+        },
+        {
+            "open": 42.26,
+            "high": 62.0,
+            "low": 41.1,
+            "close": 52.89,
+            "volume": 23801360,
+            "datetime": 1632114000000
+        },
+        {
+            "open": 52.8,
+            "high": 53.438,
+            "low": 41.48,
+            "close": 46.06,
+            "volume": 13717754,
+            "datetime": 1632718800000
+        },
+        {
+            "open": 45.86,
+            "high": 47.92,
+            "low": 41.32,
+            "close": 42.65,
+            "volume": 5804813,
+            "datetime": 1633323600000
+        },
+        {
+            "open": 43.5,
+            "high": 56.87,
+            "low": 43.5,
+            "close": 53.03,
+            "volume": 14002573,
+            "datetime": 1633928400000
+        },
+        {
+            "open": 53.2,
+            "high": 69.54,
+            "low": 53.0,
+            "close": 68.86,
+            "volume": 17250039,
+            "datetime": 1634533200000
+        },
+        {
+            "open": 69.5,
+            "high": 74.2,
+            "low": 64.52,
+            "close": 68.98,
+            "volume": 8836357,
+            "datetime": 1635138000000
+        }
+    ],
+    "symbol": "BROS",
+    "empty": false
+}

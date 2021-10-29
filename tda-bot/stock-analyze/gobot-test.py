@@ -28,8 +28,8 @@ std_opts = ' --algo=stochrsi-new --stoploss --skip_check --incr_threshold=0.5 --
 # Test Scenarios
 scenarios = {
 		# Daily test, called from automation. Comment to disable the automation.
-#		'stochrsi_standard_daily_test':					'--rsi_high_limit=85 --rsi_low_limit=15 --stochrsi_offset=6 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
-#										 --daily_atr_period=3 --min_intra_natr=0.15 --min_daily_natr=1.5 --with_supertrend --supertrend_min_natr=2 --decr_threshold=1 ',
+		'stochrsi_standard_daily_test':					'--rsi_high_limit=85 --rsi_low_limit=15 --stochrsi_offset=6 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
+										 --daily_atr_period=3 --min_intra_natr=0.15 --min_daily_natr=1.5 --with_supertrend --supertrend_min_natr=2 --decr_threshold=1 ',
 
 #		'stochrsi_aroonosc_simple_dmi_simple_with_macd_adx_standard':	'--rsi_high_limit=85 --rsi_low_limit=15 --stochrsi_offset=3 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
 #										 --daily_atr_period=7 --min_intra_natr=0.15 --min_daily_natr=1.5 --decr_threshold=1 ',

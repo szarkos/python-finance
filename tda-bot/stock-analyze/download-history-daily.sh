@@ -29,7 +29,7 @@ prev_year2=$( date +'%Y' --date='-2 year' )
 function download_daily() {
 	ticker=$1
 
-	curl --silent "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol=${ticker}&outputsize=full&datatype=csv&apikey=${API_KEY}" | \
+	curl --silent "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&outputsize=full&datatype=csv&apikey=${API_KEY}" | \
 			grep -v timestamp,open | tac | \
 			egrep "(^${prev_year2}\-|^${prev_year1}\-|^${cur_year}\-)" > "daily-csv/${ticker}-daily-${prev_year2}-${cur_year}.csv"
 

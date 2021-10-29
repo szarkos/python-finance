@@ -1,0 +1,46 @@
+{
+    "candles": [
+        {
+            "open": 0.5501,
+            "high": 0.5501,
+            "low": 0.43,
+            "close": 0.500001,
+            "volume": 357148,
+            "datetime": 1632718800000
+        },
+        {
+            "open": 0.5,
+            "high": 0.5,
+            "low": 0.4001,
+            "close": 0.44,
+            "volume": 3924824,
+            "datetime": 1633323600000
+        },
+        {
+            "open": 0.43,
+            "high": 0.45,
+            "low": 0.4059,
+            "close": 0.43,
+            "volume": 455313,
+            "datetime": 1633928400000
+        },
+        {
+            "open": 0.44,
+            "high": 79.22,
+            "low": 0.4386,
+            "close": 29.1,
+            "volume": 146928639,
+            "datetime": 1634533200000
+        },
+        {
+            "open": 43.34,
+            "high": 44.1903,
+            "low": 20.22,
+            "close": 37.04,
+            "volume": 33150996,
+            "datetime": 1635138000000
+        }
+    ],
+    "symbol": "DWACW",
+    "empty": false
+}

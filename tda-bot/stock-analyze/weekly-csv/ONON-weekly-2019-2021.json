@@ -1,0 +1,62 @@
+{
+    "candles": [
+        {
+            "open": 35.4,
+            "high": 40.8,
+            "low": 34.5,
+            "close": 38.95,
+            "volume": 23886469,
+            "datetime": 1631509200000
+        },
+        {
+            "open": 38.0,
+            "high": 39.8,
+            "low": 34.35,
+            "close": 36.02,
+            "volume": 7906068,
+            "datetime": 1632114000000
+        },
+        {
+            "open": 35.71,
+            "high": 35.99,
+            "low": 29.8,
+            "close": 30.5,
+            "volume": 8471527,
+            "datetime": 1632718800000
+        },
+        {
+            "open": 29.12,
+            "high": 31.18,
+            "low": 28.1,
+            "close": 30.07,
+            "volume": 4657156,
+            "datetime": 1633323600000
+        },
+        {
+            "open": 30.3,
+            "high": 32.5,
+            "low": 29.15,
+            "close": 29.72,
+            "volume": 4757418,
+            "datetime": 1633928400000
+        },
+        {
+            "open": 29.72,
+            "high": 34.08,
+            "low": 29.345,
+            "close": 33.26,
+            "volume": 4474578,
+            "datetime": 1634533200000
+        },
+        {
+            "open": 33.37,
+            "high": 36.5,
+            "low": 32.93,
+            "close": 33.7,
+            "volume": 4807568,
+            "datetime": 1635138000000
+        }
+    ],
+    "symbol": "ONON",
+    "empty": false
+}

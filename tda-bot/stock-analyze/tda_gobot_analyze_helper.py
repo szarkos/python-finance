@@ -339,7 +339,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	natr	= []
 	try:
 		atr, natr = tda_gobot_helper.get_atr( pricehistory=pricehistory_5m, period=atr_period )
-#		atr, natr = tda_gobot_helper.get_atr( pricehistory=pricehistory, period=atr_period )
 
 	except Exception as e:
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_atr(): ' + str(e))
@@ -371,7 +370,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	##################################################################################################################
 	# Experimental
 	if ( experimental == True ):
-		sys.path.append(parent_path + '/../candle_patterns/')
+                sys.path.append(parent_path + '/../candle_patterns/')
 		import pattern_helper
 
 		diff_signals = pattern_helper.pattern_differential(pricehistory)
@@ -1362,18 +1361,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
 			if ( hold_overnight == False and tda_gobot_helper.isendofday(75, date) ):
-				if ( tda_gobot_helper.isendofday(1, date) ):
-					print(str(date.strftime('%Y-%m-%d')) + ': ' + str(cur_day_stats['hod']) + ' / ' + str(cur_day_stats['lod']))
-
-				# Reset cur_day_stats
-				cur_day_stats = { 'hod':		[],
-						  'lod':		[],
-						  'cur_hod':		0,
-						  'cur_lod':		999999,
-						  'cur_hod_idx':	0,
-						  'cur_hod_rsi':	0,
-						  'hod_counter':	0,
-						  'lod_counter':	0 }
+#				if ( stoch_divergence == True ):
+#					if ( tda_gobot_helper.isendofday(1, date) ):
+#						print(str(date.strftime('%Y-%m-%d')) + ': ' + str(cur_day_stats['hod']) + ' / ' + str(cur_day_stats['lod']))
+#
+#					# Reset cur_day_stats
+#					cur_day_stats = { 'hod':		[],
+#							  'lod':		[],
+#							  'cur_hod':		0,
+#							  'cur_lod':		999999,
+#							  'cur_hod_idx':	0,
+#							  'cur_hod_rsi':	0,
+#							  'hod_counter':	0,
+#							  'lod_counter':	0 }
 
 				reset_signals()
 				continue
@@ -1646,11 +1646,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					if ( stoch_divergence_strict == True ):
 						divergence_signal = False
 
-
 			# End Stochastic Divergence
-
-
-
 
 
 			# Resistance
@@ -2108,16 +2104,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
 			if ( hold_overnight == False and tda_gobot_helper.isendofday(75, date) ):
-
-				# Reset cur_day_stats
-				cur_day_stats = { 'hod':		[],
-						  'lod':		[],
-						  'cur_hod':		0,
-						  'cur_lod':		999999,
-						  'cur_hod_idx':	0,
-						  'cur_hod_rsi':	0,
-						  'hod_counter':	0,
-						  'lod_counter':	0 }
+#				if ( stoch_divergence == True ):
+#					# Reset cur_day_stats
+#					cur_day_stats = { 'hod':		[],
+#							  'lod':		[],
+#							  'cur_hod':		0,
+#							  'cur_lod':		999999,
+#							  'cur_hod_idx':	0,
+#							  'cur_hod_rsi':	0,
+#							  'hod_counter':	0,
+#							  'lod_counter':	0 }
 
 				reset_signals()
 				continue

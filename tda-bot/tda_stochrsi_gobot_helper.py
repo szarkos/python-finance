@@ -1227,7 +1227,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				# Check if price is near historic key level
 				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True ):
 					near_keylevel = False
-					for lvl in stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']:
+					for lvl,dt in stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']:
 						if ( abs((lvl / cur_price - 1) * 100) <= price_support_pct ):
 							near_keylevel = True
 
@@ -1283,6 +1283,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				aroonosc_signal		= stocks[ticker]['algo_signals'][algo_id]['aroonosc_signal']
 				macd_signal		= stocks[ticker]['algo_signals'][algo_id]['macd_signal']
 				chop_signal		= stocks[ticker]['algo_signals'][algo_id]['chop_signal']
+				supertrend_signal	= stocks[ticker]['algo_signals'][algo_id]['supertrend_signal']
 				vwap_signal		= stocks[ticker]['algo_signals'][algo_id]['vwap_signal']
 				vpt_signal		= stocks[ticker]['algo_signals'][algo_id]['vpt_signal']
 				resistance_signal	= stocks[ticker]['algo_signals'][algo_id]['resistance_signal']
@@ -1907,7 +1908,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				# Check if price is near historic key level
 				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True ):
 					near_keylevel = False
-					for lvl in stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']:
+					for lvl,dt in stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']:
 						if ( abs((lvl / cur_price - 1) * 100) <= price_resistance_pct ):
 							near_keylevel = True
 
@@ -1963,6 +1964,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				aroonosc_signal		= stocks[ticker]['algo_signals'][algo_id]['aroonosc_signal']
 				macd_signal		= stocks[ticker]['algo_signals'][algo_id]['macd_signal']
 				chop_signal		= stocks[ticker]['algo_signals'][algo_id]['chop_signal']
+				supertrend_signal	= stocks[ticker]['algo_signals'][algo_id]['supertrend_signal']
 				vwap_signal		= stocks[ticker]['algo_signals'][algo_id]['vwap_signal']
 				vpt_signal		= stocks[ticker]['algo_signals'][algo_id]['vpt_signal']
 				resistance_signal	= stocks[ticker]['algo_signals'][algo_id]['resistance_signal']

@@ -2181,7 +2181,8 @@ def get_supertrend(pricehistory=None, multiplier=3, atr_period=128):
 # Return the key levels for a stock
 # Preferably uses weekly candle data for pricehistory
 # If filter=True, we use ATR to help filter the data and remove key levels that are
-#  within one ATR from eachother
+#   within one ATR from eachother
+# If plot=True we will attempt to plot the keylevels as candles
 def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, debug=False):
 
 	if ( pricehistory == None ):
@@ -2238,17 +2239,18 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, deb
 		ph = []
 		for key in pricehistory['candles']:
 
-			d = {	'Date':		datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone),
+			d = {	'Date':		datetime.fromtimestamp(int(key['datetime'])/1000, tz=mytimezone),
 				'open':		float( key['open'] ),
 				'high':		float( key['high'] ),
 				'low':		float( key['low'] ),
 				'close':	float( key['close'] ),
-				'volume':	float( key['volume'] ) }
+				'volume':	float( key['volume'] ),
+				'datetime':	int( key['datetime'] ) }
 
 			ph.append(d)
 
-		df = pd.DataFrame(data=ph, columns = ['Date', 'open', 'high', 'low', 'close', 'volume'])
-		df = df.loc[:,['Date', 'open', 'high', 'low', 'close', 'volume']]
+		df = pd.DataFrame(data=ph, columns = ['Date', 'open', 'high', 'low', 'close', 'volume', 'datetime'])
+		df = df.loc[:,['Date', 'open', 'high', 'low', 'close', 'volume', 'datetime']]
 
 	else:
 		df = pd.DataFrame(data=pricehistory['candles'], columns = ['open', 'high', 'low', 'close', 'volume', 'datetime'])
@@ -2262,11 +2264,10 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, deb
 
 		# SUPPORT
 		if ( is_support(df, i) ):
-			lvl = float( df['low'][i] )
-
+			lvl	= float( df['low'][i] )
+			dt	= int( df['datetime'][i] )
 			if ( filter == False ):
-				long_support.append(lvl)
-
+				long_support.append( (lvl, dt) )
 				if ( plot == True ):
 					plot_support_levels.append( (i, lvl) )
 
@@ -2297,19 +2298,16 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, deb
 			# Check if this level is at least one ATR value away from a previously
 			#   discovered level
 			if ( check_atr_level(lvl, atr[-1], long_support) ):
-				long_support.append(lvl)
-
+				long_support.append( (lvl, dt) )
 				if ( plot == True ):
 					plot_support_levels.append( (i, lvl) )
 
-
 		# RESISTANCE
 		elif ( is_resistance(df, i) ):
-			lvl = float( df['high'][i] )
-
+			lvl	= float( df['high'][i] )
+			dt	= int( df['datetime'][i] )
 			if ( filter == False ):
-				long_resistance.append(lvl)
-
+				long_resistance.append( (lvl, dt) )
 				if ( plot == True ):
 					plot_resistance_levels.append( (i, lvl) )
 
@@ -2339,11 +2337,9 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, deb
 			# Check if this level is at least one ATR value away from a previously
 			#   discovered level
 			if ( check_atr_level(lvl, atr[-1], long_resistance) ):
-				long_resistance.append(lvl)
-
+				long_resistance.append( (lvl, dt) )
 				if ( plot == True ):
 					plot_resistance_levels.append( (i, lvl) )
-
 
 	if ( plot == True ):
 		from mplfinance.original_flavor import candlestick_ohlc

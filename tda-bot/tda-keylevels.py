@@ -7,6 +7,7 @@
 # By default the script will check two years of *weekly* candles.
 
 import sys, os
+import datetime, pytz
 import argparse
 import robin_stocks.tda as tda
 import tda_gobot_helper
@@ -20,7 +21,6 @@ parser.add_argument("--plot", help='Plot the result', action="store_true")
 parser.add_argument("--atr_period", help='Plot the result', default=14, type=int)
 parser.add_argument("--use_daily", help='Use daily candles instead of weekly', action="store_true")
 args = parser.parse_args()
-
 
 # Initialize and log into TD Ameritrade
 from dotenv import load_dotenv
@@ -42,6 +42,8 @@ if ( tda_gobot_helper.tdalogin(passcode) != True ):
 filter = True
 if ( args.no_filter == True ):
 	filter = False
+
+mytimezone = pytz.timezone("US/Eastern")
 
 # get_pricehistory() variables
 f_type = 'weekly'
@@ -75,10 +77,17 @@ if ( isinstance(long_support, bool) and long_support == False ):
 	print('Error: get_keylevels(' + str(args.stock) + '): returned False')
 	sys.exit(1)
 
-print('Key levels for stock ' + str(args.stock) + ':')
-print('Long support: ' + str(long_support))
-print('Long resistance: ' + str(long_resistance))
+print('Key levels for stock ' + str(args.stock))
 
+print('Long support:')
+for kl,dt in long_support:
+	dt = datetime.datetime.fromtimestamp(int(dt)/1000, tz=mytimezone).strftime('%Y-%m-%d')
+	print(str(dt) + ': ' + str(kl))
+
+print('Long resistance:')
+for kl,dt in long_resistance:
+	dt = datetime.datetime.fromtimestamp(int(dt)/1000, tz=mytimezone).strftime('%Y-%m-%d')
+	print(str(dt) + ': ' + str(kl))
 
 sys.exit(0)
 

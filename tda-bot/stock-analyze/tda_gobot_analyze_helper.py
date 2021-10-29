@@ -683,22 +683,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				  'hod_counter':	0,
 				  'lod_counter':	0 }
 
-		if ( stoch_divergence == True ):
-			import av_gobot_helper
-
-			day_1min = av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month9')
-			day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month8')['candles']
-			day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month7')['candles']
-			day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month6')['candles']
-			day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month5')['candles']
-			day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month4')['candles']
-			day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month3')['candles']
-			day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month2')['candles']
-			day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month1')['candles']
-
-			kl_stochrsi, kl_rsi_k, kl_rsi_d = tda_gobot_helper.get_stochrsi(day_1min, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
-
-
 		# Find the first day from the 1-min pricehistory. We might need this to warn if the PDC
 		#  is not available within the test timeframe.
 		first_day = datetime.fromtimestamp(int(pricehistory['candles'][0]['datetime'])/1000, tz=mytimezone)
@@ -1282,6 +1266,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						  'cur_hod_rsi':	0,
 						  'hod_counter':	0,
 						  'lod_counter':	0 }
+
 			continue
 
 		# Ignore days where cur_daily_natr is below min_daily_natr or above max_daily_natr, if configured
@@ -1744,106 +1729,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# Stochastic Divergence
 			if ( stoch_divergence == True and near_keylevel == True and buy_signal == True ):
-				for lvl,dt in long_support:  # + long_resistance
-					if ( abs((lvl / cur_close - 1) * 100) <= price_support_pct ):
-						break
-
-				prev_kl		= lvl		# Previous keylevel price
-				prev_kl_dt	= int(dt)	# Timestamp (weekly, start of the week) for when KL was hit
-				prev_kl_rsi_k	= None
-
-				for kl_idx,kl_key in enumerate(day_1min['candles']):
-					if ( kl_key['datetime'] < prev_kl_dt ):
-						continue
-
-					dt = datetime.fromtimestamp(prev_kl_dt/1000, tz=mytimezone)
-					if ( date < dt + timedelta(days=6) or (date >= dt and date <= dt + timedelta(days=6)) ):
-						continue
-
-					if ( float(kl_key['low']) == lvl ):
-
-						prev_kl_dt	= int(kl_key['datetime'])
-						prev_kl_rsi_k	= kl_rsi_k[ kl_idx - (len(day_1min['candles']) - len(kl_rsi_k)) ]
-
-						print(datetime.fromtimestamp(int(dt)/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S'))
-						print(datetime.fromtimestamp(int(prev_kl_dt)/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S'))
-
-						print(prev_kl)
-						print(prev_kl_rsi_k)
-
-						print(date.strftime('%Y-%m-%d %H:%M:%S'))
-						break
-
-#				today		= date.strftime('%Y-%m-%d')
-#				cur_lod		= cur_day_stats['cur_lod']
-#				prev_lod	= None
-#				prev_lod_rsi	= None
-#
-#				if ( cur_close > cur_lod and (cur_lod / cur_close - 1) * 100 > price_resistance_pct / 3 ):
-#					# Current close price has wandered too far above LOD, so comparing
-#					#  divergence is not helpful
-#					divergence_signal = True
-#					if ( stoch_divergence_strict == True ):
-#						divergence_signal = False
-#
-#				elif ( len(cur_day_stats['lod']) == 0 ):
-#					# We have not registered a first LOD. Use cur_day_stats['cur_lod'] and
-#					#  the previous day's LOD to determine if there is divergence
-#					if ( today in day_stats and day_stats[today]['pdl'] != None and day_stats[today]['pdl_idx'] != None):
-#						prev_lod	= day_stats[today]['pdl']
-#						prev_lod_rsi	= rsi_k[day_stats[today]['pdl_idx'] - stochrsi_idx]
-#
-#					else:
-#						# Not enough data to compare divergence
-#						divergence_signal = True
-#						if ( stoch_divergence_strict == True ):
-#							divergence_signal = False
-#
-#				elif ( len(cur_day_stats['lod']) > 0 ):
-#					if ( cur_lod <= cur_day_stats['lod'][-1]['lod'] ):
-#						# Use info from cur_day_stats['lod'][-2] if available
-#						if ( len(cur_day_stats['lod']) > 1 ):
-#							prev_lod	= cur_day_stats['lod'][-1]['lod']
-#							prev_lod_rsi	= cur_day_stats['lod'][-2]['lod_rsi']
-#
-#						elif ( cur_lod == cur_day_stats['lod'][-1]['lod'] ):
-#							# In this case we should use the previous day's LOD
-#							if ( today in day_stats and day_stats[today]['pdl'] != None and day_stats[today]['pdl_idx'] != None):
-#								prev_lod	= day_stats[today]['pdl']
-#								prev_lod_rsi	= rsi_k[day_stats[today]['pdl_idx'] - stochrsi_idx]
-#
-#							else:
-#								# Not enough data to compare divergence
-#								divergence_signal = True
-#								if ( stoch_divergence_strict == True ):
-#									divergence_signal = False
-#
-#				if ( prev_lod != None and prev_lod_rsi != None ):
-#					if ( cur_lod <= prev_lod and cur_rsi_k < prev_lod_rsi ):
-#						# Current low is below previous day's low, and current rsi_k is
-#						# lower than the previous rsi_k which would suggest strength
-#						print('Cur_LOD: ' + str(cur_lod) + ' / Prev_LOD: ' + str(prev_lod))
-#						print('Cur_RSI_K: ' + str(cur_rsi_k) + ' / Prev_LOD_RSI_K: ' + str(prev_lod_rsi))
-#						print('Signal: ' + str(divergence_signal))
-#						print()
-#						divergence_signal = True
-#
-#					elif ( cur_lod <= prev_lod and cur_rsi_k > prev_lod_rsi ):
-#						# Current low is below previous day's low, and current rsi_k is
-#						# higher than the previous rsi_k which would suggest weakness
-#						print('Cur_LOD: ' + str(cur_lod) + ' / Prev_LOD: ' + str(prev_lod))
-#						print('Cur_RSI_K: ' + str(cur_rsi_k) + ' / Prev_LOD_RSI_K: ' + str(prev_lod_rsi))
-#						print('Signal: ' + str(divergence_signal))
-#						print()
-#						divergence_signal = False
-#
-#				else:
-#					# Not enough data to compare divergence
-#					divergence_signal = True
-#					if ( stoch_divergence_strict == True ):
-#						divergence_signal = False
-
-			# End Stochastic Divergence
+				analyze_stoch_divergence()
 
 			# Experimental pattern matching - may be removed
 			if ( experimental == True ):
@@ -2835,4 +2721,126 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	# End main loop
 
 	return results
+
+
+
+def analyze_stoch_divergence():
+
+	return True
+
+	import av_gobot_helper
+
+	day_1min = av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month9')
+	day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month8')['candles']
+	day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month7')['candles']
+	day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month6')['candles']
+	day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month5')['candles']
+	day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month4')['candles']
+	day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month3')['candles']
+	day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month2')['candles']
+	day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month1')['candles']
+
+	kl_stochrsi, kl_rsi_k, kl_rsi_d = tda_gobot_helper.get_stochrsi(day_1min, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+
+
+	for lvl,dt in long_support:  # + long_resistance
+		if ( abs((lvl / cur_close - 1) * 100) <= price_support_pct ):
+			break
+
+	prev_kl		= lvl		# Previous keylevel price
+	prev_kl_dt	= int(dt)	# Timestamp (weekly, start of the week) for when KL was hit
+	prev_kl_rsi_k	= None
+
+	for kl_idx,kl_key in enumerate(day_1min['candles']):
+		if ( kl_key['datetime'] < prev_kl_dt ):
+			continue
+
+		dt = datetime.fromtimestamp(prev_kl_dt/1000, tz=mytimezone)
+		if ( date < dt + timedelta(days=6) or (date >= dt and date <= dt + timedelta(days=6)) ):
+			continue
+
+		if ( float(kl_key['low']) == lvl ):
+
+			prev_kl_dt	= int(kl_key['datetime'])
+			prev_kl_rsi_k	= kl_rsi_k[ kl_idx - (len(day_1min['candles']) - len(kl_rsi_k)) ]
+
+			print(datetime.fromtimestamp(int(dt)/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S'))
+			print(datetime.fromtimestamp(int(prev_kl_dt)/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S'))
+
+			print(prev_kl)
+			print(prev_kl_rsi_k)
+
+			print(date.strftime('%Y-%m-%d %H:%M:%S'))
+			break
+
+#				today		= date.strftime('%Y-%m-%d')
+#				cur_lod		= cur_day_stats['cur_lod']
+#				prev_lod	= None
+#				prev_lod_rsi	= None
+#
+#				if ( cur_close > cur_lod and (cur_lod / cur_close - 1) * 100 > price_resistance_pct / 3 ):
+#					# Current close price has wandered too far above LOD, so comparing
+#					#  divergence is not helpful
+#					divergence_signal = True
+#					if ( stoch_divergence_strict == True ):
+#						divergence_signal = False
+#
+#				elif ( len(cur_day_stats['lod']) == 0 ):
+#					# We have not registered a first LOD. Use cur_day_stats['cur_lod'] and
+#					#  the previous day's LOD to determine if there is divergence
+#					if ( today in day_stats and day_stats[today]['pdl'] != None and day_stats[today]['pdl_idx'] != None):
+#						prev_lod	= day_stats[today]['pdl']
+#						prev_lod_rsi	= rsi_k[day_stats[today]['pdl_idx'] - stochrsi_idx]
+#
+#					else:
+#						# Not enough data to compare divergence
+#						divergence_signal = True
+#						if ( stoch_divergence_strict == True ):
+#							divergence_signal = False
+#
+#				elif ( len(cur_day_stats['lod']) > 0 ):
+#					if ( cur_lod <= cur_day_stats['lod'][-1]['lod'] ):
+#						# Use info from cur_day_stats['lod'][-2] if available
+#						if ( len(cur_day_stats['lod']) > 1 ):
+#							prev_lod	= cur_day_stats['lod'][-1]['lod']
+#							prev_lod_rsi	= cur_day_stats['lod'][-2]['lod_rsi']
+#
+#						elif ( cur_lod == cur_day_stats['lod'][-1]['lod'] ):
+#							# In this case we should use the previous day's LOD
+#							if ( today in day_stats and day_stats[today]['pdl'] != None and day_stats[today]['pdl_idx'] != None):
+#								prev_lod	= day_stats[today]['pdl']
+#								prev_lod_rsi	= rsi_k[day_stats[today]['pdl_idx'] - stochrsi_idx]
+#
+#							else:
+#								# Not enough data to compare divergence
+#								divergence_signal = True
+#								if ( stoch_divergence_strict == True ):
+#									divergence_signal = False
+#
+#				if ( prev_lod != None and prev_lod_rsi != None ):
+#					if ( cur_lod <= prev_lod and cur_rsi_k < prev_lod_rsi ):
+#						# Current low is below previous day's low, and current rsi_k is
+#						# lower than the previous rsi_k which would suggest strength
+#						print('Cur_LOD: ' + str(cur_lod) + ' / Prev_LOD: ' + str(prev_lod))
+#						print('Cur_RSI_K: ' + str(cur_rsi_k) + ' / Prev_LOD_RSI_K: ' + str(prev_lod_rsi))
+#						print('Signal: ' + str(divergence_signal))
+#						print()
+#						divergence_signal = True
+#
+#					elif ( cur_lod <= prev_lod and cur_rsi_k > prev_lod_rsi ):
+#						# Current low is below previous day's low, and current rsi_k is
+#						# higher than the previous rsi_k which would suggest weakness
+#						print('Cur_LOD: ' + str(cur_lod) + ' / Prev_LOD: ' + str(prev_lod))
+#						print('Cur_RSI_K: ' + str(cur_rsi_k) + ' / Prev_LOD_RSI_K: ' + str(prev_lod_rsi))
+#						print('Signal: ' + str(divergence_signal))
+#						print()
+#						divergence_signal = False
+#
+#				else:
+#					# Not enough data to compare divergence
+#					divergence_signal = True
+#					if ( stoch_divergence_strict == True ):
+#						divergence_signal = False
+
+
 

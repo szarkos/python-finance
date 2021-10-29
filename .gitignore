@@ -111,6 +111,7 @@ env.bak/
 venv.bak/
 
 # TDA stuff
+*.swp
 .tokens
 *.log
 *.log.txt
@@ -118,7 +119,6 @@ venv.bak/
 nohup.out
 *.data.txt
 *.data
-*.pickle
 LOGS
 TRADE_LOGS
 *_LOGS
@@ -127,8 +127,13 @@ TX_LOGS*
 logs
 log.txt
 stocks.txt
-*.swp
+monthly-*min-csv
+monthly-*min-csv/*
+weekly-csv/*
+daily-csv
+daily-csv/*
 *.csv
+*.pickle
 results/
 results/*
 results*

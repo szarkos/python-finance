@@ -75,8 +75,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal macd_crossover			; macd_crossover		= False
 		nonlocal macd_avg_crossover		; macd_avg_crossover		= False
 
-		nonlocal experimental_signal		; experimental_signal		= False
+		nonlocal divergence_signal		; divergence_signal		= False
 		nonlocal supertrend_signal		; supertrend_signal		= False
+
+		nonlocal experimental_signal		; experimental_signal		= False
 
 		return True
 
@@ -370,7 +372,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	##################################################################################################################
 	# Experimental
 	if ( experimental == True ):
-                sys.path.append(parent_path + '/../candle_patterns/')
+		sys.path.append(parent_path + '/../candle_patterns/')
 		import pattern_helper
 
 		diff_signals = pattern_helper.pattern_differential(pricehistory)
@@ -681,6 +683,22 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				  'hod_counter':	0,
 				  'lod_counter':	0 }
 
+		if ( stoch_divergence == True ):
+			import av_gobot_helper
+
+			day_1min = av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month9')
+			day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month8')['candles']
+			day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month7')['candles']
+			day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month6')['candles']
+			day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month5')['candles']
+			day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month4')['candles']
+			day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month3')['candles']
+			day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month2')['candles']
+			day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month1')['candles']
+
+			kl_stochrsi, kl_rsi_k, kl_rsi_d = tda_gobot_helper.get_stochrsi(day_1min, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+
+
 		# Find the first day from the 1-min pricehistory. We might need this to warn if the PDC
 		#  is not available within the test timeframe.
 		first_day = datetime.fromtimestamp(int(pricehistory['candles'][0]['datetime'])/1000, tz=mytimezone)
@@ -947,8 +965,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	macd_crossover			= False
 	macd_avg_crossover		= False
 
-	experimental_signal		= False
 	supertrend_signal		= False
+	divergence_signal		= False
+	near_keylevel			= False
+	experimental_signal		= False
 
 	default_incr_threshold		= incr_threshold
 	default_decr_threshold		= decr_threshold
@@ -1132,6 +1152,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		# Helper variables from the current pricehistory data
 		date		= datetime.fromtimestamp(int(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone)
 		cur_close	= float( pricehistory['candles'][idx]['close'] )
+		cur_high	= float( pricehistory['candles'][idx]['high'] )
+		cur_low		= float( pricehistory['candles'][idx]['low'] )
 
 		# Indicators current values
 		cur_rsi_k	= rsi_k[idx - stochrsi_idx]
@@ -1250,6 +1272,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 		# Ignore pre-post market since we cannot trade during those hours
 		if ( tda_gobot_helper.ismarketopen_US(date, safe_open=safe_open) != True ):
+			if ( stoch_divergence == True ):
+				# Reset cur_day_stats
+				cur_day_stats = { 'hod':		[],
+						  'lod':		[],
+						  'cur_hod':		0,
+						  'cur_lod':		999999,
+						  'cur_hod_idx':	0,
+						  'cur_hod_rsi':	0,
+						  'hod_counter':	0,
+						  'lod_counter':	0 }
 			continue
 
 		# Ignore days where cur_daily_natr is below min_daily_natr or above max_daily_natr, if configured
@@ -1325,8 +1357,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		if ( stoch_divergence == True ):
 
 			# HOD
-			if ( cur_close >= cur_day_stats['cur_hod'] ):
-				cur_day_stats['cur_hod'] = cur_close
+			if ( cur_high >= cur_day_stats['cur_hod'] ):
+				cur_day_stats['cur_hod'] = cur_high
 				cur_day_stats['cur_hod_idx'] = idx
 				cur_day_stats['cur_hod_rsi'] = cur_rsi_k
 				cur_day_stats['hod_counter'] = 0
@@ -1340,8 +1372,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					cur_day_stats['hod'].append( new_entry )
 
 			# LOD
-			if ( cur_close <= cur_day_stats['cur_lod'] ):
-				cur_day_stats['cur_lod'] = cur_close
+			if ( cur_low <= cur_day_stats['cur_lod'] ):
+				cur_day_stats['cur_lod'] = cur_low
 				cur_day_stats['cur_lod_idx'] = idx
 				cur_day_stats['cur_lod_rsi'] = cur_rsi_k
 				cur_day_stats['lod_counter'] = 0
@@ -1361,20 +1393,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
 			if ( hold_overnight == False and tda_gobot_helper.isendofday(75, date) ):
-#				if ( stoch_divergence == True ):
-#					if ( tda_gobot_helper.isendofday(1, date) ):
-#						print(str(date.strftime('%Y-%m-%d')) + ': ' + str(cur_day_stats['hod']) + ' / ' + str(cur_day_stats['lod']))
-#
-#					# Reset cur_day_stats
-#					cur_day_stats = { 'hod':		[],
-#							  'lod':		[],
-#							  'cur_hod':		0,
-#							  'cur_lod':		999999,
-#							  'cur_hod_idx':	0,
-#							  'cur_hod_rsi':	0,
-#							  'hod_counter':	0,
-#							  'lod_counter':	0 }
-
 				reset_signals()
 				continue
 
@@ -1549,10 +1567,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# This is the most simple/pessimistic approach right now
 			if ( with_vwap == True ):
 				cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
-				cur_price = cur_close
-
 				vwap_signal = False
-				if ( cur_price < cur_vwap ):
+				if ( cur_close < cur_vwap ):
 					vwap_signal = True
 
 			# VPT
@@ -1588,72 +1604,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						supertrend_signal = True
 
 
-			# Stochastic Divergence
-			if ( stoch_divergence == True ):
-				today		= date.strftime('%Y-%m-%d')
-				cur_lod		= cur_day_stats['cur_lod']
-				prev_lod	= None
-				prev_lod_rsi	= None
-
-				if ( cur_close > cur_lod and (cur_lod / cur_close - 1) * 100 > price_resistance_pct / 3 ):
-					# Current close price has wandered too far above LOD, so comparing
-					#  divergence is not helpful
-					divergence_signal = True
-					if ( stoch_divergence_strict == True ):
-						divergence_signal = False
-
-				elif ( len(cur_day_stats['lod']) == 0 ):
-					# We have not registered a first LOD. Use cur_day_stats['cur_lod'] and
-					#  the previous day's LOD to determine if there is divergence
-					if ( today in day_stats and day_stats[today]['pdl'] != None and day_stats[today]['pdl_idx'] != None):
-						prev_lod	= day_stats[today]['pdl']
-						prev_lod_rsi	= rsi_k[day_stats[today]['pdl_idx'] - stochrsi_idx]
-
-					else:
-						# Not enough data to compare divergence
-						divergence_signal = True
-						if ( stoch_divergence_strict == True ):
-							divergence_signal = False
-
-				elif ( len(cur_day_stats['lod']) > 0 ):
-					if ( cur_lod <= cur_day_stats['lod'][-1]['lod'] ):
-						# Use info from cur_day_stats['lod'][-2] if available
-						if ( len(cur_day_stats['lod']) > 1 ):
-							prev_lod	= cur_day_stats['lod'][-1]['lod']
-							prev_lod_rsi	= cur_day_stats['lod'][-2]['lod_rsi']
-
-						elif ( cur_lod == cur_day_stats['lod'][-1]['lod'] ):
-							# In this case we should use the previous day's LOD
-							if ( today in day_stats and day_stats[today]['pdl'] != None and day_stats[today]['pdl_idx'] != None):
-								prev_lod	= day_stats[today]['pdl']
-								prev_lod_rsi	= rsi_k[day_stats[today]['pdl_idx'] - stochrsi_idx]
-
-							else:
-								# Not enough data to compare divergence
-								divergence_signal = True
-								if ( stoch_divergence_strict == True ):
-									divergence_signal = False
-
-				if ( prev_lod != None and prev_lod_rsi != None ):
-					if ( cur_lod <= prev_lod and cur_rsi_k > prev_lod_rsi ):
-						# Current low is below previous day's low, and current rsi_k is
-						# higher than the previous rsi_k which would suggest weakness
-						divergence_signal = True
-
-				else:
-					# Not enough data to compare divergence
-					divergence_signal = True
-					if ( stoch_divergence_strict == True ):
-						divergence_signal = False
-
-			# End Stochastic Divergence
-
-
-			# Resistance
+			# Resistance Levels
 			if ( no_use_resistance == False and buy_signal == True ):
-
 				today			= date.strftime('%Y-%m-%d')
-				cur_price		= cur_close
 				resistance_signal	= True
 
 				# PDC
@@ -1663,7 +1616,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				if ( prev_day_close != 0 ):
 
-					if ( abs((prev_day_close / cur_price - 1) * 100) <= price_resistance_pct ):
+					if ( abs((prev_day_close / cur_close - 1) * 100) <= price_resistance_pct ):
 
 						# Current price is very close to PDC
 						# Next check average of last 15 (minute) candles
@@ -1679,17 +1632,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				# NATR resistance
 				if ( use_natr_resistance == True ):
-					if ( cur_price > prev_day_close ):
+					if ( cur_close > prev_day_close ):
 						natr_mod = 1
 						if ( cur_natr_daily >= 8 ):
 							natr_mod = 2
 
 						natr_resistance = ((cur_natr_daily / natr_mod) / 100 + 1) * prev_day_close
-						if ( cur_price > natr_resistance and buy_signal == True ):
+						if ( cur_close > natr_resistance and buy_signal == True ):
 							if ( cur_rsi_k > cur_rsi_d and cur_rsi_k - cur_rsi_d < 12 ):
 								resistance_signal = False
 
-						if ( abs((cur_price / natr_resistance - 1) * 100) <= price_resistance_pct and buy_signal == True ):
+						if ( abs((cur_close / natr_resistance - 1) * 100) <= price_resistance_pct and buy_signal == True ):
 							if ( cur_rsi_k > cur_rsi_d and cur_rsi_k - cur_rsi_d < 10 ):
 								resistance_signal = False
 
@@ -1697,7 +1650,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# VWAP
 				if ( resistance_signal == True ):
 					cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
-					if ( abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
+					if ( abs((cur_vwap / cur_close - 1) * 100) <= price_resistance_pct ):
 
 						# Current price is very close to VWAP
 						# Next check average of last 15 (1-minute) candles
@@ -1716,13 +1669,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				#  the first 2 hours or so of trading can create small hod/lods, but they
 				#  often won't persist. Also, we are more concerned about the slow, low volume
 				#  creeps toward HOD/LOD that are often permanent for the day.
-				cur_time = datetime.fromtimestamp( float(key['datetime'])/1000, tz=mytimezone )
-				cur_hour = int( cur_time.strftime('%-H') )
+				cur_hour = int( date.strftime('%-H') )
 				if ( resistance_signal == True and lod_hod_check == True and cur_hour >= 13 ):
 					cur_day_start	= datetime.strptime(today + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
 					cur_day_start	= mytimezone.localize(cur_day_start)
 
-					delta = cur_time - cur_day_start
+					delta = date - cur_day_start
 					delta = int( delta.total_seconds() / 60 )
 
 					# Find HOD
@@ -1734,25 +1686,33 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					# If the stock has already hit a high of the day, the next rise will likely be
 					#  below HOD. If we are below HOD and less than price_resistance_pct from it
 					#  then we should not enter the trade.
-					if ( cur_price < hod ):
-						if ( abs((cur_price / hod - 1) * 100) <= price_resistance_pct ):
+					if ( cur_close < hod ):
+						if ( abs((cur_close / hod - 1) * 100) <= price_resistance_pct ):
 							resistance_signal = False
 
 					# END HOD Check
 
 				# Key Levels
 				# Check if price is near historic key level
+				near_keylevel = False
 				if ( resistance_signal == True ):
-					near_keylevel = False
-					for lvl in long_support + long_resistance:
-						if ( abs((lvl / cur_price - 1) * 100) <= price_support_pct ):
-							near_keylevel = True
+					for lvl,dt in long_support + long_resistance:
+						if ( abs((lvl / cur_close - 1) * 100) <= price_support_pct ):
+
+							# Since we are parsing historical data on key levels,
+							#  we should check that we are not just hitting a previous
+							#  or newer KL when iterating through the backtest data.
+							dt = datetime.fromtimestamp(int(dt)/1000, tz=mytimezone)
+							if ( date < dt + timedelta(days=6) or (date >= dt and date <= dt + timedelta(days=6)) ):
+								continue
 
 							# Current price is very close to a key level
 							# Next check average of last 15 (1-minute) candles
 							#
 							# If last 15 candles average above key level, then key level is support
 							# otherwise it is resistance
+							near_keylevel = True
+
 							avg = 0
 							for i in range(15, 0, -1):
 								avg += float( pricehistory['candles'][idx-i]['close'] )
@@ -1782,6 +1742,110 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 #					# Current high is within price_resistance_pct of 20-week high, not a good bet
 #					resistance_signal = False
 
+			# Stochastic Divergence
+			if ( stoch_divergence == True and near_keylevel == True and buy_signal == True ):
+				for lvl,dt in long_support:  # + long_resistance
+					if ( abs((lvl / cur_close - 1) * 100) <= price_support_pct ):
+						break
+
+				prev_kl		= lvl		# Previous keylevel price
+				prev_kl_dt	= int(dt)	# Timestamp (weekly, start of the week) for when KL was hit
+				prev_kl_rsi_k	= None
+
+				for kl_idx,kl_key in enumerate(day_1min['candles']):
+					if ( kl_key['datetime'] < prev_kl_dt ):
+						continue
+
+					dt = datetime.fromtimestamp(prev_kl_dt/1000, tz=mytimezone)
+					if ( date < dt + timedelta(days=6) or (date >= dt and date <= dt + timedelta(days=6)) ):
+						continue
+
+					if ( float(kl_key['low']) == lvl ):
+
+						prev_kl_dt	= int(kl_key['datetime'])
+						prev_kl_rsi_k	= kl_rsi_k[ kl_idx - (len(day_1min['candles']) - len(kl_rsi_k)) ]
+
+						print(datetime.fromtimestamp(int(dt)/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S'))
+						print(datetime.fromtimestamp(int(prev_kl_dt)/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S'))
+
+						print(prev_kl)
+						print(prev_kl_rsi_k)
+
+						print(date.strftime('%Y-%m-%d %H:%M:%S'))
+						break
+
+#				today		= date.strftime('%Y-%m-%d')
+#				cur_lod		= cur_day_stats['cur_lod']
+#				prev_lod	= None
+#				prev_lod_rsi	= None
+#
+#				if ( cur_close > cur_lod and (cur_lod / cur_close - 1) * 100 > price_resistance_pct / 3 ):
+#					# Current close price has wandered too far above LOD, so comparing
+#					#  divergence is not helpful
+#					divergence_signal = True
+#					if ( stoch_divergence_strict == True ):
+#						divergence_signal = False
+#
+#				elif ( len(cur_day_stats['lod']) == 0 ):
+#					# We have not registered a first LOD. Use cur_day_stats['cur_lod'] and
+#					#  the previous day's LOD to determine if there is divergence
+#					if ( today in day_stats and day_stats[today]['pdl'] != None and day_stats[today]['pdl_idx'] != None):
+#						prev_lod	= day_stats[today]['pdl']
+#						prev_lod_rsi	= rsi_k[day_stats[today]['pdl_idx'] - stochrsi_idx]
+#
+#					else:
+#						# Not enough data to compare divergence
+#						divergence_signal = True
+#						if ( stoch_divergence_strict == True ):
+#							divergence_signal = False
+#
+#				elif ( len(cur_day_stats['lod']) > 0 ):
+#					if ( cur_lod <= cur_day_stats['lod'][-1]['lod'] ):
+#						# Use info from cur_day_stats['lod'][-2] if available
+#						if ( len(cur_day_stats['lod']) > 1 ):
+#							prev_lod	= cur_day_stats['lod'][-1]['lod']
+#							prev_lod_rsi	= cur_day_stats['lod'][-2]['lod_rsi']
+#
+#						elif ( cur_lod == cur_day_stats['lod'][-1]['lod'] ):
+#							# In this case we should use the previous day's LOD
+#							if ( today in day_stats and day_stats[today]['pdl'] != None and day_stats[today]['pdl_idx'] != None):
+#								prev_lod	= day_stats[today]['pdl']
+#								prev_lod_rsi	= rsi_k[day_stats[today]['pdl_idx'] - stochrsi_idx]
+#
+#							else:
+#								# Not enough data to compare divergence
+#								divergence_signal = True
+#								if ( stoch_divergence_strict == True ):
+#									divergence_signal = False
+#
+#				if ( prev_lod != None and prev_lod_rsi != None ):
+#					if ( cur_lod <= prev_lod and cur_rsi_k < prev_lod_rsi ):
+#						# Current low is below previous day's low, and current rsi_k is
+#						# lower than the previous rsi_k which would suggest strength
+#						print('Cur_LOD: ' + str(cur_lod) + ' / Prev_LOD: ' + str(prev_lod))
+#						print('Cur_RSI_K: ' + str(cur_rsi_k) + ' / Prev_LOD_RSI_K: ' + str(prev_lod_rsi))
+#						print('Signal: ' + str(divergence_signal))
+#						print()
+#						divergence_signal = True
+#
+#					elif ( cur_lod <= prev_lod and cur_rsi_k > prev_lod_rsi ):
+#						# Current low is below previous day's low, and current rsi_k is
+#						# higher than the previous rsi_k which would suggest weakness
+#						print('Cur_LOD: ' + str(cur_lod) + ' / Prev_LOD: ' + str(prev_lod))
+#						print('Cur_RSI_K: ' + str(cur_rsi_k) + ' / Prev_LOD_RSI_K: ' + str(prev_lod_rsi))
+#						print('Signal: ' + str(divergence_signal))
+#						print()
+#						divergence_signal = False
+#
+#				else:
+#					# Not enough data to compare divergence
+#					divergence_signal = True
+#					if ( stoch_divergence_strict == True ):
+#						divergence_signal = False
+
+			# End Stochastic Divergence
+
+			# Experimental pattern matching - may be removed
 			if ( experimental == True ):
 				if ( cur_natr_daily > 6 ):
 					#if ( (diff_signals[idx] == 'buy' or anti_diff_signals[idx] == 'buy') and fib_signals[idx]['bull_signal'] <= -8 ):
@@ -1802,6 +1866,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					final_buy_signal = False
 
 				if ( with_stochmfi_5m == True and stochmfi_5m_final_signal != True ):
+					final_buy_signal = False
+
+				if ( (stoch_divergence == True or stoch_divergence_strict == True) and divergence_signal != True ):
 					final_buy_signal = False
 
 				if ( with_rsi == True and rsi_signal != True ):
@@ -2104,17 +2171,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
 			if ( hold_overnight == False and tda_gobot_helper.isendofday(75, date) ):
-#				if ( stoch_divergence == True ):
-#					# Reset cur_day_stats
-#					cur_day_stats = { 'hod':		[],
-#							  'lod':		[],
-#							  'cur_hod':		0,
-#							  'cur_lod':		999999,
-#							  'cur_hod_idx':	0,
-#							  'cur_hod_rsi':	0,
-#							  'hod_counter':	0,
-#							  'lod_counter':	0 }
-
 				reset_signals()
 				continue
 
@@ -2278,8 +2334,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# This is the most simple/pessimistic approach right now
 			if ( with_vwap == True ):
 				cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
-				cur_price = cur_close
-				if ( cur_price > cur_vwap ):
+				if ( cur_close > cur_vwap ):
 					vwap_signal = True
 
 			# VPT
@@ -2315,9 +2370,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# Resistance
 			if ( no_use_resistance == False and short_signal == True ):
-
 				today			= datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d')
-				cur_price		= cur_close
 				resistance_signal	= True
 
 				# PDC
@@ -2327,7 +2380,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				if ( prev_day_close != 0 ):
 
-					if ( abs((prev_day_close / cur_price - 1) * 100) <= price_resistance_pct ):
+					if ( abs((prev_day_close / cur_close - 1) * 100) <= price_resistance_pct ):
 
 						# Current price is very close to PDC
 						# Next check average of last 15 (minute) candles
@@ -2343,7 +2396,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				# NATR resistance
 				if ( use_natr_resistance == True ):
-					if ( cur_price < prev_day_close ):
+					if ( cur_close < prev_day_close ):
 						natr_mod = 1
 						if ( cur_natr_daily > 8 ):
 							natr_mod = 2
@@ -2351,11 +2404,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						natr_resistance = ((cur_natr_daily / natr_mod) / 100 + 1) * prev_day_close - prev_day_close
 						natr_resistance = prev_day_close - natr_resistance
 
-						if ( cur_price < natr_resistance and short_signal == True ):
+						if ( cur_close < natr_resistance and short_signal == True ):
 							if ( cur_rsi_k < cur_rsi_d and cur_rsi_d - cur_rsi_k < 12 ):
 								resistance_signal = False
 
-						if ( abs((cur_price / natr_resistance - 1) * 100) <= price_resistance_pct and short_signal == True ):
+						if ( abs((cur_close / natr_resistance - 1) * 100) <= price_resistance_pct and short_signal == True ):
 							if ( cur_rsi_k < cur_rsi_d and cur_rsi_d - cur_rsi_k < 10 ):
 								resistance_signal = False
 
@@ -2363,7 +2416,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# VWAP
 				if ( resistance_signal == True ):
 					cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
-					if ( abs((cur_vwap / cur_price - 1) * 100) <= price_resistance_pct ):
+					if ( abs((cur_vwap / cur_close - 1) * 100) <= price_resistance_pct ):
 
 						# Current price is very close to VWAP
 						# Next check average of last 15 (1-minute) candles
@@ -2382,13 +2435,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				#  the first 1-1.5 hours or so of trading can create small hod/lods, but they
 				#  often won't persist. Also, we are more concerned about the slow, low volume
 				#  creeps toward HOD/LOD that are often permanent for the day.
-				cur_time = datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone)
-				cur_hour = int( cur_time.strftime('%-H') )
+				cur_hour = int( date.strftime('%-H') )
 				if ( resistance_signal == True and lod_hod_check == True and cur_hour >= 13 ):
 					cur_day_start	= datetime.strptime(today + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
 					cur_day_start	= mytimezone.localize(cur_day_start)
 
-					delta = cur_time - cur_day_start
+					delta = date - cur_day_start
 					delta = int( delta.total_seconds() / 60 )
 
 					# Find LOD
@@ -2400,8 +2452,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					# If the stock has already hit a low of the day, the next decrease will likely be
 					#  above LOD. If we are above LOD and less than price_resistance_pct from it
 					#  then we should not enter the trade.
-					if ( cur_price > lod ):
-						if ( abs((lod / cur_price - 1) * 100) <= price_resistance_pct ):
+					if ( cur_close > lod ):
+						if ( abs((lod / cur_close - 1) * 100) <= price_resistance_pct ):
 							resistance_signal = False
 
 					# END LOD Check
@@ -2410,15 +2462,23 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# Check if price is near historic key level
 				if ( resistance_signal == True ):
 					near_keylevel = False
-					for lvl in long_support + long_resistance:
-						if ( abs((lvl / cur_price - 1) * 100) <= price_resistance_pct ):
-							near_keylevel = True
+					for lvl,dt in long_support + long_resistance:
+						if ( abs((lvl / cur_close - 1) * 100) <= price_resistance_pct ):
+
+							# Since we are parsing historical data on key levels,
+							#  we should check that we are not just hitting a previous
+							#  KL when iterating through the backtest data.
+							dt = datetime.fromtimestamp(int(dt)/1000, tz=mytimezone)
+							if ( dt + timedelta(days=6) > date or (date >= dt and date <= dt + timedelta(days=6)) ):
+								continue
 
 							# Current price is very close to a key level
 							# Next check average of last 15 (1-minute) candles
 							#
 							# If last 15 candles average below key level, then key level is resistance
 							# otherwise it is support
+							near_keylevel = True
+
 							avg = 0
 							for i in range(15, 0, -1):
 								avg += float( pricehistory['candles'][idx-i]['close'] )

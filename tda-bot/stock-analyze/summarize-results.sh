@@ -87,8 +87,8 @@ if [ "$command" == "all" -o "$command" == "gain-loss" ]; then
 		win=$( cat *-${t} | egrep '(2020|2021|2022)' | grep 32m | wc -l )
 		loss=$( cat *-${t} | egrep '(2020|2021|2022)' | grep 31m | wc -l )
 		total=$( echo "$win + $loss" | bc )
-		win_rate=$( echo "scale=2; ( $win / $total ) * 100" | bc )
-		loss_rate=$( echo "scale=2; ( $loss / $total ) * 100" | bc )
+		win_rate=$( echo "scale=3; ( $win / $total ) * 100" | bc -l | xargs printf %.1f )
+		loss_rate=$( echo "scale=3; ( $loss / $total ) * 100" | bc -l | xargs printf %.1f )
 
 		echo "${t},${total},${win},${loss},${win_rate}"
 	done

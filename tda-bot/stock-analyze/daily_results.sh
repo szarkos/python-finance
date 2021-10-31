@@ -176,10 +176,9 @@ for tst in $tests; do
 
 	echo
 
-	win_pct=$(echo "scale=2; ($wins / ( $wins + $loss )) * 100" | bc)
+	win_pct=$(echo "scale=3; ($wins / ( $wins + $loss )) * 100" | bc -l | xargs printf %.1f )
 	echo "Daily win/loss ratio: $wins / $loss (${win_pct}%)"
 	echo
-
 
 	success=""
 	fail=""

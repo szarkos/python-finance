@@ -224,8 +224,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	check_ma_strict		=	False		if ('check_ma_strict' not in params) else params['check_ma_strict']
 	check_ma		=	False		if ('check_ma' not in params) else params['check_ma']
 	check_ma		=	True		if (check_ma_strict == True ) else check_ma ; params['check_ma'] = check_ma
-	sma_period		=	5		if ('sma_period' not in params) else params['sma_period']
-	ema_period		=	5		if ('ema_period' not in params) else params['ema_period']
 
 	check_etf_indicators_strict =	False		if ('check_etf_indicators_strict' not in params) else params['check_etf_indicators_strict']
 	check_etf_indicators	=	False		if ('check_etf_indicators' not in params) else params['check_etf_indicators']
@@ -442,7 +440,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_stochrsi() returned false - no data', file=sys.stderr)
 			return False
 
-	if ( with_stochmfi == True ):
+	if ( with_stochmfi == True or True == True):
 		mfi_k		= []
 		mfi_d		= []
 		try:
@@ -791,37 +789,49 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 #			print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
 
 
-	# Intraday SMA/EMA
-	# We can use this to tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior
-	sma = []
-	ema = []
+	# Intraday stacked EMA
+	s_ema	= []
+	ema3	= []
+	ema5	= []
+	ema8	= []
+	ema13	= []
+	ema21	= []
 	try:
-		sma = tda_gobot_helper.get_sma( pricehistory_5m, period=sma_period, type='hlc3' )
-		ema = tda_gobot_helper.get_ema( pricehistory_5m, period=ema_period )
+		ema3 = tda_gobot_helper.get_ema( pricehistory, period=3 )
+		ema5 = tda_gobot_helper.get_ema( pricehistory, period=5 )
+		ema8 = tda_gobot_helper.get_ema( pricehistory, period=8 )
+		ema13 = tda_gobot_helper.get_ema( pricehistory, period=13 )
+		ema21 = tda_gobot_helper.get_ema( pricehistory, period=21 )
 
 	except Exception as e:
-		print('Error, unable to calculate SMA/EMA: ' + str(e))
-		sma[0] = 0
-		ema[0] = 0
+		print('Error, unable to calculate stacked EMAs: ' + str(e))
+		return False
+
+	for i in range(0, len(ema3)):
+		s_ema.append( (ema3[i], ema5[i], ema8[i], ema13[i], ema21[i]) )
+	del(ema3, ema5, ema8, ema13, ema21)
 
 	# Daily SMA/EMA
-	daily_sma = []
-	daily_ema = []
+	daily_ema3 = []
+	daily_ema5 = []
+	daily_ema8 = []
+	daily_ema13 = []
 	try:
-		daily_sma = tda_gobot_helper.get_sma( pricehistory=daily_ph, period=10, type='hlc3' )
-		daily_ema = tda_gobot_helper.get_ema( pricehistory=daily_ph, period=5 )
+		daily_ema3 = tda_gobot_helper.get_ema( pricehistory=daily_ph, period=3 )
+		daily_ema5 = tda_gobot_helper.get_ema( pricehistory=daily_ph, period=5 )
+		daily_ema8 = tda_gobot_helper.get_ema( pricehistory=daily_ph, period=8 )
+		daily_ema13 = tda_gobot_helper.get_ema( pricehistory=daily_ph, period=13 )
 
 	except Exception as e:
-		print('Error, unable to calculate SMA/EMA: ' + str(e))
-		daily_sma[0] = 0
-		daily_ema[0] = 0
+		print('Error, unable to calculate daily EMA: ' + str(e))
+		return False
 
 	daily_ma = OrderedDict()
-	for idx in range(-1, -len(daily_sma), -1):
+	for idx in range(-1, -len(daily_ema3), -1):
 		day = datetime.fromtimestamp(int(daily_ph['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d')
 		if day not in daily_ma:
-			daily_ma[day] = { 'sma': daily_sma[idx], 'ema': daily_ema[idx] }
-
+			daily_ma[day] = (daily_ema3[idx], daily_ema5[idx], daily_ema8[idx], daily_ema13[idx])
+	del(daily_ema3, daily_ema5, daily_ema8, daily_ema13)
 	# End SMA/EMA
 
 	# Populate SMA/EMA for etf indicators
@@ -835,11 +845,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			etf_indicators[t]['sma'] = {}
 			etf_indicators[t]['ema'] = {}
 
-			sma = []
-			ema = []
+			sma_period = ema_period = 5
+			etf_sma = []
+			etf_ema = []
 			try:
-				sma = tda_gobot_helper.get_sma( etf_indicators[t]['pricehistory'], period=sma_period, type='hlc3' )
-				ema = tda_gobot_helper.get_ema( etf_indicators[t]['pricehistory'], period=ema_period )
+				etf_sma = tda_gobot_helper.get_sma( etf_indicators[t]['pricehistory'], period=sma_period, type='hlc3' )
+				etf_ema = tda_gobot_helper.get_ema( etf_indicators[t]['pricehistory'], period=ema_period )
 
 			except Exception as e:
 				print('Error, unable to calculate SMA/EMA for ticker ' + str(t) + ': ' + str(e))
@@ -848,12 +859,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Note:
 			#  len(sma) = len(pricehistory) - sma_period-1
 			#  len(ema) = len(pricehistory)
-			for i in range( 0, len(sma) ):
+			for i in range( 0, len(etf_sma) ):
 				# Format:
 				#  etf_indicators[t]['sma'] = { cur_datetime: cur_sma, ... }
 				cur_datetime = int( etf_indicators[t]['pricehistory']['candles'][i+sma_period-1]['datetime'] )
-				etf_indicators[t]['sma'][cur_datetime] = sma[i]
-				etf_indicators[t]['ema'][cur_datetime] = ema[i+sma_period-1]
+				etf_indicators[t]['sma'][cur_datetime] = etf_sma[i]
+				etf_indicators[t]['ema'][cur_datetime] = etf_ema[i+ema_period-1]
 
 			all_datetime = all_datetime + list( etf_indicators[t]['sma'].keys() )
 
@@ -884,8 +895,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		stochrsi_5m_idx		= len(pricehistory['candles']) - len(rsi_k) * 5
 	if ( with_stochrsi_5m == True ):
 		stochrsi_5m_idx		= len(pricehistory['candles']) - len(rsi_k_5m) * 5
-	if ( with_stochmfi == True ):
-		stochmfi_idx		= len(pricehistory['candles']) - len(mfi_k)
+#	if ( with_stochmfi == True ):
+	stochmfi_idx		= len(pricehistory['candles']) - len(mfi_k)
 	if ( with_stochmfi_5m == True ):
 		stochmfi_5m_idx		= len(pricehistory['candles']) - len(mfi_k_5m) * 5
 
@@ -961,10 +972,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	orig_exit_percent		= exit_percent
 
 	ma_intraday_affinity		= None
+	prev_ma_intraday_affinity	= None
 	ma_daily_affinity		= None
 
 	stochrsi_default_low_limit	= 20
 	stochrsi_default_high_limit	= 80
+	if ( rsi_low_limit > stochrsi_default_low_limit ):
+		stochrsi_default_low_limit = rsi_low_limit
+	if ( rsi_high_limit < stochrsi_default_high_limit ):
+		stochrsi_default_high_limit = rsi_high_limit
 
 	orig_rsi_low_limit		= rsi_low_limit
 	orig_rsi_high_limit		= rsi_high_limit
@@ -1157,11 +1173,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			cur_rsi_d_5m	= rsi_d_5m[int((idx - stochrsi_5m_idx) / 5)]
 			prev_rsi_d_5m	= rsi_d_5m[int((idx - stochrsi_5m_idx) / 5) - 1]
 
-		if ( with_stochmfi == True ):
-			cur_mfi_k	= mfi_k[idx - stochmfi_idx]
-			prev_mfi_k	= mfi_k[idx - stochmfi_idx - 1]
-			cur_mfi_d	= mfi_d[idx - stochmfi_idx]
-			prev_mfi_d	= mfi_d[idx - stochmfi_idx - 1]
+#		if ( with_stochmfi == True ):
+		cur_mfi_k	= mfi_k[idx - stochmfi_idx]
+		prev_mfi_k	= mfi_k[idx - stochmfi_idx - 1]
+		cur_mfi_d	= mfi_d[idx - stochmfi_idx]
+		prev_mfi_d	= mfi_d[idx - stochmfi_idx - 1]
 
 		if ( with_stochmfi_5m == True ):
 			cur_mfi_k_5m	= mfi_k_5m[int((idx - stochmfi_5m_idx) / 5)]
@@ -1208,28 +1224,21 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		cur_chop		= chop[idx - chop_idx]
 		prev_chop		= chop[idx - chop_idx - 1]
 
+		# Stacked EMA (1min candles)
+		cur_s_ema		= s_ema[idx]
+		prev_s_ema		= s_ema[idx-1]
+
 		cur_natr_daily = 0
 		try:
 			cur_natr_daily = daily_natr[date.strftime('%Y-%m-%d')]['natr']
 		except:
 			pass
 
-		cur_daily_sma = 0
-		cur_daily_ema = 0
+		cur_daily_ema = (0,0,0,0)
 		try:
-			cur_daily_sma = daily_ma[date.strftime('%Y-%m-%d')]['sma']
-			cur_daily_ema = daily_ma[date.strftime('%Y-%m-%d')]['ema']
+			cur_daily_ema = daily_ma[date.strftime('%Y-%m-%d')]
 		except:
 			pass
-
-		# EMA/SMA
-		# 5min candles
-		cur_sma		= round( sma[int(idx / 5) - sma_period], 3 )
-		cur_ema		= round( ema[int(idx / 5) - 1], 3 )
-
-		# 1min candles
-		#cur_sma			= sma[idx - sma_period]
-		#cur_ema			= ema[idx - 1]
 
 		# Skip all candles until start_date, if it is set
 		if ( start_date != None and date < start_date ):
@@ -1286,34 +1295,75 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			check_ma_strict	 	= params['check_ma_strict']
 			with_mfi	 	= params['with_mfi']
+			with_chop_index	 	= params['with_chop_index']
+			with_supertrend	 	= params['with_supertrend']
+			supertrend_min_natr 	= params['supertrend_min_natr']
+			stochrsi_offset		= params['stochrsi_offset']
+			with_stochmfi		= params['with_stochmfi']
+			with_dmi_simple		= params['with_dmi_simple']
 
-			# Price action is bullish
-			if ( cur_ema > cur_sma ):
-				ma_intraday_affinity	= 'bull'
-				rsi_low_limit		= 15
-				rsi_high_limit		= 95
+#			if ( cur_s_ema[0] > cur_s_ema[1] and cur_s_ema[1] > cur_s_ema[2] ):
+#			if ( cur_s_ema[1] > cur_s_ema[2] and cur_s_ema[2] > cur_s_ema[3] ):
+#			if ( cur_s_ema[1] > cur_s_ema[2] and cur_s_ema[2] > cur_s_ema[3] and cur_s_ema[3] > cur_s_ema[4] ):
+			if (  cur_s_ema[0] > cur_s_ema[1] and cur_s_ema[1] > cur_s_ema[2] and cur_s_ema[2] > cur_s_ema[3] and cur_s_ema[3] > cur_s_ema[4] ):
 
-			# Price action is bearish
-			elif ( cur_ema < cur_sma ):
-				ma_intraday_affinity	= 'bear'
-				rsi_low_limit		= 10
-				rsi_high_limit		= 90
+				# Price action is bullish
+				ma_intraday_affinity		= 'bull'
+				prev_ma_intraday_affinity	= ma_intraday_affinity
+
+#			elif ( (prev_s_ema[2] > prev_s_ema[1] and cur_s_ema[2] <= cur_s_ema[1])
+#					or prev_ma_intraday_affinity == 'bull_t' ):
+#
+#				# Price action may be turning bullish
+#				ma_intraday_affinity		= 'bull'
+#				prev_ma_intraday_affinity	= 'bull_t'
+
+#			elif ( cur_s_ema[0] < cur_s_ema[1] and cur_s_ema[1] < cur_s_ema[2] ):
+#			elif ( cur_s_ema[1] < cur_s_ema[2] and cur_s_ema[2] < cur_s_ema[3] and cur_s_ema[3] < cur_s_ema[4] ):
+			elif (  cur_s_ema[0] < cur_s_ema[1] and cur_s_ema[1] < cur_s_ema[2] and cur_s_ema[2] < cur_s_ema[3] and cur_s_ema[3] < cur_s_ema[4] ):
+				# Price action is bearish
+				ma_intraday_affinity		= 'bear'
+				prev_ma_intraday_affinity	= ma_intraday_affinity
+
+#			elif ( (prev_s_ema[2] < prev_s_ema[1] and cur_s_ema[2] >= cur_s_ema[1])
+#					or prev_ma_intraday_affinity == 'bear_t' ):
+#				# Price action may be turning bearish
+#				ma_intraday_affinity		= 'bear'
+#				prev_ma_intraday_affinity	= 'bear_t'
+
 
 			# Check daily affinity
-			if ( cur_daily_ema > cur_daily_sma ):
+			if ( cur_daily_ema[0] > cur_daily_ema[1] and cur_daily_ema[1] > cur_daily_ema[2]
+					and cur_daily_ema[2] > cur_daily_ema[3] ):
+				# Daily MA is bullish
 				ma_daily_affinity = 'bull'
-			elif ( cur_daily_ema < cur_daily_sma ):
+
+			elif ( cur_daily_ema[0] < cur_daily_ema[1] and cur_daily_ema[1] < cur_daily_ema[2]
+					and cur_daily_ema[2] < cur_daily_ema[3] ):
+				# Daily MA is bearish
 				ma_daily_affinity = 'bear'
 
-			if ( signal_mode == 'buy' ):
-				if ( ma_daily_affinity == 'bear' and ma_intraday_affinity == 'bear' ):
-					if ( cur_rsi_k > cur_rsi_d and cur_rsi_k - cur_rsi_d < 8 ):
-						with_mfi = True
+			if ( ma_intraday_affinity == 'bull' and ma_daily_affinity == 'bull' ):
+				rsi_high_limit	= 95
+				rsi_low_limit	= 15
+			elif ( ma_intraday_affinity == 'bear' and ma_daily_affinity == 'bear' ):
+				rsi_high_limit	= 85
+				rsi_low_limit	= 5
 
-			elif ( signal_mode == 'short' ):
-				if ( ma_daily_affinity == 'bull' and ma_intraday_affinity == 'bull' ):
-					if ( cur_rsi_k < cur_rsi_d and cur_rsi_d - cur_rsi_k < 8 ):
-						with_mfi = True
+			elif ( ma_intraday_affinity == None or ma_daily_affinity == None ):
+				rsi_high_limit	= 99
+				rsi_low_limit	= 1
+
+#			if ( signal_mode == 'buy' ):
+#				if ( ma_daily_affinity == 'bear' and ma_intraday_affinity == 'bear' ):
+#					stochrsi_offset = 15
+#					with_chop_index = True
+#
+#			elif ( signal_mode == 'short' ):
+#				if ( ma_daily_affinity == 'bull' and ma_intraday_affinity == 'bull' ):
+#					stochrsi_offset = 15
+#					with_chop_index = True
+
 
 		# Check the moving average of the main ETF tickers
 		if ( check_etf_indicators == True ):

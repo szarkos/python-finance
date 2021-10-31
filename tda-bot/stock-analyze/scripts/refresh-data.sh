@@ -30,5 +30,5 @@ if [ ! "$cur_day" == 'Saturday' -a ! "$cur_day" == 'Sunday' ]; then
 	opts="--augment_today"
 fi
 for i in monthly-1min-csv/*.csv; do
-	./ph_csv2pickle.py "$i" "$opts"
+	./ph_csv2pickle.py "$i" $opts
 done

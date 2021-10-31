@@ -126,6 +126,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	max_daily_natr		=	None		if ('max_daily_natr' not in params) else params['max_daily_natr']
 	min_intra_natr		=	None		if ('min_intra_natr' not in params) else params['min_intra_natr']
 	max_intra_natr		=	None		if ('max_intra_natr' not in params) else params['max_intra_natr']
+	min_price		=	None		if ('min_price' not in params) else params['min_price']
+	max_price		=	None		if ('max_price' not in params) else params['max_price']
 
 	# Indicators
 	primary_stoch_indicator	=	'stochrsi'	if ('primary_stoch_indicator' not in params) else params['primary_stoch_indicator']
@@ -1840,9 +1842,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( no_use_resistance == False and resistance_signal != True ):
 					final_buy_signal = False
 
+				# Min/max stock behavior options
 				if ( min_intra_natr != None and cur_natr < min_intra_natr ):
 					final_buy_signal = False
 				if ( max_intra_natr != None and cur_natr > max_intra_natr ):
+					final_buy_signal = False
+				if ( min_price != None and cur_close < min_price ):
+					final_buy_signal = False
+				if ( max_price != None and cur_close > max_price ):
 					final_buy_signal = False
 
 				# Experimental indicators here
@@ -2502,6 +2509,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( min_intra_natr != None and cur_natr < min_intra_natr ):
 					final_short_signal = False
 				if ( max_intra_natr != None and cur_natr > max_intra_natr ):
+					final_short_signal = False
+				if ( min_price != None and cur_close < min_price ):
+					final_short_signal = False
+				if ( max_price != None and cur_close > max_price ):
 					final_short_signal = False
 
 				# Experimental

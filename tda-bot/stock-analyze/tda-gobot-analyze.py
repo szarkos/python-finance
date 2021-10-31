@@ -103,6 +103,8 @@ parser.add_argument("--min_daily_natr", help='Do not process tickers with less t
 parser.add_argument("--max_daily_natr", help='Do not process tickers with more than this daily NATR value (Default: None)', default=None, type=float)
 parser.add_argument("--min_intra_natr", help='Minimum intraday NATR value to allow trade entry (Default: None)', default=None, type=float)
 parser.add_argument("--max_intra_natr", help='Maximum intraday NATR value to allow trade entry (Default: None)', default=None, type=float)
+parser.add_argument("--min_price", help='Minimum stock price to allow trade entry (Default: None)', default=None, type=float)
+parser.add_argument("--max_price", help='Maximum stock price to allow trade entry (Default: None)', default=None, type=float)
 
 parser.add_argument("--rsi_period", help='RSI period to use for calculation (Default: 14)', default=14, type=int)
 parser.add_argument("--stochrsi_period", help='RSI period to use for StochRSI calculation (Default: 128)', default=128, type=int)
@@ -535,6 +537,8 @@ for algo in args.algo.split(','):
 					'max_daily_natr':			args.max_daily_natr,
 					'min_intra_natr':			args.min_intra_natr,
 					'max_intra_natr':			args.max_intra_natr,
+					'min_price':				args.min_price,
+					'max_price':				args.max_price,
 
 					# Indicators
 					'primary_stoch_indicator':		args.primary_stoch_indicator,

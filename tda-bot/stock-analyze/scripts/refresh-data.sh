@@ -24,6 +24,11 @@ rm -f ./daily-csv/*.pickle    2>/dev/null
 ./tda-download-history.py --stocks="$BIGLIST,$HIGH_NATR" --chart_freq=daily --odir=./daily-csv/
 
 # Create the .pickle files
+opts=""
+cur_day="$(date +%A --date='TZ="US/Eastern"')"
+if [ ! "$cur_day" == 'Saturday' -a ! "$cur_day" == 'Sunday' ]; then
+	opts="--augment_today"
+fi
 for i in monthly-1min-csv/*.csv; do
-	./ph_csv2pickle.py $i --augment_today
+	./ph_csv2pickle.py "$i" "$opts"
 done

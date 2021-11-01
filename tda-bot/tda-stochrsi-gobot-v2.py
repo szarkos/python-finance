@@ -815,9 +815,9 @@ for ticker in list(stocks.keys()):
 # Initialize signal handlers to dump stock history on exit
 def graceful_exit(signum=None, frame=None):
 	print("\nNOTICE: graceful_exit(): received signal: " + str(signum))
-
 	tda_stochrsi_gobot_helper.export_pricehistory()
-	sys.exit(0)
+#	sys.exit(0)
+	os._exit(0)
 
 # Initialize SIGUSR1 signal handler to dump stocks on signal
 # Calls sell_stocks() to immediately sell or buy_to_cover any open positions

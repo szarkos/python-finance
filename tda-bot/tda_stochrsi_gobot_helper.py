@@ -215,6 +215,7 @@ def export_pricehistory():
 			fname = './' + str(args.tx_log_dir) + '/' + str(ticker) + '.pickle'
 			with open(fname, 'wb') as handle:
 				pickle.dump(stocks[ticker]['pricehistory'], handle)
+				handle.flush()
 
 		except Exception as e:
 			print('Warning: Unable to write to file ' + str(fname) + ': ' + str(e), file=sys.stderr)
@@ -225,6 +226,7 @@ def export_pricehistory():
 			fname = './' + str(args.tx_log_dir) + '/' + str(ticker) + '_5m.pickle'
 			with open(fname, 'wb') as handle:
 				pickle.dump(stocks[ticker]['pricehistory_5m'], handle)
+				handle.flush()
 
 		except Exception as e:
 			print('Warning: Unable to write to file ' + str(fname) + ': ' + str(e), file=sys.stderr)
@@ -261,12 +263,14 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 	if ( valid == 0 ):
 		print("\nNo more valid stock tickers, exiting.")
 		signal.raise_signal(signal.SIGTERM)
+		sys.exit(0)
 
 	# Exit if we are not set up to monitor across multiple days
 	if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False ):
 		if ( args.singleday == False and args.multiday == False ):
 			print('Market closed, exiting.')
 			signal.raise_signal(signal.SIGTERM)
+			sys.exit(0)
 
 
 	# StochRSI/StochMFI long algorithm

@@ -1185,11 +1185,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			return bbands_kchan_signal
 
 		# Require bbands/kchannel crossover
-		if ( (prev_kchannel_lower >= prev_bbands_lower and cur_kchannel_lower < cur_bbands_lower) and
-			(prev_kchannel_upper <= prev_bbands_upper and cur_kchannel_upper > cur_bbands_upper) ):
+#		if ( (prev_kchannel_lower >= prev_bbands_lower and cur_kchannel_lower < cur_bbands_lower) and
+#			(prev_kchannel_upper <= prev_bbands_upper and cur_kchannel_upper > cur_bbands_upper) ):
+		if ( (prev_kchannel_lower < prev_bbands_lower and cur_kchannel_lower > cur_bbands_lower) and
+			(prev_kchannel_upper > prev_bbands_upper and cur_kchannel_upper < cur_bbands_upper) ):
 			bbands_kchan_signal = True
 
-		elif ( cur_kchannel_lower >= cur_bbands_lower or cur_kchannel_upper <= cur_bbands_upper ):
+#		if ( bbands_kchan_signal == True and cur_kchannel_lower >= cur_bbands_lower or cur_kchannel_upper <= cur_bbands_upper ):
+#			bbands_kchan_signal = False
+		if ( bbands_kchan_signal == True and cur_kchannel_lower <= cur_bbands_lower or cur_kchannel_upper >= cur_bbands_upper ):
 			bbands_kchan_signal = False
 
 		return bbands_kchan_signal

@@ -485,6 +485,9 @@ for algo in args.algo.split(','):
 			print('Not enough data - returned candles=' + str(len(data['candles'])) + ', rsi_period=' + str(rsi_period))
 			continue
 
+		# Translate and add Heiken Ashi candles to pricehistory (will add new array called data['hacandles'])
+		data = tda_gobot_helper.translate_heikin_ashi(pricehistory=data)
+
 		# Dump pickle data if requested
 		if ( args.ofile != None ):
 			try:

@@ -758,6 +758,54 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 	return data, epochs
 
 
+# Translate candle data to Heikin Ashi
+def translate_heikin_ashi(pricehistory=None):
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	if ( pricehistory == None ):
+		print('Error: translate_heikin_ashi(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False
+
+	# Heikin Ashi candles formula
+	#  haOpen = [haOpen(Previous Bar) + haClose(Previous Bar)]/2
+	#  haClose = (open+high+low+close)/4
+	#  haLow = Min(low, haOpen, haClose)
+	#  haHigh = Max(high, haOpen, haClose)
+	hacandles = []
+	for idx,key in enumerate(pricehistory['candles']):
+		key['open']	= float( key['open'] )
+		key['high']	= float( key['high'] )
+		key['low']	= float( key['low'] )
+		key['close']	= float( key['close'] )
+		key['volume']	= int( key['volume'] )
+		key['datetime']	= int( key['datetime'] )
+
+		if ( idx == 0 ):
+			ha_open = key['open']
+		else:
+			ha_open = ( hacandles[idx-1]['open'] + hacandles[idx-1]['close'] ) / 2
+
+		ha_close	= ( key['open'] + key['high'] + key['low'] + key['close'] ) / 4
+		ha_high		= max( key['high'], ha_open, ha_close )
+		ha_low		= min( key['low'], ha_open, ha_close )
+
+		hacandles.append ( {	'open':		ha_open,
+					'high':		ha_high,
+					'low':		ha_low,
+					'close':	ha_close,
+					'volume':	key['volume'],
+					'datetime':	key['datetime'] } )
+
+	pricehistory.update({ 'hacandles': hacandles })
+
+	return pricehistory
+
+
 # Calculate the high, low and average stock price based on hourly data
 def get_price_stats_hourly(ticker=None, days=10, extended_hours=True, debug=False):
 
@@ -1028,7 +1076,7 @@ def get_ema(pricehistory=None, period=50, type='close', debug=False):
 
 
 # Return the N-period Kaufman Adaptive Moving Average
-def get_kama(pricehistory=None, period=50, type='close', debug=False):
+def get_kama(pricehistory=None, period=50, type='hlc3', debug=False):
 
 	if ( pricehistory == None ):
 		return False
@@ -1975,15 +2023,15 @@ def get_vwap(pricehistory=None, day='today', end_timestamp=None, use_bands=True,
 # Calculate Bollinger Bands
 def get_bbands(pricehistory=None, type='hlc3', period=20, stddev=2, debug=False):
 
-	if ( pricehistory == None ):
-		print('Error: get_bbands(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
-		return False, [], []
-
 	ticker = ''
 	try:
 		ticker = pricehistory['symbol']
 	except:
 		pass
+
+	if ( pricehistory == None ):
+		print('Error: get_bbands(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False, [], []
 
 	prices = []
 	if ( type == 'close' ):
@@ -2052,17 +2100,17 @@ def get_bbands(pricehistory=None, type='hlc3', period=20, stddev=2, debug=False)
 
 
 # Calculate the Keltner channel upper, middle and lower lines
-def get_kchannels(pricehistory=None, type='hlc3', period=20, atr_period=None, atr_multiplier=2, debug=False):
-
-	if ( pricehistory == None ):
-		print('Error: get_kchannels(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
-		return False, [], []
+def get_kchannels(pricehistory=None, type='hlc3', adaptive=False, period=20, atr_period=None, atr_multiplier=2, debug=False):
 
 	ticker = ''
 	try:
 		ticker = pricehistory['symbol']
 	except:
 		pass
+
+	if ( pricehistory == None ):
+		print('Error: get_kchannels(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False, [], []
 
 	if ( atr_period == None ):
 		atr_period = period
@@ -2112,7 +2160,10 @@ def get_kchannels(pricehistory=None, type='hlc3', period=20, atr_period=None, at
 	atr	= []
 	natr	= []
 	try:
-		ema = get_ema( pricehistory, period=period )
+		if ( adaptive == True ):
+			ema = get_kama( pricehistory, period=period )
+		else:
+			ema = get_ema( pricehistory, period=period )
 
 	except Exception as e:
 		print('Error: get_kchannel(' + str(ticker) + '): unable to calculate EMA: ' + str(e))

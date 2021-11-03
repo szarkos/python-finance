@@ -1973,7 +1973,7 @@ def get_vwap(pricehistory=None, day='today', end_timestamp=None, use_bands=True,
 
 
 # Calculate Bollinger Bands
-def get_bbands(pricehistory=None, type='hlc3', period=128, stddev=2, debug=False):
+def get_bbands(pricehistory=None, type='hlc3', period=20, stddev=2, debug=False):
 
 	if ( pricehistory == None ):
 		print('Error: get_bbands(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
@@ -2028,16 +2028,25 @@ def get_bbands(pricehistory=None, type='hlc3', period=128, stddev=2, debug=False
 		print('Warning: get_bbands(' + str(ticker) + '): len(pricehistory) is less than period - is this a new stock ticker?', file=sys.stderr)
 
 	# ti.bbands
-	bbands_lower = []
-	bbands_middle = []
-	bbands_upper = []
+	bbands_lower	= []
+	bbands_middle	= []
+	bbands_upper	= []
 	try:
-		np_prices = np.array( prices )
+		prices = np.array( prices )
 		bbands_lower, bbands_middle, bbands_upper = ti.bbands(prices, period, stddev)
 
 	except Exception as e:
 		print( 'Caught Exception: get_bbands(' + str(ticker) + '): ti.bbands(): ' + str(e) + ', len(pricehistory)=' + str(len(pricehistory['candles'])) )
 		return False, [], []
+
+	# Normalize the size of bbands_*[] to match the input size
+	tmp = []
+	for i in range(0, period - 1):
+		tmp.append(0)
+
+	bbands_lower	= tmp + list(bbands_lower)
+	bbands_middle	= tmp + list(bbands_middle)
+	bbands_upper	= tmp + list(bbands_upper)
 
 	return bbands_lower, bbands_middle, bbands_upper
 
@@ -2107,14 +2116,14 @@ def get_kchannels(pricehistory=None, type='hlc3', period=20, atr_period=None, at
 
 	except Exception as e:
 		print('Error: get_kchannel(' + str(ticker) + '): unable to calculate EMA: ' + str(e))
-		return False
+		return False, [], []
 
 	try:
 		atr, natr = get_atr( pricehistory, period=atr_period )
 
 	except Exception as e:
 		print('Error: get_kchannel(' + str(ticker) + '): unable to calculate ATR: ' + str(e))
-		return False
+		return False, [], []
 
 	# Normalize the size of atr[] to match the input size
 	tmp = []
@@ -2130,7 +2139,7 @@ def get_kchannels(pricehistory=None, type='hlc3', period=20, atr_period=None, at
 		kchannel_upper.append(ema[idx] + (atr[idx] * atr_multiplier) )
 		kchannel_lower.append(ema[idx] - (atr[idx] * atr_multiplier) )
 
-	return kchannel_mid, kchannel_upper, kchannel_lower
+	return kchannel_lower, kchannel_mid, kchannel_upper
 
 
 # Get MACD

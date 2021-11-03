@@ -69,6 +69,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 		nonlocal chop_init_signal		; chop_init_signal		= False
 		nonlocal chop_signal			; chop_signal			= False
+		nonlocal supertrend_signal		; supertrend_signal		= False
+		nonlocal bbands_kchan_signal		; bbands_kchan_signal		= False
 
 		nonlocal plus_di_crossover		; plus_di_crossover		= False
 		nonlocal minus_di_crossover		; minus_di_crossover		= False
@@ -76,8 +78,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal macd_avg_crossover		; macd_avg_crossover		= False
 
 		nonlocal divergence_signal		; divergence_signal		= False
-		nonlocal supertrend_signal		; supertrend_signal		= False
-
 		nonlocal experimental_signal		; experimental_signal		= False
 
 		return True
@@ -159,6 +159,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	with_supertrend		=	False		if ('with_supertrend' not in params) else params['with_supertrend']
 	supertrend_min_natr	=	5		if ('supertrend_min_natr' not in params) else params['supertrend_min_natr']
 	supertrend_atr_period	=	128		if ('supertrend_atr_period' not in params) else params['supertrend_atr_period']
+
+	with_bbands_kchannel_simple =	False		if ('with_bbands_kchannel_simple' not in params) else params['with_bbands_kchannel_simple']
+	with_bbands_kchannel	=	False		if ('with_bbands_kchannel' not in params) else params['with_bbands_kchannel']
+	bbands_period		=	20		if ('bbands_period' not in params) else params['bbands_period']
+	kchannel_period		=	20		if ('kchannel_period' not in params) else params['kchannel_period']
+	kchannel_atr_period	=	20		if ('kchannel_atr_period' not in params) else params['kchannel_atr_period']
 
 	# Indicator parameters and modifiers
 	stochrsi_period		=	128		if ('stochrsi_period' not in params) else params['stochrsi_period']
@@ -560,6 +566,27 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_supertrend(): ' + str(e))
 		return False
 
+	# Bollinger bands and Keltner channels
+	if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
+		bbands_lower	= []
+		bbands_mid	= []
+		bbands_upper	= []
+		try:
+			bbands_lower, bbands_mid, bbands_upper = tda_gobot_helper.get_bbands(pricehistory, period=bbands_period)
+
+		except Exception as e:
+			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_bbands(): ' + str(e))
+			return False
+
+		kchannel_lower	= []
+		kchannel_mid	= []
+		kchannel_upper	= []
+		try:
+			kchannel_lower, kchannel_mid, kchannel_upper = tda_gobot_helper.get_kchannels(pricehistory, period=kchannel_period, atr_period=kchannel_atr_period)
+
+		except Exception as e:
+			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_kchannel(): ' + str(e))
+			return False
 
 	# Calculate daily volume from the 1-minute candles that we have
 	if ( check_volume == True ):
@@ -790,7 +817,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 #		except Exception as e:
 #			print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
 
-
 	# Intraday stacked EMA
 	s_ema	= []
 	ema3	= []
@@ -799,11 +825,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	ema13	= []
 	ema21	= []
 	try:
-		ema3 = tda_gobot_helper.get_ema( pricehistory, period=3 )
-		ema5 = tda_gobot_helper.get_ema( pricehistory, period=5 )
-		ema8 = tda_gobot_helper.get_ema( pricehistory, period=8 )
-		ema13 = tda_gobot_helper.get_ema( pricehistory, period=13 )
-		ema21 = tda_gobot_helper.get_ema( pricehistory, period=21 )
+		ema3	= tda_gobot_helper.get_ema( pricehistory, period=3 )
+		ema5	= tda_gobot_helper.get_ema( pricehistory, period=5 )
+		ema8	= tda_gobot_helper.get_ema( pricehistory, period=8 )
+		ema13	= tda_gobot_helper.get_ema( pricehistory, period=13 )
+		ema21	= tda_gobot_helper.get_ema( pricehistory, period=21 )
 
 	except Exception as e:
 		print('Error, unable to calculate stacked EMAs: ' + str(e))
@@ -814,15 +840,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	del(ema3, ema5, ema8, ema13, ema21)
 
 	# Daily SMA/EMA
-	daily_ema3 = []
-	daily_ema5 = []
-	daily_ema8 = []
-	daily_ema13 = []
+	daily_ema3	= []
+	daily_ema5	= []
+	daily_ema8	= []
+	daily_ema13	= []
 	try:
-		daily_ema3 = tda_gobot_helper.get_ema( pricehistory=daily_ph, period=3 )
-		daily_ema5 = tda_gobot_helper.get_ema( pricehistory=daily_ph, period=5 )
-		daily_ema8 = tda_gobot_helper.get_ema( pricehistory=daily_ph, period=8 )
-		daily_ema13 = tda_gobot_helper.get_ema( pricehistory=daily_ph, period=13 )
+		daily_ema3	= tda_gobot_helper.get_ema( pricehistory=daily_ph, period=3 )
+		daily_ema5	= tda_gobot_helper.get_ema( pricehistory=daily_ph, period=5 )
+		daily_ema8	= tda_gobot_helper.get_ema( pricehistory=daily_ph, period=8 )
+		daily_ema13	= tda_gobot_helper.get_ema( pricehistory=daily_ph, period=13 )
 
 	except Exception as e:
 		print('Error, unable to calculate daily EMA: ' + str(e))
@@ -956,15 +982,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	chop_init_signal		= False
 	chop_signal			= False
+	supertrend_signal		= False
+	bbands_kchan_signal		= False
 
 	plus_di_crossover		= False
 	minus_di_crossover		= False
 	macd_crossover			= False
 	macd_avg_crossover		= False
 
-	supertrend_signal		= False
-	divergence_signal		= False
 	near_keylevel			= False
+	divergence_signal		= False
 	experimental_signal		= False
 
 	default_incr_threshold		= incr_threshold
@@ -1002,45 +1029,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	signal_mode = 'buy'
 	if ( shortonly == True ):
 		signal_mode = 'short'
-
-
-	# Choppiness Index
-	def get_chop_signal(simple=False, prev_chop=-1, cur_chop=-1, chop_init_signal=False, chop_signal=False):
-
-		nonlocal chop_high_limit
-		nonlocal chop_low_limit
-		nonlocal default_chop_high_limit
-
-		if ( simple == True ):
-			# Chop simple algo can be used as a weak signal to help confirm trendiness,
-			#  but no crossover from high->low is required
-			if ( cur_chop < chop_high_limit and cur_chop > chop_low_limit ):
-				chop_init_signal = True
-				chop_signal = True
-			elif ( cur_chop > chop_high_limit or cur_chop < chop_low_limit ):
-				chop_init_signal = False
-				chop_signal = False
-
-		else:
-			if ( prev_chop > chop_high_limit and cur_chop <= chop_high_limit ):
-				chop_init_signal = True
-
-			if ( chop_init_signal == True and chop_signal == False ):
-				if ( cur_chop <= default_chop_high_limit ):
-					chop_signal = True
-
-			if ( chop_signal == True ):
-				if ( cur_chop > default_chop_high_limit ):
-					chop_init_signal = False
-					chop_signal = False
-
-				elif ( prev_chop < chop_low_limit and cur_chop < chop_low_limit ):
-					if ( cur_chop > prev_chop ):
-						# Trend may be reversing, cancel the signal
-						chop_init_signal = False
-						chop_signal = False
-
-		return chop_init_signal, chop_signal
 
 
 	# StochRSI/StochMFI long algorithm
@@ -1128,6 +1116,83 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					final_signal = True
 
 		return stoch_signal, crossover_signal, threshold_signal, final_signal
+
+
+	# Choppiness Index
+	def get_chop_signal(simple=False, prev_chop=-1, cur_chop=-1, chop_init_signal=False, chop_signal=False):
+
+		nonlocal chop_high_limit
+		nonlocal chop_low_limit
+		nonlocal default_chop_high_limit
+
+		if ( simple == True ):
+			# Chop simple algo can be used as a weak signal to help confirm trendiness,
+			#  but no crossover from high->low is required
+			if ( cur_chop < chop_high_limit and cur_chop > chop_low_limit ):
+				chop_init_signal = True
+				chop_signal = True
+			elif ( cur_chop > chop_high_limit or cur_chop < chop_low_limit ):
+				chop_init_signal = False
+				chop_signal = False
+
+		else:
+			if ( prev_chop > chop_high_limit and cur_chop <= chop_high_limit ):
+				chop_init_signal = True
+
+			if ( chop_init_signal == True and chop_signal == False ):
+				if ( cur_chop <= default_chop_high_limit ):
+					chop_signal = True
+
+			if ( chop_signal == True ):
+				if ( cur_chop > default_chop_high_limit ):
+					chop_init_signal = False
+					chop_signal = False
+
+				elif ( prev_chop < chop_low_limit and cur_chop < chop_low_limit ):
+					if ( cur_chop > prev_chop ):
+						# Trend may be reversing, cancel the signal
+						chop_init_signal = False
+						chop_signal = False
+
+		return chop_init_signal, chop_signal
+
+
+	# Bollinger Bands and Keltner Channel crossover
+	def bbands_kchannels(simple=False, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0), bbands_kchan_signal=False ):
+
+		# bbands/kchannel (0,0,0) = lower, middle, upper
+		cur_bbands_lower	= cur_bbands[0]
+		cur_bbands_mid		= cur_bbands[1]
+		cur_bbands_upper	= cur_bbands[2]
+
+		prev_bbands_lower	= prev_bbands[0]
+		prev_bbands_mid		= prev_bbands[1]
+		prev_bbands_upper	= prev_bbands[2]
+
+		cur_kchannel_lower	= cur_kchannel[0]
+		cur_kchannel_mid	= cur_kchannel[1]
+		cur_kchannel_upper	= cur_kchannel[2]
+
+		prev_kchannel_lower	= prev_kchannel[0]
+		prev_kchannel_mid	= prev_kchannel[1]
+		prev_kchannel_upper	= prev_kchannel[2]
+
+		if ( simple == True ):
+			bbands_kchan_signal = False
+			if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
+				bbands_kchan_signal = True
+
+			return bbands_kchan_signal
+
+		# Require bbands/kchannel crossover
+		if ( (prev_kchannel_lower >= prev_bbands_lower and cur_kchannel_lower < cur_bbands_lower) and
+			(prev_kchannel_upper <= prev_bbands_upper and cur_kchannel_upper > cur_bbands_upper) ):
+			bbands_kchan_signal = True
+
+		elif ( cur_kchannel_lower >= cur_bbands_lower or cur_kchannel_upper <= cur_bbands_upper ):
+			bbands_kchan_signal = False
+
+		return bbands_kchan_signal
 
 
 	##################################################################################################################
@@ -1304,67 +1369,37 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			with_stochmfi		= params['with_stochmfi']
 			with_dmi_simple		= params['with_dmi_simple']
 
-#			if ( cur_s_ema[0] > cur_s_ema[1] and cur_s_ema[1] > cur_s_ema[2] ):
-#			if ( cur_s_ema[1] > cur_s_ema[2] and cur_s_ema[2] > cur_s_ema[3] ):
-#			if ( cur_s_ema[1] > cur_s_ema[2] and cur_s_ema[2] > cur_s_ema[3] and cur_s_ema[3] > cur_s_ema[4] ):
-			if (  cur_s_ema[0] > cur_s_ema[1] and cur_s_ema[1] > cur_s_ema[2] and cur_s_ema[2] > cur_s_ema[3] and cur_s_ema[3] > cur_s_ema[4] ):
+			if ( cur_s_ema[0] > cur_s_ema[1] and cur_s_ema[1] > cur_s_ema[2] and cur_s_ema[2] > cur_s_ema[3] and cur_s_ema[3] > cur_s_ema[4] ):
 
 				# Price action is bullish
 				ma_intraday_affinity		= 'bull'
 				prev_ma_intraday_affinity	= ma_intraday_affinity
 
-#			elif ( (prev_s_ema[2] > prev_s_ema[1] and cur_s_ema[2] <= cur_s_ema[1])
-#					or prev_ma_intraday_affinity == 'bull_t' ):
-#
-#				# Price action may be turning bullish
-#				ma_intraday_affinity		= 'bull'
-#				prev_ma_intraday_affinity	= 'bull_t'
-
-#			elif ( cur_s_ema[0] < cur_s_ema[1] and cur_s_ema[1] < cur_s_ema[2] ):
-#			elif ( cur_s_ema[1] < cur_s_ema[2] and cur_s_ema[2] < cur_s_ema[3] and cur_s_ema[3] < cur_s_ema[4] ):
-			elif (  cur_s_ema[0] < cur_s_ema[1] and cur_s_ema[1] < cur_s_ema[2] and cur_s_ema[2] < cur_s_ema[3] and cur_s_ema[3] < cur_s_ema[4] ):
+			elif ( cur_s_ema[0] < cur_s_ema[1] and cur_s_ema[1] < cur_s_ema[2] and cur_s_ema[2] < cur_s_ema[3] and cur_s_ema[3] < cur_s_ema[4] ):
 				# Price action is bearish
 				ma_intraday_affinity		= 'bear'
 				prev_ma_intraday_affinity	= ma_intraday_affinity
 
-#			elif ( (prev_s_ema[2] < prev_s_ema[1] and cur_s_ema[2] >= cur_s_ema[1])
-#					or prev_ma_intraday_affinity == 'bear_t' ):
-#				# Price action may be turning bearish
-#				ma_intraday_affinity		= 'bear'
-#				prev_ma_intraday_affinity	= 'bear_t'
-
-
 			# Check daily affinity
-			if ( cur_daily_ema[0] > cur_daily_ema[1] and cur_daily_ema[1] > cur_daily_ema[2]
-					and cur_daily_ema[2] > cur_daily_ema[3] ):
+			if ( cur_daily_ema[0] > cur_daily_ema[1] and cur_daily_ema[1] > cur_daily_ema[2] and cur_daily_ema[2] > cur_daily_ema[3] ):
+
 				# Daily MA is bullish
 				ma_daily_affinity = 'bull'
 
-			elif ( cur_daily_ema[0] < cur_daily_ema[1] and cur_daily_ema[1] < cur_daily_ema[2]
-					and cur_daily_ema[2] < cur_daily_ema[3] ):
+			elif ( cur_daily_ema[0] < cur_daily_ema[1] and cur_daily_ema[1] < cur_daily_ema[2] and cur_daily_ema[2] < cur_daily_ema[3] ):
 				# Daily MA is bearish
 				ma_daily_affinity = 'bear'
 
 			if ( ma_intraday_affinity == 'bull' and ma_daily_affinity == 'bull' ):
-				rsi_high_limit	= 95
-				rsi_low_limit	= 15
+				rsi_high_limit	= 99
+
 			elif ( ma_intraday_affinity == 'bear' and ma_daily_affinity == 'bear' ):
-				rsi_high_limit	= 85
-				rsi_low_limit	= 5
+				rsi_low_limit	= 1
 
 			elif ( ma_intraday_affinity == None or ma_daily_affinity == None ):
 				rsi_high_limit	= 99
 				rsi_low_limit	= 1
-
-#			if ( signal_mode == 'buy' ):
-#				if ( ma_daily_affinity == 'bear' and ma_intraday_affinity == 'bear' ):
-#					stochrsi_offset = 15
-#					with_chop_index = True
-#
-#			elif ( signal_mode == 'short' ):
-#				if ( ma_daily_affinity == 'bull' and ma_intraday_affinity == 'bull' ):
-#					stochrsi_offset = 15
-#					with_chop_index = True
+				stochrsi_offset = 10
 
 
 		# Check the moving average of the main ETF tickers
@@ -1640,6 +1675,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						supertrend[idx] < float(pricehistory['candles'][idx]['close']) ):
 						supertrend_signal = True
 
+			# Bollinger Bands and Keltner Channel crossover
+			if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
+				cur_bbands	= (bbands_lower[idx], bbands_mid[idx], bbands_upper[idx])
+				prev_bbands	= (bbands_lower[idx-1], bbands_mid[idx-1], bbands_upper[idx-1])
+
+				cur_kchannel	= (kchannel_lower[idx], kchannel_mid[idx], kchannel_upper[idx])
+				prev_kchannel	= (kchannel_lower[idx-1], kchannel_mid[idx-1], kchannel_upper[idx-1])
+
+				bbands_kchan_signal = bbands_kchannels( simple=with_bbands_kchannel_simple, cur_bbands=cur_bbands, prev_bbands=prev_bbands,
+									cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
+									bbands_kchan_signal=bbands_kchan_signal )
+
 
 			# Resistance Levels
 			if ( no_use_resistance == False and buy_signal == True ):
@@ -1837,6 +1884,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					final_buy_signal = False
 
 				if ( with_supertrend == True and supertrend_signal != True ):
+					final_buy_signal = False
+
+				if ( (with_bbands_kchannel == True or with_bbands_kchannel_simple == True) and bbands_kchan_signal != True ):
 					final_buy_signal = False
 
 				if ( no_use_resistance == False and resistance_signal != True ):
@@ -2501,6 +2551,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					final_short_signal = False
 
 				if ( with_supertrend == True and supertrend_signal != True ):
+					final_short_signal = False
+
+				if ( (with_bbands_kchannel == True or with_bbands_kchannel_simple == True) and bbands_kchan_signal != True ):
 					final_short_signal = False
 
 				if ( no_use_resistance == False and resistance_signal != True ):

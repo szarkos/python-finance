@@ -77,6 +77,11 @@ parser.add_argument("--with_chop_simple", help='Use a simple version Choppiness 
 parser.add_argument("--with_supertrend", help='Use the Supertrend indicator as secondary indicator to advise on trade entries (Default: False)', action="store_true")
 parser.add_argument("--supertrend_atr_period", help='ATR period to use for the supertrend indicator (Default: 128)', default=128, type=int)
 parser.add_argument("--supertrend_min_natr", help='Minimum daily NATR a stock must have to enable supertrend indicator (Default: 5)', default=5, type=float)
+parser.add_argument("--with_bbands_kchannel", help='Use the Bollinger bands and Keltner channel indicators as secondary to advise on trade entries (Default: False)', action="store_true")
+parser.add_argument("--with_bbands_kchannel_simple", help='Use a simple version of the Bollinger bands and Keltner channel indicators as secondary to advise on trade entries (Default: False)', action="store_true")
+parser.add_argument("--bbands_period", help='Period to use when calculating the Bollinger Bands (Default: 20)', default=20, type=int)
+parser.add_argument("--kchannel_period", help='Period to use when calculating the Keltner channels (Default: 20)', default=20, type=int)
+parser.add_argument("--kchannel_atr_period", help='Period to use when calculating the ATR for use with the Keltner channels (Default: 20)', default=20, type=int)
 
 parser.add_argument("--aroonosc_with_macd_simple", help='When using Aroon Oscillator, use macd_simple as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
 parser.add_argument("--aroonosc_with_vpt", help='When using Aroon Oscillator, use vpt as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
@@ -570,6 +575,12 @@ for algo in args.algo.split(','):
 					'with_supertrend':			args.with_supertrend,
 					'supertrend_atr_period':		args.supertrend_atr_period,
 					'supertrend_min_natr':			args.supertrend_min_natr,
+
+					'with_bbands_kchannel':			args.with_bbands_kchannel,
+					'with_bbands_kchannel_simple':		args.with_bbands_kchannel_simple,
+					'bbands_period':			args.bbands_period,
+					'kchannel_period':			args.kchannel_period,
+					'kchannel_atr_period':			args.kchannel_atr_period,
 
  					# Indicator parameters and modifiers
 					'stochrsi_period':			args.stochrsi_period,

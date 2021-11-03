@@ -1027,6 +1027,79 @@ def get_ema(pricehistory=None, period=50, type='close', debug=False):
 	return ema
 
 
+# Return the N-period Kaufman Adaptive Moving Average
+def get_kama(pricehistory=None, period=50, type='close', debug=False):
+
+	if ( pricehistory == None ):
+		return False
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	# Put pricehistory data into a numpy array
+	prices = []
+	if ( type == 'close' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['close']))
+
+	elif ( type == 'high' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['high']))
+
+	elif ( type == 'low' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['low']))
+
+	elif ( type == 'open' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['open']))
+
+	elif ( type == 'volume' ):
+		for key in pricehistory['candles']:
+			prices.append(int(key['volume']))
+
+	elif ( type == 'hl2' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+
+	elif ( type == 'hlc3' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+
+	elif ( type == 'ohlc4' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+
+	prices = np.array( prices )
+
+	# Get the N-day KAMA
+	kama = []
+	try:
+		kama = ti.kama(prices, period=period)
+
+	except Exception as e:
+		print('Caught Exception: get_kama(' + str(ticker) + '): ti.kama(): ' + str(e))
+		return False
+
+	# Normalize the size of the result to match the input size
+	tmp = []
+	for i in range(0, period - 1):
+		tmp.append(0)
+	kama = tmp + list(kama)
+
+	if ( debug == True ):
+		pd.set_option('display.max_rows', None)
+		pd.set_option('display.max_columns', None)
+		pd.set_option('display.width', None)
+		pd.set_option('display.max_colwidth', None)
+		print(kama)
+
+	return kama
+
+
 # Use Tulipy to calculate the N-day historic volatility (default: 30-days)
 def get_historic_volatility_ti(ticker=None, period=21, type='close', debug=False):
 
@@ -1900,7 +1973,7 @@ def get_vwap(pricehistory=None, day='today', end_timestamp=None, use_bands=True,
 
 
 # Calculate Bollinger Bands
-def get_bbands(pricehistory=None, type=None, period=128, stddev=2, debug=False):
+def get_bbands(pricehistory=None, type='hlc3', period=128, stddev=2, debug=False):
 
 	if ( pricehistory == None ):
 		print('Error: get_bbands(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
@@ -1967,6 +2040,97 @@ def get_bbands(pricehistory=None, type=None, period=128, stddev=2, debug=False):
 		return False, [], []
 
 	return bbands_lower, bbands_middle, bbands_upper
+
+
+# Calculate the Keltner channel upper, middle and lower lines
+def get_kchannels(pricehistory=None, type='hlc3', period=20, atr_period=None, atr_multiplier=2, debug=False):
+
+	if ( pricehistory == None ):
+		print('Error: get_kchannels(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False, [], []
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	if ( atr_period == None ):
+		atr_period = period
+
+	prices = []
+	if ( type == 'close' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['close']))
+
+	elif ( type == 'high' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['high']))
+
+	elif ( type == 'low' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['low']))
+
+	elif ( type == 'open' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['open']))
+
+	elif ( type == 'volume' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['volume']))
+
+	elif ( type == 'hl2' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+
+	elif ( type == 'hlc3' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+
+	elif ( type == 'ohlc4' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+
+	else:
+		# Undefined type
+		print('Error: get_kchannel(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
+		return False, [], []
+
+	# Keltner Channel Middle Line	= EMA
+	# Keltner Channel Upper Band	= EMA+2∗ATR
+	# Keltner Channel Lower Band	= EMA−2∗ATR
+	ema	= []
+	atr	= []
+	natr	= []
+	try:
+		ema = get_ema( pricehistory, period=period )
+
+	except Exception as e:
+		print('Error: get_kchannel(' + str(ticker) + '): unable to calculate EMA: ' + str(e))
+		return False
+
+	try:
+		atr, natr = get_atr( pricehistory, period=atr_period )
+
+	except Exception as e:
+		print('Error: get_kchannel(' + str(ticker) + '): unable to calculate ATR: ' + str(e))
+		return False
+
+	# Normalize the size of atr[] to match the input size
+	tmp = []
+	for i in range(0, atr_period - 1):
+		tmp.append(0)
+	atr = tmp + list(atr)
+
+	# Calculate the upper/lower values
+	kchannel_mid	= ema
+	kchannel_upper	= []
+	kchannel_lower	= []
+	for idx in range(0, len(ema)):
+		kchannel_upper.append(ema[idx] + (atr[idx] * atr_multiplier) )
+		kchannel_lower.append(ema[idx] - (atr[idx] * atr_multiplier) )
+
+	return kchannel_mid, kchannel_upper, kchannel_lower
 
 
 # Get MACD

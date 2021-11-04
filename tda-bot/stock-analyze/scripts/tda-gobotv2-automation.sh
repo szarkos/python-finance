@@ -12,9 +12,8 @@ sleep $time_wait
 
 source ./stock-analyze/tickers.conf
 tickers=$CUR_SET
-
 nohup ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=50000 --stocks=${tickers} --short --singleday \
-	--decr_threshold=2 --incr_threshold=0.5 --max_failed_txs=2 --exit_percent=1 \
+	--decr_threshold=1.6 --incr_threshold=0.5 --max_failed_txs=2 --exit_percent=1 \
 	\
 	--algos=algo_id:main,primary_stochrsi,stochrsi_offset:3,dmi_simple,aroonosc,adx,support_resistance,adx_threshold:6,min_daily_natr:6 \
 	--algos=algo_id:main2,primary_stochrsi,stochrsi_offset:6,dmi_simple,aroonosc,adx,support_resistance,adx_threshold:6,supertrend,min_daily_natr:3 \

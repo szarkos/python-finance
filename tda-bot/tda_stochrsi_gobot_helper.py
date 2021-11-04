@@ -1419,7 +1419,14 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		# SELL MODE - look for a signal to sell the stock
 		elif ( signal_mode == 'sell' ):
 
-			# In 'sell' mode we want to monitor the stock price along with RSI
+			# Use either raw open/close data or Heikin Ashi candles
+			last_close	= stocks[ticker]['pricehistory']['candles'][-1]['close']
+			last_open	= stocks[ticker]['pricehistory']['candles'][-1]['open']
+			if ( args.use_ha_exit == True ):
+				last_close	= stocks[ticker]['pricehistory']['hacandles'][-1]['close']
+				last_open	= stocks[ticker]['pricehistory']['hacandles'][-1]['open']
+
+			# First try to get the latest price from the API, and fall back to the last close only if necessary
 			last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
 			if ( isinstance(last_price, bool) and last_price == False ):
 
@@ -1429,7 +1436,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
 				if ( isinstance(last_price, bool) and last_price == False ):
 					print('Warning: get_lastprice(' + str(ticker) + ') returned False, falling back to latest candle')
-					last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+					last_price = stocks[ticker]['pricehistory']['candles'][-1]['close']
 
 			net_change = round( (last_price - stocks[ticker]['orig_base_price']) * stocks[ticker]['stock_qty'], 3 )
 
@@ -1551,8 +1558,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# If exit_percent has been hit, we will sell at the first RED candle
 				if ( stocks[ticker]['exit_percent_signal'] == True ):
-					last_close = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
-					last_open = float( stocks[ticker]['pricehistory']['candles'][-1]['open'] )
 					if ( last_close < last_open ):
 						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
@@ -2117,6 +2122,14 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		#   need to monitor stoploss in case the stock rises above a threshold.
 		elif ( signal_mode == 'buy_to_cover' ):
 
+			# Use either raw open/close data or Heikin Ashi candles
+			last_close	= stocks[ticker]['pricehistory']['candles'][-1]['close']
+			last_open	= stocks[ticker]['pricehistory']['candles'][-1]['open']
+			if ( args.use_ha_exit == True ):
+				last_close	= stocks[ticker]['pricehistory']['hacandles'][-1]['close']
+				last_open	= stocks[ticker]['pricehistory']['hacandles'][-1]['open']
+
+			# First try to get the latest price from the API, and fall back to the last close only if necessary
 			last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
 			if ( isinstance(last_price, bool) and last_price == False ):
 
@@ -2261,8 +2274,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# If exit_percent has been hit, we will sell at the first GREEN candle
 				if ( stocks[ticker]['exit_percent_signal'] == True ):
-					last_close = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
-					last_open = float( stocks[ticker]['pricehistory']['candles'][-1]['open'] )
 					if ( last_close > last_open ):
 						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 

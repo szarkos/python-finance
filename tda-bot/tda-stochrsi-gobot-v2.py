@@ -64,6 +64,7 @@ parser.add_argument("--max_failed_usd", help='Maximum allowed USD for a failed t
 parser.add_argument("--exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
 parser.add_argument("--vwap_exit", help='Use vwap exit strategy - sell/close at half way between entry point and vwap', action="store_true")
 parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_threshold and exit_percent based on the price action of the stock over the previous hour',  action="store_true")
+parser.add_argument("--use_ha_exit", help='Use Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
 
 parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=int)
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
@@ -816,8 +817,8 @@ for ticker in list(stocks.keys()):
 def graceful_exit(signum=None, frame=None):
 	print("\nNOTICE: graceful_exit(): received signal: " + str(signum))
 	tda_stochrsi_gobot_helper.export_pricehistory()
-#	sys.exit(0)
-	os._exit(0)
+	sys.exit(0)
+#	os._exit(0)
 
 # Initialize SIGUSR1 signal handler to dump stocks on signal
 # Calls sell_stocks() to immediately sell or buy_to_cover any open positions
@@ -917,7 +918,7 @@ for ticker in list(stocks.keys()):
 	if ( stocks[ticker]['isvalid'] == False ):
 		continue
 
-	# Pull the stock history that we'll use to calculate the Stochastic RSI
+	# Pull the stock history that we'll use to calculate the Stochastic RSI and other thingies
 	data = False
 	while ( data == False ):
 		data, epochs = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, needExtendedHoursData=True, debug=False)
@@ -972,6 +973,10 @@ for ticker in list(stocks.keys()):
 			stocks[ticker]['pricehistory_5m']['candles'].append(newcandle)
 
 	del(open_p, high, low, close, volume, newcandle)
+
+	# Translate and add Heiken Ashi candles to pricehistory (will add new array called stocks[ticker]['pricehistory']['hacandles'])
+	stocks[ticker]['pricehistory'] = tda_gobot_helper.translate_heikin_ashi(stocks[ticker]['pricehistory'])
+
 
 	# Populate the period_log with history data
 	#  and find PDC
@@ -1175,7 +1180,6 @@ while True:
 		asyncio.run(read_stream())
 
 	except KeyboardInterrupt:
-		graceful_exit(None, None)
 		sys.exit(0)
 
 	except Exception as e:

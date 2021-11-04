@@ -59,6 +59,8 @@ parser.add_argument("--with_stoch_5m", help='Use 5-minute candles with the --pri
 parser.add_argument("--with_stochrsi_5m", help='Use StochRSI with 5-min candles as an additional stochastic indicator (Default: False)', action="store_true")
 parser.add_argument("--with_stochmfi", help='Use StochMFI as an additional stochastic indicator (Default: False)', action="store_true")
 parser.add_argument("--with_stochmfi_5m", help='Use StochMFI with 5-min candles as an additional stochastic indicator (Default: False)', action="store_true")
+parser.add_argument("--with_stacked_ma", help='Use stacked MA as a secondary indicator for trade entries (Default: False)', action="store_true")
+parser.add_argument("--stacked_ma_periods", help='List of MA periods to use, comma-delimited (Default: 3,5,8,13)', default='3,5,8,13', type=str)
 
 parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
 parser.add_argument("--with_rsi_simple", help='Use just the current RSI value as a secondary indicator', action="store_true")
@@ -79,6 +81,7 @@ parser.add_argument("--supertrend_atr_period", help='ATR period to use for the s
 parser.add_argument("--supertrend_min_natr", help='Minimum daily NATR a stock must have to enable supertrend indicator (Default: 5)', default=5, type=float)
 parser.add_argument("--with_bbands_kchannel", help='Use the Bollinger bands and Keltner channel indicators as secondary to advise on trade entries (Default: False)', action="store_true")
 parser.add_argument("--with_bbands_kchannel_simple", help='Use a simple version of the Bollinger bands and Keltner channel indicators as secondary to advise on trade entries (Default: False)', action="store_true")
+parser.add_argument("--bbands_kchannel_offset", help='Percentage offset between the Bollinger bands and Keltner channel indicators to trigger an initial trade entry (Default: 0.04)', default=0.04, type=float)
 parser.add_argument("--bbands_period", help='Period to use when calculating the Bollinger Bands (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_period", help='Period to use when calculating the Keltner channels (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_atr_period", help='Period to use when calculating the ATR for use with the Keltner channels (Default: 20)', default=20, type=int)
@@ -98,6 +101,7 @@ parser.add_argument("--strict_exit_percent", help='Only exit when exit_percent o
 parser.add_argument("--vwap_exit", help='Use vwap exit strategy - sell/close at half way between entry point and vwap', action="store_true")
 parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent strategy was set, do not wait for the next candle', action="store_true")
 parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_threshold and exit_percent based on the price action of the stock over the previous hour', action="store_true")
+parser.add_argument("--use_ha_exit", help='Use Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
 
 parser.add_argument("--blacklist_earnings", help='Blacklist trading one week before and after quarterly earnings dates (Default: False)', action="store_true")
 parser.add_argument("--check_volume", help='Check the last several days (up to 6-days, depending on how much history is available) to ensure stock is not trading at a low volume threshold (Default: False)', action="store_true")
@@ -529,6 +533,7 @@ for algo in args.algo.split(','):
 					'strict_exit_percent':			args.strict_exit_percent,
 					'vwap_exit':				args.vwap_exit,
 					'variable_exit':			args.variable_exit,
+					'use_ha_exit':				args.use_ha_exit,
 					'hold_overnight':			args.hold_overnight,
 
 					# Stock shorting options
@@ -554,6 +559,8 @@ for algo in args.algo.split(','):
 					'with_stochrsi_5m':			args.with_stochrsi_5m,
 					'with_stochmfi':			args.with_stochmfi,
 					'with_stochmfi_5m':			args.with_stochmfi_5m,
+					'with_stacked_ma':			args.with_stacked_ma,
+					'stacked_ma_periods':			args.stacked_ma_periods,
 
 					'with_rsi':				args.with_rsi,
 					'with_rsi_simple':			args.with_rsi_simple,
@@ -581,6 +588,7 @@ for algo in args.algo.split(','):
 
 					'with_bbands_kchannel':			args.with_bbands_kchannel,
 					'with_bbands_kchannel_simple':		args.with_bbands_kchannel_simple,
+					'bbands_kchannel_offset':		args.bbands_kchannel_offset,
 					'bbands_period':			args.bbands_period,
 					'kchannel_period':			args.kchannel_period,
 					'kchannel_atr_period':			args.kchannel_atr_period,

@@ -71,6 +71,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal chop_signal			; chop_signal			= False
 		nonlocal supertrend_signal		; supertrend_signal		= False
 		nonlocal bbands_kchan_signal		; bbands_kchan_signal		= False
+		nonlocal bbands_kchan_init_signal	; bbands_kchan_init_signal	= False
+		nonlocal stacked_ma_signal		; stacked_ma_signal		= False
 
 		nonlocal plus_di_crossover		; plus_di_crossover		= False
 		nonlocal minus_di_crossover		; minus_di_crossover		= False
@@ -110,6 +112,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	strict_exit_percent	=	False		if ('strict_exit_percent' not in params) else params['strict_exit_percent']
 	vwap_exit		=	False		if ('vwap_exit' not in params) else params['vwap_exit']
 	variable_exit		=	False		if ('variable_exit' not in params) else params['variable_exit']
+	use_ha_exit		=	False		if ('use_ha_exit' not in params) else params['use_ha_exit']
 	hold_overnight		=	False		if ('hold_overnight' not in params) else params['hold_overnight']
 
 	# Stock shorting options
@@ -135,6 +138,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	with_stochrsi_5m	=	False		if ('with_stochrsi_5m' not in params) else params['with_stochrsi_5m']
 	with_stochmfi		=	False		if ('with_stochmfi' not in params) else params['with_stochmfi']
 	with_stochmfi_5m	=	False		if ('with_stochmfi_5m' not in params) else params['with_stochmfi_5m']
+	with_stacked_ma		=	False		if ('with_stacked_ma' not in params) else params['with_stacked_ma']
+	stacked_ma_periods	=	'3,5,8,13'	if ('stacked_ma_periods' not in params) else params['stacked_ma_periods']
 
 	with_rsi		=	False		if ('with_rsi' not in params) else params['with_rsi']
 	with_rsi_simple		=	False		if ('with_rsi_simple' not in params) else params['with_rsi_simple']
@@ -162,6 +167,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	with_bbands_kchannel_simple =	False		if ('with_bbands_kchannel_simple' not in params) else params['with_bbands_kchannel_simple']
 	with_bbands_kchannel	=	False		if ('with_bbands_kchannel' not in params) else params['with_bbands_kchannel']
+	bbands_kchannel_offset	=	0.04		if ('bbands_kchannel_offset' not in params) else params['bbands_kchannel_offset']
 	bbands_period		=	20		if ('bbands_period' not in params) else params['bbands_period']
 	kchannel_period		=	20		if ('kchannel_period' not in params) else params['kchannel_period']
 	kchannel_atr_period	=	20		if ('kchannel_atr_period' not in params) else params['kchannel_atr_period']
@@ -250,6 +256,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	if ( stop_date != None ):
 		stop_date = datetime.strptime(stop_date + ' 00:00:00', '%Y-%m-%d %H:%M:%S')
 		stop_date = mytimezone.localize(stop_date)
+
+	# Ensure we have Heikin Ashi pricehistory data available if needed
+	if ( use_ha_exit == True ):
+		try:
+			pricehistory['hacandles']
+		except:
+			print('Error, pricehistory does not include Heikin Ashi candle data, exiting.', file=sys.stderr)
+			return False
 
 	# 5-minute candles
 	pricehistory_5m = { 'candles': [], 'ticker': ticker }
@@ -414,8 +428,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				return False
 
 		else:
-			print('Error: stochrsi_analyze_new(' + str(ticker) + '): unknown primary_stoch_indicator "' + str(primary_stoch_indicator) + '"')
-			sys.exit(1)
+			stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(pricehistory, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+			print('Primary stochastic indicator is set to "' + str(primary_stoch_indicator) + '"')
 
 	except Exception as e:
 		print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_stochrsi(): ' + str(e))
@@ -818,26 +832,29 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 #			print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
 
 	# Intraday stacked EMA
-	s_ema	= []
-	ema3	= []
-	ema5	= []
-	ema8	= []
-	ema13	= []
-	ema21	= []
-	try:
-		ema3	= tda_gobot_helper.get_ema( pricehistory, period=3 )
-		ema5	= tda_gobot_helper.get_ema( pricehistory, period=5 )
-		ema8	= tda_gobot_helper.get_ema( pricehistory, period=8 )
-		ema13	= tda_gobot_helper.get_ema( pricehistory, period=13 )
-		ema21	= tda_gobot_helper.get_ema( pricehistory, period=21 )
+	stacked_ma_periods = stacked_ma_periods.split(',')
+	ma_array = []
+	for ma_period in stacked_ma_periods:
+		ema = []
+		try:
+			ema = tda_gobot_helper.get_kama( pricehistory, period=int(ma_period) )
 
-	except Exception as e:
-		print('Error, unable to calculate stacked EMAs: ' + str(e))
-		return False
+		except Exception as e:
+			print('Error, unable to calculate stacked EMAs: ' + str(e))
+			return False
 
-	for i in range(0, len(ema3)):
-		s_ema.append( (ema3[i], ema5[i], ema8[i], ema13[i], ema21[i]) )
-	del(ema3, ema5, ema8, ema13, ema21)
+		ma_array.append(ema)
+
+	s_ema = []
+	for i in range(0, len(ema)):
+		ma_tmp = []
+		for p in range(0, len(stacked_ma_periods)):
+			ma_tmp.append(ma_array[p][i])
+
+		s_ema.append( tuple(ma_tmp) )
+
+	del(ma_array)
+
 
 	# Daily SMA/EMA
 	daily_ema3	= []
@@ -984,6 +1001,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	chop_signal			= False
 	supertrend_signal		= False
 	bbands_kchan_signal		= False
+	bbands_kchan_init_signal	= False
+	stacked_ma_signal		= False
 
 	plus_di_crossover		= False
 	minus_di_crossover		= False
@@ -1118,6 +1137,38 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		return stoch_signal, crossover_signal, threshold_signal, final_signal
 
 
+	# Check orientation fo stacked moving averages
+	def check_stacked_ma(s_ema=[], affinity=None):
+
+		if ( affinity == None or len(s_ema) == 0 ):
+			return False
+
+		ma_affinity = False
+		if ( affinity == 'bear' ):
+			for i in range(0, len(s_ema)):
+				if ( i == len(s_ema)-1 ):
+					break
+
+				if ( s_ema[i] < s_ema[i+1] ):
+					ma_affinity = True
+				else:
+					ma_affinity = False
+					break
+
+		elif ( affinity == 'bull' ):
+			for i in range(0, len(s_ema)):
+				if ( i == len(s_ema)-1 ):
+					break
+
+				if ( s_ema[i] > s_ema[i+1] ):
+					ma_affinity = True
+				else:
+					ma_affinity = False
+					break
+
+		return ma_affinity
+
+
 	# Choppiness Index
 	def get_chop_signal(simple=False, prev_chop=-1, cur_chop=-1, chop_init_signal=False, chop_signal=False):
 
@@ -1158,7 +1209,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 
 	# Bollinger Bands and Keltner Channel crossover
-	def bbands_kchannels(simple=False, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0), bbands_kchan_signal=False ):
+	def bbands_kchannels(simple=False, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0), bbands_kchan_init_signal=False, bbands_kchan_signal=False ):
+
+		nonlocal bbands_kchannel_offset
 
 		# bbands/kchannel (0,0,0) = lower, middle, upper
 		cur_bbands_lower	= cur_bbands[0]
@@ -1178,25 +1231,39 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		prev_kchannel_upper	= prev_kchannel[2]
 
 		if ( simple == True ):
-			bbands_kchan_signal = False
-			if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
+			bbands_kchan_init_signal = True
+			if ( cur_kchannel_lower < cur_bbands_lower and prev_kchannel_lower < prev_bbands_lower ):
+				prev_offset	= ((prev_kchannel_lower / prev_bbands_lower) - 1) * 100
+				cur_offset	= ((cur_kchannel_lower / cur_bbands_lower) - 1) * 100
+				if ( cur_offset < prev_offset ):
+					bbands_kchan_signal = True
+
+			elif ( cur_kchannel_lower > cur_bbands_lower and cur_kchannel_upper < cur_bbands_upper ):
+				bbands_kchan_signal = False
+
+			return bbands_kchan_init_signal, bbands_kchan_signal
+
+		# Check if the Bollinger Bands have moved inside the Keltner Channel
+		# Signal when they begin to converge
+		if ( cur_kchannel_lower < cur_bbands_lower and prev_kchannel_lower < prev_bbands_lower and
+			cur_kchannel_upper > cur_bbands_upper and prev_kchannel_upper > prev_bbands_upper ):
+
+			prev_offset	= abs((prev_kchannel_lower / prev_bbands_lower) - 1) * 100
+			cur_offset	= abs((cur_kchannel_lower / cur_bbands_lower) - 1) * 100
+#			if ( cur_offset < prev_offset ):
+#			print(str(prev_offset) + ' / ' + str(cur_offset))
+			if ( prev_offset >= bbands_kchannel_offset or cur_offset >= bbands_kchannel_offset ):
+				bbands_kchan_init_signal = True
+
+		if ( bbands_kchan_init_signal == True ):
+			if ( (cur_kchannel_lower > prev_kchannel_lower and cur_kchannel_upper > prev_kchannel_upper) or
+			     (cur_kchannel_lower < prev_kchannel_lower and cur_kchannel_upper < prev_kchannel_upper) ):
 				bbands_kchan_signal = True
 
-			return bbands_kchan_signal
+			if ( cur_kchannel_lower >= cur_bbands_lower and cur_kchannel_upper <= cur_bbands_upper ):
+				bbands_kchan_signal = True
 
-		# Require bbands/kchannel crossover
-#		if ( (prev_kchannel_lower >= prev_bbands_lower and cur_kchannel_lower < cur_bbands_lower) and
-#			(prev_kchannel_upper <= prev_bbands_upper and cur_kchannel_upper > cur_bbands_upper) ):
-		if ( (prev_kchannel_lower < prev_bbands_lower and cur_kchannel_lower > cur_bbands_lower) and
-			(prev_kchannel_upper > prev_bbands_upper and cur_kchannel_upper < cur_bbands_upper) ):
-			bbands_kchan_signal = True
-
-#		if ( bbands_kchan_signal == True and cur_kchannel_lower >= cur_bbands_lower or cur_kchannel_upper <= cur_bbands_upper ):
-#			bbands_kchan_signal = False
-		if ( bbands_kchan_signal == True and cur_kchannel_lower <= cur_bbands_lower or cur_kchannel_upper >= cur_bbands_upper ):
-			bbands_kchan_signal = False
-
-		return bbands_kchan_signal
+		return bbands_kchan_init_signal, bbands_kchan_signal
 
 
 	##################################################################################################################
@@ -1472,24 +1539,41 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				reset_signals()
 				continue
 
-			# Jump to short mode if StochRSI K and D are already above rsi_high_limit
-			# The intent here is if the bot starts up while the RSI is high we don't want to wait until the stock
-			#  does a full loop again before acting on it.
-			if ( cur_rsi_k >= stochrsi_default_high_limit and cur_rsi_d >= stochrsi_default_high_limit and noshort == False ):
-				reset_signals()
-				signal_mode = 'short'
-				continue
+			# StochRSI / StochMFI Primary
+			if ( primary_stoch_indicator == 'stochrsi' or primary_stoch_indicator == 'stochmfi' ):
+				# Jump to short mode if StochRSI K and D are already above rsi_high_limit
+				# The intent here is if the bot starts up while the RSI is high we don't want to wait until the stock
+				#  does a full loop again before acting on it.
+				if ( cur_rsi_k >= stochrsi_default_high_limit and cur_rsi_d >= stochrsi_default_high_limit and noshort == False ):
+					reset_signals()
+					signal_mode = 'short'
+					continue
 
-			# Check StochRSI
-			stochrsi_signal, stochrsi_crossover_signal, stochrsi_threshold_signal, buy_signal = \
-					get_stoch_signal_long(	cur_rsi_k, cur_rsi_d, prev_rsi_k, prev_rsi_d,
-								stochrsi_signal, stochrsi_crossover_signal, stochrsi_threshold_signal, buy_signal )
+				# Check StochRSI
+				stochrsi_signal, stochrsi_crossover_signal, stochrsi_threshold_signal, buy_signal = \
+						get_stoch_signal_long(	cur_rsi_k, cur_rsi_d, prev_rsi_k, prev_rsi_d,
+									stochrsi_signal, stochrsi_crossover_signal, stochrsi_threshold_signal, buy_signal )
 
-			if ( cur_rsi_k > stochrsi_signal_cancel_high_limit ):
-				# Reset all signals if the primary stochastic
-				#  indicator wanders into higher territory
-				reset_signals()
-				continue
+				if ( cur_rsi_k > stochrsi_signal_cancel_high_limit ):
+					# Reset all signals if the primary stochastic
+					#  indicator wanders into higher territory
+					reset_signals()
+					continue
+
+			elif ( primary_stoch_indicator == 'stacked_ma' ):
+				# Jump to short mode if the stacked moving averages are showing a bearish movement
+				if ( check_stacked_ma(cur_s_ema, 'bear') == True ):
+					reset_signals()
+					if ( noshort == False ):
+						signal_mode = 'short'
+					continue
+
+				if ( check_stacked_ma(cur_s_ema, 'bull') == True ):
+					buy_signal = True
+				else:
+					buy_signal = False
+					reset_signals()
+					continue
 
 			# StochRSI with 5-minute candles
 			if ( with_stochrsi_5m == True ):
@@ -1529,6 +1613,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 
 			# Secondary Indicators
+			# Stacked moving averages
+			if ( with_stacked_ma == True ):
+				if ( check_stacked_ma(cur_s_ema, 'bull') == True ):
+					stacked_ma_signal = True
+				else:
+					stacked_ma_signal = False
+
 			# RSI signal
 			if ( with_rsi == True ):
 				if ( cur_rsi >= rsi_signal_cancel_high_limit ):
@@ -1687,9 +1778,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				cur_kchannel	= (kchannel_lower[idx], kchannel_mid[idx], kchannel_upper[idx])
 				prev_kchannel	= (kchannel_lower[idx-1], kchannel_mid[idx-1], kchannel_upper[idx-1])
 
-				bbands_kchan_signal = bbands_kchannels( simple=with_bbands_kchannel_simple, cur_bbands=cur_bbands, prev_bbands=prev_bbands,
-									cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
-									bbands_kchan_signal=bbands_kchan_signal )
+				(bbands_kchan_init_signal, bbands_kchan_signal) = bbands_kchannels( simple=with_bbands_kchannel_simple, cur_bbands=cur_bbands, prev_bbands=prev_bbands,
+													cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
+													bbands_kchan_init_signal=bbands_kchan_init_signal, bbands_kchan_signal=bbands_kchan_signal )
 
 
 			# Resistance Levels
@@ -1893,6 +1984,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( (with_bbands_kchannel == True or with_bbands_kchannel_simple == True) and bbands_kchan_signal != True ):
 					final_buy_signal = False
 
+				if ( with_stacked_ma == True and stacked_ma_signal != True ):
+					final_buy_signal = False
+
 				if ( no_use_resistance == False and resistance_signal != True ):
 					final_buy_signal = False
 
@@ -1946,9 +2040,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# BUY SIGNAL
 			if ( buy_signal == True and final_buy_signal == True ):
-				purchase_price = float(pricehistory['candles'][idx]['close'])
-				base_price = purchase_price
-				purchase_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+				purchase_price	= pricehistory['candles'][idx]['close']
+				base_price	= purchase_price
+				purchase_time	= datetime.fromtimestamp(pricehistory['candles'][idx]['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 				results.append( str(purchase_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
@@ -2006,6 +2100,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		# SELL mode
 		if ( signal_mode == 'sell' ):
 
+			# Set last_close and last_open using either raw candles from API or Heiken Ashi candles
+			last_open	= pricehistory['candles'][idx]['open']
+			last_close	= pricehistory['candles'][idx]['close']
+			if ( use_ha_exit == True ):
+				last_open	= pricehistory['hacandles'][idx]['open']
+				last_close	= pricehistory['hacandles'][idx]['close']
+
 			# hold_overnight=False - drop the stock before market close
 			if ( hold_overnight == False and tda_gobot_helper.isendofday(5, date) ):
 				sell_signal = True
@@ -2013,24 +2114,22 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# The last trading hour is a bit unpredictable. If --hold_overnight is false we want
 			#  to sell the stock at a more conservative exit percentage.
 			elif ( tda_gobot_helper.isendofday(60, date) == True and hold_overnight == False ):
-				last_price = float( pricehistory['candles'][idx]['close'] )
-				if ( last_price > purchase_price ):
-					percent_change = abs( purchase_price / last_price - 1 ) * 100
+				if ( last_close > purchase_price ):
+					percent_change = abs( purchase_price / last_close - 1 ) * 100
 					if ( percent_change >= last_hour_threshold ):
 						sell_signal = True
 
 			# Monitor cost basis
-			last_price = float(pricehistory['candles'][idx]['close'])
 			percent_change = 0
-			if ( float(last_price) < float(base_price) ):
-				percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
+			if ( last_close < base_price ):
+				percent_change = abs( last_close / base_price - 1 ) * 100
 
 				# SELL the security if we are using a trailing stoploss
 				if ( percent_change >= decr_threshold and stoploss == True ):
 
 					# Sell
-					sell_price = float(pricehistory['candles'][idx]['close'])
-					sell_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+					sell_price	= pricehistory['candles'][idx]['close']
+					sell_time	= datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 					# sell_price,bool(short),rsi,stochrsi,sell_time
 					results.append( str(sell_price) + ',' + str(short) + ',' +
@@ -2054,13 +2153,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					decr_threshold	= orig_decr_threshold = default_decr_threshold
 					exit_percent	= orig_exit_percent
 
-					signal_mode = 'short'
+					signal_mode	= 'short'
 					continue
 
-			elif ( float(last_price) > float(base_price) ):
-				percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
+			elif ( last_close > base_price ):
+				percent_change = abs( base_price / last_close - 1 ) * 100
 				if ( percent_change >= incr_threshold ):
-					base_price = last_price
+					base_price = last_close
 
 					# Adapt decr_threshold based on changes made by --variable_exit
 					if ( incr_threshold < default_incr_threshold ):
@@ -2078,13 +2177,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# Additional exit strategies
 			# Sell if exit_percent is specified
-			if ( exit_percent != None and float(last_price) > float(purchase_price) ):
-				total_percent_change = abs( float(purchase_price) / float(last_price) - 1 ) * 100
+			if ( exit_percent != None and last_close > purchase_price ):
+				total_percent_change = abs( purchase_price / last_close - 1 ) * 100
 
 				# If exit_percent has been hit, we will sell at the first RED candle
 				#  unless --quick_exit was set.
 				if ( exit_percent_signal == True ):
-					if ( float(pricehistory['candles'][idx]['close']) < float(pricehistory['candles'][idx]['open']) ):
+					if ( last_close < last_open ):
 						sell_signal = True
 
 				elif ( total_percent_change >= exit_percent ):
@@ -2092,16 +2191,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					if ( quick_exit == True ):
 						sell_signal = True
 
-			# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
+			# Sell if --vwap_exit was set and last_close is half way between the orig_base_price and cur_vwap
 			if ( vwap_exit == True ):
 				cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
 				cur_vwap_up = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap_up']
 				if ( cur_vwap > purchase_price ):
-					if ( last_price >= ((cur_vwap - purchase_price) / 2) + purchase_price ):
+					if ( last_close >= ((cur_vwap - purchase_price) / 2) + purchase_price ):
 						sell_signal = True
 
 				elif ( cur_vwap < purchase_price ):
-					if ( last_price >= ((cur_vwap_up - cur_vwap) / 2) + cur_vwap ):
+					if ( last_close >= ((cur_vwap_up - cur_vwap) / 2) + cur_vwap ):
 						sell_signal = True
 
 
@@ -2112,7 +2211,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Do not use stochrsi as an exit signal if strict_exit_percent is set to True
 			# Also, if exit_percent_signal is triggered that means we've surpassed the exit_percent threshold and
 			#   should wait for either a red candle or for decr_threshold to be hit.
-			if ( strict_exit_percent == False and exit_percent_signal == False ):
+			if ( variable_exit == False and strict_exit_percent == False and exit_percent_signal == False ):
 				if ( cur_rsi_k > stochrsi_default_high_limit and cur_rsi_d > stochrsi_default_high_limit ):
 					stochrsi_signal = True
 
@@ -2125,12 +2224,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					if ( prev_rsi_k > stochrsi_default_high_limit and cur_rsi_k <= stochrsi_default_high_limit ):
 						sell_signal = True
 
-
 			if ( sell_signal == True ):
 
 				# Sell
-				sell_price = float(pricehistory['candles'][idx]['close'])
-				sell_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+				sell_price = pricehistory['candles'][idx]['close']
+				sell_time = datetime.fromtimestamp(pricehistory['candles'][idx]['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 				# sell_price,bool(short),rsi,stochrsi,sell_time
 				results.append( str(sell_price) + ',' + str(short) + ',' +
@@ -2171,22 +2269,38 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				reset_signals()
 				continue
 
-			# Jump to buy mode if StochRSI K and D are already below rsi_low_limit
-			if ( cur_rsi_k <= stochrsi_default_low_limit and cur_rsi_d <= stochrsi_default_low_limit ):
-				reset_signals()
-				signal_mode = 'buy'
-				continue
+			if ( primary_stoch_indicator == 'stochrsi' or primary_stoch_indicator == 'stochmfi' ):
+				# Jump to buy mode if StochRSI K and D are already below rsi_low_limit
+				if ( cur_rsi_k <= stochrsi_default_low_limit and cur_rsi_d <= stochrsi_default_low_limit ):
+					reset_signals()
+					signal_mode = 'buy'
+					continue
 
-			# Monitor StochRSI
-			stochrsi_signal, stochrsi_crossover_signal, stochrsi_threshold_signal, short_signal = \
-					get_stoch_signal_short(	cur_rsi_k, cur_rsi_d, prev_rsi_k, prev_rsi_d,
-								stochrsi_signal, stochrsi_crossover_signal, stochrsi_threshold_signal, short_signal )
+				# Monitor StochRSI
+				stochrsi_signal, stochrsi_crossover_signal, stochrsi_threshold_signal, short_signal = \
+						get_stoch_signal_short(	cur_rsi_k, cur_rsi_d, prev_rsi_k, prev_rsi_d,
+									stochrsi_signal, stochrsi_crossover_signal, stochrsi_threshold_signal, short_signal )
 
-			if ( cur_rsi_k < stochrsi_signal_cancel_low_limit ):
-				# Reset all signals if the primary stochastic
-				#  indicator wanders into low territory
-				reset_signals()
-				continue
+				if ( cur_rsi_k < stochrsi_signal_cancel_low_limit ):
+					# Reset all signals if the primary stochastic
+					#  indicator wanders into low territory
+					reset_signals()
+					continue
+
+			elif ( primary_stoch_indicator == 'stacked_ma' ):
+				# Jump to buy mode if the stacked moving averages are showing a bearish movement
+				if ( check_stacked_ma(cur_s_ema, 'bull') == True ):
+					reset_signals()
+					if ( shortonly == False ):
+						signal_mode = 'buy'
+					continue
+
+				if ( check_stacked_ma(cur_s_ema, 'bear') == True ):
+					short_signal = True
+				else:
+					short_signal = False
+					reset_signals()
+					continue
 
 			# StochRSI with 5-minute candles
 			if ( with_stochrsi_5m == True ):
@@ -2226,6 +2340,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 
 			# Secondary Indicators
+			# Stacked moving averages
+			if ( with_stacked_ma == True ):
+				if ( check_stacked_ma(cur_s_ema, 'bull') == True ):
+					stacked_ma_signal = True
+				else:
+					stacked_ma_signal = False
+
 			# RSI signal
 			if ( with_rsi == True ):
 				if ( cur_rsi <= rsi_signal_cancel_low_limit ):
@@ -2364,6 +2485,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					elif ( supertrend[idx-1] >= float(pricehistory['candles'][idx-1]['close']) and \
 						supertrend[idx] < float(pricehistory['candles'][idx]['close']) ):
 						supertrend_signal = False
+
+			# Bollinger Bands and Keltner Channel crossover
+			if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
+				cur_bbands	= (bbands_lower[idx], bbands_mid[idx], bbands_upper[idx])
+				prev_bbands	= (bbands_lower[idx-1], bbands_mid[idx-1], bbands_upper[idx-1])
+
+				cur_kchannel	= (kchannel_lower[idx], kchannel_mid[idx], kchannel_upper[idx])
+				prev_kchannel	= (kchannel_lower[idx-1], kchannel_mid[idx-1], kchannel_upper[idx-1])
+
+				(bbands_kchan_init_signal, bbands_kchan_signal) = bbands_kchannels( simple=with_bbands_kchannel_simple, cur_bbands=cur_bbands, prev_bbands=prev_bbands,
+													cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
+													bbands_kchan_init_signal=bbands_kchan_init_signal, bbands_kchan_signal=bbands_kchan_signal )
 
 			# Resistance
 			if ( no_use_resistance == False and short_signal == True ):
@@ -2560,6 +2693,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( (with_bbands_kchannel == True or with_bbands_kchannel_simple == True) and bbands_kchan_signal != True ):
 					final_short_signal = False
 
+				if ( with_stacked_ma == True and stacked_ma_signal != True ):
+					final_short_signal = False
+
 				if ( no_use_resistance == False and resistance_signal != True ):
 					final_short_signal = False
 
@@ -2619,9 +2755,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				except:
 					pass
 
-				short_price = float(pricehistory['candles'][idx]['close'])
-				base_price = short_price
-				short_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+				short_price	= pricehistory['candles'][idx]['close']
+				base_price	= short_price
+				short_time	= datetime.fromtimestamp(pricehistory['candles'][idx]['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 				results.append( str(short_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
@@ -2680,6 +2816,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		# BUY-TO-COVER mode
 		if ( signal_mode == 'buy_to_cover' ):
 
+			# Set last_close and last_open using either raw candles from API or Heiken Ashi candles
+			last_open	= pricehistory['candles'][idx]['open']
+			last_close	= pricehistory['candles'][idx]['close']
+			if ( use_ha_exit == True ):
+				last_open	= pricehistory['hacandles'][idx]['open']
+				last_close	= pricehistory['hacandles'][idx]['close']
+
 			# hold_overnight=False - drop the stock before market close
 			if ( hold_overnight == False and tda_gobot_helper.isendofday(5, date) ):
 				buy_to_cover_signal = True
@@ -2687,24 +2830,22 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# The last trading hour is a bit unpredictable. If --hold_overnight is false we want
 			#  to sell the stock at a more conservative exit percentage.
 			elif ( tda_gobot_helper.isendofday(60, date) == True and hold_overnight == False ):
-				last_price = float( pricehistory['candles'][idx]['close'] )
-				if ( last_price < short_price ):
-					percent_change = abs( short_price / last_price - 1 ) * 100
+				if ( last_close < short_price ):
+					percent_change = abs( short_price / last_close - 1 ) * 100
 					if ( percent_change >= last_hour_threshold ):
 						sell_signal = True
 
 			# Monitor cost basis
-			last_price = float(pricehistory['candles'][idx]['close'])
 			percent_change = 0
-			if ( float(last_price) > float(base_price) ):
-				percent_change = abs( float(base_price) / float(last_price) - 1 ) * 100
+			if ( last_close > base_price ):
+				percent_change = abs( base_price / last_close - 1 ) * 100
 
 				# Buy-to-cover the security if we are using a trailing stoploss
 				if ( percent_change >= decr_threshold and stoploss == True ):
 
 					# Buy-to-cover
-					buy_to_cover_price = float(pricehistory['candles'][idx]['close'])
-					buy_to_cover_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
+					buy_to_cover_price = pricehistory['candles'][idx]['close']
+					buy_to_cover_time = datetime.fromtimestamp(pricehistory['candles'][idx]['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 					results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +
 							str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
@@ -2733,10 +2874,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						signal_mode = 'buy'
 						continue
 
-			elif ( float(last_price) < float(base_price) ):
-				percent_change = abs( float(last_price) / float(base_price) - 1 ) * 100
+			elif ( last_close < base_price ):
+				percent_change = abs( last_close / base_price - 1 ) * 100
 				if ( percent_change >= incr_threshold ):
-					base_price = last_price
+					base_price = last_close
 
 					# Adapt decr_threshold based on changes made by --variable_exit
 					if ( incr_threshold < default_incr_threshold ):
@@ -2755,14 +2896,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# Additional exit strategies
 			# Sell if exit_percent is specified
-			if ( exit_percent != None and float(last_price) < float(short_price) ):
+			if ( exit_percent != None and last_close < short_price ):
 
-				total_percent_change = abs( float(last_price) / float(short_price) - 1 ) * 100
+				total_percent_change = abs( last_close / short_price - 1 ) * 100
 
 				# If exit_percent has been hit, we will sell at the first GREEN candle
 				#  unless quick_exit was set.
 				if ( exit_percent_signal == True ):
-					if ( float(pricehistory['candles'][idx]['close']) > float(pricehistory['candles'][idx]['open']) ):
+					if ( last_close > last_open ):
 						buy_to_cover_signal = True
 
 				elif ( total_percent_change >= float(exit_percent) ):
@@ -2770,17 +2911,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					if ( quick_exit == True ):
 						buy_to_cover_signal = True
 
-			# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
+			# Sell if --vwap_exit was set and last_close is half way between the orig_base_price and cur_vwap
 			if ( vwap_exit == True ):
 
 				cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
 				cur_vwap_down = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap_down']
 				if ( cur_vwap < short_price ):
-					if ( last_price <= ((short_price - cur_vwap) / 2) + cur_vwap ):
+					if ( last_close <= ((short_price - cur_vwap) / 2) + cur_vwap ):
 						buy_to_cover_signal = True
 
 				elif ( cur_vwap > short_price ):
-					if ( last_price <= ((cur_vwap - cur_vwap_down) / 2) + cur_vwap_down ):
+					if ( last_close <= ((cur_vwap - cur_vwap_down) / 2) + cur_vwap_down ):
 						buy_to_cover_signal = True
 
 
@@ -2788,7 +2929,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Do not use stochrsi as an exit signal if strict_exit_percent is set to True
 			# Also, if exit_percent_signal is triggered that means we've surpassed the exit_percent threshold and
 			#   should wait for either a red candle or for decr_threshold to be hit.
-			if ( strict_exit_percent == False and exit_percent_signal == False ):
+			if ( variable_exit == False and strict_exit_percent == False and exit_percent_signal == False ):
 				if ( cur_rsi_k < stochrsi_default_low_limit and cur_rsi_d < stochrsi_default_low_limit ):
 					stochrsi_signal = True
 
@@ -2805,7 +2946,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# BUY-TO-COVER
 			if ( buy_to_cover_signal == True ):
 
-				buy_to_cover_price = float(pricehistory['candles'][idx]['close'])
+				buy_to_cover_price = pricehistory['candles'][idx]['close']
 				buy_to_cover_time = datetime.fromtimestamp(float(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 				results.append( str(buy_to_cover_price) + ',' + str(short) + ',' +

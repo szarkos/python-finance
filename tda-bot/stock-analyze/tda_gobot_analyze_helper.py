@@ -142,6 +142,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	with_stochmfi		=	False		if ('with_stochmfi' not in params) else params['with_stochmfi']
 	with_stochmfi_5m	=	False		if ('with_stochmfi_5m' not in params) else params['with_stochmfi_5m']
 	with_stacked_ma		=	False		if ('with_stacked_ma' not in params) else params['with_stacked_ma']
+	stacked_ma_type		=	'kama'		if ('stacked_ma_type' not in params) else params['stacked_ma_type']
 	stacked_ma_periods	=	'3,5,8,13'	if ('stacked_ma_periods' not in params) else params['stacked_ma_periods']
 
 	with_rsi		=	False		if ('with_rsi' not in params) else params['with_rsi']
@@ -839,29 +840,29 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 #		except Exception as e:
 #			print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
 
-	# Intraday stacked EMA
+	# Intraday stacked moving averages
 	stacked_ma_periods = stacked_ma_periods.split(',')
 	ma_array = []
 	for ma_period in stacked_ma_periods:
-		ema = []
+		ma = []
 		try:
-			ema = tda_algo_helper.get_kama( pricehistory, period=int(ma_period) )
+			ma = tda_algo_helper.get_alt_ma(pricehistory, ma_type=stacked_ma_type, period=int(ma_period) )
 
 		except Exception as e:
-			print('Error, unable to calculate stacked EMAs: ' + str(e))
+			print('Error, unable to calculate stacked MAs: ' + str(e))
 			return False
 
-		ma_array.append(ema)
+		ma_array.append(ma)
 
 	s_ema = []
-	for i in range(0, len(ema)):
+	for i in range(0, len(ma)):
 		ma_tmp = []
 		for p in range(0, len(stacked_ma_periods)):
 			ma_tmp.append(ma_array[p][i])
 
 		s_ema.append( tuple(ma_tmp) )
 
-	del(ma_array)
+	del(ma, ma_array)
 
 
 	# Daily SMA/EMA

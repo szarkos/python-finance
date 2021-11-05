@@ -145,11 +145,27 @@ def get_ema(pricehistory=None, period=50, type='close', debug=False):
 	return ema
 
 
-# Return the N-period Kaufman Adaptive Moving Average
-def get_kama(pricehistory=None, period=50, type='hlc3', debug=False):
+
+# Generic function that returns the requested moving average.
+# Most moving average functions take the same options (lookback period),
+#  with one exception of vwma which needs volume and period.
+#
+# Supported input data types: close, high, low, open, volume, hl2, hlc3 (default), ohlc4
+#
+# Supported ma_types:
+#	kama	= Kaufman Adaptive Moving Average (default)
+#	dema	= Double Exponential Moving Average
+# 	hma	= Hull Moving Average
+#	tema	= Triple Exponential Moving Average
+#	trima	= Triangular Moving Average
+#	vwma	= Volume Weighted Moving Average
+#	wma	= Weighted Moving Average
+#	zlema	= Zero-Lag Exponential Moving Average
+#
+def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', debug=False):
 
 	if ( pricehistory == None ):
-		return False
+		return []
 
 	ticker = ''
 	try:
@@ -193,29 +209,114 @@ def get_kama(pricehistory=None, period=50, type='hlc3', debug=False):
 
 	prices = np.array( prices )
 
-	# Get the N-day KAMA
-	kama = []
-	try:
-		kama = ti.kama(prices, period=period)
+	# Genereate the requested moving average
+	ma = []
 
-	except Exception as e:
-		print('Caught Exception: get_kama(' + str(ticker) + '): ti.kama(): ' + str(e))
+	# Kaufman Adaptive Moving Average
+	# The Kaufman Adaptive Moving Average tries to adjust its smoothing to match the current market condition
+	# It adapts to a fast moving average when prices are moving steadily in one direction and a slow moving
+	#   average when the market exhibits a lot of noise.
+	if ( ma_type == 'kama' ):
+		try:
+			ma = ti.kama(prices, period=period)
+
+		except Exception as e:
+			print('Caught Exception: get_kama(' + str(ticker) + '): ti.kama(): ' + str(e), file=sys.stderr)
+			return False
+
+	# Double Exponential Moving Average
+	# The Double Exponential Moving Average is similar to the Exponential Moving Average, but provides less lag
+	elif ( ma_type == 'dema' ):
+		try:
+			ma = ti.dema(prices, period=period)
+
+		except Exception as e:
+			print('Caught Exception: get_dema(' + str(ticker) + '): ti.dema(): ' + str(e), file=sys.stderr)
+			return False
+
+	# Hull Moving Average modifies Weighted Moving Average to greatly reduce lag
+	elif ( ma_type == 'hma' ):
+		try:
+			ma = ti.hma(prices, period=period)
+
+		except Exception as e:
+			print('Caught Exception: get_hma(' + str(ticker) + '): ti.hma(): ' + str(e), file=sys.stderr)
+			return False
+
+	# The Triple Exponential Moving Average is similar to the Exponential Moving Average or the Double Exponential
+	#   Moving Average, but provides even less lag
+	elif ( ma_type == 'tema' ):
+		try:
+			ma = ti.tema(prices, period=period)
+
+		except Exception as e:
+			print('Caught Exception: get_tema(' + str(ticker) + '): ti.tema(): ' + str(e), file=sys.stderr)
+			return False
+
+	# The Triangular Moving Average is similar to the Simple Moving Average but instead places more weight on the
+	#   middle portion of the smoothing period and less weight on the newest and oldest bars in the period
+	elif ( ma_type == 'trima' ):
+		try:
+			ma = ti.trima(prices, period=period)
+
+		except Exception as e:
+			print('Caught Exception: get_trima(' + str(ticker) + '): ti.trima(): ' + str(e), file=sys.stderr)
+			return False
+
+	# The Weighted Moving Average is similar to the Simple Moving Average but instead places more weight on more
+	#   recent bars in the smoothing period and less weight on the oldest bars in the period
+	elif ( ma_type == 'wma' ):
+		try:
+			ma = ti.wma(prices, period=period)
+
+		except Exception as e:
+			print('Caught Exception: get_wma(' + str(ticker) + '): ti.wma(): ' + str(e), file=sys.stderr)
+			return False
+
+	# Zero-Lag Exponential Moving Average modifies a Exponential Moving Average to greatly reduce lag
+	elif ( ma_type == 'zlema' ):
+		try:
+			ma = ti.zlema(prices, period=period)
+
+		except Exception as e:
+			print('Caught Exception: get_zlema(' + str(ticker) + '): ti.zlema(): ' + str(e), file=sys.stderr)
+			return False
+
+	# The Volume Weighted Moving Average is simalair to a Simple Moving Average, but it weights each bar by its volume
+	elif ( ma_type == 'vwma' ):
+		volume = []
+		for key in pricehistory['candles']:
+			# Note: in python the volume is essentially an "int" type, but ti.vwma expects 'float64_t' type
+			#   for volume data instead of 'long'
+			volume.append( float(key['volume']) )
+		volume = np.array( volume )
+
+		try:
+			ma = ti.vwma(prices, volume, period=period)
+
+		except Exception as e:
+			print('Caught Exception: get_vwma(' + str(ticker) + '): ti.vwma(): ' + str(e), file=sys.stderr)
+			return False
+
+	else:
+		print('Error: unknown ma_type "' + str(ma_type) + '"', file=sys.stderr)
 		return False
 
 	# Normalize the size of the result to match the input size
-	tmp = []
-	for i in range(0, period - 1):
-		tmp.append(0)
-	kama = tmp + list(kama)
+	if ( len(ma) != len(pricehistory['candles']) ):
+		tmp = []
+		for i in range(0, len(pricehistory['candles']) - len(ma)):
+			tmp.append(0)
+		ma = tmp + list(ma)
 
 	if ( debug == True ):
 		pd.set_option('display.max_rows', None)
 		pd.set_option('display.max_columns', None)
 		pd.set_option('display.width', None)
 		pd.set_option('display.max_colwidth', None)
-		print(kama)
+		print(ma)
 
-	return kama
+	return ma
 
 
 # Use Tulipy to calculate the N-day historic volatility (default: 30-days)

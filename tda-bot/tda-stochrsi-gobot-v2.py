@@ -17,14 +17,16 @@
 
 import os, sys, signal, re, random
 import time, datetime, pytz
-from collections import OrderedDict
 import argparse
+from collections import OrderedDict
+
+import tda_gobot_helper
+import tda_algo_helper
+import tda_stochrsi_gobot_helper
+import av_gobot_helper
 
 # We use robin_stocks for most REST operations
 import robin_stocks.tda as tda
-import tda_gobot_helper
-import tda_stochrsi_gobot_helper
-import av_gobot_helper
 
 # tda-api is used for streaming client
 # https://tda-api.readthedocs.io/en/stable/streaming.html
@@ -1053,7 +1055,7 @@ for ticker in list(stocks.keys()):
 
 	# Calculate the keylevels
 	try:
-		stocks[ticker]['kl_long_support'], stocks[ticker]['kl_long_resistance'] = tda_gobot_helper.get_keylevels(weekly_ph, filter=False)
+		stocks[ticker]['kl_long_support'], stocks[ticker]['kl_long_resistance'] = tda_algo_helper.get_keylevels(weekly_ph, filter=False)
 
 	except Exception as e:
 		print('Exception caught: get_keylevels(' + str(ticker) + '): ' + str(e) + '. Keylevels will not be used.')
@@ -1107,7 +1109,7 @@ for ticker in list(stocks.keys()):
 	atr_d   = []
 	natr_d  = []
 	try:
-		atr_d, natr_d = tda_gobot_helper.get_atr( pricehistory=daily_ph, period=args.daily_atr_period )
+		atr_d, natr_d = tda_algo_helper.get_atr( pricehistory=daily_ph, period=args.daily_atr_period )
 
 	except Exception as e:
 		print('Exception caught: date_atr(' + str(ticker) + '): ' + str(e) + '. Daily NATR resistance will not be used.')

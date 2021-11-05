@@ -9,6 +9,7 @@ from pytz import timezone
 parent_path = os.path.dirname( os.path.realpath(__file__) )
 sys.path.append(parent_path + '/../')
 import tda_gobot_helper
+import tda_algo_helper
 
 
 # Like stochrsi_analyze(), but sexier
@@ -363,7 +364,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	atr	= []
 	natr	= []
 	try:
-		atr, natr = tda_gobot_helper.get_atr( pricehistory=pricehistory_5m, period=atr_period )
+		atr, natr = tda_algo_helper.get_atr( pricehistory=pricehistory_5m, period=atr_period )
 
 	except Exception as e:
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_atr(): ' + str(e))
@@ -373,7 +374,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	atr_d	= []
 	natr_d	= []
 	try:
-		atr_d, natr_d = tda_gobot_helper.get_atr( pricehistory=daily_ph, period=daily_atr_period )
+		atr_d, natr_d = tda_algo_helper.get_atr( pricehistory=daily_ph, period=daily_atr_period )
 
 	except Exception as e:
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_atr(): ' + str(e))
@@ -411,9 +412,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	try:
 		if ( primary_stoch_indicator == 'stochrsi' ):
 			if ( with_stoch_5m == True ):
-				stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(pricehistory_5m, rsi_period=rsi_period, stochrsi_period=stochrsi_5m_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+				stochrsi, rsi_k, rsi_d = tda_algo_helper.get_stochrsi(pricehistory_5m, rsi_period=rsi_period, stochrsi_period=stochrsi_5m_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
 			else:
-				stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(pricehistory, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+				stochrsi, rsi_k, rsi_d = tda_algo_helper.get_stochrsi(pricehistory, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
 
 			if ( isinstance(stochrsi, bool) and stochrsi == False ):
 				print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_stochrsi() returned false - no data', file=sys.stderr)
@@ -421,9 +422,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 		elif ( primary_stoch_indicator == 'stochmfi' ):
 			if ( with_stoch_5m == True ):
-				rsi_k, rsi_d = tda_gobot_helper.get_stochmfi(pricehistory_5m, mfi_period=mfi_period, mfi_k_period=rsi_k_period, slow_period=rsi_slow, mfi_d_period=rsi_d_period, debug=False)
+				rsi_k, rsi_d = tda_algo_helper.get_stochmfi(pricehistory_5m, mfi_period=mfi_period, mfi_k_period=rsi_k_period, slow_period=rsi_slow, mfi_d_period=rsi_d_period, debug=False)
 			else:
-				rsi_k, rsi_d = tda_gobot_helper.get_stochmfi(pricehistory, mfi_period=mfi_period, mfi_k_period=rsi_k_period, slow_period=rsi_slow, mfi_d_period=rsi_d_period, debug=False)
+				rsi_k, rsi_d = tda_algo_helper.get_stochmfi(pricehistory, mfi_period=mfi_period, mfi_k_period=rsi_k_period, slow_period=rsi_slow, mfi_d_period=rsi_d_period, debug=False)
 
 			stochrsi = rsi_k
 			if ( isinstance(rsi_k, bool) and rsi_k == False ):
@@ -431,7 +432,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				return False
 
 		else:
-			stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(pricehistory, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+			stochrsi, rsi_k, rsi_d = tda_algo_helper.get_stochrsi(pricehistory, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
 			print('Primary stochastic indicator is set to "' + str(primary_stoch_indicator) + '"')
 
 	except Exception as e:
@@ -456,7 +457,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		rsi_k_5m	= []
 		rsi_d_5m	= []
 		try:
-			stochrsi, rsi_k_5m, rsi_d_5m = tda_gobot_helper.get_stochrsi(pricehistory_5m, rsi_period=rsi_period, stochrsi_period=stochrsi_5m_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+			stochrsi, rsi_k_5m, rsi_d_5m = tda_algo_helper.get_stochrsi(pricehistory_5m, rsi_period=rsi_period, stochrsi_period=stochrsi_5m_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
 
 		except Exception as e:
 			print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_stochrsi(): ' + str(e))
@@ -469,7 +470,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		mfi_k		= []
 		mfi_d		= []
 		try:
-			mfi_k, mfi_d = tda_gobot_helper.get_stochmfi(pricehistory, mfi_period=stochmfi_period, mfi_k_period=rsi_k_period, slow_period=rsi_slow, mfi_d_period=rsi_d_period, debug=False)
+			mfi_k, mfi_d = tda_algo_helper.get_stochmfi(pricehistory, mfi_period=stochmfi_period, mfi_k_period=rsi_k_period, slow_period=rsi_slow, mfi_d_period=rsi_d_period, debug=False)
 
 		except Exception as e:
 			print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_stochmfi(): ' + str(e))
@@ -482,7 +483,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		mfi_k_5m	= []
 		mfi_d_5m	= []
 		try:
-			mfi_k_5m, mfi_d_5m = tda_gobot_helper.get_stochmfi(pricehistory_5m, mfi_period=stochmfi_5m_period, mfi_k_period=rsi_k_period, slow_period=rsi_slow, mfi_d_period=rsi_d_period, debug=False)
+			mfi_k_5m, mfi_d_5m = tda_algo_helper.get_stochmfi(pricehistory_5m, mfi_period=stochmfi_5m_period, mfi_k_period=rsi_k_period, slow_period=rsi_slow, mfi_d_period=rsi_d_period, debug=False)
 
 		except Exception as e:
 			print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_stochmfi(): ' + str(e))
@@ -492,16 +493,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			return False
 
 	# Get RSI
+	rsi = []
 	try:
-		rsi = tda_gobot_helper.get_rsi(pricehistory, rsi_period, rsi_type, debug=False)
+		rsi = tda_algo_helper.get_rsi(pricehistory, rsi_period, rsi_type, debug=False)
 
 	except Exception as e:
 		print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_rsi(): ' + str(e))
 		return False
 
 	# Get MFI
+	mfi = []
 	try:
-		mfi = tda_gobot_helper.get_mfi(pricehistory, period=mfi_period)
+		mfi = tda_algo_helper.get_mfi(pricehistory, period=mfi_period)
 
 	except Exception as e:
 		print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_mfi(): ' + str(e))
@@ -511,13 +514,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	if ( with_dmi == True and with_dmi_simple == True ):
 		with_dmi_simple = False
 
-	adx = []
-	di_adx = []
-	plus_di = []
-	minus_di = []
+	adx		= []
+	di_adx		= []
+	plus_di		= []
+	minus_di	= []
 	try:
-		di_adx, plus_di, minus_di = tda_gobot_helper.get_adx(pricehistory, period=di_period)
-		adx, plus_di_adx, minus_di_adx = tda_gobot_helper.get_adx(pricehistory, period=adx_period)
+		di_adx, plus_di, minus_di	= tda_algo_helper.get_adx(pricehistory, period=di_period)
+		adx, plus_di_adx, minus_di_adx	= tda_algo_helper.get_adx(pricehistory, period=adx_period)
 
 	except Exception as e:
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_adx(): ' + str(e))
@@ -527,15 +530,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	# aroonosc_with_macd_simple implies that macd_simple will be enabled or disabled based on the
 	#  level of the aroon oscillator (i.e. < aroonosc_secondary_threshold then use macd_simple)
 	if ( aroonosc_with_macd_simple == True ):
-		with_aroonosc = True
-		with_macd = False
-		with_macd_simple = False
+		with_aroonosc		= True
+		with_macd		= False
+		with_macd_simple	= False
 
-	aroonosc = []
-	aroonosc_alt = []
+	aroonosc	= []
+	aroonosc_alt	= []
 	try:
-		aroonosc = tda_gobot_helper.get_aroon_osc(pricehistory, period=aroonosc_period)
-		aroonosc_alt = tda_gobot_helper.get_aroon_osc(pricehistory, period=aroonosc_alt_period)
+		aroonosc	= tda_algo_helper.get_aroon_osc(pricehistory, period=aroonosc_period)
+		aroonosc_alt	= tda_algo_helper.get_aroon_osc(pricehistory, period=aroonosc_alt_period)
 
 	except Exception as e:
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_aroon_osc(): ' + str(e))
@@ -545,11 +548,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	if ( with_macd == True and with_macd_simple == True):
 		with_macd_simple = False
 
-	macd = []
-	macd_signal = []
-	macd_histogram = []
+	macd		= []
+	macd_signal	= []
+	macd_histogram	= []
 	try:
-		macd, macd_avg, macd_histogram = tda_gobot_helper.get_macd(pricehistory, short_period=macd_short_period, long_period=macd_long_period, signal_period=macd_signal_period)
+		macd, macd_avg, macd_histogram = tda_algo_helper.get_macd(pricehistory, short_period=macd_short_period, long_period=macd_long_period, signal_period=macd_signal_period)
 
 	except Exception as e:
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_macd(): ' + str(e))
@@ -558,17 +561,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	# Choppiness Index
 	chop = []
 	try:
-		chop = tda_gobot_helper.get_chop_index(pricehistory, period=chop_period)
+		chop = tda_algo_helper.get_chop_index(pricehistory, period=chop_period)
 
 	except Exception as e:
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_chop_index(): ' + str(e))
 		return False
 
 	# VPT - Volume Price Trend
-	vpt = []
-	vpt_sma = []
+	vpt	= []
+	vpt_sma	= []
 	try:
-		vpt, vpt_sma = tda_gobot_helper.get_vpt(pricehistory, period=vpt_sma_period)
+		vpt, vpt_sma = tda_algo_helper.get_vpt(pricehistory, period=vpt_sma_period)
 
 	except Exception as e:
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_vpt(): ' + str(e))
@@ -577,7 +580,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	# Supertrend indicator
 	supertrend = []
 	try:
-		supertrend = tda_gobot_helper.get_supertrend(pricehistory=pricehistory, atr_period=supertrend_atr_period)
+		supertrend = tda_algo_helper.get_supertrend(pricehistory=pricehistory, atr_period=supertrend_atr_period)
 
 	except Exception as e:
 		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_supertrend(): ' + str(e))
@@ -591,7 +594,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		bbands_mid	= []
 		bbands_upper	= []
 		try:
-			bbands_lower, bbands_mid, bbands_upper = tda_gobot_helper.get_bbands(pricehistory, period=bbands_period)
+			bbands_lower, bbands_mid, bbands_upper = tda_algo_helper.get_bbands(pricehistory, period=bbands_period)
 
 		except Exception as e:
 			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_bbands(): ' + str(e))
@@ -601,7 +604,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		kchannel_mid	= []
 		kchannel_upper	= []
 		try:
-			kchannel_lower, kchannel_mid, kchannel_upper = tda_gobot_helper.get_kchannels(pricehistory, period=kchannel_period, atr_period=kchannel_atr_period)
+			kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory, period=kchannel_period, atr_period=kchannel_atr_period)
 
 		except Exception as e:
 			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_kchannel(): ' + str(e))
@@ -695,7 +698,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		# Calculate the VWAP data for each day in days{}
 		for key in days:
 			try:
-				vwap, vwap_up, vwap_down = tda_gobot_helper.get_vwap(pricehistory, day=key, end_timestamp=days[key]['end'], num_stddev=2)
+				vwap, vwap_up, vwap_down = tda_algo_helper.get_vwap(pricehistory, day=key, end_timestamp=days[key]['end'], num_stddev=2)
 
 			except Exception as e:
 				print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_vwap(): ' + str(e), file=sys.stderr)
@@ -816,7 +819,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 		# Key levels
 		klfilter = False
-		long_support, long_resistance = tda_gobot_helper.get_keylevels(weekly_ph, filter=klfilter)
+		long_support, long_resistance = tda_algo_helper.get_keylevels(weekly_ph, filter=klfilter)
 
 		# Three/Twenty week high/low
 #		three_week_high = three_week_low = three_week_avg = -1
@@ -842,7 +845,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	for ma_period in stacked_ma_periods:
 		ema = []
 		try:
-			ema = tda_gobot_helper.get_kama( pricehistory, period=int(ma_period) )
+			ema = tda_algo_helper.get_kama( pricehistory, period=int(ma_period) )
 
 		except Exception as e:
 			print('Error, unable to calculate stacked EMAs: ' + str(e))
@@ -867,10 +870,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	daily_ema8	= []
 	daily_ema13	= []
 	try:
-		daily_ema3	= tda_gobot_helper.get_ema( pricehistory=daily_ph, period=3 )
-		daily_ema5	= tda_gobot_helper.get_ema( pricehistory=daily_ph, period=5 )
-		daily_ema8	= tda_gobot_helper.get_ema( pricehistory=daily_ph, period=8 )
-		daily_ema13	= tda_gobot_helper.get_ema( pricehistory=daily_ph, period=13 )
+		daily_ema3	= tda_algo_helper.get_ema( pricehistory=daily_ph, period=3 )
+		daily_ema5	= tda_algo_helper.get_ema( pricehistory=daily_ph, period=5 )
+		daily_ema8	= tda_algo_helper.get_ema( pricehistory=daily_ph, period=8 )
+		daily_ema13	= tda_algo_helper.get_ema( pricehistory=daily_ph, period=13 )
 
 	except Exception as e:
 		print('Error, unable to calculate daily EMA: ' + str(e))
@@ -899,8 +902,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			etf_sma = []
 			etf_ema = []
 			try:
-				etf_sma = tda_gobot_helper.get_sma( etf_indicators[t]['pricehistory'], period=sma_period, type='hlc3' )
-				etf_ema = tda_gobot_helper.get_ema( etf_indicators[t]['pricehistory'], period=ema_period )
+				etf_sma = tda_algo_helper.get_sma( etf_indicators[t]['pricehistory'], period=sma_period, type='hlc3' )
+				etf_ema = tda_algo_helper.get_ema( etf_indicators[t]['pricehistory'], period=ema_period )
 
 			except Exception as e:
 				print('Error, unable to calculate SMA/EMA for ticker ' + str(t) + ': ' + str(e))
@@ -3088,7 +3091,7 @@ def analyze_stoch_divergence():
 	day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month2')['candles']
 	day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month1')['candles']
 
-	kl_stochrsi, kl_rsi_k, kl_rsi_d = tda_gobot_helper.get_stochrsi(day_1min, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
+	kl_stochrsi, kl_rsi_k, kl_rsi_d = tda_algo_helper.get_stochrsi(day_1min, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
 
 
 	for lvl,dt in long_support:  # + long_resistance

@@ -12,7 +12,9 @@ import time, datetime, pytz
 import argparse
 
 import robin_stocks.tda as tda
+
 import tda_gobot_helper
+import tda_algo_helper
 
 
 # Parse and check variables
@@ -209,7 +211,7 @@ elif ( args.vwap == True ):
 		exit(1)
 
 	try:
-		vwap, vwap_up, vwap_down = tda_gobot_helper.get_vwap(data)
+		vwap, vwap_up, vwap_down =  tda_algo_helper.get_vwap(data)
 
 	except Exception as e:
 		print('Caught Exception: rsi_analyze(' + str(stock) + '): get_vwap(): ' + str(e), file=sys.stderr)
@@ -237,7 +239,7 @@ elif ( args.rsi == True ):
 		exit(1)
 
 	try:
-		rsi = tda_gobot_helper.get_rsi(data, args.rsi_period, args.rsi_type, debug=False)
+		rsi =  tda_algo_helper.get_rsi(data, args.rsi_period, args.rsi_type, debug=False)
 
 	except Exception as e:
 		print('Caught Exception: rsi_analyze(' + str(stock) + '): get_rsi(): ' + str(e), file=sys.stderr)
@@ -262,7 +264,7 @@ elif (args.stochrsi == True ):
 		exit(1)
 
 	try:
-		stochrsi, rsi_k, rsi_d = tda_gobot_helper.get_stochrsi(data, rsi_period=args.rsi_period, stochrsi_period=args.stochrsi_period, type=args.rsi_type, slow_period=args.rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period, debug=False)
+		stochrsi, rsi_k, rsi_d = tda_algo_helper.get_stochrsi(data, rsi_period=args.rsi_period, stochrsi_period=args.stochrsi_period, type=args.rsi_type, slow_period=args.rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period, debug=False)
 
 	except:
 		print('Caught Exception: rsi_analyze(' + str(stock) + '): get_stochrsi(): ' + str(e), file=sys.stderr)
@@ -281,10 +283,10 @@ elif (args.stochrsi == True ):
 
 elif (args.volatility == True ):
 
-	v = tda_gobot_helper.get_historic_volatility(stock, period=21)
+	v = tda_algo_helper.get_historic_volatility(stock, period=21)
 	print( 'NumPy: ' + str(round(v, 2) * 100 ) + "%\n" )
 
-	v, data = tda_gobot_helper.get_historic_volatility_ti(stock, period=21, type='close')
+	v, data = tda_algo_helper.get_historic_volatility_ti(stock, period=21, type='close')
 	if ( isinstance(v, bool) and v == False ):
 		print('Error: get_historical_volatility(' + str(ticker) + ') returned false - no data', file=sys.stderr)
 		exit(1)

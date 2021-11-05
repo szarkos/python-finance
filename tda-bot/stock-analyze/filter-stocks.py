@@ -12,7 +12,7 @@ import argparse
 parent_path = os.path.dirname( os.path.realpath(__file__) )
 sys.path.append(parent_path + '/../')
 import tda_gobot_helper
-
+import tda_algo_helper
 
 # Parse and check variables
 parser = argparse.ArgumentParser()
@@ -78,7 +78,7 @@ elif ( args.min_natr != None ):
 		atr_d   = []
 		natr_d  = []
 		try:
-			atr_d, natr_d = tda_gobot_helper.get_atr( pricehistory=data_daily, period=natr_period )
+			atr_d, natr_d = tda_algo_helper.get_atr( pricehistory=data_daily, period=natr_period )
 
 		except Exception as e:
 			print('Caught exception: get_atr(' + str(sym) + '): ' + str(e), file=sys.stderr)

@@ -10,8 +10,9 @@ import sys, os
 import datetime, pytz
 import argparse
 import robin_stocks.tda as tda
-import tda_gobot_helper
 
+import tda_gobot_helper
+import tda_algo_helper
 
 # Parse and check variables
 parser = argparse.ArgumentParser()
@@ -67,7 +68,7 @@ except Exception as e:
 long_support = []
 long_resistance = []
 try:
-	long_support,long_resistance = tda_gobot_helper.get_keylevels(pricehistory=pricehistory, atr_period=args.atr_period, filter=filter, plot=args.plot)
+	long_support,long_resistance = tda_algo_helper.get_keylevels(pricehistory=pricehistory, atr_period=args.atr_period, filter=filter, plot=args.plot)
 
 except Exception as e:
 	print('Caught exception: get_keylevels(' + str(args.stock) + '): ' + str(e))

@@ -25,6 +25,7 @@ import asyncio
 import json
 
 import tda_api_helper
+import tda_algo_helper
 
 
 # Parse and check variables
@@ -536,7 +537,7 @@ def stock_monitor(stream=None, debug=False):
 
 
 		# VWAP
-		vwap, vwap_up, vwap_down = tda_gobot_helper.get_vwap( stocks[ticker]['pricehistory'] )
+		vwap, vwap_up, vwap_down =  tda_algo_helper.get_vwap( stocks[ticker]['pricehistory'] )
 		vwap = float( vwap[-1] )
 
 		# Check for case where price and VWAP are above PDC (bullish indicator),

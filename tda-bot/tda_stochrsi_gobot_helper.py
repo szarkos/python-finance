@@ -1578,7 +1578,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# StochRSI MONITOR
 			# Do not use stochrsi as an exit signal if exit_percent_signal is triggered. That means we've surpassed the
 			# exit_percent threshold and should wait for either a red candle or for decr_threshold to be hit.
-			if ( stocks[ticker]['exit_percent_signal'] == False ):
+			if ( args.variable_exit == False and stocks[ticker]['exit_percent_signal'] == False ):
 
 				# Monitor K and D
 				# A sell signal occurs when a decreasing %K line crosses below the %D line in the overbought region,
@@ -2294,7 +2294,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# RSI MONITOR
 			# Do not use stochrsi as an exit signal if exit_percent_signal is triggered. That means we've surpassed the
 			# exit_percent threshold and should wait for either a red candle or for decr_threshold to be hit.
-			if ( stocks[ticker]['exit_percent_signal'] == False ):
+			if ( args.variable_exit == False and stocks[ticker]['exit_percent_signal'] == False ):
 
 				if ( cur_rsi_k < stoch_default_low_limit and cur_rsi_d < stoch_default_low_limit ):
 					stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal'] = True

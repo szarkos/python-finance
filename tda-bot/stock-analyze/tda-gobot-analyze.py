@@ -171,9 +171,7 @@ parser.add_argument("--debug_all", help='Enable extra debugging output', action=
 
 args = parser.parse_args()
 
-debug = 1			# Should default to 0 eventually, testing for now
-if args.debug:
-	debug = 1
+args.debug = True	# Should default to False eventually, testing for now
 
 decr_threshold = args.decr_threshold
 incr_threshold = args.incr_threshold
@@ -521,7 +519,7 @@ for algo in args.algo.split(','):
 					'weekly_ph':				data_weekly,
 					'daily_ph':				data_daily,
 
-					'debug':				True,
+					'debug':				args.debug,
 					'debug_all':				args.debug_all,
 
 					# Trade exit parameters

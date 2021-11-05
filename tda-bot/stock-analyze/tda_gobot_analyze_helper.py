@@ -70,6 +70,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal chop_init_signal		; chop_init_signal		= False
 		nonlocal chop_signal			; chop_signal			= False
 		nonlocal supertrend_signal		; supertrend_signal		= False
+
+		nonlocal bbands_kchan_signal_counter	; bbands_kchan_signal_counter	= 0
 		nonlocal bbands_kchan_signal		; bbands_kchan_signal		= False
 		nonlocal bbands_kchan_init_signal	; bbands_kchan_init_signal	= False
 		nonlocal stacked_ma_signal		; stacked_ma_signal		= False
@@ -582,6 +584,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	# Bollinger bands and Keltner channels
 	if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
+		bbands_kchannel_offset_debug = { 'squeeze': [], 'cur_squeeze': [] }
+
 		bbands_lower	= []
 		bbands_mid	= []
 		bbands_upper	= []
@@ -1000,6 +1004,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	chop_init_signal		= False
 	chop_signal			= False
 	supertrend_signal		= False
+
+	bbands_kchan_signal_counter	= 0
 	bbands_kchan_signal		= False
 	bbands_kchan_init_signal	= False
 	stacked_ma_signal		= False
@@ -1209,26 +1215,31 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 
 	# Bollinger Bands and Keltner Channel crossover
-	def bbands_kchannels(simple=False, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0), bbands_kchan_init_signal=False, bbands_kchan_signal=False ):
+	def bbands_kchannels(simple=False, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0), bbands_kchan_init_signal=False, bbands_kchan_signal=False, debug=False ):
 
 		nonlocal bbands_kchannel_offset
+		nonlocal bbands_kchannel_offset_debug
+		nonlocal bbands_kchan_signal_counter
 
 		# bbands/kchannel (0,0,0) = lower, middle, upper
-		cur_bbands_lower	= cur_bbands[0]
-		cur_bbands_mid		= cur_bbands[1]
-		cur_bbands_upper	= cur_bbands[2]
+		cur_bbands_lower	= round( cur_bbands[0], 3 )
+		cur_bbands_mid		= round( cur_bbands[1], 3 )
+		cur_bbands_upper	= round( cur_bbands[2], 3 )
 
-		prev_bbands_lower	= prev_bbands[0]
-		prev_bbands_mid		= prev_bbands[1]
-		prev_bbands_upper	= prev_bbands[2]
+		prev_bbands_lower	= round( prev_bbands[0], 3 )
+		prev_bbands_mid		= round( prev_bbands[1], 3 )
+		prev_bbands_upper	= round( prev_bbands[2], 3 )
 
-		cur_kchannel_lower	= cur_kchannel[0]
-		cur_kchannel_mid	= cur_kchannel[1]
-		cur_kchannel_upper	= cur_kchannel[2]
+		cur_kchannel_lower	= round( cur_kchannel[0], 3 )
+		cur_kchannel_mid	= round( cur_kchannel[1], 3 )
+		cur_kchannel_upper	= round( cur_kchannel[2], 3 )
 
-		prev_kchannel_lower	= prev_kchannel[0]
-		prev_kchannel_mid	= prev_kchannel[1]
-		prev_kchannel_upper	= prev_kchannel[2]
+		prev_kchannel_lower	= round( prev_kchannel[0], 3 )
+		prev_kchannel_mid	= round( prev_kchannel[1], 3 )
+		prev_kchannel_upper	= round( prev_kchannel[2], 3 )
+
+		if ( debug == True and bbands_kchan_init_signal == False and bbands_kchan_signal == False ):
+			bbands_kchannel_offset_debug['cur_squeeze'] = []
 
 		if ( simple == True ):
 			bbands_kchan_init_signal = True
@@ -1245,23 +1256,42 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 		# Check if the Bollinger Bands have moved inside the Keltner Channel
 		# Signal when they begin to converge
-		if ( cur_kchannel_lower < cur_bbands_lower and prev_kchannel_lower < prev_bbands_lower and
-			cur_kchannel_upper > cur_bbands_upper and prev_kchannel_upper > prev_bbands_upper ):
+		if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
+			# Squeeze counter
+			bbands_kchan_signal_counter += 1
 
+			# Enforce a minimum offset to ensure the squeeze has some energy before triggering
+			#  the bbands_kchan_init_signal signal
 			prev_offset	= abs((prev_kchannel_lower / prev_bbands_lower) - 1) * 100
 			cur_offset	= abs((cur_kchannel_lower / cur_bbands_lower) - 1) * 100
-#			if ( cur_offset < prev_offset ):
-#			print(str(prev_offset) + ' / ' + str(cur_offset))
-			if ( prev_offset >= bbands_kchannel_offset or cur_offset >= bbands_kchannel_offset ):
+			if ( cur_offset >= bbands_kchannel_offset ):
 				bbands_kchan_init_signal = True
 
-		if ( bbands_kchan_init_signal == True ):
-			if ( (cur_kchannel_lower > prev_kchannel_lower and cur_kchannel_upper > prev_kchannel_upper) or
-			     (cur_kchannel_lower < prev_kchannel_lower and cur_kchannel_upper < prev_kchannel_upper) ):
+				if ( debug == True ):
+					bbands_kchannel_offset_debug['cur_squeeze'].append(cur_offset)
+
+		# Toggle the bbands_kchan_signal when the bollinger bands pop back outside the keltner channel
+		if ( bbands_kchan_init_signal == True and bbands_kchan_signal == False and bbands_kchan_signal_counter >= 4 ):
+
+			# An aggressive strategy is to try to get in early when the Bollinger bands begin to widen
+			#  and before they pop out of the Keltner channel
+			if ( cur_bbands_lower < prev_bbands_lower and cur_bbands_upper > prev_bbands_upper ):
 				bbands_kchan_signal = True
 
-			if ( cur_kchannel_lower >= cur_bbands_lower and cur_kchannel_upper <= cur_bbands_upper ):
+			elif ( cur_kchannel_lower >= cur_bbands_lower and cur_kchannel_upper <= cur_bbands_upper ):
 				bbands_kchan_signal = True
+
+			if ( debug == True ):
+				if ( len(bbands_kchannel_offset_debug['cur_squeeze']) > 0 ):
+					bbands_kchannel_offset_debug['squeeze'].append( max(bbands_kchannel_offset_debug['cur_squeeze']) )
+					bbands_kchannel_offset_debug['cur_squeeze'] = []
+
+		# Cancel the bbands_kchan_signal if the bollinger bands popped back inside the keltner channel,
+		#  or if the bbands_kchan_signal_counter has lingered for too long
+		if ( prev_bbands_lower < prev_kchannel_lower and cur_bbands_lower >= cur_kchannel_lower ):
+				bbands_kchan_init_signal	= False
+				bbands_kchan_signal		= False
+				bbands_kchan_signal_counter	= 0
 
 		return bbands_kchan_init_signal, bbands_kchan_signal
 
@@ -1546,7 +1576,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				#  does a full loop again before acting on it.
 				if ( cur_rsi_k >= stochrsi_default_high_limit and cur_rsi_d >= stochrsi_default_high_limit and noshort == False ):
 					reset_signals()
-					signal_mode = 'short'
+					if ( noshort == False ):
+						signal_mode = 'short'
 					continue
 
 				# Check StochRSI
@@ -1560,6 +1591,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					reset_signals()
 					continue
 
+			# Stacked moving average primary
 			elif ( primary_stoch_indicator == 'stacked_ma' ):
 				# Jump to short mode if the stacked moving averages are showing a bearish movement
 				if ( check_stacked_ma(cur_s_ema, 'bear') == True ):
@@ -1571,9 +1603,24 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( check_stacked_ma(cur_s_ema, 'bull') == True ):
 					buy_signal = True
 				else:
-					buy_signal = False
 					reset_signals()
 					continue
+
+			# AroonOsc (simple) primary
+			elif ( primary_stoch_indicator == 'aroonosc' ):
+				# Jump to short mode if AroonOsc is pointing in that direction
+				if ( cur_aroonosc < -15 ):
+					reset_signals()
+					if ( noshort == False ):
+						signal_mode = 'short'
+					continue
+
+				if ( cur_aroonosc > 60 ):
+					buy_signal = True
+				else:
+					reset_signals()
+					continue
+
 
 			# StochRSI with 5-minute candles
 			if ( with_stochrsi_5m == True ):
@@ -1780,7 +1827,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				(bbands_kchan_init_signal, bbands_kchan_signal) = bbands_kchannels( simple=with_bbands_kchannel_simple, cur_bbands=cur_bbands, prev_bbands=prev_bbands,
 													cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
-													bbands_kchan_init_signal=bbands_kchan_init_signal, bbands_kchan_signal=bbands_kchan_signal )
+													bbands_kchan_init_signal=bbands_kchan_init_signal, bbands_kchan_signal=bbands_kchan_signal, debug=debug)
 
 
 			# Resistance Levels
@@ -1818,13 +1865,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 						natr_resistance = ((cur_natr_daily / natr_mod) / 100 + 1) * prev_day_close
 						if ( cur_close > natr_resistance and buy_signal == True ):
-							if ( cur_rsi_k > cur_rsi_d and cur_rsi_k - cur_rsi_d < 12 ):
+							if ( primary_stoch_indicator == 'stochrsi' or primary_stoch_indicator == 'stochmfi' ):
+								if ( cur_rsi_k > cur_rsi_d and cur_rsi_k - cur_rsi_d < 12 ):
+									resistance_signal = False
+							else:
 								resistance_signal = False
 
 						if ( abs((cur_close / natr_resistance - 1) * 100) <= price_resistance_pct and buy_signal == True ):
-							if ( cur_rsi_k > cur_rsi_d and cur_rsi_k - cur_rsi_d < 10 ):
+							if ( primary_stoch_indicator == 'stochrsi' or primary_stoch_indicator == 'stochmfi' ):
+								if ( cur_rsi_k > cur_rsi_d and cur_rsi_k - cur_rsi_d < 10 ):
+									resistance_signal = False
+							else:
 								resistance_signal = False
-
 
 				# VWAP
 				if ( resistance_signal == True ):
@@ -2020,6 +2072,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					', dmi_signal: '		+ str(dmi_signal) +
 					', aroonosc_signal: '		+ str(aroonosc_signal) +
 					', macd_signal: '		+ str(macd_signal) +
+					', bbands_kchan_signal: '	+ str(bbands_kchan_signal) +
+					', bbands_kchan_init_signal: '	+ str(bbands_kchan_init_signal) +
+					', stacked_ma_signal: '		+ str(stacked_ma_signal) +
 					', vwap_signal: '		+ str(vwap_signal) +
 					', vpt_signal: '		+ str(vpt_signal) +
 					', resistance_signal: '		+ str(resistance_signal) )
@@ -2032,6 +2087,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
 				print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
 				print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
+				print('(' + str(ticker) + '): BBands: ' + str(round(cur_bbands[0], 4)) + ' / ' + str(round(cur_bbands[2], 4)) +
+								', KChannel: ' + str(round(cur_kchannel[0], 4)) + ' / ' + str(round(cur_kchannel[2], 4)) )
 				print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
 				print('(' + str(ticker) + '): BUY signal: ' + str(buy_signal) + ', Final BUY signal: ' + str(final_buy_signal))
 				print()
@@ -2273,7 +2330,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# Jump to buy mode if StochRSI K and D are already below rsi_low_limit
 				if ( cur_rsi_k <= stochrsi_default_low_limit and cur_rsi_d <= stochrsi_default_low_limit ):
 					reset_signals()
-					signal_mode = 'buy'
+					if ( shortonly == False ):
+						signal_mode = 'buy'
 					continue
 
 				# Monitor StochRSI
@@ -2287,6 +2345,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					reset_signals()
 					continue
 
+			# Stacked moving average primary
 			elif ( primary_stoch_indicator == 'stacked_ma' ):
 				# Jump to buy mode if the stacked moving averages are showing a bearish movement
 				if ( check_stacked_ma(cur_s_ema, 'bull') == True ):
@@ -2298,9 +2357,24 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( check_stacked_ma(cur_s_ema, 'bear') == True ):
 					short_signal = True
 				else:
-					short_signal = False
 					reset_signals()
 					continue
+
+			# AroonOsc (simple) primary
+			elif ( primary_stoch_indicator == 'aroonosc' ):
+				# Jump to short mode if AroonOsc is pointing in that direction
+				if ( cur_aroonosc > 10 ):
+					reset_signals()
+					if ( shortonly == False ):
+						signal_mode = 'buy'
+					continue
+
+				if ( cur_aroonosc < -60 ):
+					short_signal = True
+				else:
+					reset_signals()
+					continue
+
 
 			# StochRSI with 5-minute candles
 			if ( with_stochrsi_5m == True ):
@@ -2342,7 +2416,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Secondary Indicators
 			# Stacked moving averages
 			if ( with_stacked_ma == True ):
-				if ( check_stacked_ma(cur_s_ema, 'bull') == True ):
+				if ( check_stacked_ma(cur_s_ema, 'bear') == True ):
 					stacked_ma_signal = True
 				else:
 					stacked_ma_signal = False
@@ -2496,7 +2570,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				(bbands_kchan_init_signal, bbands_kchan_signal) = bbands_kchannels( simple=with_bbands_kchannel_simple, cur_bbands=cur_bbands, prev_bbands=prev_bbands,
 													cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
-													bbands_kchan_init_signal=bbands_kchan_init_signal, bbands_kchan_signal=bbands_kchan_signal )
+													bbands_kchan_init_signal=bbands_kchan_init_signal, bbands_kchan_signal=bbands_kchan_signal, debug=debug)
 
 			# Resistance
 			if ( no_use_resistance == False and short_signal == True ):
@@ -2535,13 +2609,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						natr_resistance = prev_day_close - natr_resistance
 
 						if ( cur_close < natr_resistance and short_signal == True ):
-							if ( cur_rsi_k < cur_rsi_d and cur_rsi_d - cur_rsi_k < 12 ):
+							if ( primary_stoch_indicator == 'stochrsi' or primary_stoch_indicator == 'stochmfi' ):
+								if ( cur_rsi_k < cur_rsi_d and cur_rsi_d - cur_rsi_k < 12 ):
+									resistance_signal = False
+							else:
 								resistance_signal = False
 
 						if ( abs((cur_close / natr_resistance - 1) * 100) <= price_resistance_pct and short_signal == True ):
-							if ( cur_rsi_k < cur_rsi_d and cur_rsi_d - cur_rsi_k < 10 ):
+							if ( primary_stoch_indicator == 'stochrsi' or primary_stoch_indicator == 'stochmfi' ):
+								if ( cur_rsi_k < cur_rsi_d and cur_rsi_d - cur_rsi_k < 10 ):
+									resistance_signal = False
+							else:
 								resistance_signal = False
-
 
 				# VWAP
 				if ( resistance_signal == True ):
@@ -2728,6 +2807,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					', dmi_signal: '		+ str(dmi_signal) +
 					', aroonosc_signal: '		+ str(aroonosc_signal) +
 					', macd_signal: '		+ str(macd_signal) +
+					', bbands_kchan_signal: '	+ str(bbands_kchan_signal) +
+					', stacked_ma_signal: '		+ str(stacked_ma_signal)+
 					', vwap_signal: '		+ str(vwap_signal) +
 					', vpt_signal: '		+ str(vpt_signal) +
 					', resistance_signal: '		+ str(resistance_signal) )
@@ -2740,6 +2821,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
 				print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
 				print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
+				print('(' + str(ticker) + '): BBands: ' + str(round(cur_bbands[0], 4)) + ' / ' + str(round(cur_bbands[2], 4)) +
+								', KChannel: ' + str(round(cur_kchannel[0], 4)) + ' / ' + str(round(cur_kchannel[2], 4)) )
 				print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
 				print('(' + str(ticker) + '): SHORT signal: ' + str(short_signal) + ', Final SHORT signal: ' + str(final_short_signal))
 				print()
@@ -2978,6 +3061,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					continue
 
 	# End main loop
+
+	# Debug
+	if ( debug == True and len(results) > 0):
+		if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
+			print( 'DEBUG: bbands_kchannel_offset_debug: ' + str(min(bbands_kchannel_offset_debug['squeeze'])) + ' / ' +
+									 str(max(bbands_kchannel_offset_debug['squeeze'])) + ' / ' +
+									 str(sum(bbands_kchannel_offset_debug['squeeze'])/len(bbands_kchannel_offset_debug['squeeze'])) )
+			print()
 
 	return results
 

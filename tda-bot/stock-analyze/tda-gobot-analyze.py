@@ -82,6 +82,7 @@ parser.add_argument("--supertrend_min_natr", help='Minimum daily NATR a stock mu
 parser.add_argument("--with_bbands_kchannel", help='Use the Bollinger bands and Keltner channel indicators as secondary to advise on trade entries (Default: False)', action="store_true")
 parser.add_argument("--with_bbands_kchannel_simple", help='Use a simple version of the Bollinger bands and Keltner channel indicators as secondary to advise on trade entries (Default: False)', action="store_true")
 parser.add_argument("--bbands_kchannel_offset", help='Percentage offset between the Bollinger bands and Keltner channel indicators to trigger an initial trade entry (Default: 0.04)', default=0.04, type=float)
+parser.add_argument("--bbands_kchan_squeeze_count", help='Number of squeeze periods needed before triggering bbands_kchannel signal (Default: 4)', default=4, type=int)
 parser.add_argument("--bbands_period", help='Period to use when calculating the Bollinger Bands (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_period", help='Period to use when calculating the Keltner channels (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_atr_period", help='Period to use when calculating the ATR for use with the Keltner channels (Default: 20)', default=20, type=int)
@@ -587,6 +588,7 @@ for algo in args.algo.split(','):
 					'with_bbands_kchannel':			args.with_bbands_kchannel,
 					'with_bbands_kchannel_simple':		args.with_bbands_kchannel_simple,
 					'bbands_kchannel_offset':		args.bbands_kchannel_offset,
+					'bbands_kchan_squeeze_count':		args.bbands_kchan_squeeze_count,
 					'bbands_period':			args.bbands_period,
 					'kchannel_period':			args.kchannel_period,
 					'kchannel_atr_period':			args.kchannel_atr_period,

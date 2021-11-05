@@ -170,6 +170,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	with_bbands_kchannel_simple =	False		if ('with_bbands_kchannel_simple' not in params) else params['with_bbands_kchannel_simple']
 	with_bbands_kchannel	=	False		if ('with_bbands_kchannel' not in params) else params['with_bbands_kchannel']
 	bbands_kchannel_offset	=	0.04		if ('bbands_kchannel_offset' not in params) else params['bbands_kchannel_offset']
+	bbands_kchan_squeeze_count =	4		if ('bbands_kchan_squeeze_count' not in params) else params['bbands_kchan_squeeze_count']
 	bbands_period		=	20		if ('bbands_period' not in params) else params['bbands_period']
 	kchannel_period		=	20		if ('kchannel_period' not in params) else params['kchannel_period']
 	kchannel_atr_period	=	20		if ('kchannel_atr_period' not in params) else params['kchannel_atr_period']
@@ -1039,9 +1040,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	orig_rsi_low_limit		= rsi_low_limit
 	orig_rsi_high_limit		= rsi_high_limit
 
-	rsi_signal_cancel_low_limit	= 40
-	rsi_signal_cancel_high_limit	= 60
-
 	default_chop_low_limit		= 38.2
 	default_chop_high_limit		= 61.8
 
@@ -1271,7 +1269,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					bbands_kchannel_offset_debug['cur_squeeze'].append(cur_offset)
 
 		# Toggle the bbands_kchan_signal when the bollinger bands pop back outside the keltner channel
-		if ( bbands_kchan_init_signal == True and bbands_kchan_signal == False and bbands_kchan_signal_counter >= 4 ):
+		if ( bbands_kchan_init_signal == True and bbands_kchan_signal == False and bbands_kchan_signal_counter >= bbands_kchan_squeeze_count ):
 
 			# An aggressive strategy is to try to get in early when the Bollinger bands begin to widen
 			#  and before they pop out of the Keltner channel

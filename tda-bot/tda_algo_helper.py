@@ -1106,6 +1106,10 @@ def get_vwap(pricehistory=None, day='today', end_timestamp=None, use_bands=True,
 	except:
 		pass
 
+	try:
+		assert mytimezone
+	except:
+		mytimezone = timezone("US/Eastern")
 
 	if ( day != None ):
 		if ( day == 'today' ):

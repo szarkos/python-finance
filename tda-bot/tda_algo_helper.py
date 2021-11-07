@@ -212,16 +212,34 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', debug=
 	# Genereate the requested moving average
 	ma = []
 
+	# Simple moving average
+	if ( ma_type == 'sma' ):
+		try:
+			ma = ti.sma(prices, period=period)
+
+		except Exception as e:
+			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.sma(): ' + str(e), file=sys.stderr)
+			return False
+
+	# Exponential moving average
+	elif ( ma_type == 'ema' ):
+		try:
+			ma = ti.ema(prices, period=period)
+
+		except Exception as e:
+			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.ema(): ' + str(e), file=sys.stderr)
+			return False
+
 	# Kaufman Adaptive Moving Average
 	# The Kaufman Adaptive Moving Average tries to adjust its smoothing to match the current market condition
 	# It adapts to a fast moving average when prices are moving steadily in one direction and a slow moving
 	#   average when the market exhibits a lot of noise.
-	if ( ma_type == 'kama' ):
+	elif ( ma_type == 'kama' ):
 		try:
 			ma = ti.kama(prices, period=period)
 
 		except Exception as e:
-			print('Caught Exception: get_kama(' + str(ticker) + '): ti.kama(): ' + str(e), file=sys.stderr)
+			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.kama(): ' + str(e), file=sys.stderr)
 			return False
 
 	# Double Exponential Moving Average
@@ -231,7 +249,7 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', debug=
 			ma = ti.dema(prices, period=period)
 
 		except Exception as e:
-			print('Caught Exception: get_dema(' + str(ticker) + '): ti.dema(): ' + str(e), file=sys.stderr)
+			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.dema(): ' + str(e), file=sys.stderr)
 			return False
 
 	# Hull Moving Average modifies Weighted Moving Average to greatly reduce lag
@@ -240,7 +258,7 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', debug=
 			ma = ti.hma(prices, period=period)
 
 		except Exception as e:
-			print('Caught Exception: get_hma(' + str(ticker) + '): ti.hma(): ' + str(e), file=sys.stderr)
+			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.hma(): ' + str(e), file=sys.stderr)
 			return False
 
 	# The Triple Exponential Moving Average is similar to the Exponential Moving Average or the Double Exponential
@@ -250,7 +268,7 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', debug=
 			ma = ti.tema(prices, period=period)
 
 		except Exception as e:
-			print('Caught Exception: get_tema(' + str(ticker) + '): ti.tema(): ' + str(e), file=sys.stderr)
+			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.tema(): ' + str(e), file=sys.stderr)
 			return False
 
 	# The Triangular Moving Average is similar to the Simple Moving Average but instead places more weight on the
@@ -260,7 +278,7 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', debug=
 			ma = ti.trima(prices, period=period)
 
 		except Exception as e:
-			print('Caught Exception: get_trima(' + str(ticker) + '): ti.trima(): ' + str(e), file=sys.stderr)
+			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.trima(): ' + str(e), file=sys.stderr)
 			return False
 
 	# The Weighted Moving Average is similar to the Simple Moving Average but instead places more weight on more
@@ -270,7 +288,7 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', debug=
 			ma = ti.wma(prices, period=period)
 
 		except Exception as e:
-			print('Caught Exception: get_wma(' + str(ticker) + '): ti.wma(): ' + str(e), file=sys.stderr)
+			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.wma(): ' + str(e), file=sys.stderr)
 			return False
 
 	# Zero-Lag Exponential Moving Average modifies a Exponential Moving Average to greatly reduce lag
@@ -279,7 +297,7 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', debug=
 			ma = ti.zlema(prices, period=period)
 
 		except Exception as e:
-			print('Caught Exception: get_zlema(' + str(ticker) + '): ti.zlema(): ' + str(e), file=sys.stderr)
+			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.zlema(): ' + str(e), file=sys.stderr)
 			return False
 
 	# The Volume Weighted Moving Average is simalair to a Simple Moving Average, but it weights each bar by its volume
@@ -295,7 +313,7 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', debug=
 			ma = ti.vwma(prices, volume, period=period)
 
 		except Exception as e:
-			print('Caught Exception: get_vwma(' + str(ticker) + '): ti.vwma(): ' + str(e), file=sys.stderr)
+			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.vwma(): ' + str(e), file=sys.stderr)
 			return False
 
 	else:

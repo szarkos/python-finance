@@ -141,9 +141,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	with_stochrsi_5m	=	False		if ('with_stochrsi_5m' not in params) else params['with_stochrsi_5m']
 	with_stochmfi		=	False		if ('with_stochmfi' not in params) else params['with_stochmfi']
 	with_stochmfi_5m	=	False		if ('with_stochmfi_5m' not in params) else params['with_stochmfi_5m']
+
 	with_stacked_ma		=	False		if ('with_stacked_ma' not in params) else params['with_stacked_ma']
-	stacked_ma_type		=	'kama'		if ('stacked_ma_type' not in params) else params['stacked_ma_type']
+	stacked_ma_type		=	'vwma'		if ('stacked_ma_type' not in params) else params['stacked_ma_type']
 	stacked_ma_periods	=	'3,5,8,13'	if ('stacked_ma_periods' not in params) else params['stacked_ma_periods']
+	stacked_ma_type_primary	=	'vwma'		if ('stacked_ma_type_primary' not in params) else params['stacked_ma_type_primary']
+	stacked_ma_periods_primary =	'3,5,8,13'	if ('stacked_ma_periods_primary' not in params) else params['stacked_ma_periods_primary']
 
 	with_rsi		=	False		if ('with_rsi' not in params) else params['with_rsi']
 	with_rsi_simple		=	False		if ('with_rsi_simple' not in params) else params['with_rsi_simple']
@@ -841,28 +844,40 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 #			print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
 
 	# Intraday stacked moving averages
-	stacked_ma_periods = stacked_ma_periods.split(',')
-	ma_array = []
-	for ma_period in stacked_ma_periods:
-		ma = []
+	def get_stackedma(pricehistory=None, stacked_ma_periods=None, stacked_ma_type=None):
 		try:
-			ma = tda_algo_helper.get_alt_ma(pricehistory, ma_type=stacked_ma_type, period=int(ma_period) )
-
-		except Exception as e:
-			print('Error, unable to calculate stacked MAs: ' + str(e))
+			assert pricehistory		!= None
+			assert stacked_ma_periods	!= None
+			assert stacked_ma_type		!= None
+		except:
 			return False
 
-		ma_array.append(ma)
+		stacked_ma_periods = stacked_ma_periods.split(',')
+		ma_array = []
+		for ma_period in stacked_ma_periods:
+			ma = []
+			try:
+				ma = tda_algo_helper.get_alt_ma(pricehistory, ma_type=stacked_ma_type, period=int(ma_period) )
 
-	s_ema = []
-	for i in range(0, len(ma)):
-		ma_tmp = []
-		for p in range(0, len(stacked_ma_periods)):
-			ma_tmp.append(ma_array[p][i])
+			except Exception as e:
+				print('Error, unable to calculate stacked MAs: ' + str(e))
+				return False
 
-		s_ema.append( tuple(ma_tmp) )
+			ma_array.append(ma)
 
-	del(ma, ma_array)
+		s_ma = []
+		for i in range(0, len(ma)):
+			ma_tmp = []
+			for p in range(0, len(stacked_ma_periods)):
+				ma_tmp.append(ma_array[p][i])
+
+			s_ma.append( tuple(ma_tmp) )
+
+		return s_ma
+
+	s_ma = get_stackedma(pricehistory, stacked_ma_periods, stacked_ma_type)
+	if ( primary_stoch_indicator == 'stacked_ma' ):
+		s_ma_primary = get_stackedma(pricehistory, stacked_ma_periods_primary, stacked_ma_type_primary)
 
 
 	# Daily SMA/EMA
@@ -1146,29 +1161,29 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 
 	# Check orientation fo stacked moving averages
-	def check_stacked_ma(s_ema=[], affinity=None):
+	def check_stacked_ma(s_ma=[], affinity=None):
 
-		if ( affinity == None or len(s_ema) == 0 ):
+		if ( affinity == None or len(s_ma) == 0 ):
 			return False
 
 		ma_affinity = False
 		if ( affinity == 'bear' ):
-			for i in range(0, len(s_ema)):
-				if ( i == len(s_ema)-1 ):
+			for i in range(0, len(s_ma)):
+				if ( i == len(s_ma)-1 ):
 					break
 
-				if ( s_ema[i] < s_ema[i+1] ):
+				if ( s_ma[i] < s_ma[i+1] ):
 					ma_affinity = True
 				else:
 					ma_affinity = False
 					break
 
 		elif ( affinity == 'bull' ):
-			for i in range(0, len(s_ema)):
-				if ( i == len(s_ema)-1 ):
+			for i in range(0, len(s_ma)):
+				if ( i == len(s_ma)-1 ):
 					break
 
-				if ( s_ema[i] > s_ema[i+1] ):
+				if ( s_ma[i] > s_ma[i+1] ):
 					ma_affinity = True
 				else:
 					ma_affinity = False
@@ -1343,11 +1358,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			cur_rsi_d_5m	= rsi_d_5m[int((idx - stochrsi_5m_idx) / 5)]
 			prev_rsi_d_5m	= rsi_d_5m[int((idx - stochrsi_5m_idx) / 5) - 1]
 
-#		if ( with_stochmfi == True ):
-		cur_mfi_k	= mfi_k[idx - stochmfi_idx]
-		prev_mfi_k	= mfi_k[idx - stochmfi_idx - 1]
-		cur_mfi_d	= mfi_d[idx - stochmfi_idx]
-		prev_mfi_d	= mfi_d[idx - stochmfi_idx - 1]
+		if ( with_stochmfi == True ):
+			cur_mfi_k	= mfi_k[idx - stochmfi_idx]
+			prev_mfi_k	= mfi_k[idx - stochmfi_idx - 1]
+			cur_mfi_d	= mfi_d[idx - stochmfi_idx]
+			prev_mfi_d	= mfi_d[idx - stochmfi_idx - 1]
 
 		if ( with_stochmfi_5m == True ):
 			cur_mfi_k_5m	= mfi_k_5m[int((idx - stochmfi_5m_idx) / 5)]
@@ -1394,9 +1409,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		cur_chop		= chop[idx - chop_idx]
 		prev_chop		= chop[idx - chop_idx - 1]
 
-		# Stacked EMA (1min candles)
-		cur_s_ema		= s_ema[idx]
-		prev_s_ema		= s_ema[idx-1]
+		# Stacked moving average (1min candles)
+		cur_s_ma	= s_ma[idx]
+		prev_s_ma	= s_ma[idx-1]
+		if ( primary_stoch_indicator == 'stacked_ma' ):
+			cur_s_ma_primary		= s_ma_primary[idx]
+			prev_s_ma_primary		= s_ma_primary[idx-1]
 
 		cur_natr_daily = 0
 		try:
@@ -1472,13 +1490,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			with_stochmfi		= params['with_stochmfi']
 			with_dmi_simple		= params['with_dmi_simple']
 
-			if ( cur_s_ema[0] > cur_s_ema[1] and cur_s_ema[1] > cur_s_ema[2] and cur_s_ema[2] > cur_s_ema[3] and cur_s_ema[3] > cur_s_ema[4] ):
+			if ( cur_s_ma[0] > cur_s_ma[1] and cur_s_ma[1] > cur_s_ma[2] and cur_s_ma[2] > cur_s_ma[3] and cur_s_ma[3] > cur_s_ma[4] ):
 
 				# Price action is bullish
 				ma_intraday_affinity		= 'bull'
 				prev_ma_intraday_affinity	= ma_intraday_affinity
 
-			elif ( cur_s_ema[0] < cur_s_ema[1] and cur_s_ema[1] < cur_s_ema[2] and cur_s_ema[2] < cur_s_ema[3] and cur_s_ema[3] < cur_s_ema[4] ):
+			elif ( cur_s_ma[0] < cur_s_ma[1] and cur_s_ma[1] < cur_s_ma[2] and cur_s_ma[2] < cur_s_ma[3] and cur_s_ma[3] < cur_s_ma[4] ):
 				# Price action is bearish
 				ma_intraday_affinity		= 'bear'
 				prev_ma_intraday_affinity	= ma_intraday_affinity
@@ -1596,13 +1614,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Stacked moving average primary
 			elif ( primary_stoch_indicator == 'stacked_ma' ):
 				# Jump to short mode if the stacked moving averages are showing a bearish movement
-				if ( check_stacked_ma(cur_s_ema, 'bear') == True ):
+				if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
 					reset_signals()
 					if ( noshort == False ):
 						signal_mode = 'short'
 					continue
 
-				if ( check_stacked_ma(cur_s_ema, 'bull') == True ):
+				if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
 					buy_signal = True
 				else:
 					reset_signals()
@@ -1664,7 +1682,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Secondary Indicators
 			# Stacked moving averages
 			if ( with_stacked_ma == True ):
-				if ( check_stacked_ma(cur_s_ema, 'bull') == True ):
+				if ( check_stacked_ma(cur_s_ma, 'bull') == True ):
 					stacked_ma_signal = True
 				else:
 					stacked_ma_signal = False
@@ -2350,13 +2368,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Stacked moving average primary
 			elif ( primary_stoch_indicator == 'stacked_ma' ):
 				# Jump to buy mode if the stacked moving averages are showing a bearish movement
-				if ( check_stacked_ma(cur_s_ema, 'bull') == True ):
+				if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
 					reset_signals()
 					if ( shortonly == False ):
 						signal_mode = 'buy'
 					continue
 
-				if ( check_stacked_ma(cur_s_ema, 'bear') == True ):
+				if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
 					short_signal = True
 				else:
 					reset_signals()
@@ -2418,7 +2436,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Secondary Indicators
 			# Stacked moving averages
 			if ( with_stacked_ma == True ):
-				if ( check_stacked_ma(cur_s_ema, 'bear') == True ):
+				if ( check_stacked_ma(cur_s_ma, 'bear') == True ):
 					stacked_ma_signal = True
 				else:
 					stacked_ma_signal = False

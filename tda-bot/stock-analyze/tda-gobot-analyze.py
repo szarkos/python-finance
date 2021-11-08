@@ -60,8 +60,11 @@ parser.add_argument("--with_stochrsi_5m", help='Use StochRSI with 5-min candles 
 parser.add_argument("--with_stochmfi", help='Use StochMFI as an additional stochastic indicator (Default: False)', action="store_true")
 parser.add_argument("--with_stochmfi_5m", help='Use StochMFI with 5-min candles as an additional stochastic indicator (Default: False)', action="store_true")
 parser.add_argument("--with_stacked_ma", help='Use stacked MA as a secondary indicator for trade entries (Default: False)', action="store_true")
-parser.add_argument("--stacked_ma_type", help='Moving average type to use (Default: kama)', default='kama', type=str)
+
+parser.add_argument("--stacked_ma_type", help='Moving average type to use (Default: vwma)', default='vwma', type=str)
 parser.add_argument("--stacked_ma_periods", help='List of MA periods to use, comma-delimited (Default: 3,5,8,13)', default='3,5,8,13', type=str)
+parser.add_argument("--stacked_ma_type_primary", help='Moving average type to use when stacked_ma is used as primary indicator (Default: vwma)', default='vwma', type=str)
+parser.add_argument("--stacked_ma_periods_primary", help='List of MA periods to use when stacked_ma is used as primary indicator, comma-delimited (Default: 3,5,8,13)', default='3,5,8,13', type=str)
 
 parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
 parser.add_argument("--with_rsi_simple", help='Use just the current RSI value as a secondary indicator', action="store_true")
@@ -559,9 +562,12 @@ for algo in args.algo.split(','):
 					'with_stochrsi_5m':			args.with_stochrsi_5m,
 					'with_stochmfi':			args.with_stochmfi,
 					'with_stochmfi_5m':			args.with_stochmfi_5m,
+
 					'with_stacked_ma':			args.with_stacked_ma,
 					'stacked_ma_type':			args.stacked_ma_type,
 					'stacked_ma_periods':			args.stacked_ma_periods,
+					'stacked_ma_type_primary':		args.stacked_ma_type_primary,
+					'stacked_ma_periods_primary':		args.stacked_ma_periods_primary,
 
 					'with_rsi':				args.with_rsi,
 					'with_rsi_simple':			args.with_rsi_simple,

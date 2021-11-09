@@ -914,7 +914,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		# Debug
 		if ( debug == True ):
 			time_now = datetime.datetime.now( mytimezone )
-			print(  '(' + str(ticker) + ') StochRSI Period: ' + str(cur_algo['stochrsi_period']) + ' / Type: ' + str(rsi_type) +
+			print( '(' + str(ticker) + '): ' + str(cur_algo['algo_id']) )
+			print( '(' + str(ticker) + ') StochRSI Period: ' + str(cur_algo['stochrsi_period']) + ' / Type: ' + str(rsi_type) +
 				' / K Period: ' + str(cur_algo['rsi_k_period']) + ' / D Period: ' + str(cur_algo['rsi_d_period']) + ' / Slow Period: ' + str(cur_algo['rsi_slow']) +
 				' / High Limit|Low Limit: ' + str(cur_algo['rsi_high_limit']) + '|' + str(cur_algo['rsi_low_limit']) )
 
@@ -1614,7 +1615,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# Purchase the stock
 				if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == True ):
-					print('Purchasing ' + str(stocks[ticker]['stock_qty']) + ' shares of ' + str(ticker))
+					print( 'Purchasing ' + str(stocks[ticker]['stock_qty']) + ' shares of ' + str(ticker) + ' (' + str(cur_algo['algo_id'])  + ')' )
 					stocks[ticker]['num_purchases'] -= 1
 
 					if ( args.fake == False ):
@@ -2342,7 +2343,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# Short the stock
 				if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == True ):
-					print('Shorting ' + str(stocks[ticker]['stock_qty']) + ' shares of ' + str(ticker))
+					print( 'Shorting ' + str(stocks[ticker]['stock_qty']) + ' shares of ' + str(ticker) + ' (' + str(cur_algo['algo_id'])  + ')' )
 					stocks[ticker]['num_purchases'] -= 1
 
 					if ( args.fake == False ):

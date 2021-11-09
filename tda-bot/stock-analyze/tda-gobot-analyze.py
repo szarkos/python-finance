@@ -86,7 +86,7 @@ parser.add_argument("--supertrend_min_natr", help='Minimum daily NATR a stock mu
 parser.add_argument("--with_bbands_kchannel", help='Use the Bollinger bands and Keltner channel indicators as secondary to advise on trade entries (Default: False)', action="store_true")
 parser.add_argument("--with_bbands_kchannel_simple", help='Use a simple version of the Bollinger bands and Keltner channel indicators as secondary to advise on trade entries (Default: False)', action="store_true")
 parser.add_argument("--bbands_kchannel_offset", help='Percentage offset between the Bollinger bands and Keltner channel indicators to trigger an initial trade entry (Default: 0.04)', default=0.04, type=float)
-parser.add_argument("--bbands_kchan_squeeze_count", help='Number of squeeze periods needed before triggering bbands_kchannel signal (Default: 4)', default=4, type=int)
+parser.add_argument("--bbands_kchan_squeeze_count", help='Number of squeeze periods needed before triggering bbands_kchannel signal (Default: 1)', default=1, type=int)
 parser.add_argument("--bbands_period", help='Period to use when calculating the Bollinger Bands (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_period", help='Period to use when calculating the Keltner channels (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_atr_period", help='Period to use when calculating the ATR for use with the Keltner channels (Default: 20)', default=20, type=int)
@@ -107,6 +107,8 @@ parser.add_argument("--vwap_exit", help='Use vwap exit strategy - sell/close at 
 parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent strategy was set, do not wait for the next candle', action="store_true")
 parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_threshold and exit_percent based on the price action of the stock over the previous hour', action="store_true")
 parser.add_argument("--use_ha_exit", help='Use Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
+parser.add_argument("--use_trend_exit", help='Use ttm_trend algorithm with exit_percent-based exit strategy', action="store_true")
+parser.add_argument("--trend_exit_type", help='Type to use with ttm_trend algorithm (Default: hl2', default='hl2', type=str)
 
 parser.add_argument("--blacklist_earnings", help='Blacklist trading one week before and after quarterly earnings dates (Default: False)', action="store_true")
 parser.add_argument("--check_volume", help='Check the last several days (up to 6-days, depending on how much history is available) to ensure stock is not trading at a low volume threshold (Default: False)', action="store_true")
@@ -537,6 +539,8 @@ for algo in args.algo.split(','):
 					'vwap_exit':				args.vwap_exit,
 					'variable_exit':			args.variable_exit,
 					'use_ha_exit':				args.use_ha_exit,
+					'use_trend_exit':			args.use_trend_exit,
+					'trend_exit_type':			args.trend_exit_type,
 					'hold_overnight':			args.hold_overnight,
 
 					# Stock shorting options

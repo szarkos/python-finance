@@ -116,6 +116,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	vwap_exit		=	False		if ('vwap_exit' not in params) else params['vwap_exit']
 	variable_exit		=	False		if ('variable_exit' not in params) else params['variable_exit']
 	use_ha_exit		=	False		if ('use_ha_exit' not in params) else params['use_ha_exit']
+	use_trend_exit		=	False		if ('use_trend_exit' not in params) else params['use_trend_exit']
+	trend_exit_type		=	'hl2'		if ('trend_exit_type' not in params) else params['trend_exit_type']
 	hold_overnight		=	False		if ('hold_overnight' not in params) else params['hold_overnight']
 
 	# Stock shorting options
@@ -1313,6 +1315,44 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		return bbands_kchan_init_signal, bbands_kchan_signal
 
 
+	# Return an bull/bear signal based on the ttm_trend algorithm from ToS
+	# Look back 6 candles and take the high and the low of them then divide by 2
+	#  and if the close of the next candle is above that number the trend is bullish,
+	#  and if its below the trend is bearish.
+	def price_trend(candles=None, type='hl2', period=6, affinity=None):
+
+		if ( candles == None or affinity == None ):
+			return False
+
+		cur_close	= candles[-1]['close']
+		price		= 0
+		for idx in range(-(period+1), -1, 1):
+			if ( type == 'close' ):
+				price += candles[idx]['close']
+
+			elif ( type == 'hl2' ):
+				price += (candles[idx]['high'] + candles[idx]['low']) / 2
+
+			elif ( type == 'hlc3' ):
+				price += (candles[idx]['high'] + candles[idx]['low'] + candles[idx]['close']) / 3
+
+			elif ( type == 'ohlc4' ):
+				price += (candles[idx]['open'] + candles[idx]['high'] + candles[idx]['low'] + candles[idx]['close']) / 4
+
+			else:
+				return False
+
+		price = price / period
+		print(str(cur_close) + ' / ' + str(price))
+
+		if ( affinity == 'bull' and cur_close > price ):
+			return True
+		elif ( affinity == 'bear' and cur_close <= price ):
+			return True
+
+		return False
+
+
 	##################################################################################################################
 	# Main loop
 	for idx,key in enumerate(pricehistory['candles']):
@@ -2260,7 +2300,33 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# If exit_percent has been hit, we will sell at the first RED candle
 				#  unless --quick_exit was set.
 				if ( exit_percent_signal == True ):
-					if ( last_close < last_open ):
+					if ( use_trend_exit == True ):
+						if ( use_ha_exit == True ):
+							cndls = pricehistory['hacandles']
+						else:
+							cndls = pricehistory['candles']
+
+						# We need to pull the latest n-period candles from pricehistory and send it
+						#  to our function.
+						period = 6
+						cndl_slice = []
+						for i in range(period+1, 0, -1):
+							cndl_slice.append( cndls[idx-i] )
+
+						if ( price_trend(cndl_slice, type=trend_exit_type, affinity='bull') == False ):
+							sell_signal = True
+
+					elif ( use_ha_exit == True ):
+						last_open	= pricehistory['candles'][idx]['open']
+						last_close	= pricehistory['candles'][idx]['close']
+						if ( get_chop_signal(True, prev_chop, cur_chop, False, False) == (True,True) ):
+							last_open	= pricehistory['hacandles'][idx]['open']
+							last_close	= pricehistory['hacandles'][idx]['close']
+
+						if ( last_close < last_open ):
+							sell_signal = True
+
+					elif ( last_close < last_open ):
 						sell_signal = True
 
 				elif ( total_percent_change >= exit_percent ):
@@ -3006,7 +3072,33 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# If exit_percent has been hit, we will sell at the first GREEN candle
 				#  unless quick_exit was set.
 				if ( exit_percent_signal == True ):
-					if ( last_close > last_open ):
+					if ( use_trend_exit == True ):
+						if ( use_ha_exit == True ):
+							cndls = pricehistory['hacandles']
+						else:
+							cndls = pricehistory['candles']
+
+						# We need to pull the latest n-period candles from pricehistory and send it
+						#  to our function.
+						period = 6
+						cndl_slice = []
+						for i in range(-(period+1), 0, -1):
+							cndl_slice.append( cndls[idx-i] )
+
+						if ( price_trend(cndls, type=trend_exit_type, affinity='bear') == False ):
+							sell_signal = True
+
+					elif ( use_ha_exit == True ):
+						last_open	= pricehistory['candles'][idx]['open']
+						last_close	= pricehistory['candles'][idx]['close']
+						if ( get_chop_signal(True, prev_chop, cur_chop, False, False) == (True,True) ):
+							last_open	= pricehistory['hacandles'][idx]['open']
+							last_close	= pricehistory['hacandles'][idx]['close']
+
+						if ( last_close < last_open ):
+							sell_signal = True
+
+					elif ( last_close > last_open ):
 						buy_to_cover_signal = True
 
 				elif ( total_percent_change >= float(exit_percent) ):

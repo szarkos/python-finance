@@ -305,6 +305,7 @@ for algo in args.algos:
 	kchannel_period			= args.kchannel_period
 	kchannel_atr_period		= args.kchannel_atr_period
 
+	use_natr_resistance		= args.use_natr_resistance
 	min_intra_natr			= args.min_intra_natr
 	max_intra_natr			= args.max_intra_natr
 	min_daily_natr			= args.min_daily_natr
@@ -398,6 +399,7 @@ for algo in args.algos:
 		if ( re.match('kchannel_period:', a)		!= None ):	kchannel_period			= int( a.split(':')[1] )
 		if ( re.match('kchannel_atr_period:', a)	!= None ):	kchannel_atr_period		= int( a.split(':')[1] )
 
+		if ( re.match('use_natr_resistance:', a)	!= None ):	use_natr_resistance		= float( a.split(':')[1] )
 		if ( re.match('min_intra_natr:', a)		!= None ):	min_intra_natr			= float( a.split(':')[1] )
 		if ( re.match('max_intra_natr:', a)		!= None ):	max_intra_natr			= float( a.split(':')[1] )
 		if ( re.match('min_daily_natr:', a)		!= None ):	min_daily_natr			= float( a.split(':')[1] )
@@ -415,6 +417,11 @@ for algo in args.algos:
 		dmi_simple = False
 	if ( macd == True and macd_simple == True ):
 		macd_simple = False
+
+	if ( str(use_natr_resistance).lower() == 'true' ):
+		use_natr_resistance = True
+	else:
+		use_natr_resistance = False
 
 	# Aroon Oscillator with MACD
 	# aroonosc_with_macd_simple implies that if aroonosc is enabled, then macd_simple will be
@@ -509,6 +516,7 @@ for algo in args.algos:
 			'stacked_ma_type':		stacked_ma_type,
 			'stacked_ma_periods':		stacked_ma_periods,
 
+			'use_natr_resistance':		use_natr_resistance,
 			'min_intra_natr':		min_intra_natr,
 			'max_intra_natr':		max_intra_natr,
 			'min_daily_natr':		min_daily_natr,
@@ -525,7 +533,7 @@ del(rsi_high_limit,rsi_low_limit,rsi_period,stochrsi_period,stochrsi_5m_period,r
 del(mfi_high_limit,mfi_low_limit,mfi_period,stochmfi_period,stochmfi_5m_period,mfi_k_period,mfi_k_5m_period,mfi_d_period,mfi_slow,stochmfi_offset,stochmfi_5m_offset)
 del(adx_threshold,adx_period,macd_long_period,macd_short_period,macd_signal_period,macd_offset,aroonosc_period,di_period,atr_period,vpt_sma_period)
 del(chop_period,chop_low_limit,chop_high_limit,supertrend_atr_period,supertrend_min_natr,bbands_kchannel_offset,bbands_kchan_squeeze_count,bbands_period,kchannel_period,kchannel_atr_period)
-del(stacked_ma_type_primary,stacked_ma_periods_primary,stacked_ma_type,stacked_ma_periods,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr)
+del(stacked_ma_type_primary,stacked_ma_periods_primary,stacked_ma_type,stacked_ma_periods,use_natr_resistance,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr)
 
 # Set valid tickers for each algo, if configured
 if ( args.algo_valid_tickers != None ):

@@ -1456,7 +1456,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# NATR resistance
-				if ( args.use_natr_resistance == True and stocks[ticker]['natr_daily'] != None ):
+				if ( cur_algo['use_natr_resistance'] == True and stocks[ticker]['natr_daily'] != None ):
 					if ( cur_price > stocks[ticker]['previous_day_close'] ):
 						natr_mod = 1
 						if ( stocks[ticker]['natr_daily'] >= 8 ):
@@ -2200,10 +2200,26 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						# If average was below PDC then PDC is resistance (good for short)
 						# If average was above PDC then PDC is support (bad for short)
 						if ( avg > stocks[ticker]['previous_day_close'] ):
-							if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True and debug == True ):
+							if ( debug == True and stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True ):
 								print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to PDC resistance - PDC: ' + str(round(stocks[ticker]['previous_day_close'], 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
 
 							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
+
+				# NATR resistance
+				if ( cur_algo['use_natr_resistance'] == True and stocks[ticker]['natr_daily'] != None ):
+					if ( cur_price < stocks[ticker]['previous_day_close'] ):
+						natr_mod = 1
+						if ( stocks[ticker]['natr_daily'] >= 8 ):
+							natr_mod = 2
+
+						natr_resistance = ((stocks[ticker]['natr_daily'] / natr_mod) / 100 + 1) * stocks[ticker]['previous_day_close']
+						if ( cur_price > natr_resistance ):
+							if ( abs(cur_rsi_k - cur_rsi_d) < 12 and stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True ):
+								stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
+
+						if ( abs((cur_price / natr_resistance - 1) * 100) <= price_resistance_pct ):
+							if ( abs(cur_rsi_k - cur_rsi_d) < 10 and stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True ):
+								stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# VWAP
 				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and

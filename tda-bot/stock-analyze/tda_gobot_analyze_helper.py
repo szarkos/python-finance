@@ -113,7 +113,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	exit_percent		=	None		if ('exit_percent' not in params) else params['exit_percent']
 	quick_exit		=	False		if ('quick_exit' not in params) else params['quick_exit']
 	strict_exit_percent	=	False		if ('strict_exit_percent' not in params) else params['strict_exit_percent']
-	vwap_exit		=	False		if ('vwap_exit' not in params) else params['vwap_exit']
 	variable_exit		=	False		if ('variable_exit' not in params) else params['variable_exit']
 	use_ha_exit		=	False		if ('use_ha_exit' not in params) else params['use_ha_exit']
 	use_trend_exit		=	False		if ('use_trend_exit' not in params) else params['use_trend_exit']
@@ -679,8 +678,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	# End earnings blacklist
 
-	# Calculate vwap and/or vwap_exit
-	if ( with_vwap == True or vwap_exit == True or no_use_resistance == False ):
+	# Calculate vwap
+	if ( with_vwap == True or no_use_resistance == False ):
 		vwap_vals = OrderedDict()
 		days = OrderedDict()
 
@@ -960,14 +959,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	# Run through the RSI values and log the results
 	results				= []
+	stopout_exits			= 0
+	end_of_day_exits		= 0
+	exit_percent_exits		= 0
 
 	stochrsi_idx			= len(pricehistory['candles']) - len(rsi_k)
 	if ( with_stoch_5m == True ):
 		stochrsi_5m_idx		= len(pricehistory['candles']) - len(rsi_k) * 5
 	if ( with_stochrsi_5m == True ):
 		stochrsi_5m_idx		= len(pricehistory['candles']) - len(rsi_k_5m) * 5
-#	if ( with_stochmfi == True ):
-	stochmfi_idx		= len(pricehistory['candles']) - len(mfi_k)
+	if ( with_stochmfi == True ):
+		stochmfi_idx		= len(pricehistory['candles']) - len(mfi_k)
 	if ( with_stochmfi_5m == True ):
 		stochmfi_5m_idx		= len(pricehistory['candles']) - len(mfi_k_5m) * 5
 
@@ -1315,11 +1317,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		return bbands_kchan_init_signal, bbands_kchan_signal
 
 
-	# Return an bull/bear signal based on the ttm_trend algorithm from ToS
+	# Return a bull/bear signal based on the ttm_trend algorithm
 	# Look back 6 candles and take the high and the low of them then divide by 2
 	#  and if the close of the next candle is above that number the trend is bullish,
 	#  and if its below the trend is bearish.
-	def price_trend(candles=None, type='hl2', period=6, affinity=None):
+	def price_trend(candles=None, type='hl2', period=5, affinity=None):
 
 		if ( candles == None or affinity == None ):
 			return False
@@ -1343,7 +1345,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				return False
 
 		price = price / period
-		print(str(cur_close) + ' / ' + str(price))
+		#print(str(cur_close) + ' / ' + str(price))
 
 		if ( affinity == 'bull' and cur_close > price ):
 			return True
@@ -1887,7 +1889,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				(bbands_kchan_init_signal, bbands_kchan_signal) = bbands_kchannels( simple=with_bbands_kchannel_simple, cur_bbands=cur_bbands, prev_bbands=prev_bbands,
 													cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
-													bbands_kchan_init_signal=bbands_kchan_init_signal, bbands_kchan_signal=bbands_kchan_signal, debug=debug)
+													bbands_kchan_init_signal=bbands_kchan_init_signal, bbands_kchan_signal=bbands_kchan_signal,
+													debug=False)
 
 
 			# Resistance Levels
@@ -2220,13 +2223,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Set last_close and last_open using either raw candles from API or Heiken Ashi candles
 			last_open	= pricehistory['candles'][idx]['open']
 			last_close	= pricehistory['candles'][idx]['close']
-			if ( use_ha_exit == True ):
-				last_open	= pricehistory['hacandles'][idx]['open']
-				last_close	= pricehistory['hacandles'][idx]['close']
 
 			# hold_overnight=False - drop the stock before market close
 			if ( hold_overnight == False and tda_gobot_helper.isendofday(5, date) ):
-				sell_signal = True
+				sell_signal		= True
+				end_of_day_exits	+= 1
 
 			# The last trading hour is a bit unpredictable. If --hold_overnight is false we want
 			#  to sell the stock at a more conservative exit percentage.
@@ -2234,15 +2235,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( last_close > purchase_price ):
 					percent_change = abs( purchase_price / last_close - 1 ) * 100
 					if ( percent_change >= last_hour_threshold ):
-						sell_signal = True
+						sell_signal		= True
+						end_of_day_exits	+= 1
 
 			# Monitor cost basis
 			percent_change = 0
-			if ( last_close < base_price ):
-				percent_change = abs( last_close / base_price - 1 ) * 100
+			if ( stoploss == True and last_close < base_price and
+					sell_signal == False and exit_percent_signal == False ):
 
 				# SELL the security if we are using a trailing stoploss
-				if ( percent_change >= decr_threshold and stoploss == True ):
+				percent_change = abs( last_close / base_price - 1 ) * 100
+				if ( percent_change >= decr_threshold ):
 
 					# Sell
 					sell_price	= pricehistory['candles'][idx]['close']
@@ -2264,6 +2267,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 					reset_signals()
 
+					stopout_exits	+= 1
 					purchase_price	= 0
 					base_price	= 0
 					incr_threshold	= orig_incr_threshold = default_incr_threshold
@@ -2273,7 +2277,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					signal_mode	= 'short'
 					continue
 
-			elif ( last_close > base_price ):
+			elif ( last_close > base_price and sell_signal == False ):
 				percent_change = abs( base_price / last_close - 1 ) * 100
 				if ( percent_change >= incr_threshold ):
 					base_price = last_close
@@ -2294,12 +2298,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# Additional exit strategies
 			# Sell if exit_percent is specified
-			if ( exit_percent != None and last_close > purchase_price ):
-				total_percent_change = abs( purchase_price / last_close - 1 ) * 100
+			if ( exit_percent != None and last_close > purchase_price and sell_signal == False ):
 
 				# If exit_percent has been hit, we will sell at the first RED candle
 				#  unless --quick_exit was set.
-				if ( exit_percent_signal == True ):
+				total_percent_change = abs( purchase_price / last_close - 1 ) * 100
+				if ( total_percent_change >= exit_percent ):
+					exit_percent_signal = True
+					if ( quick_exit == True ):
+						sell_signal		= True
+						exit_percent_exits	+= 1
+
+				if ( exit_percent_signal == True and sell_signal == False ):
 					if ( use_trend_exit == True ):
 						if ( use_ha_exit == True ):
 							cndls = pricehistory['hacandles']
@@ -2314,37 +2324,31 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							cndl_slice.append( cndls[idx-i] )
 
 						if ( price_trend(cndl_slice, type=trend_exit_type, affinity='bull') == False ):
-							sell_signal = True
+							sell_signal		= True
+							exit_percent_exits	+= 1
 
 					elif ( use_ha_exit == True ):
-						last_open	= pricehistory['candles'][idx]['open']
-						last_close	= pricehistory['candles'][idx]['close']
-						if ( get_chop_signal(True, prev_chop, cur_chop, False, False) == (True,True) ):
-							last_open	= pricehistory['hacandles'][idx]['open']
-							last_close	= pricehistory['hacandles'][idx]['close']
 
+						# We need to pull the latest n-period candles from pricehistory and send it
+						#  to our function.
+						cndls = pricehistory['hacandles']
+						period = 6
+						cndl_slice = []
+						for i in range(period+1, 0, -1):
+							cndl_slice.append( cndls[idx-i] )
+
+#						if ( get_chop_signal(True, prev_chop, cur_chop, False, False) == (True,True) and
+#							price_trend(cndl_slice, type=trend_exit_type, affinity='bull') == True ):
+#						if ( price_trend(cndl_slice, type=trend_exit_type, affinity='bull') == True ):
+						last_open	= pricehistory['hacandles'][idx]['open']
+						last_close	= pricehistory['hacandles'][idx]['close']
 						if ( last_close < last_open ):
-							sell_signal = True
+							sell_signal		= True
+							exit_percent_exits	+= 1
 
 					elif ( last_close < last_open ):
-						sell_signal = True
-
-				elif ( total_percent_change >= exit_percent ):
-					exit_percent_signal = True
-					if ( quick_exit == True ):
-						sell_signal = True
-
-			# Sell if --vwap_exit was set and last_close is half way between the orig_base_price and cur_vwap
-			if ( vwap_exit == True ):
-				cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
-				cur_vwap_up = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap_up']
-				if ( cur_vwap > purchase_price ):
-					if ( last_close >= ((cur_vwap - purchase_price) / 2) + purchase_price ):
-						sell_signal = True
-
-				elif ( cur_vwap < purchase_price ):
-					if ( last_close >= ((cur_vwap_up - cur_vwap) / 2) + cur_vwap ):
-						sell_signal = True
+						sell_signal		= True
+						exit_percent_exits	+= 1
 
 
 			# Monitor RSI for SELL signal
@@ -2656,7 +2660,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				(bbands_kchan_init_signal, bbands_kchan_signal) = bbands_kchannels( simple=with_bbands_kchannel_simple, cur_bbands=cur_bbands, prev_bbands=prev_bbands,
 													cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
-													bbands_kchan_init_signal=bbands_kchan_init_signal, bbands_kchan_signal=bbands_kchan_signal, debug=debug)
+													bbands_kchan_init_signal=bbands_kchan_init_signal, bbands_kchan_signal=bbands_kchan_signal,
+													debug=False)
 
 			# Resistance
 			if ( no_use_resistance == False and short_signal == True ):
@@ -2988,13 +2993,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Set last_close and last_open using either raw candles from API or Heiken Ashi candles
 			last_open	= pricehistory['candles'][idx]['open']
 			last_close	= pricehistory['candles'][idx]['close']
-			if ( use_ha_exit == True ):
-				last_open	= pricehistory['hacandles'][idx]['open']
-				last_close	= pricehistory['hacandles'][idx]['close']
 
 			# hold_overnight=False - drop the stock before market close
 			if ( hold_overnight == False and tda_gobot_helper.isendofday(5, date) ):
-				buy_to_cover_signal = True
+				buy_to_cover_signal	= True
+				end_of_day_exits	+= 1
 
 			# The last trading hour is a bit unpredictable. If --hold_overnight is false we want
 			#  to sell the stock at a more conservative exit percentage.
@@ -3002,14 +3005,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( last_close < short_price ):
 					percent_change = abs( short_price / last_close - 1 ) * 100
 					if ( percent_change >= last_hour_threshold ):
-						sell_signal = True
+						buy_to_cover_signal	= True
+						end_of_day_exits	+= 1
 
 			# Monitor cost basis
 			percent_change = 0
-			if ( last_close > base_price ):
-				percent_change = abs( base_price / last_close - 1 ) * 100
+			if ( stoploss == True and last_close > base_price and
+					buy_to_cover_signal == False and exit_percent_signal == False ):
 
 				# Buy-to-cover the security if we are using a trailing stoploss
+				percent_change = abs( base_price / last_close - 1 ) * 100
 				if ( percent_change >= decr_threshold and stoploss == True ):
 
 					# Buy-to-cover
@@ -3031,6 +3036,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 					reset_signals()
 
+					stopout_exits	+= 1
 					short_price	= 0
 					base_price	= 0
 					incr_threshold	= orig_incr_threshold = default_incr_threshold
@@ -3043,7 +3049,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						signal_mode = 'buy'
 						continue
 
-			elif ( last_close < base_price ):
+			elif ( last_close < base_price and buy_to_cover_signal == False ):
 				percent_change = abs( last_close / base_price - 1 ) * 100
 				if ( percent_change >= incr_threshold ):
 					base_price = last_close
@@ -3065,13 +3071,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# Additional exit strategies
 			# Sell if exit_percent is specified
-			if ( exit_percent != None and last_close < short_price ):
-
-				total_percent_change = abs( last_close / short_price - 1 ) * 100
+			if ( last_close < short_price and exit_percent != None and buy_to_cover_signal == False ):
 
 				# If exit_percent has been hit, we will sell at the first GREEN candle
 				#  unless quick_exit was set.
-				if ( exit_percent_signal == True ):
+				total_percent_change = abs( last_close / short_price - 1 ) * 100
+				if ( total_percent_change >= float(exit_percent) ):
+					exit_percent_signal = True
+					if ( quick_exit == True ):
+						buy_to_cover_signal	= True
+						exit_percent_exits	+= 1
+
+				if ( exit_percent_signal == True and buy_to_cover_signal == False ):
 					if ( use_trend_exit == True ):
 						if ( use_ha_exit == True ):
 							cndls = pricehistory['hacandles']
@@ -3086,39 +3097,30 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							cndl_slice.append( cndls[idx-i] )
 
 						if ( price_trend(cndls, type=trend_exit_type, affinity='bear') == False ):
-							sell_signal = True
+							buy_to_cover_signal	= True
+							exit_percent_exits	+= 1
 
 					elif ( use_ha_exit == True ):
-						last_open	= pricehistory['candles'][idx]['open']
-						last_close	= pricehistory['candles'][idx]['close']
-						if ( get_chop_signal(True, prev_chop, cur_chop, False, False) == (True,True) ):
-							last_open	= pricehistory['hacandles'][idx]['open']
-							last_close	= pricehistory['hacandles'][idx]['close']
+						# We need to pull the latest n-period candles from pricehistory and send it
+						#  to our function.
+						cndls = pricehistory['hacandles']
+						period = 6
+						cndl_slice = []
+						for i in range(period+1, 0, -1):
+							cndl_slice.append( cndls[idx-i] )
 
-						if ( last_close < last_open ):
-							sell_signal = True
+#						if ( get_chop_signal(True, prev_chop, cur_chop, False, False) == (True,True) and
+#							price_trend(cndls, type=trend_exit_type, affinity='bear') == True ):
+#						if ( price_trend(cndls, type=trend_exit_type, affinity='bear') == True ):
+						last_open	= pricehistory['hacandles'][idx]['open']
+						last_close	= pricehistory['hacandles'][idx]['close']
+						if ( last_close > last_open ):
+							buy_to_cover_signal	= True
+							exit_percent_exits	+= 1
 
 					elif ( last_close > last_open ):
-						buy_to_cover_signal = True
-
-				elif ( total_percent_change >= float(exit_percent) ):
-					exit_percent_signal = True
-					if ( quick_exit == True ):
-						buy_to_cover_signal = True
-
-			# Sell if --vwap_exit was set and last_close is half way between the orig_base_price and cur_vwap
-			if ( vwap_exit == True ):
-
-				cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
-				cur_vwap_down = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap_down']
-				if ( cur_vwap < short_price ):
-					if ( last_close <= ((short_price - cur_vwap) / 2) + cur_vwap ):
-						buy_to_cover_signal = True
-
-				elif ( cur_vwap > short_price ):
-					if ( last_close <= ((cur_vwap - cur_vwap_down) / 2) + cur_vwap_down ):
-						buy_to_cover_signal = True
-
+						buy_to_cover_signal	= True
+						exit_percent_exits	+= 1
 
 			# Monitor RSI for BUY_TO_COVER signal
 			# Do not use stochrsi as an exit signal if strict_exit_percent is set to True
@@ -3176,11 +3178,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	# Debug
 	if ( debug == True and len(results) > 0):
-		if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
+		if ( (with_bbands_kchannel == True or with_bbands_kchannel_simple == True) and len(bbands_kchannel_offset_debug['squeeze']) > 0 ):
 			print( 'DEBUG: bbands_kchannel_offset_debug: ' + str(min(bbands_kchannel_offset_debug['squeeze'])) + ' / ' +
 									 str(max(bbands_kchannel_offset_debug['squeeze'])) + ' / ' +
 									 str(sum(bbands_kchannel_offset_debug['squeeze'])/len(bbands_kchannel_offset_debug['squeeze'])) )
 			print()
+
+	print('# Exit stats')
+	print('stopouts: ' + str(stopout_exits) + ', end_of_day: ' + str(end_of_day_exits) + ', exit_percent: ' + str(exit_percent_exits) + "\n")
 
 	return results
 

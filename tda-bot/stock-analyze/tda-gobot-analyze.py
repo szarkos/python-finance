@@ -102,8 +102,7 @@ parser.add_argument("--incr_threshold", help='Reset base_price if stock increase
 parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1.5, type=float)
 parser.add_argument("--stoploss", help='Sell security if price drops below --decr_threshold (Default: False)', action="store_true")
 parser.add_argument("--exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
-parser.add_argument("--strict_exit_percent", help='Only exit when exit_percent or vwap_exit signals an exit, ignore stochrsi', action="store_true")
-parser.add_argument("--vwap_exit", help='Use vwap exit strategy - sell/close at half way between entry point and vwap', action="store_true")
+parser.add_argument("--strict_exit_percent", help='Only exit when exit_percent signals an exit, ignore stochrsi', action="store_true")
 parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent strategy was set, do not wait for the next candle', action="store_true")
 parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_threshold and exit_percent based on the price action of the stock over the previous hour', action="store_true")
 parser.add_argument("--use_ha_exit", help='Use Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
@@ -511,6 +510,8 @@ for algo in args.algo.split(','):
 
 		# Run the analyze function
 		print('Analyzing ' + str(days) + '-day history for stock ' + str(stock) + ' using the ' + str(algo) + " algorithm:")
+		print()
+		print('### Debug Logs ###')
 
 		if ( algo == 'rsi' ):
 			print('Deprecated: see branch 1.0 for this algorithm')
@@ -536,7 +537,6 @@ for algo in args.algo.split(','):
 					'exit_percent':				args.exit_percent,
 					'quick_exit':				args.quick_exit,
 					'strict_exit_percent':			args.strict_exit_percent,
-					'vwap_exit':				args.vwap_exit,
 					'variable_exit':			args.variable_exit,
 					'use_ha_exit':				args.use_ha_exit,
 					'use_trend_exit':			args.use_trend_exit,
@@ -693,6 +693,8 @@ for algo in args.algo.split(','):
 
 		# Print the returned results
 		elif ( (algo == 'stochrsi' or algo == 'stochrsi-new') and args.verbose ):
+			print()
+			print('### Trade Ledger ###')
 			print('{0:18} {1:15} {2:15} {3:10} {4:10} {5:10} {6:10}'.format('Buy/Sell Price', 'Net Change', 'RSI_K/RSI_D', 'NATR', 'Daily_NATR', 'ADX', 'Time'))
 
 		rating = 0
@@ -808,6 +810,9 @@ for algo in args.algo.split(','):
 		#   <-3			 = Bad
 		#   Success % <= Fail %  = FAIL
 		#   Avg Gain <= Avg Loss = FAIL
+		print()
+		print('### Statistics ###')
+
 		txs = int(len(results) / 2) / int(days)					# Average buy or sell triggers per day
 		if ( success == 0 ):
 			success_pct = 0

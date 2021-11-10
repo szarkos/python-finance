@@ -16,7 +16,7 @@ import tda_algo_helper
 
 # Parse and check variables
 parser = argparse.ArgumentParser()
-parser.add_argument("--stocks", help='Stock tickers to check, comma delimited', default='', required=True, type=str)
+parser.add_argument("stocks", help='Stock tickers to check, comma delimited', type=str)
 parser.add_argument("--blacklist", help="Filter out blacklisted stocks", action="store_true")
 parser.add_argument("--min_natr", help='Print out the stocks that have a daily NATR greater than or equal to this value', default=None, type=float)
 parser.add_argument("--natr_start_day", help='Start day to begin processing min_natr', default=None, type=str)

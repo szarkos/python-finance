@@ -918,7 +918,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 		# VWAP
 		# Calculate vwap to use as entry or exit algorithm
-		if ( cur_algo['vwap'] or cur_algo['support_resistance'] == True ):
+		if ( cur_algo['vwap'] == True or cur_algo['support_resistance'] == True ):
 			vwap = []
 			vwap_up = []
 			vwap_down = []
@@ -927,6 +927,15 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(): get_vwap(' + str(ticker) + '): ' + str(e), file=sys.stderr)
+				continue
+
+			if ( isinstance(vwap, bool) and vwap == False ):
+				print('Error: stochrsi_gobot(): get_vwap(' + str(ticker) + '): returned False', file=sys.stderr)
+				continue
+
+			elif ( len(vwap) == 0 ):
+				print('Error: stochrsi_gobot(): get_vwap(' + str(ticker) + '): returned an empty data set', file=sys.stderr)
+				continue
 
 			stocks[ticker]['cur_vwap']	= float( vwap[-1] )
 			stocks[ticker]['cur_vwap_up']	= float( vwap_up[-1] )
@@ -952,7 +961,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		# Debug
 		if ( debug == True ):
 			time_now = datetime.datetime.now( mytimezone )
-			print( '(' + str(ticker) + '): ' + str(cur_algo['algo_id']) )
+			print( '(' + str(ticker) + '): Algo ID: ' + str(cur_algo['algo_id']) )
 			print( '(' + str(ticker) + ') StochRSI Period: ' + str(cur_algo['stochrsi_period']) + ' / Type: ' + str(rsi_type) +
 				' / K Period: ' + str(cur_algo['rsi_k_period']) + ' / D Period: ' + str(cur_algo['rsi_d_period']) + ' / Slow Period: ' + str(cur_algo['rsi_slow']) +
 				' / High Limit|Low Limit: ' + str(cur_algo['rsi_high_limit']) + '|' + str(cur_algo['rsi_low_limit']) )

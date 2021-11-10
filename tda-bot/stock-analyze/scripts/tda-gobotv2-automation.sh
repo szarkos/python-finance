@@ -14,10 +14,9 @@ source ./stock-analyze/tickers.conf
 tickers=$CUR_SET
 
 nohup ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=25000 --stocks=${tickers} --short --singleday \
-	--decr_threshold=1.6 --incr_threshold=0.5 --max_failed_txs=2 --exit_percent=1 \
+	--decr_threshold=1.6 --incr_threshold=0.5 --max_failed_txs=2 --exit_percent=0.5 \
 	\
 	--algos=algo_id:main,primary_stochrsi,stochrsi_offset:3,dmi_simple,aroonosc,adx,support_resistance,use_natr_resistance,adx_threshold:6,min_daily_natr:6 \
-	--algos=algo_id:main2,primary_stochrsi,stochrsi_offset:6,dmi_simple,aroonosc,adx,support_resistance,use_natr_resistance,adx_threshold:6,supertrend,min_daily_natr:3 \
 	\
 	--algos=algo_id:stackedma_wma,primary_stacked_ma,stacked_ma_type_primary:wma,bbands_kchannel,support_resistance,min_intra_natr:0.45,min_daily_natr:6 \
 	--algos=algo_id:stackedma_sma,primary_stacked_ma,stacked_ma_type_primary:sma,bbands_kchannel,support_resistance,min_intra_natr:0.45,min_daily_natr:6 \
@@ -36,6 +35,7 @@ disown
 
 
 # Older algos - TBD
+#	--algos=algo_id:main2,primary_stochrsi,stochrsi_offset:6,dmi_simple,aroonosc,adx,support_resistance,use_natr_resistance,adx_threshold:6,supertrend,min_daily_natr:3 \
 #	--algos=primary_stochrsi,mfi,dmi_simple,aroonosc,adx,support_resistance,adx_threshold:6 \
 #	--algos=primary_stochrsi,dmi_simple,aroonosc,adx,support_resistance,adx_threshold:6,stochrsi_offset:12 \
 #	--algos=primary_stochrsi,mfi,aroonosc,adx,support_resistance,mfi_high_limit:95,mfi_low_limit:5,adx_threshold:20,adx_period:48 \

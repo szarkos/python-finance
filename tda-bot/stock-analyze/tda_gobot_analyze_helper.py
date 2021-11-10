@@ -2318,12 +2318,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 						# We need to pull the latest n-period candles from pricehistory and send it
 						#  to our function.
-						period = 6
+						period = 5
 						cndl_slice = []
 						for i in range(period+1, 0, -1):
 							cndl_slice.append( cndls[idx-i] )
 
-						if ( price_trend(cndl_slice, type=trend_exit_type, affinity='bull') == False ):
+						if ( price_trend(cndl_slice, type=trend_exit_type, period=period, affinity='bull') == False ):
 							sell_signal		= True
 							exit_percent_exits	+= 1
 
@@ -2331,15 +2331,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 						# We need to pull the latest n-period candles from pricehistory and send it
 						#  to our function.
-						cndls = pricehistory['hacandles']
-						period = 6
-						cndl_slice = []
-						for i in range(period+1, 0, -1):
-							cndl_slice.append( cndls[idx-i] )
+#						cndls = pricehistory['hacandles']
+#						period = 6
+#						cndl_slice = []
+#						for i in range(period+1, 0, -1):
+#							cndl_slice.append( cndls[idx-i] )
 
-#						if ( get_chop_signal(True, prev_chop, cur_chop, False, False) == (True,True) and
-#							price_trend(cndl_slice, type=trend_exit_type, affinity='bull') == True ):
 #						if ( price_trend(cndl_slice, type=trend_exit_type, affinity='bull') == True ):
+
 						last_open	= pricehistory['hacandles'][idx]['open']
 						last_close	= pricehistory['hacandles'][idx]['close']
 						if ( last_close < last_open ):
@@ -3091,27 +3090,27 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 						# We need to pull the latest n-period candles from pricehistory and send it
 						#  to our function.
-						period = 6
-						cndl_slice = []
-						for i in range(-(period+1), 0, -1):
-							cndl_slice.append( cndls[idx-i] )
-
-						if ( price_trend(cndls, type=trend_exit_type, affinity='bear') == False ):
-							buy_to_cover_signal	= True
-							exit_percent_exits	+= 1
-
-					elif ( use_ha_exit == True ):
-						# We need to pull the latest n-period candles from pricehistory and send it
-						#  to our function.
-						cndls = pricehistory['hacandles']
-						period = 6
+						period = 5
 						cndl_slice = []
 						for i in range(period+1, 0, -1):
 							cndl_slice.append( cndls[idx-i] )
 
-#						if ( get_chop_signal(True, prev_chop, cur_chop, False, False) == (True,True) and
-#							price_trend(cndls, type=trend_exit_type, affinity='bear') == True ):
-#						if ( price_trend(cndls, type=trend_exit_type, affinity='bear') == True ):
+						if ( price_trend(cndl_slice, type=trend_exit_type, period=period, affinity='bear') == False ):
+							buy_to_cover_signal	= True
+							exit_percent_exits	+= 1
+
+					elif ( use_ha_exit == True ):
+
+						# We need to pull the latest n-period candles from pricehistory and send it
+						#  to our function.
+#						cndls = pricehistory['hacandles']
+#						period = 6
+#						cndl_slice = []
+#						for i in range(period+1, 0, -1):
+#							cndl_slice.append( cndls[idx-i] )
+#
+#						if ( price_trend(cndl_slice, type=trend_exit_type, affinity='bear') == True ):
+
 						last_open	= pricehistory['hacandles'][idx]['open']
 						last_close	= pricehistory['hacandles'][idx]['close']
 						if ( last_close > last_open ):

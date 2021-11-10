@@ -555,6 +555,44 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		return ma_affinity
 
 
+	# Return a bull/bear signal based on the ttm_trend algorithm
+	# Look back 6 candles and take the high and the low of them then divide by 2
+	#  and if the close of the next candle is above that number the trend is bullish,
+	#  and if its below the trend is bearish.
+	def price_trend(candles=None, type='hl2', period=5, affinity=None):
+
+		if ( candles == None or affinity == None ):
+			return False
+
+		cur_close	= candles[-1]['close']
+		price		= 0
+		for idx in range(-(period+1), -1, 1):
+			if ( type == 'close' ):
+				price += candles[idx]['close']
+
+			elif ( type == 'hl2' ):
+				price += (candles[idx]['high'] + candles[idx]['low']) / 2
+
+			elif ( type == 'hlc3' ):
+				price += (candles[idx]['high'] + candles[idx]['low'] + candles[idx]['close']) / 3
+
+			elif ( type == 'ohlc4' ):
+				price += (candles[idx]['open'] + candles[idx]['high'] + candles[idx]['low'] + candles[idx]['close']) / 4
+
+			else:
+				return False
+
+		price = price / period
+		#print(str(cur_close) + ' / ' + str(price))
+
+		if ( affinity == 'bull' and cur_close > price ):
+			return True
+		elif ( affinity == 'bear' and cur_close <= price ):
+			return True
+
+		return False
+
+
 	##########################################################################################
 	# Iterate through the stock tickers, calculate the stochRSI, and make buy/sell decisions
 	for ticker in stocks.keys():
@@ -880,7 +918,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 		# VWAP
 		# Calculate vwap to use as entry or exit algorithm
-		if ( cur_algo['vwap'] or args.vwap_exit == True or cur_algo['support_resistance'] == True ):
+		if ( cur_algo['vwap'] or cur_algo['support_resistance'] == True ):
 			vwap = []
 			vwap_up = []
 			vwap_down = []
@@ -1683,12 +1721,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		# SELL MODE - look for a signal to sell the stock
 		elif ( signal_mode == 'sell' ):
 
-			# Use either raw open/close data or Heikin Ashi candles
 			last_close	= stocks[ticker]['pricehistory']['candles'][-1]['close']
 			last_open	= stocks[ticker]['pricehistory']['candles'][-1]['open']
-			if ( args.use_ha_exit == True ):
-				last_close	= stocks[ticker]['pricehistory']['hacandles'][-1]['close']
-				last_open	= stocks[ticker]['pricehistory']['hacandles'][-1]['open']
 
 			# First try to get the latest price from the API, and fall back to the last close only if necessary
 			last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
@@ -1815,27 +1849,37 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# END STOPLOSS MONITOR
 
 
-			# ADDITIONAL EXIT STRATEGIES (exit_percent / vwap_exit)
+			# ADDITIONAL EXIT STRATEGIES
 			# Sell if --exit_percent was set and threshold met
 			if ( stocks[ticker]['exit_percent'] != None and last_price > stocks[ticker]['orig_base_price'] ):
 				total_percent_change = abs( stocks[ticker]['orig_base_price'] / last_price - 1 ) * 100
 
-				# If exit_percent has been hit, we will sell at the first RED candle
-				if ( stocks[ticker]['exit_percent_signal'] == True ):
-					if ( last_close < last_open ):
-						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
+				if ( args.use_ha_exit == True ):
+					last_close	= stocks[ticker]['pricehistory']['hacandles'][-1]['close']
+					last_open	= stocks[ticker]['pricehistory']['hacandles'][-1]['open']
 
-				elif ( total_percent_change >= stocks[ticker]['exit_percent'] ):
+				# If exit_percent has been hit, we will sell at the first RED candle
+				if ( total_percent_change >= stocks[ticker]['exit_percent'] ):
 					stocks[ticker]['exit_percent_signal'] = True
 
-			# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
-			if ( args.vwap_exit == True ):
-				if ( cur_vwap > stocks[ticker]['orig_base_price'] ):
-					if ( last_price >= ((cur_vwap - stocks[ticker]['orig_base_price']) / 2) + stocks[ticker]['orig_base_price'] ):
-						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
+				if ( stocks[ticker]['exit_percent_signal'] == True ):
+					if ( args.use_trend_exit == True ):
+						if ( args.use_ha_exit == True ):
+							cndls = stocks[ticker]['pricehistory']['hacandles']
+						else:
+							cndls = stocks[ticker]['pricehistory']['candles']
 
-				elif ( cur_vwap < stocks[ticker]['orig_base_price'] ):
-					if ( last_price >= ((cur_vwap_up - cur_vwap) / 2) + cur_vwap ):
+						# We need to pull the latest n-period candles from pricehistory and send it
+						#  to our function.
+						period = 5
+						cndl_slice = []
+						for i in range(period+1, 0, -1):
+							cndl_slice.append( cndls[-i] )
+
+						if ( price_trend(cndl_slice, period=period, affinity='bull') == False ):
+							stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
+
+					elif ( last_close < last_open ):
 						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 
@@ -2428,12 +2472,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		#   need to monitor stoploss in case the stock rises above a threshold.
 		elif ( signal_mode == 'buy_to_cover' ):
 
-			# Use either raw open/close data or Heikin Ashi candles
 			last_close	= stocks[ticker]['pricehistory']['candles'][-1]['close']
 			last_open	= stocks[ticker]['pricehistory']['candles'][-1]['open']
-			if ( args.use_ha_exit == True ):
-				last_close	= stocks[ticker]['pricehistory']['hacandles'][-1]['close']
-				last_open	= stocks[ticker]['pricehistory']['hacandles'][-1]['open']
 
 			# First try to get the latest price from the API, and fall back to the last close only if necessary
 			last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
@@ -2573,29 +2613,39 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# END STOPLOSS MONITOR
 
 
-			# ADDITIONAL EXIT STRATEGIES (exit_percent / vwap_exit)
+			# ADDITIONAL EXIT STRATEGIES
 			# Sell if --exit_percent was set and threshold met
 			if ( stocks[ticker]['exit_percent'] != None and last_price < stocks[ticker]['orig_base_price'] ):
 				total_percent_change = abs( last_price / stocks[ticker]['orig_base_price'] - 1 ) * 100
 
-				# If exit_percent has been hit, we will sell at the first GREEN candle
-				if ( stocks[ticker]['exit_percent_signal'] == True ):
-					if ( last_close > last_open ):
-						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
-
-				elif ( total_percent_change >= stocks[ticker]['exit_percent'] ):
+				if ( total_percent_change >= stocks[ticker]['exit_percent'] ):
 					stocks[ticker]['exit_percent_signal'] = True
 
-			# Sell if --vwap_exit was set and last_price is half way between the orig_base_price and cur_vwap
-			if ( args.vwap_exit == True ):
-				if ( cur_vwap < stocks[ticker]['orig_base_price'] ):
-					if ( last_price <= ((stocks[ticker]['orig_base_price'] - cur_vwap) / 2) + cur_vwap ):
-						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
+				# If exit_percent has been hit, we will sell at the first GREEN candle
+				if ( stocks[ticker]['exit_percent_signal'] == True ):
 
-				elif ( cur_vwap > stocks[ticker]['orig_base_price'] ):
-					if ( last_price <= ((cur_vwap - cur_vwap_down) / 2) + cur_vwap_down ):
-						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
+					if ( args.use_ha_exit == True ):
+						last_close	= stocks[ticker]['pricehistory']['hacandles'][-1]['close']
+						last_open	= stocks[ticker]['pricehistory']['hacandles'][-1]['open']
 
+					if ( args.use_trend_exit == True ):
+						if ( args.use_ha_exit == True ):
+							cndls = stocks[ticker]['pricehistory']['hacandles']
+						else:
+							cndls = stocks[ticker]['pricehistory']['candles']
+
+						# We need to pull the latest n-period candles from pricehistory and send it
+						#  to our function.
+						period = 5
+						cndl_slice = []
+						for i in range(period+1, 0, -1):
+							cndl_slice.append( cndls[-i] )
+
+						if ( price_trend(cndl_slice, period=period, affinity='bear') == False ):
+							stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
+
+					elif ( last_close > last_open ):
+						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 			# RSI MONITOR
 			# Do not use stochrsi as an exit signal if exit_percent_signal is triggered. That means we've surpassed the

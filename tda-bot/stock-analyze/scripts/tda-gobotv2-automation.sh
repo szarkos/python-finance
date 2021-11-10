@@ -18,10 +18,12 @@ nohup ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=25000 --stocks=${tickers
 	\
 	--algos=algo_id:main,primary_stochrsi,stochrsi_offset:3,dmi_simple,aroonosc,adx,support_resistance,use_natr_resistance,adx_threshold:6,min_daily_natr:6 \
 	\
-	--algos=algo_id:stackedma_wma,primary_stacked_ma,stacked_ma_type_primary:wma,bbands_kchannel,support_resistance,min_intra_natr:0.45,min_daily_natr:6 \
 	--algos=algo_id:stackedma_sma,primary_stacked_ma,stacked_ma_type_primary:sma,bbands_kchannel,support_resistance,min_intra_natr:0.45,min_daily_natr:6 \
-	--algos=algo_id:stackedma_sma_vwma,primary_stacked_ma,stacked_ma,stacked_ma_type_primary:sma,stacked_ma_type:vwma,bbands_kchannel,support_resistance,min_intra_natr:0.45,min_daily_natr:6 \
 	--algos=algo_id:stackedma_vwma,primary_stacked_ma,stacked_ma_type_primary:vwma,bbands_kchannel,support_resistance,min_intra_natr:0.45,min_daily_natr:6 \
+	\
+	--algo_valid_tickers=main:$HIGH_NATR \
+	--algo_valid_tickers=stackedma_sma:$HIGH_NATR \
+	--algo_valid_tickers=stackedma_vwma:$HIGH_NATR \
 	\
 	--stacked_ma_periods_primary=3,5,8,13 --stacked_ma_periods=8,13,21,34 --bbands_kchannel_offset=0.15 \
 	--rsi_high_limit=75 --rsi_low_limit=25 --stochrsi_offset=3 \
@@ -34,7 +36,10 @@ nohup ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=25000 --stocks=${tickers
 disown
 
 
-# Older algos - TBD
+# Other algos - TBD
+#	--algos=algo_id:stackedma_wma,primary_stacked_ma,stacked_ma_type_primary:wma,bbands_kchannel,support_resistance,min_intra_natr:0.45,min_daily_natr:6 \
+#	--algos=algo_id:stackedma_sma_vwma,primary_stacked_ma,stacked_ma,stacked_ma_type_primary:sma,stacked_ma_type:vwma,bbands_kchannel,support_resistance,min_intra_natr:0.45,min_daily_natr:6 \
+#
 #	--algos=algo_id:main2,primary_stochrsi,stochrsi_offset:6,dmi_simple,aroonosc,adx,support_resistance,use_natr_resistance,adx_threshold:6,supertrend,min_daily_natr:3 \
 #	--algos=primary_stochrsi,mfi,dmi_simple,aroonosc,adx,support_resistance,adx_threshold:6 \
 #	--algos=primary_stochrsi,dmi_simple,aroonosc,adx,support_resistance,adx_threshold:6,stochrsi_offset:12 \

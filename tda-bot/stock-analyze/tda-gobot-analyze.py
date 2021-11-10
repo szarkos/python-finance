@@ -61,10 +61,10 @@ parser.add_argument("--with_stochmfi", help='Use StochMFI as an additional stoch
 parser.add_argument("--with_stochmfi_5m", help='Use StochMFI with 5-min candles as an additional stochastic indicator (Default: False)', action="store_true")
 parser.add_argument("--with_stacked_ma", help='Use stacked MA as a secondary indicator for trade entries (Default: False)', action="store_true")
 
-parser.add_argument("--stacked_ma_type", help='Moving average type to use (Default: vwma)', default='vwma', type=str)
-parser.add_argument("--stacked_ma_periods", help='List of MA periods to use, comma-delimited (Default: 3,5,8,13)', default='3,5,8,13', type=str)
-parser.add_argument("--stacked_ma_type_primary", help='Moving average type to use when stacked_ma is used as primary indicator (Default: vwma)', default='vwma', type=str)
-parser.add_argument("--stacked_ma_periods_primary", help='List of MA periods to use when stacked_ma is used as primary indicator, comma-delimited (Default: 3,5,8,13)', default='3,5,8,13', type=str)
+parser.add_argument("--stacked_ma_type", help='Moving average type to use (Default: vwma)', default='sma', type=str)
+parser.add_argument("--stacked_ma_periods", help='List of MA periods to use, comma-delimited (Default: 3,5,8)', default='3,5,8', type=str)
+parser.add_argument("--stacked_ma_type_primary", help='Moving average type to use when stacked_ma is used as primary indicator (Default: sma)', default='sma', type=str)
+parser.add_argument("--stacked_ma_periods_primary", help='List of MA periods to use when stacked_ma is used as primary indicator, comma-delimited (Default: 3,5,8)', default='3,5,8,13', type=str)
 
 parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
 parser.add_argument("--with_rsi_simple", help='Use just the current RSI value as a secondary indicator', action="store_true")
@@ -85,8 +85,8 @@ parser.add_argument("--supertrend_atr_period", help='ATR period to use for the s
 parser.add_argument("--supertrend_min_natr", help='Minimum daily NATR a stock must have to enable supertrend indicator (Default: 5)', default=5, type=float)
 parser.add_argument("--with_bbands_kchannel", help='Use the Bollinger bands and Keltner channel indicators as secondary to advise on trade entries (Default: False)', action="store_true")
 parser.add_argument("--with_bbands_kchannel_simple", help='Use a simple version of the Bollinger bands and Keltner channel indicators as secondary to advise on trade entries (Default: False)', action="store_true")
-parser.add_argument("--bbands_kchannel_offset", help='Percentage offset between the Bollinger bands and Keltner channel indicators to trigger an initial trade entry (Default: 0.04)', default=0.04, type=float)
-parser.add_argument("--bbands_kchan_squeeze_count", help='Number of squeeze periods needed before triggering bbands_kchannel signal (Default: 1)', default=1, type=int)
+parser.add_argument("--bbands_kchannel_offset", help='Percentage offset between the Bollinger bands and Keltner channel indicators to trigger an initial trade entry (Default: 0.15)', default=0.15, type=float)
+parser.add_argument("--bbands_kchan_squeeze_count", help='Number of squeeze periods needed before triggering bbands_kchannel signal (Default: 4)', default=4, type=int)
 parser.add_argument("--bbands_period", help='Period to use when calculating the Bollinger Bands (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_period", help='Period to use when calculating the Keltner channels (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_atr_period", help='Period to use when calculating the ATR for use with the Keltner channels (Default: 20)', default=20, type=int)
@@ -202,9 +202,10 @@ tda_gobot_analyze_helper.passcode = passcode
 
 tda_gobot_helper.tda_account_number = tda_account_number
 
-if ( tda_gobot_helper.tdalogin(passcode) != True ):
-	print('Error: Login failure', file=sys.stderr)
-	exit(1)
+if ( args.skip_check == False ):
+	if ( tda_gobot_helper.tdalogin(passcode) != True ):
+		print('Error: Login failure', file=sys.stderr)
+		sys.exit(1)
 
 # Fix up and sanity check the stock symbol before proceeding
 if ( args.skip_check == False ):

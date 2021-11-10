@@ -1293,7 +1293,7 @@ def get_bbands(pricehistory=None, type='hlc3', period=20, stddev=2, debug=False)
 
 
 # Calculate the Keltner channel upper, middle and lower lines
-def get_kchannels(pricehistory=None, type='hlc3', adaptive=False, period=20, atr_period=None, atr_multiplier=1.5, debug=False):
+def get_kchannels(pricehistory=None, type='hlc3', period=20, atr_period=None, atr_multiplier=1.5, debug=False):
 
 	ticker = ''
 	try:
@@ -1353,10 +1353,7 @@ def get_kchannels(pricehistory=None, type='hlc3', adaptive=False, period=20, atr
 	atr	= []
 	natr	= []
 	try:
-		if ( adaptive == True ):
-			ema = get_kama( pricehistory, period=period )
-		else:
-			ema = get_ema( pricehistory, period=period )
+		ema = get_ema( pricehistory, period=period )
 
 	except Exception as e:
 		print('Error: get_kchannel(' + str(ticker) + '): unable to calculate EMA: ' + str(e))

@@ -470,7 +470,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				bbands_kchan_init_signal = True
 
 		# Toggle the bbands_kchan_signal when the bollinger bands pop back outside the keltner channel
-		if ( bbands_kchan_init_signal == True and bbands_kchan_signal == False and bbands_kchan_signal_counter >= bbands_kchan_squeeze_count ):
+		if ( bbands_kchan_init_signal == True bbands_kchan_signal_counter >= bbands_kchan_squeeze_count ):
 
 			# An aggressive strategy is to try to get in early when the Bollinger bands begin to widen
 			#  and before they pop out of the Keltner channel
@@ -480,12 +480,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			elif ( cur_kchannel_lower >= cur_bbands_lower and cur_kchannel_upper <= cur_bbands_upper ):
 				bbands_kchan_signal = True
 
-		# Cancel the bbands_kchan_signal if the bollinger bands popped back inside the keltner channel,
-		#  or if the bbands_kchan_signal_counter has lingered for too long
-		if ( prev_bbands_lower < prev_kchannel_lower and cur_bbands_lower >= cur_kchannel_lower ):
-				bbands_kchan_signal_counter	= 0
-				bbands_kchan_init_signal	= False
-				bbands_kchan_signal		= False
+			# Cancel the bbands_kchan_signal if the bollinger bands popped back inside the keltner channel,
+			#  or if the bbands_kchan_signal_counter has lingered for too long
+			if ( prev_bbands_lower < prev_kchannel_lower and cur_bbands_lower >= cur_kchannel_lower ):
+					bbands_kchan_signal_counter	= 0
+					bbands_kchan_init_signal	= False
+					bbands_kchan_signal		= False
 
 		return bbands_kchan_init_signal, bbands_kchan_signal, bbands_kchan_signal_counter
 
@@ -1248,8 +1248,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
 					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = True
-				else:
-					reset_signals(ticker, algo_id)
+
 
 			# Secondary Stacked Moving Average
 			if ( cur_algo['stacked_ma'] == True ):
@@ -1998,8 +1997,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
 					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = True
-				else:
-					reset_signals(ticker, algo_id)
+
 
 			# Secondary Stacked Moving Average
 			if ( cur_algo['stacked_ma'] == True ):

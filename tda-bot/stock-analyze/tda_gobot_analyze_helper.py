@@ -1665,9 +1665,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
 					buy_signal = True
-#				else:
-#					reset_signals()
-#					continue
 
 			# AroonOsc (simple) primary
 			elif ( primary_stoch_indicator == 'aroonosc' ):
@@ -2447,9 +2444,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
 					short_signal = True
-#				else:
-#					reset_signals()
-#					continue
 
 			# AroonOsc (simple) primary
 			elif ( primary_stoch_indicator == 'aroonosc' ):

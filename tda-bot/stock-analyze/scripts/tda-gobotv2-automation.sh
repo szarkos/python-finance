@@ -16,18 +16,17 @@ tickers=$CUR_SET
 nohup ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=25000 --stocks=${tickers} --short --singleday \
 	--decr_threshold=1.6 --incr_threshold=0.5 --max_failed_txs=2 --exit_percent=0.5 \
 	\
-	--algos=algo_id:main,primary_stochrsi,stochrsi_offset:3,dmi_simple,aroonosc,adx,support_resistance,use_natr_resistance,adx_threshold:6,min_daily_natr:6 \
+	--algos=algo_id:stackedma_sma,primary_stacked_ma,stacked_ma_type_primary:sma,bbands_kchannel,support_resistance,min_intra_natr:0.65,min_daily_natr:6 \
+	--algos=algo_id:stackedma_vwma,primary_stacked_ma,stacked_ma_type_primary:vwma,bbands_kchannel,support_resistance,min_intra_natr:0.65,min_daily_natr:6 \
 	\
-	--algos=algo_id:stackedma_sma,primary_stacked_ma,stacked_ma_type_primary:sma,bbands_kchannel,support_resistance,min_intra_natr:0.45,min_daily_natr:6 \
-	--algos=algo_id:stackedma_vwma,primary_stacked_ma,stacked_ma_type_primary:vwma,bbands_kchannel,support_resistance,min_intra_natr:0.45,min_daily_natr:6 \
+	--algos=algo_id:main,primary_stochrsi,stochrsi_offset:3,dmi_simple,aroonosc,adx,support_resistance,use_natr_resistance,adx_threshold:6,min_intra_natr:0.15,min_daily_natr:6 \
 	\
 	--algo_valid_tickers=main:$HIGH_NATR \
 	--algo_valid_tickers=stackedma_sma:$HIGH_NATR \
 	--algo_valid_tickers=stackedma_vwma:$HIGH_NATR \
 	\
-	--stacked_ma_periods_primary=3,5,8,13 --stacked_ma_periods=8,13,21,34 --bbands_kchannel_offset=0.15 \
-	--rsi_high_limit=75 --rsi_low_limit=25 --stochrsi_offset=3 \
-	--daily_atr_period=3 --supertrend_min_natr=2 --min_intra_natr=0.15 --min_daily_natr=3 \
+	--stacked_ma_periods_primary=3,5,8 --bbands_kchannel_offset=0.15 --bbands_kchan_squeeze_count=4 \
+	--rsi_high_limit=75 --rsi_low_limit=25 --stochrsi_offset=3 --daily_atr_period=3  \
 	--aroonosc_with_macd_simple --variable_exit --lod_hod_check \
 	--weekly_ifile=stock-analyze/weekly-csv/TICKER-weekly-2019-2021.pickle \
 	--daily_ifile=stock-analyze/daily-csv/TICKER-daily-2019-2021.pickle \

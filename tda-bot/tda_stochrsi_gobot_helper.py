@@ -470,7 +470,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				bbands_kchan_init_signal = True
 
 		# Toggle the bbands_kchan_signal when the bollinger bands pop back outside the keltner channel
-		if ( bbands_kchan_init_signal == True bbands_kchan_signal_counter >= bbands_kchan_squeeze_count ):
+		if ( bbands_kchan_init_signal == True and bbands_kchan_signal_counter >= bbands_kchan_squeeze_count ):
 
 			# An aggressive strategy is to try to get in early when the Bollinger bands begin to widen
 			#  and before they pop out of the Keltner channel

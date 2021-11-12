@@ -73,7 +73,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal supertrend_signal		; supertrend_signal		= False
 
 		nonlocal bbands_kchan_signal_counter	; bbands_kchan_signal_counter	= 0
+		nonlocal bbands_kchan_xover_counter	; bbands_kchan_xover_counter	= 0
 		nonlocal bbands_kchan_init_signal	; bbands_kchan_init_signal	= False
+		nonlocal bbands_kchan_crossover_signal	; bbands_kchan_crossover_signal	= False
 		nonlocal bbands_kchan_signal		; bbands_kchan_signal		= False
 		nonlocal stacked_ma_signal		; stacked_ma_signal		= False
 
@@ -97,164 +99,166 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	#  var			=	default_value	if ( 'var' not in params ) else params['var']
 
 	# Test range and input options
-	start_date 		=	None		if ('start_date' not in params) else params['start_date']
-	stop_date		=	None		if ('stop_date' not in params) else params['stop_date']
-	safe_open		=	True		if ('safe_open' not in params) else params['safe_open']
-	weekly_ph		=	None		if ('weekly_ph' not in params) else params['weekly_ph']
-	daily_ph		=	None		if ('daily_ph' not in params) else params['daily_ph']
+	start_date 			= None		if ('start_date' not in params) else params['start_date']
+	stop_date			= None		if ('stop_date' not in params) else params['stop_date']
+	safe_open			= True		if ('safe_open' not in params) else params['safe_open']
+	weekly_ph			= None		if ('weekly_ph' not in params) else params['weekly_ph']
+	daily_ph			= None		if ('daily_ph' not in params) else params['daily_ph']
 
-	debug			=	False		if ('debug' not in params) else params['debug']
-	debug_all		=	False		if ('debug_all' not in params) else params['debug_all']
+	debug				= False		if ('debug' not in params) else params['debug']
+	debug_all			= False		if ('debug_all' not in params) else params['debug_all']
 
 	# Trade exit parameters
-	incr_threshold		=	1		if ('incr_threshold' not in params) else params['incr_threshold']
-	decr_threshold		=	1.5		if ('decr_threshold' not in params) else params['decr_threshold']
-	stoploss		=	False		if ('stoploss' not in params) else params['stoploss']
-	exit_percent		=	None		if ('exit_percent' not in params) else params['exit_percent']
-	quick_exit		=	False		if ('quick_exit' not in params) else params['quick_exit']
-	strict_exit_percent	=	False		if ('strict_exit_percent' not in params) else params['strict_exit_percent']
-	variable_exit		=	False		if ('variable_exit' not in params) else params['variable_exit']
-	use_ha_exit		=	False		if ('use_ha_exit' not in params) else params['use_ha_exit']
-	use_trend_exit		=	False		if ('use_trend_exit' not in params) else params['use_trend_exit']
-	trend_exit_type		=	'hl2'		if ('trend_exit_type' not in params) else params['trend_exit_type']
-	hold_overnight		=	False		if ('hold_overnight' not in params) else params['hold_overnight']
+	incr_threshold			= 1		if ('incr_threshold' not in params) else params['incr_threshold']
+	decr_threshold			= 1.5		if ('decr_threshold' not in params) else params['decr_threshold']
+	stoploss			= False		if ('stoploss' not in params) else params['stoploss']
+	exit_percent			= None		if ('exit_percent' not in params) else params['exit_percent']
+	quick_exit			= False		if ('quick_exit' not in params) else params['quick_exit']
+	strict_exit_percent		= False		if ('strict_exit_percent' not in params) else params['strict_exit_percent']
+	variable_exit			= False		if ('variable_exit' not in params) else params['variable_exit']
+	use_ha_exit			= False		if ('use_ha_exit' not in params) else params['use_ha_exit']
+	use_trend_exit			= False		if ('use_trend_exit' not in params) else params['use_trend_exit']
+	trend_exit_type			= 'hl2'		if ('trend_exit_type' not in params) else params['trend_exit_type']
+	hold_overnight			= False		if ('hold_overnight' not in params) else params['hold_overnight']
 
 	# Stock shorting options
-	noshort			=	False		if ('noshort' not in params) else params['noshort']
-	shortonly		=	False		if ('shortonly' not in params) else params['shortonly']
+	noshort				= False		if ('noshort' not in params) else params['noshort']
+	shortonly			= False		if ('shortonly' not in params) else params['shortonly']
 
 	# Other stock behavior options
-	blacklist_earnings	=	False		if ('blacklist_earnings' not in params) else params['blacklist_earnings']
-	check_volume		=	False		if ('check_volume' not in params) else params['check_volume']
-	avg_volume		=	2000000		if ('avg_volume' not in params) else params['avg_volume']
-	min_volume		=	1500000		if ('min_volume' not in params) else params['min_volume']
-	min_ticker_age		=	None		if ('min_ticker_age' not in params) else params['min_ticker_age']
-	min_daily_natr		=	None		if ('min_daily_natr' not in params) else params['min_daily_natr']
-	max_daily_natr		=	None		if ('max_daily_natr' not in params) else params['max_daily_natr']
-	min_intra_natr		=	None		if ('min_intra_natr' not in params) else params['min_intra_natr']
-	max_intra_natr		=	None		if ('max_intra_natr' not in params) else params['max_intra_natr']
-	min_price		=	None		if ('min_price' not in params) else params['min_price']
-	max_price		=	None		if ('max_price' not in params) else params['max_price']
+	blacklist_earnings		= False		if ('blacklist_earnings' not in params) else params['blacklist_earnings']
+	check_volume			= False		if ('check_volume' not in params) else params['check_volume']
+	avg_volume			= 2000000		if ('avg_volume' not in params) else params['avg_volume']
+	min_volume			= 1500000		if ('min_volume' not in params) else params['min_volume']
+	min_ticker_age			= None		if ('min_ticker_age' not in params) else params['min_ticker_age']
+	min_daily_natr			= None		if ('min_daily_natr' not in params) else params['min_daily_natr']
+	max_daily_natr			= None		if ('max_daily_natr' not in params) else params['max_daily_natr']
+	min_intra_natr			= None		if ('min_intra_natr' not in params) else params['min_intra_natr']
+	max_intra_natr			= None		if ('max_intra_natr' not in params) else params['max_intra_natr']
+	min_price			= None		if ('min_price' not in params) else params['min_price']
+	max_price			= None		if ('max_price' not in params) else params['max_price']
 
 	# Indicators
-	primary_stoch_indicator	=	'stochrsi'	if ('primary_stoch_indicator' not in params) else params['primary_stoch_indicator']
-	with_stoch_5m		=	False		if ('with_stoch_5m' not in params) else params['with_stoch_5m']
-	with_stochrsi_5m	=	False		if ('with_stochrsi_5m' not in params) else params['with_stochrsi_5m']
-	with_stochmfi		=	False		if ('with_stochmfi' not in params) else params['with_stochmfi']
-	with_stochmfi_5m	=	False		if ('with_stochmfi_5m' not in params) else params['with_stochmfi_5m']
+	primary_stoch_indicator		= 'stochrsi'	if ('primary_stoch_indicator' not in params) else params['primary_stoch_indicator']
+	with_stoch_5m			= False		if ('with_stoch_5m' not in params) else params['with_stoch_5m']
+	with_stochrsi_5m		= False		if ('with_stochrsi_5m' not in params) else params['with_stochrsi_5m']
+	with_stochmfi			= False		if ('with_stochmfi' not in params) else params['with_stochmfi']
+	with_stochmfi_5m		= False		if ('with_stochmfi_5m' not in params) else params['with_stochmfi_5m']
 
-	with_stacked_ma		=	False		if ('with_stacked_ma' not in params) else params['with_stacked_ma']
-	stacked_ma_type		=	'sma'		if ('stacked_ma_type' not in params) else params['stacked_ma_type']
-	stacked_ma_periods	=	'3,5,8'		if ('stacked_ma_periods' not in params) else params['stacked_ma_periods']
-	stacked_ma_type_primary	=	'sma'		if ('stacked_ma_type_primary' not in params) else params['stacked_ma_type_primary']
-	stacked_ma_periods_primary =	'3,5,8'		if ('stacked_ma_periods_primary' not in params) else params['stacked_ma_periods_primary']
+	with_stacked_ma			= False		if ('with_stacked_ma' not in params) else params['with_stacked_ma']
+	stacked_ma_type			= 'sma'		if ('stacked_ma_type' not in params) else params['stacked_ma_type']
+	stacked_ma_periods		= '3,5,8'		if ('stacked_ma_periods' not in params) else params['stacked_ma_periods']
+	stacked_ma_type_primary		= 'sma'		if ('stacked_ma_type_primary' not in params) else params['stacked_ma_type_primary']
+	stacked_ma_periods_primary	= '3,5,8'		if ('stacked_ma_periods_primary' not in params) else params['stacked_ma_periods_primary']
 
-	with_rsi		=	False		if ('with_rsi' not in params) else params['with_rsi']
-	with_rsi_simple		=	False		if ('with_rsi_simple' not in params) else params['with_rsi_simple']
+	with_rsi			= False		if ('with_rsi' not in params) else params['with_rsi']
+	with_rsi_simple			= False		if ('with_rsi_simple' not in params) else params['with_rsi_simple']
 
-	with_dmi		=	False		if ('with_dmi' not in params) else params['with_dmi']
-	with_dmi_simple		=	False		if ('with_dmi_simple' not in params) else params['with_dmi_simple']
-	with_adx		=	False		if ('with_adx' not in params) else params['with_adx']
+	with_dmi			= False		if ('with_dmi' not in params) else params['with_dmi']
+	with_dmi_simple			= False		if ('with_dmi_simple' not in params) else params['with_dmi_simple']
+	with_adx			= False		if ('with_adx' not in params) else params['with_adx']
 
-	with_macd		=	False		if ('with_macd' not in params) else params['with_macd']
-	with_macd_simple	=	False		if ('with_macd_simple' not in params) else params['with_macd_simple']
+	with_macd			= False		if ('with_macd' not in params) else params['with_macd']
+	with_macd_simple		= False		if ('with_macd_simple' not in params) else params['with_macd_simple']
 
-	with_aroonosc		=	False		if ('with_aroonosc' not in params) else params['with_aroonosc']
-	with_aroonosc_simple	=	False		if ('with_aroonosc_simple' not in params) else params['with_aroonosc_simple']
+	with_aroonosc			= False		if ('with_aroonosc' not in params) else params['with_aroonosc']
+	with_aroonosc_simple		= False		if ('with_aroonosc_simple' not in params) else params['with_aroonosc_simple']
 
-	with_mfi		=	False		if ('with_mfi' not in params) else params['with_mfi']
+	with_mfi			= False		if ('with_mfi' not in params) else params['with_mfi']
 
-	with_vpt		=	False		if ('with_vpt' not in params) else params['with_vpt']
-	with_vwap		=	False		if ('with_vwap' not in params) else params['with_vwap']
-	with_chop_index		=	False		if ('with_chop_index' not in params) else params['with_chop_index']
-	with_chop_simple	=	False		if ('with_chop_simple' not in params) else params['with_chop_simple']
+	with_vpt			= False		if ('with_vpt' not in params) else params['with_vpt']
+	with_vwap			= False		if ('with_vwap' not in params) else params['with_vwap']
+	with_chop_index			= False		if ('with_chop_index' not in params) else params['with_chop_index']
+	with_chop_simple		= False		if ('with_chop_simple' not in params) else params['with_chop_simple']
 
-	with_supertrend		=	False		if ('with_supertrend' not in params) else params['with_supertrend']
-	supertrend_min_natr	=	5		if ('supertrend_min_natr' not in params) else params['supertrend_min_natr']
-	supertrend_atr_period	=	128		if ('supertrend_atr_period' not in params) else params['supertrend_atr_period']
+	with_supertrend			= False		if ('with_supertrend' not in params) else params['with_supertrend']
+	supertrend_min_natr		= 5		if ('supertrend_min_natr' not in params) else params['supertrend_min_natr']
+	supertrend_atr_period		= 128		if ('supertrend_atr_period' not in params) else params['supertrend_atr_period']
 
-	with_bbands_kchannel_simple =	False		if ('with_bbands_kchannel_simple' not in params) else params['with_bbands_kchannel_simple']
-	with_bbands_kchannel	=	False		if ('with_bbands_kchannel' not in params) else params['with_bbands_kchannel']
-	bbands_kchannel_offset	=	0.15		if ('bbands_kchannel_offset' not in params) else params['bbands_kchannel_offset']
-	bbands_kchan_squeeze_count =	4		if ('bbands_kchan_squeeze_count' not in params) else params['bbands_kchan_squeeze_count']
-	bbands_period		=	20		if ('bbands_period' not in params) else params['bbands_period']
-	kchannel_period		=	20		if ('kchannel_period' not in params) else params['kchannel_period']
-	kchannel_atr_period	=	20		if ('kchannel_atr_period' not in params) else params['kchannel_atr_period']
+	with_bbands_kchannel_simple	= False		if ('with_bbands_kchannel_simple' not in params) else params['with_bbands_kchannel_simple']
+	with_bbands_kchannel		= False		if ('with_bbands_kchannel' not in params) else params['with_bbands_kchannel']
+	use_bbands_kchannel_xover_exit	= False		if ('use_bbands_kchannel_xover_exit' not in params) else params['use_bbands_kchannel_xover_exit']
+	bbands_kchannel_xover_exit_count= 5		if ('bbands_kchannel_xover_exit_count' not in params) else params['bbands_kchannel_xover_exit_count']
+	bbands_kchannel_offset		= 0.15		if ('bbands_kchannel_offset' not in params) else params['bbands_kchannel_offset']
+	bbands_kchan_squeeze_count	= 4		if ('bbands_kchan_squeeze_count' not in params) else params['bbands_kchan_squeeze_count']
+	bbands_period			= 20		if ('bbands_period' not in params) else params['bbands_period']
+	kchannel_period			= 20		if ('kchannel_period' not in params) else params['kchannel_period']
+	kchannel_atr_period		= 20		if ('kchannel_atr_period' not in params) else params['kchannel_atr_period']
 
 	# Indicator parameters and modifiers
-	stochrsi_period		=	128		if ('stochrsi_period' not in params) else params['stochrsi_period']
-	stochrsi_5m_period	=	28		if ('stochrsi_5m_period' not in params) else params['stochrsi_5m_period']
-	rsi_period		=	14		if ('rsi_period' not in params) else params['rsi_period']
-	rsi_type		=	'hlc3'		if ('rsi_type' not in params) else params['rsi_type']
-	rsi_slow		=	3		if ('rsi_slow' not in params) else params['rsi_slow']
-	rsi_k_period		=	128		if ('rsi_k_period' not in params) else params['rsi_k_period']
-	rsi_d_period		=	3		if ('rsi_d_period' not in params) else params['rsi_d_period']
-	rsi_low_limit		=	20		if ('rsi_low_limit' not in params) else params['rsi_low_limit']
-	rsi_high_limit		=	80		if ('rsi_high_limit' not in params) else params['rsi_high_limit']
-	stochrsi_offset		=	8		if ('stochrsi_offset' not in params) else params['stochrsi_offset']
-	nocrossover		=	False		if ('nocrossover' not in params) else params['nocrossover']
-	crossover_only		=	False		if ('crossover_only' not in params) else params['crossover_only']
+	stochrsi_period			= 128		if ('stochrsi_period' not in params) else params['stochrsi_period']
+	stochrsi_5m_period		= 28		if ('stochrsi_5m_period' not in params) else params['stochrsi_5m_period']
+	rsi_period			= 14		if ('rsi_period' not in params) else params['rsi_period']
+	rsi_type			= 'hlc3'		if ('rsi_type' not in params) else params['rsi_type']
+	rsi_slow			= 3		if ('rsi_slow' not in params) else params['rsi_slow']
+	rsi_k_period			= 128		if ('rsi_k_period' not in params) else params['rsi_k_period']
+	rsi_d_period			= 3		if ('rsi_d_period' not in params) else params['rsi_d_period']
+	rsi_low_limit			= 20		if ('rsi_low_limit' not in params) else params['rsi_low_limit']
+	rsi_high_limit			= 80		if ('rsi_high_limit' not in params) else params['rsi_high_limit']
+	stochrsi_offset			= 8		if ('stochrsi_offset' not in params) else params['stochrsi_offset']
+	nocrossover			= False		if ('nocrossover' not in params) else params['nocrossover']
+	crossover_only			= False		if ('crossover_only' not in params) else params['crossover_only']
 
-	di_period		=	48		if ('di_period' not in params) else params['di_period']
-	adx_period		=	92		if ('adx_period' not in params) else params['adx_period']
-	adx_threshold		=	25		if ('adx_threshold' not in params) else params['adx_threshold']
-	dmi_with_adx		=	False		if ('dmi_with_adx' not in params) else params['dmi_with_adx']
+	di_period			= 48		if ('di_period' not in params) else params['di_period']
+	adx_period			= 92		if ('adx_period' not in params) else params['adx_period']
+	adx_threshold			= 25		if ('adx_threshold' not in params) else params['adx_threshold']
+	dmi_with_adx			= False		if ('dmi_with_adx' not in params) else params['dmi_with_adx']
 
-	macd_short_period	=	48		if ('macd_short_period' not in params) else params['macd_short_period']
-	macd_long_period	=	104		if ('macd_long_period' not in params) else params['macd_long_period']
-	macd_signal_period	=	36		if ('macd_signal_period' not in params) else params['macd_signal_period']
-	macd_offset		=	0.006		if ('macd_offset' not in params) else params['macd_offset']
+	macd_short_period		= 48		if ('macd_short_period' not in params) else params['macd_short_period']
+	macd_long_period		= 104		if ('macd_long_period' not in params) else params['macd_long_period']
+	macd_signal_period		= 36		if ('macd_signal_period' not in params) else params['macd_signal_period']
+	macd_offset			= 0.006		if ('macd_offset' not in params) else params['macd_offset']
 
-	aroonosc_period		=	24		if ('aroonosc_period' not in params) else params['aroonosc_period']
-	aroonosc_alt_period	=	48		if ('aroonosc_alt_period' not in params) else params['aroonosc_alt_period']
-	aroonosc_alt_threshold	=	0.24		if ('aroonosc_alt_threshold' not in params) else params['aroonosc_alt_threshold']
+	aroonosc_period			= 24		if ('aroonosc_period' not in params) else params['aroonosc_period']
+	aroonosc_alt_period		= 48		if ('aroonosc_alt_period' not in params) else params['aroonosc_alt_period']
+	aroonosc_alt_threshold		= 0.24		if ('aroonosc_alt_threshold' not in params) else params['aroonosc_alt_threshold']
 	aroonosc_secondary_threshold	= 70		if ('aroonosc_secondary_threshold' not in params) else params['aroonosc_secondary_threshold']
 	aroonosc_with_macd_simple	= False		if ('aroonosc_with_macd_simple' not in params) else params['aroonosc_with_macd_simple']
 	aroonosc_with_vpt		= False		if ('aroonosc_with_vpt' not in params) else params['aroonosc_with_vpt']
 
-	stochmfi_5m_period	=	14		if ('stochmfi_5m_period' not in params) else params['stochmfi_5m_period']
-	stochmfi_period		=	14		if ('stochmfi_period' not in params) else params['stochmfi_period']
-	mfi_period		=	14		if ('mfi_period' not in params) else params['mfi_period']
-	mfi_low_limit		=	20		if ('mfi_low_limit' not in params) else params['mfi_low_limit']
-	mfi_high_limit		=	80		if ('mfi_high_limit' not in params) else params['mfi_high_limit']
+	stochmfi_5m_period		= 14		if ('stochmfi_5m_period' not in params) else params['stochmfi_5m_period']
+	stochmfi_period			= 14		if ('stochmfi_period' not in params) else params['stochmfi_period']
+	mfi_period			= 14		if ('mfi_period' not in params) else params['mfi_period']
+	mfi_low_limit			= 20		if ('mfi_low_limit' not in params) else params['mfi_low_limit']
+	mfi_high_limit			= 80		if ('mfi_high_limit' not in params) else params['mfi_high_limit']
 
-	atr_period		=	14		if ('atr_period' not in params) else params['atr_period']
-	daily_atr_period	=	14		if ('daily_atr_period' not in params) else params['daily_atr_period']
-	vpt_sma_period		=	72		if ('vpt_sma_period' not in params) else params['vpt_sma_period']
+	atr_period			= 14		if ('atr_period' not in params) else params['atr_period']
+	daily_atr_period		= 14		if ('daily_atr_period' not in params) else params['daily_atr_period']
+	vpt_sma_period			= 72		if ('vpt_sma_period' not in params) else params['vpt_sma_period']
 
-	chop_period		=	14		if ('chop_period' not in params) else params['chop_period']
-	chop_low_limit		=	38.2		if ('chop_low_limit' not in params) else params['chop_low_limit']
-	chop_high_limit		=	61.8		if ('chop_high_limit' not in params) else params['chop_high_limit']
+	chop_period			= 14		if ('chop_period' not in params) else params['chop_period']
+	chop_low_limit			= 38.2		if ('chop_low_limit' not in params) else params['chop_low_limit']
+	chop_high_limit			= 61.8		if ('chop_high_limit' not in params) else params['chop_high_limit']
 
-	stochrsi_signal_cancel_low_limit	= 60	if ('stochrsi_signal_cancel_low_limit' not in params) else params['stochrsi_signal_cancel_low_limit']
-	stochrsi_signal_cancel_high_limit	= 40	if ('stochrsi_signal_cancel_high_limit' not in params) else params['stochrsi_signal_cancel_high_limit']
-	rsi_signal_cancel_low_limit		= 40	if ('rsi_signal_cancel_low_limit' not in params) else params['rsi_signal_cancel_low_limit']
-	rsi_signal_cancel_high_limit		= 60	if ('rsi_signal_cancel_high_limit' not in params) else params['rsi_signal_cancel_high_limit']
-	mfi_signal_cancel_low_limit		= 30	if ('mfi_signal_cancel_low_limit' not in params) else params['mfi_signal_cancel_low_limit']
-	mfi_signal_cancel_high_limit		= 70	if ('mfi_signal_cancel_high_limit' not in params) else params['mfi_signal_cancel_high_limit']
+	stochrsi_signal_cancel_low_limit  = 60	if ('stochrsi_signal_cancel_low_limit' not in params) else params['stochrsi_signal_cancel_low_limit']
+	stochrsi_signal_cancel_high_limit = 40	if ('stochrsi_signal_cancel_high_limit' not in params) else params['stochrsi_signal_cancel_high_limit']
+	rsi_signal_cancel_low_limit	= 40	if ('rsi_signal_cancel_low_limit' not in params) else params['rsi_signal_cancel_low_limit']
+	rsi_signal_cancel_high_limit	= 60	if ('rsi_signal_cancel_high_limit' not in params) else params['rsi_signal_cancel_high_limit']
+	mfi_signal_cancel_low_limit	= 30	if ('mfi_signal_cancel_low_limit' not in params) else params['mfi_signal_cancel_low_limit']
+	mfi_signal_cancel_high_limit	= 70	if ('mfi_signal_cancel_high_limit' not in params) else params['mfi_signal_cancel_high_limit']
 
 	# Resistance indicators
-	no_use_resistance	=	False		if ('no_use_resistance' not in params) else params['no_use_resistance']
-	price_resistance_pct	=	1		if ('price_resistance_pct' not in params) else params['price_resistance_pct']
-	price_support_pct	=	1		if ('price_support_pct' not in params) else params['price_support_pct']
-	stoch_divergence_strict	=	False		if ('stoch_divergence_strict' not in params) else params['stoch_divergence_strict']
-	stoch_divergence	=	False		if ('stoch_divergence' not in params) else params['stoch_divergence']
-	stoch_divergence	=	True		if (stoch_divergence_strict == True ) else stoch_divergence ; params['stoch_divergence'] = stoch_divergence
-	use_natr_resistance	=	False		if ('use_natr_resistance' not in params) else params['use_natr_resistance']
-	lod_hod_check		=	False		if ('lod_hod_check' not in params) else params['lod_hod_check']
-	keylevel_strict		=	False		if ('keylevel_strict' not in params) else params['keylevel_strict']
-	keylevel_use_daily	=	False		if ('keylevel_use_daily' not in params) else params['keylevel_use_daily']
-	check_ma_strict		=	False		if ('check_ma_strict' not in params) else params['check_ma_strict']
-	check_ma		=	False		if ('check_ma' not in params) else params['check_ma']
-	check_ma		=	True		if (check_ma_strict == True ) else check_ma ; params['check_ma'] = check_ma
+	no_use_resistance		= False		if ('no_use_resistance' not in params) else params['no_use_resistance']
+	price_resistance_pct		= 1		if ('price_resistance_pct' not in params) else params['price_resistance_pct']
+	price_support_pct		= 1		if ('price_support_pct' not in params) else params['price_support_pct']
+	stoch_divergence_strict		= False		if ('stoch_divergence_strict' not in params) else params['stoch_divergence_strict']
+	stoch_divergence		= False		if ('stoch_divergence' not in params) else params['stoch_divergence']
+	stoch_divergence		= True		if (stoch_divergence_strict == True ) else stoch_divergence ; params['stoch_divergence'] = stoch_divergence
+	use_natr_resistance		= False		if ('use_natr_resistance' not in params) else params['use_natr_resistance']
+	lod_hod_check			= False		if ('lod_hod_check' not in params) else params['lod_hod_check']
+	keylevel_strict			= False		if ('keylevel_strict' not in params) else params['keylevel_strict']
+	keylevel_use_daily		= False		if ('keylevel_use_daily' not in params) else params['keylevel_use_daily']
+	check_ma_strict			= False		if ('check_ma_strict' not in params) else params['check_ma_strict']
+	check_ma			= False		if ('check_ma' not in params) else params['check_ma']
+	check_ma			= True		if (check_ma_strict == True ) else check_ma ; params['check_ma'] = check_ma
 
-	check_etf_indicators_strict =	False		if ('check_etf_indicators_strict' not in params) else params['check_etf_indicators_strict']
-	check_etf_indicators	=	False		if ('check_etf_indicators' not in params) else params['check_etf_indicators']
-	check_etf_indicators	=	True		if (check_etf_indicators_strict == True ) else check_etf_indicators ; params['check_etf_indicators'] = check_etf_indicators
-	etf_tickers		=  ['SPY','QQQ','DIA']	if ('etf_tickers' not in params) else params['etf_tickers']
-	etf_indicators		=	{}		if ('etf_indicators' not in params) else params['etf_indicators']
+	check_etf_indicators_strict	= False		if ('check_etf_indicators_strict' not in params) else params['check_etf_indicators_strict']
+	check_etf_indicators		= False		if ('check_etf_indicators' not in params) else params['check_etf_indicators']
+	check_etf_indicators		= True		if (check_etf_indicators_strict == True ) else check_etf_indicators ; params['check_etf_indicators'] = check_etf_indicators
+	etf_tickers			= ['SPY','QQQ','DIA']	if ('etf_tickers' not in params) else params['etf_tickers']
+	etf_indicators			= {}		if ('etf_indicators' not in params) else params['etf_indicators']
 
-	experimental		=	False		if ('experimental' not in params) else params['experimental']
+	experimental			= False		if ('experimental' not in params) else params['experimental']
 	# End params{} configuration
 
 
@@ -1030,7 +1034,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	supertrend_signal		= False
 
 	bbands_kchan_signal_counter	= 0
+	bbands_kchan_xover_counter	= 0
 	bbands_kchan_init_signal	= False
+	bbands_kchan_crossover_signal	= False
 	bbands_kchan_signal		= False
 	stacked_ma_signal		= False
 
@@ -1236,11 +1242,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 
 	# Bollinger Bands and Keltner Channel crossover
-	def bbands_kchannels(simple=False, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0), bbands_kchan_init_signal=False, bbands_kchan_signal=False, debug=False ):
+	def bbands_kchannels(simple=False, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0), bbands_kchan_init_signal=False, bbands_kchan_crossover_signal=False, bbands_kchan_signal=False, debug=False ):
 
 		nonlocal bbands_kchannel_offset
 		nonlocal bbands_kchannel_offset_debug
 		nonlocal bbands_kchan_signal_counter
+		nonlocal bbands_kchan_xover_counter
 
 		# bbands/kchannel (0,0,0) = lower, middle, upper
 		cur_bbands_lower	= round( cur_bbands[0], 3 )
@@ -1273,7 +1280,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			elif ( cur_kchannel_lower > cur_bbands_lower and cur_kchannel_upper < cur_bbands_upper ):
 				bbands_kchan_signal = False
 
-			return bbands_kchan_init_signal, bbands_kchan_signal
+			return bbands_kchan_init_signal, bbands_kchan_crossover_signal, bbands_kchan_signal
 
 		# Check if the Bollinger Bands have moved inside the Keltner Channel
 		# Signal when they begin to converge
@@ -1300,7 +1307,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				bbands_kchan_signal = True
 
 			if ( cur_kchannel_lower > cur_bbands_lower and cur_kchannel_upper < cur_bbands_upper ):
+				bbands_kchan_crossover_signal = True
 				bbands_kchan_signal = True
+
+			if ( bbands_kchan_crossover_signal == True ):
+				bbands_kchan_xover_counter += 1
 
 			if ( debug == True ):
 				if ( len(bbands_kchannel_offset_debug['cur_squeeze']) > 0 ):
@@ -1309,13 +1320,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# Cancel the bbands_kchan_signal if the bollinger bands popped back inside the keltner channel,
 			#  or if the bbands_kchan_signal_counter has lingered for too long
-			if ( prev_bbands_lower < prev_kchannel_lower and cur_bbands_lower >= cur_kchannel_lower ):
+			if ( (prev_bbands_lower < prev_kchannel_lower and cur_bbands_lower >= cur_kchannel_lower) or
+				bbands_kchan_xover_counter >= 3 ):
 					bbands_kchan_init_signal	= False
 					bbands_kchan_signal		= False
 					bbands_kchan_crossover_signal	= False
 					bbands_kchan_signal_counter	= 0
+					bbands_kchan_xover_counter	= 0
 
-		return bbands_kchan_init_signal, bbands_kchan_signal
+		return bbands_kchan_init_signal, bbands_kchan_crossover_signal, bbands_kchan_signal
 
 
 	# Return a bull/bear signal based on the ttm_trend algorithm
@@ -1886,11 +1899,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				cur_kchannel	= (kchannel_lower[idx], kchannel_mid[idx], kchannel_upper[idx])
 				prev_kchannel	= (kchannel_lower[idx-1], kchannel_mid[idx-1], kchannel_upper[idx-1])
 
-				(bbands_kchan_init_signal, bbands_kchan_signal) = bbands_kchannels( simple=with_bbands_kchannel_simple, cur_bbands=cur_bbands, prev_bbands=prev_bbands,
-													cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
-													bbands_kchan_init_signal=bbands_kchan_init_signal,
-													bbands_kchan_signal=bbands_kchan_signal,
-													debug=False )
+				( bbands_kchan_init_signal,
+				  bbands_kchan_crossover_signal,
+				  bbands_kchan_signal ) = bbands_kchannels( simple=with_bbands_kchannel_simple, cur_bbands=cur_bbands, prev_bbands=prev_bbands,
+										cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
+										bbands_kchan_init_signal=bbands_kchan_init_signal,
+										bbands_kchan_crossover_signal=bbands_kchan_crossover_signal,
+										bbands_kchan_signal=bbands_kchan_signal,
+										debug=False )
 
 			# Resistance Levels
 			if ( no_use_resistance == False and buy_signal == True ):
@@ -2135,6 +2151,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					', aroonosc_signal: '		+ str(aroonosc_signal) +
 					', macd_signal: '		+ str(macd_signal) +
 					', bbands_kchan_signal: '	+ str(bbands_kchan_signal) +
+					', bbands_kchan_crossover_signal: ' + str(bbands_kchan_crossover_signal) +
 					', bbands_kchan_init_signal: '	+ str(bbands_kchan_init_signal) +
 					', stacked_ma_signal: '		+ str(stacked_ma_signal) +
 					', vwap_signal: '		+ str(vwap_signal) +
@@ -2347,6 +2364,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					elif ( last_close < last_open ):
 						sell_signal		= True
 						exit_percent_exits	+= 1
+
+
+			# If stock is sinking over n-periods (bbands_kchannel_xover_exit_count) after entry then just exit
+			#  the position
+			bbands_kchan_xover_counter += 1
+			if ( use_bbands_kchannel_xover_exit == True and last_close < purchase_price ):
+				if ( bbands_kchan_xover_counter >= bbands_kchannel_xover_exit_count ):
+					sell_signal = True
 
 
 			# Monitor RSI for SELL signal
@@ -2654,11 +2679,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				cur_kchannel	= (kchannel_lower[idx], kchannel_mid[idx], kchannel_upper[idx])
 				prev_kchannel	= (kchannel_lower[idx-1], kchannel_mid[idx-1], kchannel_upper[idx-1])
 
-				(bbands_kchan_init_signal, bbands_kchan_signal) = bbands_kchannels( simple=with_bbands_kchannel_simple, cur_bbands=cur_bbands, prev_bbands=prev_bbands,
-													cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
-													bbands_kchan_init_signal=bbands_kchan_init_signal,
-													bbands_kchan_signal=bbands_kchan_signal,
-													debug=False)
+				( bbands_kchan_init_signal,
+				  bbands_kchan_crossover_signal,
+				  bbands_kchan_signal ) = bbands_kchannels( simple=with_bbands_kchannel_simple, cur_bbands=cur_bbands, prev_bbands=prev_bbands,
+										cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
+										bbands_kchan_init_signal=bbands_kchan_init_signal,
+										bbands_kchan_crossover_signal=bbands_kchan_crossover_signal,
+										bbands_kchan_signal=bbands_kchan_signal,
+										debug=False )
 
 			# Resistance
 			if ( no_use_resistance == False and short_signal == True ):
@@ -3118,6 +3146,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					elif ( last_close > last_open ):
 						buy_to_cover_signal	= True
 						exit_percent_exits	+= 1
+
+			# If stock is rising over n-periods (bbands_kchannel_xover_exit_count) after entry then just exit
+			#  the position
+			bbands_kchan_xover_counter += 1
+			if ( use_bbands_kchannel_xover_exit == True and last_close > short_price ):
+				if ( bbands_kchan_xover_counter >= bbands_kchannel_xover_exit_count ):
+					buy_to_cover_signal = True
+
 
 			# Monitor RSI for BUY_TO_COVER signal
 			# Do not use stochrsi as an exit signal if strict_exit_percent is set to True

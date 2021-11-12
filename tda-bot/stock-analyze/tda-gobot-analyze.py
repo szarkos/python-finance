@@ -41,17 +41,12 @@ parser.add_argument("--price_resistance_pct", help='Resistance indicators will c
 parser.add_argument("--price_support_pct", help='Support indicators will come into effect if price is within this percentage of a known support/resistance line', default=1, type=float)
 parser.add_argument("--use_natr_resistance", help='Enable the daily NATR resistance check', action="store_true")
 parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
-parser.add_argument("--stoch_divergence", help='Monitor Stoch(RSI/MFI) divergence when encountering a new HOD or LOD', action="store_true")
-parser.add_argument("--stoch_divergence_strict", help='Require Stoch(RSI/MFI) divergence when entering a new trade', action="store_true")
 
 # Experimental
-parser.add_argument("--check_ma", help='Tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior', action="store_true")
-parser.add_argument("--check_ma_strict", help='Check SMA and EMA to enable/disable the longing or shorting of stock', action="store_true")
 parser.add_argument("--check_etf_indicators", help='Tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior of key ETFs (SPY, QQQ, DIA)', action="store_true")
 parser.add_argument("--check_etf_indicators_strict", help='Do not allow trade unless the 5-minute SMA/EMA behavior of key ETFs (SPY, QQQ, DIA) agree with direction', action="store_true")
 parser.add_argument("--etf_tickers", help='List of tickers to use with -check_etf_indicators (Default: SPY,QQQ,DIA)', default='SPY,QQQ,DIA', type=str)
 parser.add_argument("--experimental", help='Enable experimental features (Default: False)', action="store_true")
-parser.add_argument("--experimental2", help='Enable experimental features (Default: False)', action="store_true")
 # Experimental
 
 parser.add_argument("--primary_stoch_indicator", help='Use this indicator as the primary stochastic indicator (Default: stochrsi)', default='stochrsi', type=str)
@@ -671,18 +666,12 @@ for algo in args.algo.split(','):
 					'keylevel_strict':			args.keylevel_strict,
 					'keylevel_use_daily':			args.keylevel_use_daily,
 					'use_natr_resistance':			args.use_natr_resistance,
-					'stoch_divergence':			args.stoch_divergence,
-					'stoch_divergence_strict':		args.stoch_divergence_strict,
-					'check_ma':				args.check_ma,
-					'check_ma_strict':			args.check_ma_strict,
 
+					'experimental':				args.experimental,
 					'check_etf_indicators':			args.check_etf_indicators,
 					'check_etf_indicators_strict':		args.check_etf_indicators_strict,
 					'etf_tickers':				etf_tickers,
 					'etf_indicators':			etf_indicators,
-
-					'experimental':				args.experimental,
-					'experimental2':			args.experimental2,
 			}
 
 			# Call stochrsi_analyze_new() with test_params{} to run the backtest

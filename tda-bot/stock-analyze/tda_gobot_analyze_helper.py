@@ -84,7 +84,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal macd_crossover			; macd_crossover		= False
 		nonlocal macd_avg_crossover		; macd_avg_crossover		= False
 
-		nonlocal divergence_signal		; divergence_signal		= False
 		nonlocal experimental_signal		; experimental_signal		= False
 
 		return True
@@ -241,16 +240,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	no_use_resistance		= False		if ('no_use_resistance' not in params) else params['no_use_resistance']
 	price_resistance_pct		= 1		if ('price_resistance_pct' not in params) else params['price_resistance_pct']
 	price_support_pct		= 1		if ('price_support_pct' not in params) else params['price_support_pct']
-	stoch_divergence_strict		= False		if ('stoch_divergence_strict' not in params) else params['stoch_divergence_strict']
-	stoch_divergence		= False		if ('stoch_divergence' not in params) else params['stoch_divergence']
-	stoch_divergence		= True		if (stoch_divergence_strict == True ) else stoch_divergence ; params['stoch_divergence'] = stoch_divergence
 	use_natr_resistance		= False		if ('use_natr_resistance' not in params) else params['use_natr_resistance']
 	lod_hod_check			= False		if ('lod_hod_check' not in params) else params['lod_hod_check']
 	keylevel_strict			= False		if ('keylevel_strict' not in params) else params['keylevel_strict']
 	keylevel_use_daily		= False		if ('keylevel_use_daily' not in params) else params['keylevel_use_daily']
-	check_ma_strict			= False		if ('check_ma_strict' not in params) else params['check_ma_strict']
-	check_ma			= False		if ('check_ma' not in params) else params['check_ma']
-	check_ma			= True		if (check_ma_strict == True ) else check_ma ; params['check_ma'] = check_ma
 
 	check_etf_indicators_strict	= False		if ('check_etf_indicators_strict' not in params) else params['check_etf_indicators_strict']
 	check_etf_indicators		= False		if ('check_etf_indicators' not in params) else params['check_etf_indicators']
@@ -731,16 +724,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		if ( with_stoch_5m == True ):
 			max_hodlod_counter = 6
 
-		# hod = [ { 'hod': 0, 'hod_idx': 0, 'hod_rsi': 0 }, ... ]
-		cur_day_stats = { 'hod':		[],
-				  'lod':		[],
-				  'cur_hod':		-1,
-				  'cur_lod':		999999,
-				  'cur_hod_idx':	None,
-				  'cur_hod_rsi':	None,
-				  'hod_counter':	0,
-				  'lod_counter':	0 }
-
 		# Find the first day from the 1-min pricehistory. We might need this to warn if the PDC
 		#  is not available within the test timeframe.
 		first_day = datetime.fromtimestamp(int(pricehistory['candles'][0]['datetime'])/1000, tz=mytimezone)
@@ -1046,7 +1029,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	macd_avg_crossover		= False
 
 	near_keylevel			= False
-	divergence_signal		= False
 	experimental_signal		= False
 
 	default_incr_threshold		= incr_threshold
@@ -1509,17 +1491,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 		# Ignore pre-post market since we cannot trade during those hours
 		if ( tda_gobot_helper.ismarketopen_US(date, safe_open=safe_open) != True ):
-			if ( stoch_divergence == True ):
-				# Reset cur_day_stats
-				cur_day_stats = { 'hod':		[],
-						  'lod':		[],
-						  'cur_hod':		0,
-						  'cur_lod':		999999,
-						  'cur_hod_idx':	0,
-						  'cur_hod_rsi':	0,
-						  'hod_counter':	0,
-						  'lod_counter':	0 }
-
 			continue
 
 		# Ignore days where cur_daily_natr is below min_daily_natr or above max_daily_natr, if configured
@@ -1527,57 +1498,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			continue
 		if ( max_daily_natr != None and cur_natr_daily > max_daily_natr ):
 			continue
-
-		# Tailor the rsi_low_limit and rsi_high_limit based on the SMA/EMA orientation
-		#  to make the indicator more biased toward bullish or bearish trades
-		if ( check_ma == True ):
-			rsi_low_limit		= orig_rsi_low_limit
-			rsi_high_limit		= orig_rsi_high_limit
-
-			ma_intraday_affinity	= None
-			ma_daily_affinity	= None
-
-			check_ma_strict	 	= params['check_ma_strict']
-			with_mfi	 	= params['with_mfi']
-			with_chop_index	 	= params['with_chop_index']
-			with_supertrend	 	= params['with_supertrend']
-			supertrend_min_natr 	= params['supertrend_min_natr']
-			stochrsi_offset		= params['stochrsi_offset']
-			with_stochmfi		= params['with_stochmfi']
-			with_dmi_simple		= params['with_dmi_simple']
-
-			if ( cur_s_ma[0] > cur_s_ma[1] and cur_s_ma[1] > cur_s_ma[2] and cur_s_ma[2] > cur_s_ma[3] and cur_s_ma[3] > cur_s_ma[4] ):
-
-				# Price action is bullish
-				ma_intraday_affinity		= 'bull'
-				prev_ma_intraday_affinity	= ma_intraday_affinity
-
-			elif ( cur_s_ma[0] < cur_s_ma[1] and cur_s_ma[1] < cur_s_ma[2] and cur_s_ma[2] < cur_s_ma[3] and cur_s_ma[3] < cur_s_ma[4] ):
-				# Price action is bearish
-				ma_intraday_affinity		= 'bear'
-				prev_ma_intraday_affinity	= ma_intraday_affinity
-
-			# Check daily affinity
-			if ( cur_daily_ema[0] > cur_daily_ema[1] and cur_daily_ema[1] > cur_daily_ema[2] and cur_daily_ema[2] > cur_daily_ema[3] ):
-
-				# Daily MA is bullish
-				ma_daily_affinity = 'bull'
-
-			elif ( cur_daily_ema[0] < cur_daily_ema[1] and cur_daily_ema[1] < cur_daily_ema[2] and cur_daily_ema[2] < cur_daily_ema[3] ):
-				# Daily MA is bearish
-				ma_daily_affinity = 'bear'
-
-			if ( ma_intraday_affinity == 'bull' and ma_daily_affinity == 'bull' ):
-				rsi_high_limit	= 99
-
-			elif ( ma_intraday_affinity == 'bear' and ma_daily_affinity == 'bear' ):
-				rsi_low_limit	= 1
-
-			elif ( ma_intraday_affinity == None or ma_daily_affinity == None ):
-				rsi_high_limit	= 99
-				rsi_low_limit	= 1
-				stochrsi_offset = 10
-
 
 		# Check the moving average of the main ETF tickers
 		if ( check_etf_indicators == True ):
@@ -1601,39 +1521,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				etf_affinity	= 'bear'
 				rsi_low_limit	= 5
 				rsi_high_limit	= 85
-
-		# Monitor the HOD/LOD to use with stoch(rsi/mfi) divergence
-		if ( stoch_divergence == True ):
-
-			# HOD
-			if ( cur_high >= cur_day_stats['cur_hod'] ):
-				cur_day_stats['cur_hod'] = cur_high
-				cur_day_stats['cur_hod_idx'] = idx
-				cur_day_stats['cur_hod_rsi'] = cur_rsi_k
-				cur_day_stats['hod_counter'] = 0
-
-			else:
-				cur_day_stats['hod_counter'] += 1
-				if ( cur_day_stats['hod_counter'] == max_hodlod_counter ):
-					new_entry = {	'hod':		cur_day_stats['cur_hod'],
-							'hod_idx':	cur_day_stats['cur_hod_idx'],
-							'hod_rsi':	cur_day_stats['cur_hod_rsi'] }
-					cur_day_stats['hod'].append( new_entry )
-
-			# LOD
-			if ( cur_low <= cur_day_stats['cur_lod'] ):
-				cur_day_stats['cur_lod'] = cur_low
-				cur_day_stats['cur_lod_idx'] = idx
-				cur_day_stats['cur_lod_rsi'] = cur_rsi_k
-				cur_day_stats['lod_counter'] = 0
-
-			else:
-				cur_day_stats['lod_counter'] += 1
-				if ( cur_day_stats['lod_counter'] == max_hodlod_counter ):
-					new_entry = {	'lod':		cur_day_stats['cur_lod'],
-							'lod_idx':	cur_day_stats['cur_lod_idx'],
-							'lod_rsi':	cur_day_stats['cur_lod_rsi'] }
-					cur_day_stats['lod'].append( new_entry )
 
 
 		# BUY mode
@@ -2051,10 +1938,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 #					# Current high is within price_resistance_pct of 20-week high, not a good bet
 #					resistance_signal = False
 
-			# Stochastic Divergence
-			if ( stoch_divergence == True and near_keylevel == True and buy_signal == True ):
-				analyze_stoch_divergence()
-
 			# Experimental pattern matching - may be removed
 			if ( experimental == True ):
 				if ( cur_natr_daily > 6 ):
@@ -2076,9 +1959,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					final_buy_signal = False
 
 				if ( with_stochmfi_5m == True and stochmfi_5m_final_signal != True ):
-					final_buy_signal = False
-
-				if ( (stoch_divergence == True or stoch_divergence_strict == True) and divergence_signal != True ):
 					final_buy_signal = False
 
 				if ( with_rsi == True and rsi_signal != True ):
@@ -2131,8 +2011,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					final_buy_signal = False
 
 				# Experimental indicators here
-				if ( check_ma_strict == True and ma_intraday_affinity != 'bull' ):
-					final_buy_signal = False
 				if ( check_etf_indicators_strict == True and etf_affinity == 'bear' ):
 					final_buy_signal = False
 				if ( experimental == True and experimental_signal != True ):
@@ -2368,9 +2246,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# If stock is sinking over n-periods (bbands_kchannel_xover_exit_count) after entry then just exit
 			#  the position
-			bbands_kchan_xover_counter += 1
-			if ( use_bbands_kchannel_xover_exit == True and last_close < purchase_price ):
-				if ( bbands_kchan_xover_counter >= bbands_kchannel_xover_exit_count ):
+			if ( use_bbands_kchannel_xover_exit == True ):
+				cur_bbands_lower	= bbands_lower[idx]
+				cur_bbands_upper	= bbands_upper[idx]
+				cur_kchannel_lower	= kchannel_lower[idx]
+				cur_kchannel_upper	= kchannel_upper[idx]
+
+				if ( cur_kchannel_lower > cur_bbands_lower and cur_kchannel_upper < cur_bbands_upper ):
+					bbands_kchan_xover_counter += 1
+				if ( bbands_kchan_xover_counter >= bbands_kchannel_xover_exit_count and last_close < purchase_price ):
 					sell_signal = True
 
 
@@ -2904,8 +2788,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					final_short_signal = False
 
 				# Experimental
-				if ( check_ma_strict == True and ma_intraday_affinity != 'bear' ):
-					final_short_signal = False
 				if ( check_etf_indicators_strict == True and etf_affinity == 'bull' ):
 					final_short_signal = False
 				if ( experimental == True and experimental_signal != True ):
@@ -3149,9 +3031,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# If stock is rising over n-periods (bbands_kchannel_xover_exit_count) after entry then just exit
 			#  the position
-			bbands_kchan_xover_counter += 1
-			if ( use_bbands_kchannel_xover_exit == True and last_close > short_price ):
-				if ( bbands_kchan_xover_counter >= bbands_kchannel_xover_exit_count ):
+			if ( use_bbands_kchannel_xover_exit == True ):
+				cur_bbands_lower	= bbands_lower[idx]
+				cur_bbands_upper	= bbands_upper[idx]
+				cur_kchannel_lower	= kchannel_lower[idx]
+				cur_kchannel_upper	= kchannel_upper[idx]
+
+				if ( cur_kchannel_lower > cur_bbands_lower and cur_kchannel_upper < cur_bbands_upper ):
+					bbands_kchan_xover_counter += 1
+				if ( bbands_kchan_xover_counter >= bbands_kchannel_xover_exit_count and last_close > short_price ):
 					buy_to_cover_signal = True
 
 
@@ -3221,126 +3109,4 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	print('stopouts: ' + str(stopout_exits) + ', end_of_day: ' + str(end_of_day_exits) + ', exit_percent: ' + str(exit_percent_exits) + "\n")
 
 	return results
-
-
-
-def analyze_stoch_divergence():
-
-	return True
-
-	import av_gobot_helper
-
-	day_1min = av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month9')
-	day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month8')['candles']
-	day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month7')['candles']
-	day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month6')['candles']
-	day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month5')['candles']
-	day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month4')['candles']
-	day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month3')['candles']
-	day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month2')['candles']
-	day_1min['candles'] += av_gobot_helper.av_get_intraday_pricehistory(ticker=ticker, interval='1min', slice='year1month1')['candles']
-
-	kl_stochrsi, kl_rsi_k, kl_rsi_d = tda_algo_helper.get_stochrsi(day_1min, rsi_period=rsi_period, stochrsi_period=stochrsi_period, type=rsi_type, slow_period=rsi_slow, rsi_k_period=rsi_k_period, rsi_d_period=rsi_d_period, debug=False)
-
-
-	for lvl,dt in long_support:  # + long_resistance
-		if ( abs((lvl / cur_close - 1) * 100) <= price_support_pct ):
-			break
-
-	prev_kl		= lvl		# Previous keylevel price
-	prev_kl_dt	= int(dt)	# Timestamp (weekly, start of the week) for when KL was hit
-	prev_kl_rsi_k	= None
-
-	for kl_idx,kl_key in enumerate(day_1min['candles']):
-		if ( kl_key['datetime'] < prev_kl_dt ):
-			continue
-
-		dt = datetime.fromtimestamp(prev_kl_dt/1000, tz=mytimezone)
-		if ( date < dt + timedelta(days=6) or (date >= dt and date <= dt + timedelta(days=6)) ):
-			continue
-
-		if ( float(kl_key['low']) == lvl ):
-
-			prev_kl_dt	= int(kl_key['datetime'])
-			prev_kl_rsi_k	= kl_rsi_k[ kl_idx - (len(day_1min['candles']) - len(kl_rsi_k)) ]
-
-			print(datetime.fromtimestamp(int(dt)/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S'))
-			print(datetime.fromtimestamp(int(prev_kl_dt)/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S'))
-
-			print(prev_kl)
-			print(prev_kl_rsi_k)
-
-			print(date.strftime('%Y-%m-%d %H:%M:%S'))
-			break
-
-#				today		= date.strftime('%Y-%m-%d')
-#				cur_lod		= cur_day_stats['cur_lod']
-#				prev_lod	= None
-#				prev_lod_rsi	= None
-#
-#				if ( cur_close > cur_lod and (cur_lod / cur_close - 1) * 100 > price_resistance_pct / 3 ):
-#					# Current close price has wandered too far above LOD, so comparing
-#					#  divergence is not helpful
-#					divergence_signal = True
-#					if ( stoch_divergence_strict == True ):
-#						divergence_signal = False
-#
-#				elif ( len(cur_day_stats['lod']) == 0 ):
-#					# We have not registered a first LOD. Use cur_day_stats['cur_lod'] and
-#					#  the previous day's LOD to determine if there is divergence
-#					if ( today in day_stats and day_stats[today]['pdl'] != None and day_stats[today]['pdl_idx'] != None):
-#						prev_lod	= day_stats[today]['pdl']
-#						prev_lod_rsi	= rsi_k[day_stats[today]['pdl_idx'] - stochrsi_idx]
-#
-#					else:
-#						# Not enough data to compare divergence
-#						divergence_signal = True
-#						if ( stoch_divergence_strict == True ):
-#							divergence_signal = False
-#
-#				elif ( len(cur_day_stats['lod']) > 0 ):
-#					if ( cur_lod <= cur_day_stats['lod'][-1]['lod'] ):
-#						# Use info from cur_day_stats['lod'][-2] if available
-#						if ( len(cur_day_stats['lod']) > 1 ):
-#							prev_lod	= cur_day_stats['lod'][-1]['lod']
-#							prev_lod_rsi	= cur_day_stats['lod'][-2]['lod_rsi']
-#
-#						elif ( cur_lod == cur_day_stats['lod'][-1]['lod'] ):
-#							# In this case we should use the previous day's LOD
-#							if ( today in day_stats and day_stats[today]['pdl'] != None and day_stats[today]['pdl_idx'] != None):
-#								prev_lod	= day_stats[today]['pdl']
-#								prev_lod_rsi	= rsi_k[day_stats[today]['pdl_idx'] - stochrsi_idx]
-#
-#							else:
-#								# Not enough data to compare divergence
-#								divergence_signal = True
-#								if ( stoch_divergence_strict == True ):
-#									divergence_signal = False
-#
-#				if ( prev_lod != None and prev_lod_rsi != None ):
-#					if ( cur_lod <= prev_lod and cur_rsi_k < prev_lod_rsi ):
-#						# Current low is below previous day's low, and current rsi_k is
-#						# lower than the previous rsi_k which would suggest strength
-#						print('Cur_LOD: ' + str(cur_lod) + ' / Prev_LOD: ' + str(prev_lod))
-#						print('Cur_RSI_K: ' + str(cur_rsi_k) + ' / Prev_LOD_RSI_K: ' + str(prev_lod_rsi))
-#						print('Signal: ' + str(divergence_signal))
-#						print()
-#						divergence_signal = True
-#
-#					elif ( cur_lod <= prev_lod and cur_rsi_k > prev_lod_rsi ):
-#						# Current low is below previous day's low, and current rsi_k is
-#						# higher than the previous rsi_k which would suggest weakness
-#						print('Cur_LOD: ' + str(cur_lod) + ' / Prev_LOD: ' + str(prev_lod))
-#						print('Cur_RSI_K: ' + str(cur_rsi_k) + ' / Prev_LOD_RSI_K: ' + str(prev_lod_rsi))
-#						print('Signal: ' + str(divergence_signal))
-#						print()
-#						divergence_signal = False
-#
-#				else:
-#					# Not enough data to compare divergence
-#					divergence_signal = True
-#					if ( stoch_divergence_strict == True ):
-#						divergence_signal = False
-
-
 

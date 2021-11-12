@@ -189,9 +189,11 @@ def reset_signals(ticker=None, id=None, signal_mode=None):
 		stocks[ticker]['algo_signals'][algo_id]['resistance_signal']		= False
 
 		stocks[ticker]['algo_signals'][algo_id]['stacked_ma_signal']		= False
-		stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter']	= 0
 		stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal']	= False
+		stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal']= False
 		stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal']		= False
+		stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter']	= 0
+		stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter']	= 0
 
 		stocks[ticker]['algo_signals'][algo_id]['plus_di_crossover']		= False
 		stocks[ticker]['algo_signals'][algo_id]['minus_di_crossover']		= False
@@ -419,7 +421,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 
 	# Bollinger Bands and Keltner Channel crossover
-	def bbands_kchannels(simple=False, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0), bbands_kchan_signal_counter=0, bbands_kchan_init_signal=False, bbands_kchan_signal=False, debug=False ):
+	def bbands_kchannels(simple=False, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0),
+				bbands_kchan_signal_counter=0, bbands_kchan_xover_counter=0, bbands_kchan_init_signal=False, bbands_kchan_crossover_signal=False, bbands_kchan_signal=False, debug=False ):
 
 		nonlocal cur_algo
 
@@ -454,7 +457,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			elif ( cur_kchannel_lower > cur_bbands_lower and cur_kchannel_upper < cur_bbands_upper ):
 				bbands_kchan_signal = False
 
-			return bbands_kchan_init_signal, bbands_kchan_signal, bbands_kchan_signal_counter
+			return ( bbands_kchan_init_signal, bbands_kchan_crossover_signal, bbands_kchan_signal,
+					bbands_kchan_signal_counter, bbands_kchan_xover_counter )
 
 		# Check if the Bollinger Bands have moved inside the Keltner Channel
 		# Signal when they begin to converge
@@ -478,16 +482,24 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				bbands_kchan_signal = True
 
 			elif ( cur_kchannel_lower >= cur_bbands_lower and cur_kchannel_upper <= cur_bbands_upper ):
-				bbands_kchan_signal = True
+				bbands_kchan_crossover_signal = True
+				bbands_kchan_signal		= True
+
+			if ( bbands_kchan_crossover_signal == True ):
+				bbands_kchan_xover_counter += 1
 
 			# Cancel the bbands_kchan_signal if the bollinger bands popped back inside the keltner channel,
 			#  or if the bbands_kchan_signal_counter has lingered for too long
-			if ( prev_bbands_lower < prev_kchannel_lower and cur_bbands_lower >= cur_kchannel_lower ):
-					bbands_kchan_signal_counter	= 0
+			if ( (prev_bbands_lower < prev_kchannel_lower and cur_bbands_lower >= cur_kchannel_lower) or
+				bbands_kchan_xover_counter >= 3 ):
 					bbands_kchan_init_signal	= False
+					bbands_kchan_crossover_signal	= False
 					bbands_kchan_signal		= False
+					bbands_kchan_signal_counter	= 0
+					bbands_kchan_xover_counter	= 0
 
-		return bbands_kchan_init_signal, bbands_kchan_signal, bbands_kchan_signal_counter
+		return ( bbands_kchan_init_signal, bbands_kchan_crossover_signal, bbands_kchan_signal,
+				bbands_kchan_signal_counter, bbands_kchan_xover_counter )
 
 
 	# Intraday stacked moving averages
@@ -1044,7 +1056,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 								str(round(stocks[ticker]['cur_kchannel'][1], 3)) + ',' +
 								str(round(stocks[ticker]['cur_kchannel'][2], 3)) +
 							' / Squeeze Count: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter']) +
-							' / BBands_Kchannel Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal']) )
+							' / BBands_Kchannel Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal']) +
+							' / BBands_Kchannel Crossover Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal']) )
 
 			# VWAP
 			if ( cur_algo['vwap'] == True or cur_algo['support_resistance'] == True ):
@@ -1414,11 +1427,15 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# Bollinger Bands and Keltner Channel
 			if ( cur_algo['bbands_kchannel'] == True or cur_algo['bbands_kchannel_simple'] == True ):
 				( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
-				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'] ) = bbands_kchannels( simple=cur_algo['bbands_kchannel_simple'], cur_bbands=cur_bbands, prev_bbands=prev_bbands,
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] ) = bbands_kchannels( simple=cur_algo['bbands_kchannel_simple'], cur_bbands=cur_bbands, prev_bbands=prev_bbands,
 																cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
 																bbands_kchan_signal_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
+																bbands_kchan_xover_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'],
 																bbands_kchan_init_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
+																bbands_kchan_crossover_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
 																bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'] )
 
 			# VWAP signal
@@ -2163,11 +2180,15 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# Bollinger Bands and Keltner Channel
 			if ( cur_algo['bbands_kchannel'] == True or cur_algo['bbands_kchannel_simple'] == True ):
 				( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
-				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'] ) = bbands_kchannels( simple=cur_algo['bbands_kchannel_simple'], cur_bbands=cur_bbands, prev_bbands=prev_bbands,
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] ) = bbands_kchannels( simple=cur_algo['bbands_kchannel_simple'], cur_bbands=cur_bbands, prev_bbands=prev_bbands,
 																cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
 																bbands_kchan_signal_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
+																bbands_kchan_xover_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'],
 																bbands_kchan_init_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
+																bbands_kchan_crossover_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
 																bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'] )
 
 			# VWAP signal

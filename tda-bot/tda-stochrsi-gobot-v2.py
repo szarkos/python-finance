@@ -764,8 +764,10 @@ for ticker in stock_list.split(','):
 
 						'stacked_ma_signal':			False,
 						'bbands_kchan_init_signal':		False,
+						'bbands_kchan_crossover_signal':	False,
 						'bbands_kchan_signal':			False,
 						'bbands_kchan_signal_counter':		0,
+						'bbands_kchan_xover_counter':		0,
 
 						'plus_di_crossover':			False,
 						'minus_di_crossover':			False,

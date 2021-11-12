@@ -1306,9 +1306,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			if ( cur_bbands_lower < prev_bbands_lower and cur_bbands_upper > prev_bbands_upper ):
 				bbands_kchan_signal = True
 
-			if ( cur_kchannel_lower > cur_bbands_lower and cur_kchannel_upper < cur_bbands_upper ):
-				bbands_kchan_crossover_signal = True
-				bbands_kchan_signal = True
+			elif ( cur_kchannel_lower > cur_bbands_lower and cur_kchannel_upper < cur_bbands_upper ):
+				bbands_kchan_crossover_signal	= True
+				bbands_kchan_signal		= True
 
 			if ( bbands_kchan_crossover_signal == True ):
 				bbands_kchan_xover_counter += 1

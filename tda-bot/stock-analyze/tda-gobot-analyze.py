@@ -64,6 +64,7 @@ parser.add_argument("--stacked_ma_periods_primary", help='List of MA periods to 
 parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
 parser.add_argument("--with_rsi_simple", help='Use just the current RSI value as a secondary indicator', action="store_true")
 parser.add_argument("--with_mfi", help='Use MFI (Money Flow Index) as a secondary indicator', action="store_true")
+parser.add_argument("--with_mfi_simple", help='Use simple version of MFI (Money Flow Index) as a secondary indicator', action="store_true")
 parser.add_argument("--with_adx", help='Use ADX as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
 parser.add_argument("--with_dmi", help='Use DMI as secondary indicator to advise trade entries/exits (Default: False)', action="store_true")
 parser.add_argument("--with_dmi_simple", help='Use DMI as secondary indicator to advise trade entries/exits, but do not wait for crossover (Default: False)', action="store_true")
@@ -586,6 +587,7 @@ for algo in args.algo.split(','):
 					'with_aroonosc_simple':			args.with_aroonosc_simple,
 
 					'with_mfi':				args.with_mfi,
+					'with_mfi_simple':			args.with_mfi_simple,
 
 					'with_vpt':				args.with_vpt,
 					'with_vwap':				args.with_vwap,

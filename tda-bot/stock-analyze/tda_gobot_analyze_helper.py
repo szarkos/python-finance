@@ -164,6 +164,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	with_aroonosc_simple		= False		if ('with_aroonosc_simple' not in params) else params['with_aroonosc_simple']
 
 	with_mfi			= False		if ('with_mfi' not in params) else params['with_mfi']
+	with_mfi_simple			= False		if ('with_mfi_simple' not in params) else params['with_mfi_simple']
 
 	with_vpt			= False		if ('with_vpt' not in params) else params['with_vpt']
 	with_vwap			= False		if ('with_vwap' not in params) else params['with_vwap']
@@ -1715,12 +1716,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						with_macd_simple = True
 
 			# MFI signal
-			if ( cur_mfi >= mfi_signal_cancel_high_limit ):
-				mfi_signal = False
-			elif ( prev_mfi > mfi_low_limit and cur_mfi < mfi_low_limit ):
-				mfi_signal = False
-			elif ( prev_mfi < mfi_low_limit and cur_mfi >= mfi_low_limit ):
-				mfi_signal = True
+			if ( with_mfi == True ):
+				if ( cur_mfi >= mfi_signal_cancel_high_limit ):
+					mfi_signal = False
+				elif ( prev_mfi > mfi_low_limit and cur_mfi < mfi_low_limit ):
+					mfi_signal = False
+				elif ( prev_mfi < mfi_low_limit and cur_mfi >= mfi_low_limit ):
+					mfi_signal = True
+
+			elif ( with_mfi_simple == True ):
+				if ( cur_mfi < mfi_low_limit ):
+					mfi_signal = True
+				elif ( cur_mfi >= mfi_low_limit ):
+					mfi_signal = False
 
 			# MACD crossover signals
 			if ( prev_macd < prev_macd_avg and cur_macd > cur_macd_avg ):
@@ -2494,12 +2502,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						with_macd_simple = True
 
 			# MFI signal
-			if ( cur_mfi <= mfi_signal_cancel_low_limit ):
-				mfi_signal = False
-			elif ( prev_mfi < mfi_high_limit and cur_mfi > mfi_high_limit ):
-				mfi_signal = False
-			elif ( prev_mfi > mfi_high_limit and cur_mfi <= mfi_high_limit ):
-				mfi_signal = True
+			if ( with_mfi == True ):
+				if ( cur_mfi <= mfi_signal_cancel_low_limit ):
+					mfi_signal = False
+				elif ( prev_mfi < mfi_high_limit and cur_mfi > mfi_high_limit ):
+					mfi_signal = False
+				elif ( prev_mfi > mfi_high_limit and cur_mfi <= mfi_high_limit ):
+					mfi_signal = True
+
+			elif ( with_mfi_simple == True ):
+				if ( cur_mfi > mfi_high_limit ):
+					mfi_signal = True
+				elif ( cur_mfi <= mfi_high_limit ):
+					mfi_signal = False
 
 			# MACD crossover signals
 			if ( prev_macd < prev_macd_avg and cur_macd > cur_macd_avg ):

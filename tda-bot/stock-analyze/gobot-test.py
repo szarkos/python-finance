@@ -22,49 +22,126 @@ args = parser.parse_args()
 mytimezone = pytz.timezone("US/Eastern")
 
 # Standard options for all scenarios
-std_opts = ' --algo=stochrsi-new --stoploss --skip_check --incr_threshold=0.5 --exit_percent=1 --verbose --stock_usd=50000 ' + \
-		' --variable_exit --lod_hod_check --check_volume ' ## --use_natr_resistance
+std_opts = ' --algo=stochrsi-new --stoploss --skip_check --incr_threshold=0.5 --exit_percent=1 --verbose --stock_usd=25000 ' + \
+		' --variable_exit --lod_hod_check --check_volume --decr_threshold=1.6 --exit_percent=0.5 --daily_atr_period=3 ' #--use_natr_resistance
 
 # Test Scenarios
 scenarios = {
-
-#		'stochma_bbands_kchannel_off0.7':	'--primary_stoch_indicator="stacked_ma" --stacked_ma_periods=3,5,8,13 --min_volume=1000000 --avg_volume=1000000 --with_bbands_kchannel --bbands_kchannel_offset=0.07 --min_intra_natr=0.45 --decr_threshold=1.6 --use_ha_exit --min_daily_natr=6 ',
-
-		'stocharoon_bbands_kchannel_off0.7':	'--primary_stoch_indicator="aroonosc" --aroonosc_period=20 --with_bbands_kchannel --aroonosc_period=20 --bbands_kchannel_offset=0.07 --min_intra_natr=0.45 --min_daily_natr=5 --decr_threshold=1.6 ',
-
-
-
-
 		# Daily test, called from automation. Comment to disable the automation.
-#		'stochrsi_standard_daily_test':					'--rsi_high_limit=85 --rsi_low_limit=15 --stochrsi_offset=6 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
-#										 --daily_atr_period=3 --min_intra_natr=0.15 --min_daily_natr=1.5 --with_supertrend --supertrend_min_natr=2 --decr_threshold=1 ',
-#
-#		'stochrsi_aroonosc_simple_dmi_simple_with_macd_adx_standard':	'--rsi_high_limit=85 --rsi_low_limit=15 --stochrsi_offset=3 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
-#										 --daily_atr_period=7 --min_intra_natr=0.15 --min_daily_natr=1.5 --decr_threshold=1 ',
-#
-#		#### testing --dmi_with_adx ####
-#		'stochrsi5m_stochmfi5m_simple_dmi_supertrend_chopsimple':	' --primary_stoch_indicator="stochrsi" --rsi_high_limit=75 --rsi_low_limit=25 --with_stoch_5m --with_stochmfi_5m \
-#										  --stochrsi_5m_period=6 --stochmfi_5m_period=14 --rsi_k_period=3 --stochrsi_offset=6 --with_dmi_simple --dmi_with_adx \
-#										  --daily_atr_period=3 --di_period=3 --with_supertrend --supertrend_min_natr=2 --with_chop_index --decr_threshold=1 ',
-#
+                'stochrsi_standard_daily_test':                                 '--rsi_high_limit=75 --rsi_low_limit=25 --stochrsi_offset=6 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
+                                                                                 --use_natr_resistance --min_intra_natr=0.15 --min_daily_natr=3 --with_supertrend --supertrend_min_natr=2 ',
+
+                'stochrsi_aroonosc_simple_dmi_simple_with_macd_adx_standard':   '--rsi_high_limit=75 --rsi_low_limit=25 --stochrsi_offset=3 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
+                                                                                 --use_natr_resistance --min_intra_natr=0.15 --min_daily_natr=6 ',
+
+		# Squeeze tests
+		#       kama    = Kaufman Adaptive Moving Average (default)
+		#       dema    = Double Exponential Moving Average
+		#       hma     = Hull Moving Average
+		#       tema    = Triple Exponential Moving Average
+		#       trima   = Triangular Moving Average
+		#       vwma    = Volume Weighted Moving Average
+		#       wma     = Weighted Moving Average
+		#       zlema   = Zero-Lag Exponential Moving Average
+		'stochstackedma_bbands_kchannel_standard_sma':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=4 --stacked_ma_type_primary=sma \
+								 --min_intra_natr=0.65 --min_daily_natr=6 ',
+		'stochstackedma_bbands_kchannel_standard_ema':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=1 --stacked_ma_type_primary=ema \
+								 --min_intra_natr=0.65 --min_daily_natr=6 ',
+		'stochstackedma_bbands_kchannel_standard_kama':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=1 --stacked_ma_type_primary=kama \
+								 --min_intra_natr=0.65 --min_daily_natr=6 ',
+		'stochstackedma_bbands_kchannel_standard_dema':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=1 --stacked_ma_type_primary=dema \
+								 --min_intra_natr=0.65 --min_daily_natr=6 ',
+		'stochstackedma_bbands_kchannel_standard_hma':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=1 --stacked_ma_type_primary=hma \
+								 --min_intra_natr=0.65 --min_daily_natr=6 ',
+		'stochstackedma_bbands_kchannel_standard_tema':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=1 --stacked_ma_type_primary=tema \
+								 --min_intra_natr=0.65 --min_daily_natr=6 ',
+		'stochstackedma_bbands_kchannel_standard_trima':'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=1 --stacked_ma_type_primary=trima \
+								 --min_intra_natr=0.65 --min_daily_natr=6 ',
+		'stochstackedma_bbands_kchannel_standard_wma':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=1 --stacked_ma_type_primary=wma \
+								 --min_intra_natr=0.65 --min_daily_natr=6 ',
+		'stochstackedma_bbands_kchannel_standard_vwma':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=4 --stacked_ma_type_primary=vwma \
+								 --min_intra_natr=0.65 --min_daily_natr=6 ',
+		'stochstackedma_bbands_kchannel_standard_zlema':'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=1 --stacked_ma_type_primary=zlema \
+								 --min_intra_natr=0.65 --min_daily_natr=6 ',
 
 
+
+
+#		# Daily test, called from automation. Comment to disable the automation.
+#		'stochrsi_standard_daily_test':		'--rsi_high_limit=85 --rsi_low_limit=15 --stochrsi_offset=6 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
+#							 --daily_atr_period=3 --min_intra_natr=0.15 --min_daily_natr=3 --with_supertrend --supertrend_min_natr=2 --decr_threshold=2 ',
+#
 #		# This is the algo that had 70% win rate with 94 trades over 3-months
 #		'stochrsi_aroonosc_simple_dmi_simple_with_macd_adx_standard_natr6_2':	'--rsi_high_limit=85 --rsi_low_limit=15 --stochrsi_offset=3 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
-#										 --daily_atr_period=7 --min_intra_natr=0.15 --min_daily_natr=6 --decr_threshold=2 ',
+#											 --daily_atr_period=3 --min_intra_natr=0.15 --min_daily_natr=6 --decr_threshold=2 ',
 #
-#		# The double 5-min. stochastic algo - decr_threshold of 1 and 2% to compare
-#		'stochrsi5m_stochmfi5m_simple_dmi_supertrend_chopsimple_natr4.5_1': ' --primary_stoch_indicator="stochrsi" --rsi_high_limit=75 --rsi_low_limit=25 --with_stoch_5m --with_stochmfi_5m \
-#										  --stochrsi_5m_period=6 --stochmfi_5m_period=14 --rsi_k_period=3 --stochrsi_offset=6 --with_dmi_simple --dmi_with_adx \
-#										  --daily_atr_period=3 --di_period=3 --with_supertrend --supertrend_min_natr=2 --with_chop_index --decr_threshold=1 --min_daily_natr=4.5 ',
-#		'stochrsi5m_stochmfi5m_simple_dmi_supertrend_chopsimple_natr4.5_2': ' --primary_stoch_indicator="stochrsi" --rsi_high_limit=75 --rsi_low_limit=25 --with_stoch_5m --with_stochmfi_5m \
-#										  --stochrsi_5m_period=6 --stochmfi_5m_period=14 --rsi_k_period=3 --stochrsi_offset=6 --with_dmi_simple --dmi_with_adx \
-#										  --daily_atr_period=3 --di_period=3 --with_supertrend --supertrend_min_natr=2 --with_chop_index --decr_threshold=2 --min_daily_natr=4.5 ',
+#		'stochrsi_standard_daily_test_rsi8020_decr1.6':		'--rsi_high_limit=80 --rsi_low_limit=20 --stochrsi_offset=6 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
+#                                                       		--daily_atr_period=3 --min_intra_natr=0.15 --min_daily_natr=3 --with_supertrend --supertrend_min_natr=2 --decr_threshold=1.6 ',
+#
+#		'stochrsi_aroonosc_simple_dmi_simple_with_macd_adx_standard_natr6_rsi8020_decr1.6':     '--rsi_high_limit=80 --rsi_low_limit=20 --stochrsi_offset=3 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
+#                                                                                     --daily_atr_period=3 --min_intra_natr=0.15 --min_daily_natr=6 --decr_threshold=1.6 ',
+#
+#
+#		'stochrsi_standard_daily_test_rsi7525_decr1.6':		'--rsi_high_limit=75 --rsi_low_limit=25 --stochrsi_offset=6 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
+#                                                        		--daily_atr_period=3 --min_intra_natr=0.15 --min_daily_natr=3 --with_supertrend --supertrend_min_natr=2 --decr_threshold=1.6 ',
+#
+#		'stochrsi_aroonosc_simple_dmi_simple_with_macd_adx_standard_natr6_rsi7525_decr1.6':     '--rsi_high_limit=75 --rsi_low_limit=25 --stochrsi_offset=3 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
+#                                                                                     --daily_atr_period=3 --min_intra_natr=0.15 --min_daily_natr=6 --decr_threshold=1.6 ',
+
+
+#		# Mid-60s percentile:
+#		'stochrsi_aroonosc_simple_dmi_simple_with_macd_adx_off6_minnatr2': '--rsi_high_limit=85 --rsi_low_limit=15 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
+#                                                                                  --daily_atr_period=3 --stochrsi_offset=6 --use_natr_resistance --min_intra_natr=0.15 --min_daily_natr=2 --decr_threshold=2 ',
 
 
 
-#		'stochrsi_aroonosc_simple_dmi_simple_with_macd_adx_supertrend':	'--rsi_high_limit=85 --rsi_low_limit=15 --stochrsi_offset=2 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
-#										 --daily_atr_period=7 --min_intra_natr=0.15 --min_daily_natr=1.5 --with_supertrend --supertrend_min_natr=2 ',
+##################################################################################################
+		#### testing --dmi_with_adx ####
+#		'stochrsi5m_stochmfi5m_simple_dmi_supertrend_chopsimple':	' --primary_stoch_indicator="stochrsi" --rsi_high_limit=75 --rsi_low_limit=25 --with_stoch_5m --with_stochmfi_5m \
+#										  --stochrsi_5m_period=6 --stochmfi_5m_period=14 --rsi_k_period=3 --stochrsi_offset=1 --with_dmi_simple --dmi_with_adx \
+#										  --daily_atr_period=3 --di_period=3 --with_supertrend --supertrend_min_natr=2 --with_chop_index ',
+#
+#		'stochrsi5m_stochmfi5m_simple_dmi_chopsimple':			' --primary_stoch_indicator="stochrsi" --rsi_high_limit=75 --rsi_low_limit=25 --with_stoch_5m --with_stochmfi_5m \
+#										  --stochrsi_5m_period=6 --stochmfi_5m_period=14 --rsi_k_period=3 --stochrsi_offset=1 --with_dmi_simple --dmi_with_adx \
+#										  --daily_atr_period=3 --di_period=3 --with_chop_index ',
+
+
+		# "Portfolio" algorithms
+#		'stochrsi_stochmfi_chop_simple':				'--primary_stoch_indicator="stochrsi" --rsi_high_limit=80 --rsi_low_limit=20 --stochrsi_period=128 --stochrsi_offset=1.5 --with_stochmfi --stochmfi_period=128 \
+#										 --daily_atr_period=7 --use_natr_resistance --min_intra_natr=0.15 --with_adx --adx_threshold=7 --with_chop_simple --max_intra_natr=0.4 --max_daily_natr=3.5 ',
+#
+#		'stochrsi_stochmfi_chop_index':					'--primary_stoch_indicator="stochrsi" --rsi_high_limit=80 --rsi_low_limit=20 --stochrsi_period=128 --stochrsi_offset=1.5 --with_stochmfi --stochmfi_period=128 \
+#										 --daily_atr_period=7 --use_natr_resistance --min_intra_natr=0.15 --with_adx --adx_threshold=7 --with_chop_index --max_intra_natr=0.4 --max_daily_natr=3.5 ',
+#
+#		'stochrsi_stochmfi_chop_simple_mfi':				'--primary_stoch_indicator="stochrsi" --rsi_high_limit=80 --rsi_low_limit=20 --stochrsi_period=128 --stochrsi_offset=1.5 --with_stochmfi --stochmfi_period=128 \
+#										 --daily_atr_period=7 --use_natr_resistance --min_intra_natr=0.15 --with_adx --adx_threshold=7 --with_chop_simple --max_intra_natr=0.4 --max_daily_natr=3.5 --with_mfi ',
+#
+#		'stochrsi_stochmfi_chop_index_mfi':				'--primary_stoch_indicator="stochrsi" --rsi_high_limit=80 --rsi_low_limit=20 --stochrsi_period=128 --stochrsi_offset=1.5 --with_stochmfi --stochmfi_period=128 \
+#										 --daily_atr_period=7 --use_natr_resistance --min_intra_natr=0.15 --with_adx --adx_threshold=7 --with_chop_index --max_intra_natr=0.4 --max_daily_natr=3.5 --with_mfi ',
+#
+#		'stochrsi_stochmfi_macd':					'--primary_stoch_indicator="stochrsi" --rsi_high_limit=80 --rsi_low_limit=20 --stochrsi_period=128 --stochrsi_offset=1.5 --with_stochmfi --stochmfi_period=128 \
+#										 --daily_atr_period=7 --use_natr_resistance --min_intra_natr=0.15 --with_adx --adx_threshold=7 --max_intra_natr=0.4 --max_daily_natr=3.5 \
+#										 --with_macd --macd_short_period=42 --macd_long_period=52 --macd_signal_period=5 --macd_offset=0.00475 ',
+#
+#		'stochrsi_stochmfi_macd_chop_simple':				'--primary_stoch_indicator="stochrsi" --rsi_high_limit=80 --rsi_low_limit=20 --stochrsi_period=128 --stochrsi_offset=1.5 --with_stochmfi --stochmfi_period=128 \
+#										 --daily_atr_period=7 --use_natr_resistance --min_intra_natr=0.15 --with_adx --adx_threshold=7 --with_chop_simple --max_intra_natr=0.4 --max_daily_natr=3.5 \
+#										 --with_macd --macd_short_period=42 --macd_long_period=52 --macd_signal_period=5 --macd_offset=0.00475 --with_chop_simple ',
+#
+#		'stochrsi_stochmfi_macd_mfi':					'--primary_stoch_indicator="stochrsi" --rsi_high_limit=80 --rsi_low_limit=20 --stochrsi_period=128 --stochrsi_offset=1.5 --with_stochmfi --stochmfi_period=128 \
+#										 --daily_atr_period=7 --use_natr_resistance --min_intra_natr=0.15 --with_adx --adx_threshold=7 --max_intra_natr=0.4 --max_daily_natr=3.5 \
+#										 --with_macd --macd_short_period=42 --macd_long_period=52 --macd_signal_period=5 --macd_offset=0.00475 --with_mfi ',
+
+
 
 		# Loud, not used but good baseline
 		#'stochrsi_aroonosc_simple_dmi_simple_with_macd_adx':		'--rsi_high_limit=85 --rsi_low_limit=15 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 ',
@@ -84,31 +161,6 @@ scenarios = {
 		# Decent results (60 percentile)
 #		'stochrsi_mfi_rsi_adx':						'--rsi_high_limit=85 --rsi_low_limit=15 --stochrsi_offset=3 --with_mfi --mfi_high_limit=95 --mfi_low_limit=5 --with_rsi --with_adx --adx_threshold=20 \
 #										 --daily_atr_period=7 --min_intra_natr=0.15 --min_daily_natr=1.5 ',
-
-		# "Portfolio" algorithms
-#		'stochrsi_stochmfi_chop_simple':				'--primary_stoch_indicator="stochrsi" --rsi_high_limit=80 --rsi_low_limit=20 --stochrsi_period=128 --stochrsi_offset=1.5 --with_stochmfi --stochmfi_period=128 \
-#										 --daily_atr_period=7 --use_natr_resistance --min_intra_natr=0.15 --with_adx --adx_threshold=7 --with_chop_simple --max_intra_natr=0.4 --max_daily_natr=3.5 ',
-
-#		'stochrsi_stochmfi_chop_index':					'--primary_stoch_indicator="stochrsi" --rsi_high_limit=80 --rsi_low_limit=20 --stochrsi_period=128 --stochrsi_offset=1.5 --with_stochmfi --stochmfi_period=128 \
-#										 --daily_atr_period=7 --use_natr_resistance --min_intra_natr=0.15 --with_adx --adx_threshold=7 --with_chop_index --max_intra_natr=0.4 --max_daily_natr=3.5 ',
-
-#		'stochrsi_stochmfi_chop_simple_mfi':				'--primary_stoch_indicator="stochrsi" --rsi_high_limit=80 --rsi_low_limit=20 --stochrsi_period=128 --stochrsi_offset=1.5 --with_stochmfi --stochmfi_period=128 \
-#										 --daily_atr_period=7 --use_natr_resistance --min_intra_natr=0.15 --with_adx --adx_threshold=7 --with_chop_simple --max_intra_natr=0.4 --max_daily_natr=3.5 --with_mfi ',
-
-#		'stochrsi_stochmfi_chop_index_mfi':				'--primary_stoch_indicator="stochrsi" --rsi_high_limit=80 --rsi_low_limit=20 --stochrsi_period=128 --stochrsi_offset=1.5 --with_stochmfi --stochmfi_period=128 \
-#										 --daily_atr_period=7 --use_natr_resistance --min_intra_natr=0.15 --with_adx --adx_threshold=7 --with_chop_index --max_intra_natr=0.4 --max_daily_natr=3.5 --with_mfi ',
-
-#		'stochrsi_stochmfi_macd':					'--primary_stoch_indicator="stochrsi" --rsi_high_limit=80 --rsi_low_limit=20 --stochrsi_period=128 --stochrsi_offset=1.5 --with_stochmfi --stochmfi_period=128 \
-#										 --daily_atr_period=7 --use_natr_resistance --min_intra_natr=0.15 --with_adx --adx_threshold=7 --max_intra_natr=0.4 --max_daily_natr=3.5 \
-#										 --with_macd --macd_short_period=42 --macd_long_period=52 --macd_signal_period=5 --macd_offset=0.00475 ',
-
-#		'stochrsi_stochmfi_macd_chop_simple':				'--primary_stoch_indicator="stochrsi" --rsi_high_limit=80 --rsi_low_limit=20 --stochrsi_period=128 --stochrsi_offset=1.5 --with_stochmfi --stochmfi_period=128 \
-#										 --daily_atr_period=7 --use_natr_resistance --min_intra_natr=0.15 --with_adx --adx_threshold=7 --with_chop_simple --max_intra_natr=0.4 --max_daily_natr=3.5 \
-#										 --with_macd --macd_short_period=42 --macd_long_period=52 --macd_signal_period=5 --macd_offset=0.00475 --with_chop_simple ',
-
-#		'stochrsi_stochmfi_macd_mfi':					'--primary_stoch_indicator="stochrsi" --rsi_high_limit=80 --rsi_low_limit=20 --stochrsi_period=128 --stochrsi_offset=1.5 --with_stochmfi --stochmfi_period=128 \
-#										 --daily_atr_period=7 --use_natr_resistance --min_intra_natr=0.15 --with_adx --adx_threshold=7 --max_intra_natr=0.4 --max_daily_natr=3.5 \
-#										 --with_macd --macd_short_period=42 --macd_long_period=52 --macd_signal_period=5 --macd_offset=0.00475 --with_mfi ',
 
 }
 

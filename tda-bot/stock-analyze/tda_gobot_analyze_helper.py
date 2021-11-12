@@ -223,7 +223,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	mfi_high_limit			= 80		if ('mfi_high_limit' not in params) else params['mfi_high_limit']
 
 	atr_period			= 14		if ('atr_period' not in params) else params['atr_period']
-	daily_atr_period		= 14		if ('daily_atr_period' not in params) else params['daily_atr_period']
+	daily_atr_period		= 3		if ('daily_atr_period' not in params) else params['daily_atr_period']
 	vpt_sma_period			= 72		if ('vpt_sma_period' not in params) else params['vpt_sma_period']
 
 	chop_period			= 14		if ('chop_period' not in params) else params['chop_period']

@@ -144,7 +144,7 @@ parser.add_argument("--mfi_high_limit", help='MFI high limit', default=80, type=
 parser.add_argument("--mfi_low_limit", help='MFI low limit', default=20, type=int)
 
 parser.add_argument("--atr_period", help='Average True Range period for intraday calculations', default=14, type=int)
-parser.add_argument("--daily_atr_period", help='Average True Range period for daily calculations', default=14, type=int)
+parser.add_argument("--daily_atr_period", help='Average True Range period for daily calculations', default=3, type=int)
 parser.add_argument("--vpt_sma_period", help='SMA period for VPT signal line', default=72, type=int)
 parser.add_argument("--adx_period", help='ADX period', default=92, type=int)
 parser.add_argument("--di_period", help='Plus/Minus DI period', default=48, type=int)

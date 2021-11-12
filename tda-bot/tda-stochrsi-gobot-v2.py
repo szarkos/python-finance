@@ -105,7 +105,7 @@ parser.add_argument("--aroonosc_period", help='Aroon Oscillator period', default
 parser.add_argument("--aroonosc_alt_period", help='Alternate Aroon Oscillator period for higher volatility stocks', default=60, type=int)
 parser.add_argument("--aroonosc_alt_threshold", help='Threshold for enabling the alternate Aroon Oscillator period for higher volatility stocks', default=0.24, type=float)
 parser.add_argument("--atr_period", help='Average True Range period', default=14, type=int)
-parser.add_argument("--daily_atr_period", help='Daily (Normalized) Average True Range period', default=7, type=int)
+parser.add_argument("--daily_atr_period", help='Daily (Normalized) Average True Range period', default=3, type=int)
 parser.add_argument("--aroonosc_with_macd_simple", help='When using Aroon Oscillator, use macd_simple as tertiary indicator if AroonOsc is less than +/- 72 (Default: False)', action="store_true")
 parser.add_argument("--aroonosc_secondary_threshold", help='AroonOsc threshold for when to enable macd_simple when --aroonosc_with_macd_simple is enabled (Default: 72)', default=72, type=float)
 parser.add_argument("--adx_threshold", help='ADX threshold for when to trigger the ADX signal (Default: 25)', default=25, type=float)

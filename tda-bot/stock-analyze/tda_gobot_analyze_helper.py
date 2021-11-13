@@ -178,6 +178,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	with_bbands_kchannel_simple	= False		if ('with_bbands_kchannel_simple' not in params) else params['with_bbands_kchannel_simple']
 	with_bbands_kchannel		= False		if ('with_bbands_kchannel' not in params) else params['with_bbands_kchannel']
 	use_bbands_kchannel_xover_exit	= False		if ('use_bbands_kchannel_xover_exit' not in params) else params['use_bbands_kchannel_xover_exit']
+	bbands_kchan_crossover_only	= False		if ('bbands_kchan_crossover_only' not in params) else params['bbands_kchan_crossover_only']
 	bbands_kchannel_xover_exit_count= 5		if ('bbands_kchannel_xover_exit_count' not in params) else params['bbands_kchannel_xover_exit_count']
 	bbands_kchannel_offset		= 0.15		if ('bbands_kchannel_offset' not in params) else params['bbands_kchannel_offset']
 	bbands_kchan_squeeze_count	= 4		if ('bbands_kchan_squeeze_count' not in params) else params['bbands_kchan_squeeze_count']
@@ -1225,7 +1226,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 
 	# Bollinger Bands and Keltner Channel crossover
-	def bbands_kchannels(simple=False, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0), bbands_kchan_init_signal=False, bbands_kchan_crossover_signal=False, bbands_kchan_signal=False, debug=False ):
+	def bbands_kchannels(simple=False, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0),
+				bbands_kchan_init_signal=False, bbands_kchan_crossover_signal=False, bbands_kchan_signal=False, debug=False ):
 
 		nonlocal bbands_kchannel_offset
 		nonlocal bbands_kchannel_offset_debug
@@ -1286,7 +1288,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# An aggressive strategy is to try to get in early when the Bollinger bands begin to widen
 			#  and before they pop out of the Keltner channel
-			if ( cur_bbands_lower < prev_bbands_lower and cur_bbands_upper > prev_bbands_upper ):
+			if ( cur_bbands_lower < prev_bbands_lower and cur_bbands_upper > prev_bbands_upper and
+					bbands_kchan_crossover_only == False ):
 				bbands_kchan_signal = True
 
 			elif ( cur_kchannel_lower > cur_bbands_lower and cur_kchannel_upper < cur_bbands_upper ):

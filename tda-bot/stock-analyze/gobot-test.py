@@ -23,16 +23,16 @@ mytimezone = pytz.timezone("US/Eastern")
 
 # Standard options for all scenarios
 std_opts = ' --algo=stochrsi-new --stoploss --skip_check --incr_threshold=0.5 --exit_percent=1 --verbose --stock_usd=25000 ' + \
-		' --variable_exit --lod_hod_check --check_volume --decr_threshold=1.6 --exit_percent=0.5 --daily_atr_period=3 ' #--use_natr_resistance
+		' --variable_exit --lod_hod_check --check_volume --decr_threshold=1.6 --exit_percent=0.5 --daily_atr_period=3 --use_trend_exit ' #--use_natr_resistance
 
 # Test Scenarios
 scenarios = {
 		# Daily test, called from automation. Comment to disable the automation.
-                'stochrsi_standard_daily_test':                                 '--rsi_high_limit=75 --rsi_low_limit=25 --stochrsi_offset=6 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
-                                                                                 --use_natr_resistance --min_intra_natr=0.15 --min_daily_natr=3 --with_supertrend --supertrend_min_natr=2 ',
+#                'stochrsi_standard_daily_test':                                 '--rsi_high_limit=75 --rsi_low_limit=25 --stochrsi_offset=6 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
+#                                                                                 --use_natr_resistance --min_intra_natr=0.15 --min_daily_natr=3 --with_supertrend --supertrend_min_natr=2 ',
 
-                'stochrsi_aroonosc_simple_dmi_simple_with_macd_adx_standard':   '--rsi_high_limit=75 --rsi_low_limit=25 --stochrsi_offset=3 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
-                                                                                 --use_natr_resistance --min_intra_natr=0.15 --min_daily_natr=6 ',
+#                'stochrsi_aroonosc_simple_dmi_simple_with_macd_adx_standard_trend':   '--rsi_high_limit=75 --rsi_low_limit=25 --stochrsi_offset=3 --with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
+#                                                                                 --use_natr_resistance --min_intra_natr=0.15 --min_daily_natr=6 --use_trend_exit ',
 
 		# Squeeze tests
 		#       kama    = Kaufman Adaptive Moving Average (default)
@@ -46,32 +46,44 @@ scenarios = {
 		'stochstackedma_bbands_kchannel_standard_sma':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
 								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=4 --stacked_ma_type_primary=sma \
 								 --min_intra_natr=0.65 --min_daily_natr=6 ',
+
 		'stochstackedma_bbands_kchannel_standard_ema':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
-								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=1 --stacked_ma_type_primary=ema \
+								 --stacked_ma_periods_primary=5,8,13 --bbands_kchan_squeeze_count=4 --stacked_ma_type_primary=ema \
 								 --min_intra_natr=0.65 --min_daily_natr=6 ',
-		'stochstackedma_bbands_kchannel_standard_kama':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
-								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=1 --stacked_ma_type_primary=kama \
+
+		'stochstackedma_bbands_kchannel_standard_kama358':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=4 --stacked_ma_type_primary=kama \
 								 --min_intra_natr=0.65 --min_daily_natr=6 ',
+		'stochstackedma_bbands_kchannel_standard_kama5813':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+								 --stacked_ma_periods_primary=5,8,13 --bbands_kchan_squeeze_count=4 --stacked_ma_type_primary=kama \
+								 --min_intra_natr=0.65 --min_daily_natr=6 ',
+
 		'stochstackedma_bbands_kchannel_standard_dema':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
-								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=1 --stacked_ma_type_primary=dema \
+								 --stacked_ma_periods_primary=5,8,13 --bbands_kchan_squeeze_count=4 --stacked_ma_type_primary=dema \
 								 --min_intra_natr=0.65 --min_daily_natr=6 ',
+
 		'stochstackedma_bbands_kchannel_standard_hma':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
-								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=1 --stacked_ma_type_primary=hma \
+								 --stacked_ma_periods_primary=5,8,13 --bbands_kchan_squeeze_count=4 --stacked_ma_type_primary=hma \
 								 --min_intra_natr=0.65 --min_daily_natr=6 ',
+
 		'stochstackedma_bbands_kchannel_standard_tema':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
-								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=1 --stacked_ma_type_primary=tema \
+								 --stacked_ma_periods_primary=5,8,13 --bbands_kchan_squeeze_count=4 --stacked_ma_type_primary=tema \
 								 --min_intra_natr=0.65 --min_daily_natr=6 ',
+
 		'stochstackedma_bbands_kchannel_standard_trima':'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
-								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=1 --stacked_ma_type_primary=trima \
+								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=4 --stacked_ma_type_primary=trima \
 								 --min_intra_natr=0.65 --min_daily_natr=6 ',
+
 		'stochstackedma_bbands_kchannel_standard_wma':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
-								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=1 --stacked_ma_type_primary=wma \
+								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=4 --stacked_ma_type_primary=wma \
 								 --min_intra_natr=0.65 --min_daily_natr=6 ',
+
 		'stochstackedma_bbands_kchannel_standard_vwma':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
 								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=4 --stacked_ma_type_primary=vwma \
 								 --min_intra_natr=0.65 --min_daily_natr=6 ',
+
 		'stochstackedma_bbands_kchannel_standard_zlema':'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
-								 --stacked_ma_periods_primary=3,5,8 --bbands_kchan_squeeze_count=1 --stacked_ma_type_primary=zlema \
+								 --stacked_ma_periods_primary=5,8,13 --bbands_kchan_squeeze_count=4 --stacked_ma_type_primary=zlema \
 								 --min_intra_natr=0.65 --min_daily_natr=6 ',
 
 

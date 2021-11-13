@@ -62,7 +62,7 @@ parser.add_argument("--last_hour_threshold", help='Sell the stock if net gain is
 parser.add_argument("--num_purchases", help='Number of purchases allowed per day', default=10, type=int)
 parser.add_argument("--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
 parser.add_argument("--max_failed_txs", help='Maximum number of failed transactions allowed for a given stock before stock is blacklisted', default=2, type=int)
-parser.add_argument("--max_failed_usd", help='Maximum allowed USD for a failed transaction before the stock is blacklisted', default=100, type=int)
+parser.add_argument("--max_failed_usd", help='Maximum allowed USD for a failed transaction before the stock is blacklisted', default=99999, type=float)
 parser.add_argument("--exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
 parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_threshold and exit_percent based on the price action of the stock over the previous hour',  action="store_true")
 parser.add_argument("--use_ha_exit", help='Use Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
@@ -583,8 +583,9 @@ for ticker in stock_list.split(','):
 				   'isvalid':			True,
 				   'tx_id':			random.randint(1000, 9999),
 				   'stock_qty':			int(0),
-				   'num_purchases':		int(args.num_purchases),
-				   'failed_txs':		int(args.max_failed_txs),
+				   'num_purchases':		args.num_purchases,
+				   'failed_txs':		args.max_failed_txs,
+				   'failed_usd':		args.max_failed_usd,
 				   'orig_base_price':		float(0),
 				   'base_price':		float(0),
 

@@ -1776,10 +1776,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					print('Net change (' + str(ticker) + '): ' + str(net_change) + ' USD')
 
 					# Add to blacklist if sold at a loss greater than max_failed_usd
-					if ( net_change < 0 and abs(net_change) > float(args.max_failed_usd) ):
-						stocks[ticker]['isvalid'] = False
-						if ( args.fake == False ):
-							tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, 0)
+					if ( net_change < 0 ):
+						stocks[ticker]['failed_usd'] += net_change
+						if ( stocks[ticker]['failed_usd'] <= 0 ):
+							stocks[ticker]['isvalid'] = False
+							if ( args.fake == False ):
+								tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, 0)
 
 					stocks[ticker]['tx_id'] = random.randint(1000, 9999)
 					stocks[ticker]['stock_qty'] = 0
@@ -1820,7 +1822,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					# Add to blacklist when sold at a loss greater than max_failed_usd, or if we've exceeded failed_tx
 					if ( net_change < 0 ):
 						stocks[ticker]['failed_txs'] -= 1
-						if ( abs(net_change) > args.max_failed_usd or stocks[ticker]['failed_txs'] == 0 ):
+						stocks[ticker]['failed_usd'] += net_change
+						if ( stocks[ticker]['failed_usd'] <= 0 or stocks[ticker]['failed_txs'] <= 0 ):
 							stocks[ticker]['isvalid'] = False
 							if ( args.fake == False ):
 								tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
@@ -1946,7 +1949,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				# Add to blacklist if sold at a loss greater than max_failed_usd, or if we've exceeded failed_txs
 				if ( net_change < 0 ):
 					stocks[ticker]['failed_txs'] -= 1
-					if ( abs(net_change) > args.max_failed_usd or stocks[ticker]['failed_txs'] == 0 ):
+					stocks[ticker]['failed_usd'] += net_change
+					if ( stocks[ticker]['failed_usd'] <= 0 or stocks[ticker]['failed_txs'] <= 0 ):
 						stocks[ticker]['isvalid'] = False
 						if ( args.fake == False ):
 							tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
@@ -2546,10 +2550,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					print('Net change (' + str(ticker) + '): ' + str(net_change) + ' USD')
 
 					# Add to blacklist if sold at a loss greater than max_failed_usd
-					if ( net_change > 0 and abs(net_change) > args.max_failed_usd ):
-						stocks[ticker]['isvalid'] = False
-						if ( args.fake == False ):
-							tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
+					if ( net_change > 0 ):
+						stocks[ticker]['failed_usd'] -= net_change
+						if ( stocks[ticker]['failed_usd'] <= 0 ):
+							stocks[ticker]['isvalid'] = False
+							if ( args.fake == False ):
+								tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 
 					stocks[ticker]['tx_id']			= random.randint(1000, 9999)
 					stocks[ticker]['stock_qty']		= 0
@@ -2627,7 +2633,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					# Add to blacklist when sold at a loss greater than max_failed_usd, or if we've exceeded failed_tx
 					if ( net_change > 0 ):
 						stocks[ticker]['failed_txs'] -= 1
-						if ( abs(net_change) > args.max_failed_usd or stocks[ticker]['failed_txs'] == 0 ):
+						stocks[ticker]['failed_usd'] -= net_change
+						if ( stocks[ticker]['failed_usd'] <= 0 or stocks[ticker]['failed_txs'] <= 0 ):
 							stocks[ticker]['isvalid'] = False
 							if ( args.fake == False ):
 								tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
@@ -2724,7 +2731,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				# Add to blacklist if sold at a loss greater than max_failed_usd, or if we've exceeded failed_txs
 				if ( net_change > 0 ):
 					stocks[ticker]['failed_txs'] -= 1
-					if ( abs(net_change) > args.max_failed_usd or stocks[ticker]['failed_txs'] == 0 ):
+					stocks[ticker]['failed_usd'] -= net_change
+					if ( stocks[ticker]['failed_usd'] <= 0 or stocks[ticker]['failed_txs'] <= 0 ):
 						stocks[ticker]['isvalid'] = False
 						if ( args.fake == False ):
 							tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)

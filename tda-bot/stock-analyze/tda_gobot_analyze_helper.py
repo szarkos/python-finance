@@ -1254,6 +1254,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		if ( debug == True and bbands_kchan_init_signal == False and bbands_kchan_signal == False ):
 			bbands_kchannel_offset_debug['cur_squeeze'] = []
 
+		# Simple algo
 		if ( simple == True ):
 			bbands_kchan_init_signal = True
 			if ( cur_kchannel_lower < cur_bbands_lower and prev_kchannel_lower < prev_bbands_lower ):
@@ -1267,24 +1268,45 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			return bbands_kchan_init_signal, bbands_kchan_crossover_signal, bbands_kchan_signal
 
+		# If the Bollinger Bands are outside the Keltner channel and the init signal hasn't been triggered,
+		#  then we can just make sure everything is reset and return False. We need to make sure that at least
+		#  bbands_kchan_signal_counter is reset and is not left set to >0 after a half-triggered squeeze.
+		#
+		# If the init signal has been triggered then we can move on and the signal may be canceled later
+		#  either via the buy/short signal or using bbands_kchan_xover_counter below
+		if ( (prev_bbands_lower <= prev_kchannel_lower and cur_bbands_lower >= cur_kchannel_lower) and
+				bbands_kchan_init_signal == False ):
+
+			bbands_kchan_init_signal	= False
+			bbands_kchan_signal		= False
+			bbands_kchan_crossover_signal	= False
+			bbands_kchan_signal_counter	= 0
+			bbands_kchan_xover_counter	= 0
+
+			return bbands_kchan_init_signal, bbands_kchan_crossover_signal, bbands_kchan_signal
+
 		# Check if the Bollinger Bands have moved inside the Keltner Channel
 		# Signal when they begin to converge
 		if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
-			# Squeeze counter
-			bbands_kchan_signal_counter += 1
 
 			# Enforce a minimum offset to ensure the squeeze has some energy before triggering
 			#  the bbands_kchan_init_signal signal
 			prev_offset	= abs((prev_kchannel_lower / prev_bbands_lower) - 1) * 100
 			cur_offset	= abs((cur_kchannel_lower / cur_bbands_lower) - 1) * 100
 			if ( cur_offset >= bbands_kchannel_offset ):
-				bbands_kchan_init_signal = True
+
+				# Squeeze counter
+				# Trigger the counter after bbands_kchan_squeeze_count periods of a quality
+				#  squeeze
+				bbands_kchan_signal_counter += 1
+				if ( bbands_kchan_signal_counter >= bbands_kchan_squeeze_count ):
+					bbands_kchan_init_signal = True
 
 				if ( debug == True ):
 					bbands_kchannel_offset_debug['cur_squeeze'].append(cur_offset)
 
 		# Toggle the bbands_kchan_signal when the bollinger bands pop back outside the keltner channel
-		if ( bbands_kchan_init_signal == True and bbands_kchan_signal_counter >= bbands_kchan_squeeze_count ):
+		if ( bbands_kchan_init_signal == True ):
 
 			# An aggressive strategy is to try to get in early when the Bollinger bands begin to widen
 			#  and before they pop out of the Keltner channel
@@ -1307,7 +1329,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Cancel the bbands_kchan_signal if the bollinger bands popped back inside the keltner channel,
 			#  or if the bbands_kchan_signal_counter has lingered for too long
 			if ( (prev_bbands_lower < prev_kchannel_lower and cur_bbands_lower >= cur_kchannel_lower) or
-				bbands_kchan_xover_counter >= 3 ):
+				bbands_kchan_xover_counter >= 2 ):
 					bbands_kchan_init_signal	= False
 					bbands_kchan_signal		= False
 					bbands_kchan_crossover_signal	= False

@@ -25,7 +25,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		mytimezone = timezone("US/Eastern")
 
 	# Reset all the buy/sell/short/buy-to-cover and indicator signals
-	def reset_signals():
+	def reset_signals( exclude_bbands_kchan=False ):
 
 		nonlocal buy_signal			; buy_signal			= False
 		nonlocal sell_signal			; sell_signal			= False
@@ -72,12 +72,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal chop_signal			; chop_signal			= False
 		nonlocal supertrend_signal		; supertrend_signal		= False
 
-		nonlocal bbands_kchan_signal_counter	; bbands_kchan_signal_counter	= 0
-		nonlocal bbands_kchan_xover_counter	; bbands_kchan_xover_counter	= 0
-		nonlocal bbands_kchan_init_signal	; bbands_kchan_init_signal	= False
-		nonlocal bbands_kchan_crossover_signal	; bbands_kchan_crossover_signal	= False
-		nonlocal bbands_kchan_signal		; bbands_kchan_signal		= False
-		nonlocal stacked_ma_signal		; stacked_ma_signal		= False
+		if ( exclude_bbands_kchan == False ):
+			nonlocal bbands_kchan_signal_counter	; bbands_kchan_signal_counter	= 0
+			nonlocal bbands_kchan_xover_counter	; bbands_kchan_xover_counter	= 0
+			nonlocal bbands_kchan_init_signal	; bbands_kchan_init_signal	= False
+			nonlocal bbands_kchan_crossover_signal	; bbands_kchan_crossover_signal	= False
+			nonlocal bbands_kchan_signal		; bbands_kchan_signal		= False
+			nonlocal stacked_ma_signal		; stacked_ma_signal		= False
 
 		nonlocal plus_di_crossover		; plus_di_crossover		= False
 		nonlocal minus_di_crossover		; minus_di_crossover		= False
@@ -1583,9 +1584,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# Stacked moving average primary
 			elif ( primary_stoch_indicator == 'stacked_ma' ):
+
 				# Jump to short mode if the stacked moving averages are showing a bearish movement
 				if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
-					reset_signals()
+					reset_signals( exclude_bbands_kchan=True )
 					if ( noshort == False ):
 						signal_mode = 'short'
 					continue
@@ -2378,9 +2380,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# Stacked moving average primary
 			elif ( primary_stoch_indicator == 'stacked_ma' ):
+
 				# Jump to buy mode if the stacked moving averages are showing a bearish movement
 				if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
-					reset_signals()
+					reset_signals( exclude_bbands_kchan=True )
 					if ( shortonly == False ):
 						signal_mode = 'buy'
 					continue

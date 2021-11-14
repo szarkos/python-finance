@@ -1233,6 +1233,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal bbands_kchannel_offset_debug
 		nonlocal bbands_kchan_signal_counter
 		nonlocal bbands_kchan_xover_counter
+		nonlocal bbands_kchan_crossover_only
 
 		# bbands/kchannel (0,0,0) = lower, middle, upper
 		cur_bbands_lower	= round( cur_bbands[0], 3 )

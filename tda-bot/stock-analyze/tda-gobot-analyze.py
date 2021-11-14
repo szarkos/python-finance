@@ -602,6 +602,7 @@ for algo in args.algo.split(','):
 					'with_bbands_kchannel':			args.with_bbands_kchannel,
 					'with_bbands_kchannel_simple':		args.with_bbands_kchannel_simple,
 					'use_bbands_kchannel_xover_exit':	args.use_bbands_kchannel_xover_exit,
+					'bbands_kchan_crossover_only':		args.bbands_kchan_crossover_only,
 					'bbands_kchannel_xover_exit_count':	args.bbands_kchannel_xover_exit_count,
 					'bbands_kchannel_offset':		args.bbands_kchannel_offset,
 					'bbands_kchan_squeeze_count':		args.bbands_kchan_squeeze_count,

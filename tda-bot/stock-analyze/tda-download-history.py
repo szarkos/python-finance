@@ -62,7 +62,7 @@ for ticker in args.stocks.split(','):
 	tries	= 0
 	while ( tries < 3 ):
 		data_ph, ep = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, needExtendedHoursData=args.extended_hours)
-		if ( isinstance(data_ph, bool) and data_ph == False ):
+		if ( (isinstance(data_ph, bool) and data_ph == False) or str(data_ph['empty']).lower() == 'true' ):
 			print('Error: get_pricehistory(' + str(ticker) + '): attempt ' + str(tries) + ' returned False, retrying...', file=sys.stderr)
 			tda_gobot_helper.tdalogin(passcode)
 			time.sleep(5)
@@ -74,6 +74,10 @@ for ticker in args.stocks.split(','):
 	if ( isinstance(data_ph, bool) and data_ph == False ):
 		print('Error: get_pricehistory(' + str(ticker) + '): unable to retrieve weekly data, exiting...', file=sys.stderr)
 		sys.exit(1)
+
+	if ( str(data_ph['empty']).lower() == 'true' ):
+		print('Error: get_pricehistory(' + str(ticker) + '): pricehistory data is empty', file=sys.stderr)
+
 
 	# Dump pickle data if requested
 	if ( args.odir != None ):

@@ -1802,7 +1802,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# STOPLOSS MONITOR
 			# If price decreases
-			if ( last_price < stocks[ticker]['base_price'] ):
+			if ( last_price < stocks[ticker]['base_price'] and stocks[ticker]['exit_percent_signal'] == False ):
 				percent_change = abs( last_price / stocks[ticker]['base_price'] - 1 ) * 100
 				if ( debug == True ):
 					print('Stock "' +  str(ticker) + '" -' + str(round(percent_change, 2)) + '% (' + str(last_price) + ')')
@@ -1909,6 +1909,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 					elif ( last_close < last_open ):
 						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
+
+			elif ( stocks[ticker]['exit_percent_signal'] == True and last_close < last_open ):
+				# If we get to this point then exit_percent took charge, but then the
+				#  stock rapidly changed direction. At this point we probably need to stop out.
+				stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 
 			# StochRSI MONITOR
@@ -2613,7 +2618,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], short=True, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
 
 			# If price increases
-			elif ( last_price > stocks[ticker]['base_price'] ):
+			elif ( last_price > stocks[ticker]['base_price'] and stocks[ticker]['exit_percent_signal'] == False ):
 				percent_change = abs( stocks[ticker]['base_price'] / last_price - 1 ) * 100
 				if ( debug == True ):
 					print('Stock "' +  str(ticker) + '" -' + str(round(percent_change, 2)) + '% (' + str(last_price) + ')')
@@ -2697,6 +2702,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 					elif ( last_close > last_open ):
 						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
+
+			elif ( stocks[ticker]['exit_percent_signal'] == True and last_close > last_open ):
+				# If we get to this point then exit_percent took charge, but then the
+				#  stock rapidly changed direction. At this point we probably need to stop out.
+				stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 			# RSI MONITOR
 			# Do not use stochrsi as an exit signal if exit_percent_signal is triggered. That means we've surpassed the

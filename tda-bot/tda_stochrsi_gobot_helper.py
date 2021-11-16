@@ -134,7 +134,7 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 
 
 # Reset all the buy/sell/short/buy-to-cover and indicator signals
-def reset_signals(ticker=None, id=None, signal_mode=None):
+def reset_signals(ticker=None, id=None, signal_mode=None, exclude_bbands_kchan=False):
 
 	if ( ticker == None ):
 		return False
@@ -158,6 +158,8 @@ def reset_signals(ticker=None, id=None, signal_mode=None):
 		stocks[ticker]['algo_signals'][algo_id]['sell_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['short_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal']		= False
+
+		stocks[ticker]['algo_signals'][algo_id]['stacked_ma_signal']		= False
 
 		stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal']		= False
 		stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal']	= False
@@ -188,12 +190,12 @@ def reset_signals(ticker=None, id=None, signal_mode=None):
 		stocks[ticker]['algo_signals'][algo_id]['vpt_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['resistance_signal']		= False
 
-		stocks[ticker]['algo_signals'][algo_id]['stacked_ma_signal']		= False
-		stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal']	= False
-		stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal']= False
-		stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal']		= False
-		stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter']	= 0
-		stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter']	= 0
+		if ( exclude_bbands_kchan == False ):
+			stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal']		= False
+			stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal']	= False
+			stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal']			= False
+			stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter']		= 0
+			stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter']		= 0
 
 		stocks[ticker]['algo_signals'][algo_id]['plus_di_crossover']		= False
 		stocks[ticker]['algo_signals'][algo_id]['minus_di_crossover']		= False
@@ -460,6 +462,22 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			return ( bbands_kchan_init_signal, bbands_kchan_crossover_signal, bbands_kchan_signal,
 					bbands_kchan_signal_counter, bbands_kchan_xover_counter )
 
+		# If the Bollinger Bands are outside the Keltner channel and the init signal hasn't been triggered,
+		#  then we can just make sure everything is reset and return False. We need to make sure that at least
+		#  bbands_kchan_signal_counter is reset and is not left set to >0 after a half-triggered squeeze.
+		#
+		# If the init signal has been triggered then we can move on and the signal may be canceled later
+		#  either via the buy/short signal or using bbands_kchan_xover_counter below
+		if ( (cur_bbands_lower <= cur_kchannel_lower or cur_bbands_upper >= cur_kchannel_upper) and bbands_kchan_init_signal == False ):
+			bbands_kchan_init_signal        = False
+			bbands_kchan_signal             = False
+			bbands_kchan_crossover_signal   = False
+			bbands_kchan_signal_counter     = 0
+			bbands_kchan_xover_counter      = 0
+
+			return ( bbands_kchan_init_signal, bbands_kchan_crossover_signal, bbands_kchan_signal,
+					bbands_kchan_signal_counter, bbands_kchan_xover_counter )
+
 		# Check if the Bollinger Bands have moved inside the Keltner Channel
 		# Signal when they begin to converge
 		if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
@@ -468,9 +486,14 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# Enforce a minimum offset to ensure the squeeze has some energy before triggering
 			#  the bbands_kchan_init_signal signal
+			#
+			# Note: I debated checking the bbands_kchan_squeeze_count in this section vs. just setting
+			#  bbands_kchan_init_signal=True sooner, and checking bbands_kchan_squeeze_count in the next
+			#  section. Having it here results in a bit fewer trades, but slightly better trade percentage.
+			#  So this appears to produce just slighly better trades.
 			prev_offset	= abs((prev_kchannel_lower / prev_bbands_lower) - 1) * 100
 			cur_offset	= abs((cur_kchannel_lower / cur_bbands_lower) - 1) * 100
-			if ( cur_offset >= bbands_kchannel_offset ):
+			if ( cur_offset >= bbands_kchannel_offset and bbands_kchan_signal_counter >= bbands_kchan_squeeze_count ):
 				bbands_kchan_init_signal = True
 
 		# Toggle the bbands_kchan_signal when the bollinger bands pop back outside the keltner channel
@@ -478,25 +501,31 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# An aggressive strategy is to try to get in early when the Bollinger bands begin to widen
 			#  and before they pop out of the Keltner channel
-			if ( cur_bbands_lower < prev_bbands_lower and cur_bbands_upper > prev_bbands_upper ):
+			prev_offset	= abs((prev_kchannel_lower / prev_bbands_lower) - 1) * 100
+			cur_offset	= abs((cur_kchannel_lower / cur_bbands_lower) - 1) * 100
+			if ( cur_offset < prev_offset ):
 				bbands_kchan_signal = True
 
-			elif ( cur_kchannel_lower >= cur_bbands_lower and cur_kchannel_upper <= cur_bbands_upper ):
-				bbands_kchan_crossover_signal = True
-				bbands_kchan_signal		= True
+			# Check for crossover
+			if ( (prev_kchannel_lower <= prev_bbands_lower and cur_kchannel_lower > cur_bbands_lower) or
+					(prev_kchannel_upper >= prev_bbands_upper and cur_kchannel_upper < cur_bbands_upper) ):
+				bbands_kchan_crossover_signal   = True
+				bbands_kchan_signal             = True
 
 			if ( bbands_kchan_crossover_signal == True ):
 				bbands_kchan_xover_counter += 1
 
 			# Cancel the bbands_kchan_signal if the bollinger bands popped back inside the keltner channel,
 			#  or if the bbands_kchan_signal_counter has lingered for too long
-			if ( (prev_bbands_lower < prev_kchannel_lower and cur_bbands_lower >= cur_kchannel_lower) or
-				bbands_kchan_xover_counter >= 3 ):
-					bbands_kchan_init_signal	= False
-					bbands_kchan_crossover_signal	= False
-					bbands_kchan_signal		= False
-					bbands_kchan_signal_counter	= 0
-					bbands_kchan_xover_counter	= 0
+			if ( ((prev_kchannel_lower > prev_bbands_lower and cur_kchannel_lower <= cur_bbands_lower) or
+					(prev_kchannel_upper < prev_bbands_upper and cur_kchannel_upper >= cur_bbands_upper)) or
+					bbands_kchan_xover_counter >= 2 ):
+
+				bbands_kchan_init_signal	= False
+				bbands_kchan_crossover_signal	= False
+				bbands_kchan_signal		= False
+				bbands_kchan_signal_counter	= 0
+				bbands_kchan_xover_counter	= 0
 
 		return ( bbands_kchan_init_signal, bbands_kchan_crossover_signal, bbands_kchan_signal,
 				bbands_kchan_signal_counter, bbands_kchan_xover_counter )
@@ -1256,11 +1285,13 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				# Jump to short mode if the stacked moving averages are showing a bearish movement
 				if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True and args.short == True and stocks[ticker]['shortable'] == True ):
 					print('(' + str(ticker) + ') StackedMA values indicate bearish trend ' + str(cur_s_ma_primary) + ', switching to short mode.')
-					reset_signals(ticker, id=algo_id, signal_mode='short')
+					reset_signals(ticker, id=algo_id, signal_mode='short', exclude_bbands_kchan=True)
 					continue
 
 				if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
 					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = True
+				else:
+					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = False
 
 
 			# Secondary Stacked Moving Average
@@ -1430,7 +1461,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
-				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] ) = bbands_kchannels( simple=cur_algo['bbands_kchannel_simple'], cur_bbands=cur_bbands, prev_bbands=prev_bbands,
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] ) = bbands_kchannels( simple=cur_algo['bbands_kchannel_simple'], cur_bbands=cur_bbands, prev_bbands=prev_bbands,
 																cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
 																bbands_kchan_signal_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
 																bbands_kchan_xover_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'],
@@ -1581,16 +1612,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# End Key Levels
-
-#				# 20-week high
-#				if ( cur_price >= float(stocks[ticker]['twenty_week_high']) ):
-#					# This is not a good bet
-#					stocks[ticker]['twenty_week_high'] = cur_price
-#					stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
-#
-#				elif ( ( abs(cur_price / float(stocks[ticker]['twenty_week_high']) - 1) * 100 ) < 1 ):
-#					# Current high is within 1% of 20-week high, not a good bet
-#					stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
 			if ( stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
@@ -1911,8 +1932,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 			elif ( stocks[ticker]['exit_percent_signal'] == True and last_close < last_open ):
-				# If we get to this point then exit_percent took charge, but then the
-				#  stock rapidly changed direction. At this point we probably need to stop out.
+				# If we get to this point then the exit_percent_signal was triggered, but then the stock
+				#  rapidly changed direction below cost basis. But because exit_percent_signal was triggered
+				#  the stoploss routine above will not catch this. So at this point we probably need to stop out.
 				stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 
@@ -2018,12 +2040,13 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				# Jump to short mode if the stacked moving averages are showing a bearish movement
 				if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True and args.shortonly == False ):
 					print('(' + str(ticker) + ') StackedMA values indicate bullish trend ' + str(cur_s_ma_primary) + ', switching to long mode.')
-					reset_signals(ticker, id=algo_id, signal_mode='buy')
+					reset_signals(ticker, id=algo_id, signal_mode='buy', exclude_bbands_kchan=True)
 					continue
 
 				if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
 					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = True
-
+				else:
+					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = False
 
 			# Secondary Stacked Moving Average
 			if ( cur_algo['stacked_ma'] == True ):
@@ -2343,16 +2366,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# End Key Levels
-
-#				# 20-week low
-#				if ( cur_price <= float(stocks[ticker]['twenty_week_low']) ):
-#					# This is not a good bet
-#					stocks[ticker]['twenty_week_low'] = cur_price
-#					stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
-#
-#				elif ( ( abs(float(stocks[ticker]['twenty_week_low']) / float(cur_price) - 1) * 100 ) < 1 ):
-#					# Current low is within 1% of 20-week low, not a good bet
-#					stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 			# Resolve the primary stochrsi short_signal with the secondary indicators
 			if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True ):
@@ -2704,8 +2717,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 			elif ( stocks[ticker]['exit_percent_signal'] == True and last_close > last_open ):
-				# If we get to this point then exit_percent took charge, but then the
-				#  stock rapidly changed direction. At this point we probably need to stop out.
+				# If we get to this point then the exit_percent_signal was triggered, but then the stock
+				#  rapidly changed direction above cost basis. But because exit_percent_signal was triggered
+				#  the stoploss routine above will not catch this. So at this point we probably need to stop out.
 				stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 			# RSI MONITOR
@@ -2728,7 +2742,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						print(  '(' + str(ticker) + ') BUY_TO_COVER SIGNAL: StochRSI K value passed above the low_limit threshold (' +
 							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
-
 
 			# BUY-TO-COVER THE STOCK
 			if ( stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] == True ):

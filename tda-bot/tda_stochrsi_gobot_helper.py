@@ -66,10 +66,28 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 				'low':		float( idx['LOW_PRICE'] ),
 				'close':	float( idx['CLOSE_PRICE'] ),
 				'volume':	int( idx['VOLUME'] ),
-				'datetime':	stream['timestamp'] }
+				'datetime':	int( stream['timestamp'] ) }
 
 		stocks[ticker]['pricehistory']['candles'].append( candle_data )
 		stocks[ticker]['period_log'].append( stream['timestamp'] )
+
+		# Add Heikin Ashi candle
+		#  ha_open	= [ha_open(Previous Bar) + ha_close(Previous Bar)]/2
+		#  ha_close	= (open+high+low+close)/4
+		#  ha_low	= Min(low, ha_open, ha_close)
+		#  ha_high	= Max(high, ha_open, ha_close)
+		ha_open		= ( stocks[ticker]['pricehistory']['hacandles'][-1]['open'] + stocks[ticker]['pricehistory']['hacandles'][-1]['close'] ) / 2
+		ha_close        = ( float(idx['OPEN_PRICE']) + float(idx['HIGH_PRICE']) + float(idx['LOW_PRICE']) + float(idx['CLOSE_PRICE']) ) / 4
+		ha_low          = min( float(idx['LOW_PRICE']), ha_open, ha_close )
+		ha_high         = max( float(idx['HIGH_PRICE']), ha_open, ha_close )
+		candle_data = { 'open':		ha_open,
+				'high':		ha_high,
+				'low':		ha_low,
+				'close':	ha_close,
+				'volume':	int( idx['VOLUME'] ),
+				'datetime':	int( stream['timestamp'] ) }
+
+		stocks[ticker]['pricehistory']['hacandles'].append( candle_data )
 
 		# Add 5min candle
 		if ( len(stocks[ticker]['pricehistory']['candles']) % 5 == 0 ):

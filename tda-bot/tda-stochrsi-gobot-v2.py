@@ -900,8 +900,11 @@ for ticker in list(stocks.keys()):
 def graceful_exit(signum=None, frame=None):
 	print("\nNOTICE: graceful_exit(): received signal: " + str(signum))
 	tda_stochrsi_gobot_helper.export_pricehistory()
+
+	tasks = [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
+	list(map(lambda task: task.cancel(), tasks))
+	asyncio.get_running_loop().stop()
 	sys.exit(0)
-#	os._exit(0)
 
 # Initialize SIGUSR1 signal handler to dump stocks on signal
 # Calls sell_stocks() to immediately sell or buy_to_cover any open positions
@@ -1110,7 +1113,7 @@ for ticker in list(stocks.keys()):
 				weekly_ph = pickle.loads(weekly_ph)
 
 		except Exception as e:
-			print('Exception caught, error opening file ' + str(weekly_ifile) + ': ' + str(e) + '. Falling back to get_pricehistory().')
+			print('str(e) + ', falling back to get_pricehistory().')
 
 	if ( weekly_ph == False):
 
@@ -1163,7 +1166,7 @@ for ticker in list(stocks.keys()):
 				daily_ph = pickle.loads(daily_ph)
 
 		except Exception as e:
-			print('Exception caught, error opening file ' + str(daily_ifile) + ': ' + str(e) + '. Falling back to get_pricehistory().')
+			print('str(e) + ', falling back to get_pricehistory().')
 
 	if ( daily_ph == False):
 

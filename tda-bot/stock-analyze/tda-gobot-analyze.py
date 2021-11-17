@@ -82,6 +82,7 @@ parser.add_argument("--supertrend_min_natr", help='Minimum daily NATR a stock mu
 
 parser.add_argument("--with_bbands_kchannel", help='Use the Bollinger bands and Keltner channel indicators as secondary to advise on trade entries (Default: False)', action="store_true")
 parser.add_argument("--with_bbands_kchannel_simple", help='Use a simple version of the Bollinger bands and Keltner channel indicators as secondary to advise on trade entries (Default: False)', action="store_true")
+parser.add_argument("--use_bbands_kchannel_5m", help='Use 5-minute candles to calculate the Bollinger bands and Keltner channel indicators (Default: False)', action="store_true")
 parser.add_argument("--use_bbands_kchannel_xover_exit", help='Track the number of periods after the Bollinger bands and Keltner channels cross over and make exit decisions (Default: False)', action="store_true")
 parser.add_argument("--bbands_kchan_crossover_only", help='Only signal on Bollinger bands and Keltner channel crossover (Default: False)', action="store_true")
 parser.add_argument("--bbands_kchannel_xover_exit_count", help='If using --use_bbands_kchannel_xover_exit, this is the maximum number of periods below cost basis to allow before exiting the trade (Default: 5)', default=5, type=int )
@@ -601,6 +602,7 @@ for algo in args.algo.split(','):
 
 					'with_bbands_kchannel':			args.with_bbands_kchannel,
 					'with_bbands_kchannel_simple':		args.with_bbands_kchannel_simple,
+					'use_bbands_kchannel_5m':		args.use_bbands_kchannel_5m,
 					'use_bbands_kchannel_xover_exit':	args.use_bbands_kchannel_xover_exit,
 					'bbands_kchan_crossover_only':		args.bbands_kchan_crossover_only,
 					'bbands_kchannel_xover_exit_count':	args.bbands_kchannel_xover_exit_count,

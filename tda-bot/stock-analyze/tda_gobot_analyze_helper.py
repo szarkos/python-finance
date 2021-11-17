@@ -179,6 +179,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	with_bbands_kchannel_simple	= False		if ('with_bbands_kchannel_simple' not in params) else params['with_bbands_kchannel_simple']
 	with_bbands_kchannel		= False		if ('with_bbands_kchannel' not in params) else params['with_bbands_kchannel']
+	use_bbands_kchannel_5m		= False		if ('use_bbands_kchannel_5m' not in params) else params['use_bbands_kchannel_5m']
 	use_bbands_kchannel_xover_exit	= False		if ('use_bbands_kchannel_xover_exit' not in params) else params['use_bbands_kchannel_xover_exit']
 	bbands_kchan_crossover_only	= False		if ('bbands_kchan_crossover_only' not in params) else params['bbands_kchan_crossover_only']
 	bbands_kchannel_xover_exit_count= 5		if ('bbands_kchannel_xover_exit_count' not in params) else params['bbands_kchannel_xover_exit_count']
@@ -600,7 +601,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		bbands_mid	= []
 		bbands_upper	= []
 		try:
-			bbands_lower, bbands_mid, bbands_upper = tda_algo_helper.get_bbands(pricehistory, period=bbands_period)
+			if ( use_bbands_kchannel_5m == True ):
+				bbands_lower, bbands_mid, bbands_upper = tda_algo_helper.get_bbands(pricehistory_5m, period=bbands_period)
+			else:
+				bbands_lower, bbands_mid, bbands_upper = tda_algo_helper.get_bbands(pricehistory, period=bbands_period)
 
 		except Exception as e:
 			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_bbands(): ' + str(e))
@@ -610,7 +614,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		kchannel_mid	= []
 		kchannel_upper	= []
 		try:
-			kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory, period=kchannel_period, atr_period=kchannel_atr_period)
+			if ( use_bbands_kchannel_5m == True ):
+				kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory_5m, period=kchannel_period, atr_period=kchannel_atr_period)
+			else:
+				kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory, period=kchannel_period, atr_period=kchannel_atr_period)
 
 		except Exception as e:
 			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_kchannel(): ' + str(e))
@@ -966,7 +973,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	rsi_idx				= len(pricehistory['candles']) - len(rsi)
 	mfi_idx				= len(pricehistory['candles']) - len(mfi)
-
 	adx_idx				= len(pricehistory['candles']) - len(adx)
 	di_adx_idx			= len(pricehistory['candles']) - len(di_adx)
 	di_idx				= len(pricehistory['candles']) - len(plus_di)
@@ -974,6 +980,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	aroonosc_alt_idx		= len(pricehistory['candles']) - len(aroonosc_alt)
 	macd_idx			= len(pricehistory['candles']) - len(macd)
 	chop_idx			= len(pricehistory['candles']) - len(chop)
+
+	if ( use_bbands_kchannel_5m == True ):
+		bbands_idx	= len(pricehistory['candles']) - len(bbands_mid) * 5
+		kchannel_idx	= len(pricehistory['candles']) - len(kchannel_mid) * 5
 
 	buy_signal			= False
 	sell_signal			= False
@@ -1823,11 +1833,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Bollinger Bands and Keltner Channel crossover
 			if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
 
-				cur_bbands	= (bbands_lower[idx], bbands_mid[idx], bbands_upper[idx])
-				prev_bbands	= (bbands_lower[idx-1], bbands_mid[idx-1], bbands_upper[idx-1])
+				if ( use_bbands_kchannel_5m == True ):
+					cur_bbands	= (bbands_lower[int((idx - bbands_idx) / 5)], bbands_mid[int((idx - bbands_idx) / 5)], bbands_upper[int((idx - bbands_idx) / 5)])
+					prev_bbands	= (bbands_lower[(int((idx - bbands_idx) / 5))-1], bbands_mid[(int((idx - bbands_idx) / 5))-1], bbands_upper[(int((idx - bbands_idx) / 5))-1])
+					cur_kchannel	= (kchannel_lower[int((idx - kchannel_idx) / 5)], kchannel_mid[int((idx - kchannel_idx) / 5)], kchannel_upper[int((idx - kchannel_idx) / 5)])
+					prev_kchannel	= (kchannel_lower[(int((idx - kchannel_idx) / 5))-1], kchannel_mid[(int((idx - kchannel_idx) / 5))-1], kchannel_upper[(int((idx - kchannel_idx) / 5))-1])
 
-				cur_kchannel	= (kchannel_lower[idx], kchannel_mid[idx], kchannel_upper[idx])
-				prev_kchannel	= (kchannel_lower[idx-1], kchannel_mid[idx-1], kchannel_upper[idx-1])
+				else:
+					cur_bbands	= (bbands_lower[idx], bbands_mid[idx], bbands_upper[idx])
+					prev_bbands	= (bbands_lower[idx-1], bbands_mid[idx-1], bbands_upper[idx-1])
+					cur_kchannel	= (kchannel_lower[idx], kchannel_mid[idx], kchannel_upper[idx])
+					prev_kchannel	= (kchannel_lower[idx-1], kchannel_mid[idx-1], kchannel_upper[idx-1])
 
 				( bbands_kchan_init_signal,
 				  bbands_kchan_crossover_signal,
@@ -2604,11 +2620,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Bollinger Bands and Keltner Channel crossover
 			if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
 
-				cur_bbands	= (bbands_lower[idx], bbands_mid[idx], bbands_upper[idx])
-				prev_bbands	= (bbands_lower[idx-1], bbands_mid[idx-1], bbands_upper[idx-1])
+				if ( use_bbands_kchannel_5m == True ):
+					bbands_idx	= len(pricehistory['candles']) - len(bbands_mid) * 5
+					kchannel_idx	= len(pricehistory['candles']) - len(kchannel_mid) * 5
+					cur_bbands	= (bbands_lower[int((idx - bbands_idx) / 5)], bbands_mid[int((idx - bbands_idx) / 5)], bbands_upper[int((idx - bbands_idx) / 5)])
+					prev_bbands	= (bbands_lower[(int((idx - bbands_idx) / 5))-1], bbands_mid[(int((idx - bbands_idx) / 5))-1], bbands_upper[(int((idx - bbands_idx) / 5))-1])
+					cur_kchannel	= (kchannel_lower[int((idx - kchannel_idx) / 5)], kchannel_mid[int((idx - kchannel_idx) / 5)], kchannel_upper[int((idx - kchannel_idx) / 5)])
+					prev_kchannel	= (kchannel_lower[(int((idx - kchannel_idx) / 5))-1], kchannel_mid[(int((idx - kchannel_idx) / 5))-1], kchannel_upper[(int((idx - kchannel_idx) / 5))-1])
 
-				cur_kchannel	= (kchannel_lower[idx], kchannel_mid[idx], kchannel_upper[idx])
-				prev_kchannel	= (kchannel_lower[idx-1], kchannel_mid[idx-1], kchannel_upper[idx-1])
+				else:
+					cur_bbands	= (bbands_lower[idx], bbands_mid[idx], bbands_upper[idx])
+					prev_bbands	= (bbands_lower[idx-1], bbands_mid[idx-1], bbands_upper[idx-1])
+					cur_kchannel	= (kchannel_lower[idx], kchannel_mid[idx], kchannel_upper[idx])
+					prev_kchannel	= (kchannel_lower[idx-1], kchannel_mid[idx-1], kchannel_upper[idx-1])
 
 				( bbands_kchan_init_signal,
 				  bbands_kchan_crossover_signal,

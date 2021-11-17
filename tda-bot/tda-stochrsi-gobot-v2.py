@@ -1113,7 +1113,7 @@ for ticker in list(stocks.keys()):
 				weekly_ph = pickle.loads(weekly_ph)
 
 		except Exception as e:
-			print('str(e) + ', falling back to get_pricehistory().')
+			print(str(e) + ', falling back to get_pricehistory().')
 
 	if ( weekly_ph == False):
 
@@ -1166,7 +1166,7 @@ for ticker in list(stocks.keys()):
 				daily_ph = pickle.loads(daily_ph)
 
 		except Exception as e:
-			print('str(e) + ', falling back to get_pricehistory().')
+			print(str(e) + ', falling back to get_pricehistory().')
 
 	if ( daily_ph == False):
 

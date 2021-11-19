@@ -669,9 +669,13 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		if ( stocks[ticker]['isvalid'] == False ):
 			continue
 
-		# Skip this ticker if it is not listed in this algorithm's per-algo valid_tickers[]
+		# Skip this ticker if it is not listed in this algorithm's per-algo valid_tickers[],
+		#  or if it is listed in exclude_tickers[]
 		if ( len(cur_algo['valid_tickers']) != 0 ):
 			if ( ticker not in cur_algo['valid_tickers'] ):
+				continue
+		if ( len(cur_algo['exclude_tickers']) != 0 ):
+			if ( ticker in cur_algo['exclude_tickers'] ):
 				continue
 
 		# Skip this ticker if it conflicts with a per-algo min/max_daily_natr configuration

@@ -46,6 +46,7 @@ parser.add_argument("--stocks", help='Stock ticker(s) to watch (comma delimited)
 parser.add_argument("--stock_usd", help='Amount of money (USD) to invest per trade', default=1000, type=float)
 parser.add_argument("--algos", help='Algorithms to use, comma delimited. Supported options: stochrsi, rsi, adx, dmi, macd, aroonosc, vwap, vpt, support_resistance (Example: --algos=stochrsi,adx --algos=stochrsi,macd)', required=True, nargs="*", action='append', type=str)
 parser.add_argument("--algo_valid_tickers", help='Tickers to use with a particular algorithm (Example: --algo_valid_tickers=algo_id:MSFT,AAPL). If unset all tickers will be used for all algos. Also requires setting "algo_id:algo_name" with --algos=.', action='append', default=None, type=str)
+parser.add_argument("--algo_exclude_tickers", help='Tickers to exclude with a particular algorithm (Example: --algo_exclude_tickers=algo_id:GME,AMC). If unset all tickers will be used for all algos. Also requires setting "algo_id:algo_name" with --algos=.', action='append', default=None, type=str)
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
 parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX_LOGS', default='TX_LOGS', type=str)
@@ -522,7 +523,8 @@ for algo in args.algos:
 			'min_daily_natr':		min_daily_natr,
 			'max_daily_natr':		max_daily_natr,
 
-			'valid_tickers':		[]  }
+			'valid_tickers':		[],
+			'exclude_tickers':		[]  }
 
 	algos.append(algo_list)
 
@@ -557,6 +559,27 @@ if ( args.algo_valid_tickers != None ):
 		else:
 			print('Error: algo_id not found in algos{}. Valid algos: (' + str(valid_ids) + '), exiting.', file=sys.stderr)
 			sys.exit(1)
+
+# Set tickers to exclude for each algo
+if ( args.algo_exclude_tickers != None ):
+	for algo in args.algo_exclude_tickers:
+		try:
+			algo_id, tickers = algo.split(':')
+
+		except Exception as e:
+			print('Caught exception: error setting algo_exclude_tickers (' + str(algo) + '), exiting.', file=sys.stderr)
+			sys.exit(1)
+
+		exclude_ids = [ a['algo_id'] for a in algos ]
+		if ( algo_id in exclude_ids ):
+			for a in algos:
+				if ( a['algo_id'] == algo_id ):
+					a['exclude_tickers'] = a['exclude_tickers'] + tickers.split(',')
+
+		else:
+			print('Error: algo_id not found in algos{}. Valid algos: (' + str(valid_ids) + '), exiting.', file=sys.stderr)
+			sys.exit(1)
+
 
 # Initialize stocks{}
 stock_list = args.stocks.split(',')
@@ -631,6 +654,7 @@ for ticker in stock_list.split(','):
 				   'prev_s_ma_primary':		(0,0,0,0),
 				   'cur_s_ma':			(0,0,0,0),
 				   'prev_s_ma':			(0,0,0,0),
+				   'cur_daily_ma':		(0,0,0,0),
 
 				   # RSI
 				   'cur_rsi':			float(-1),
@@ -684,9 +708,11 @@ for ticker in stock_list.split(','):
 				   'cur_vpt_sma':		float(-1),
 				   'prev_vpt_sma':		float(-1),
 
-				   # ATR
+				   # ATR / NATR
 				   'cur_atr':			float(-1),
 				   'cur_natr':			float(-1),
+				   'atr_daily':			float(-1),
+				   'natr_daily':		float(-1),
 
 				   # Support / Resistance
 				   'three_week_high':		float(0),
@@ -697,8 +723,6 @@ for ticker in stock_list.split(','):
 				   'twenty_week_avg':		float(0),
 
 				   'previous_day_close':	None,
-				   'atr_daily':			None,
-				   'natr_daily':		None,
 
 				   'kl_long_support':		[],
 				   'kl_long_resistance':	[],
@@ -718,7 +742,9 @@ for ticker in stock_list.split(','):
 
 				   # Candle data
 				   'pricehistory':		{},
-				   'pricehistory_5m':		{ 'candles': [], 'ticker': ticker }
+				   'pricehistory_5m':		{ 'candles': [], 'ticker': ticker },
+				   'pricehistory_daily':	{},
+				   'pricehistory_weekly':	{},
 			}} )
 
 	# Per algo signals
@@ -901,9 +927,14 @@ def graceful_exit(signum=None, frame=None):
 	print("\nNOTICE: graceful_exit(): received signal: " + str(signum))
 	tda_stochrsi_gobot_helper.export_pricehistory()
 
-	tasks = [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
-	list(map(lambda task: task.cancel(), tasks))
-	asyncio.get_running_loop().stop()
+	try:
+		tasks = [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
+		list(map(lambda task: task.cancel(), tasks))
+		asyncio.get_running_loop().stop()
+
+	except:
+		pass
+
 	sys.exit(0)
 
 # Initialize SIGUSR1 signal handler to dump stocks on signal
@@ -1099,7 +1130,6 @@ for ticker in list(stocks.keys()):
 
 	# Key Levels
 	# Use weekly_ifile or download weekly candle data
-	weekly_ph = False
 	if ( args.weekly_ifile != None ):
 		import pickle
 
@@ -1109,13 +1139,14 @@ for ticker in list(stocks.keys()):
 
 		try:
 			with open(weekly_ifile, 'rb') as handle:
-				weekly_ph = handle.read()
-				weekly_ph = pickle.loads(weekly_ph)
+				stocks[ticker]['pricehistory_weekly'] = handle.read()
+				stocks[ticker]['pricehistory_weekly'] = pickle.loads(stocks[ticker]['pricehistory_weekly'])
 
 		except Exception as e:
 			print(str(e) + ', falling back to get_pricehistory().')
+			stocks[ticker]['pricehistory_weekly'] = {}
 
-	if ( weekly_ph == False):
+	if ( stocks[ticker]['pricehistory_weekly'] == {} ):
 
 		# Use get_pricehistory() to download weekly data
 		wkly_p_type = 'year'
@@ -1123,23 +1154,24 @@ for ticker in list(stocks.keys()):
 		wkly_f_type = 'weekly'
 		wkly_freq = '1'
 
-		while ( weekly_ph == False ):
-			weekly_ph, ep = tda_gobot_helper.get_pricehistory(ticker, wkly_p_type, wkly_f_type, wkly_freq, wkly_period, needExtendedHoursData=False)
+		while ( stocks[ticker]['pricehistory_weekly'] == {} ):
+			stocks[ticker]['pricehistory_weekly'], ep = tda_gobot_helper.get_pricehistory(ticker, wkly_p_type, wkly_f_type, wkly_freq, wkly_period, needExtendedHoursData=False)
 
-			if ( weekly_ph == False ):
+			if ( stocks[ticker]['pricehistory_weekly'] == {} or
+					('empty' in stocks[ticker]['pricehistory_weekly'] and str(stocks[ticker]['pricehistory_weekly']['empty']).lower() == 'true') ):
 				time.sleep(5)
 				if ( tda_gobot_helper.tdalogin(passcode) != True ):
 					print('Error: (' + str(ticker) + '): Login failure')
 
 				continue
 
-	if ( weekly_ph == False ):
+	if ( stocks[ticker]['pricehistory_weekly'] == {} ):
 		print('(' + str(ticker) + '): Warning: unable to retrieve weekly data to calculate key levels, skipping.')
 		continue
 
 	# Calculate the keylevels
 	try:
-		stocks[ticker]['kl_long_support'], stocks[ticker]['kl_long_resistance'] = tda_algo_helper.get_keylevels(weekly_ph, filter=False)
+		stocks[ticker]['kl_long_support'], stocks[ticker]['kl_long_resistance'] = tda_algo_helper.get_keylevels(stocks[ticker]['pricehistory_weekly'], filter=False)
 
 	except Exception as e:
 		print('Exception caught: get_keylevels(' + str(ticker) + '): ' + str(e) + '. Keylevels will not be used.')
@@ -1152,7 +1184,6 @@ for ticker in list(stocks.keys()):
 	# End Key Levels
 
 	# Use daily_ifile or download daily candle data
-	daily_ph = False
 	if ( args.daily_ifile != None ):
 		import pickle
 
@@ -1162,13 +1193,14 @@ for ticker in list(stocks.keys()):
 
 		try:
 			with open(daily_ifile, 'rb') as handle:
-				daily_ph = handle.read()
-				daily_ph = pickle.loads(daily_ph)
+				stocks[ticker]['pricehistory_daily'] = handle.read()
+				stocks[ticker]['pricehistory_daily'] = pickle.loads(stocks[ticker]['pricehistory_daily'])
 
 		except Exception as e:
 			print(str(e) + ', falling back to get_pricehistory().')
+			stocks[ticker]['pricehistory_daily'] = {}
 
-	if ( daily_ph == False):
+	if ( stocks[ticker]['pricehistory_daily'] == {} ):
 
 		# Use get_pricehistory() to download daily data
 		daily_p_type = 'year'
@@ -1176,24 +1208,27 @@ for ticker in list(stocks.keys()):
 		daily_f_type = 'daily'
 		daily_freq = '1'
 
-		while ( daily_ph == False ):
-			daily_ph, ep = tda_gobot_helper.get_pricehistory(ticker, daily_p_type, daily_f_type, daily_freq, daily_period, needExtendedHoursData=False)
+		print('(' + str(ticker) + '): Using TDA API for daily pricehistory...')
+		while ( stocks[ticker]['pricehistory_daily'] == {} ):
+			stocks[ticker]['pricehistory_daily'], ep = tda_gobot_helper.get_pricehistory(ticker, daily_p_type, daily_f_type, daily_freq, daily_period, needExtendedHoursData=False)
 
-			if ( daily_ph == False ):
+			if ( stocks[ticker]['pricehistory_daily'] == {} or
+					('empty' in stocks[ticker]['pricehistory_daily'] and str(stocks[ticker]['pricehistory_daily']['empty']).lower() == 'true') ):
 				time.sleep(5)
 				if ( tda_gobot_helper.tdalogin(passcode) != True ):
 					print('Error: (' + str(ticker) + '): Login failure')
 				continue
 
-	if ( daily_ph == False ):
-		print('(' + str(ticker) + '): Warning: unable to retrieve daily data to calculate daily NATR, skipping.')
+	if ( stocks[ticker]['pricehistory_daily'] == {} ):
+		print('(' + str(ticker) + '): Warning: unable to retrieve daily data, skipping.')
+		stocks[ticker]['pricehistory_daily'] = {}
 		continue
 
 	# Calculate the current daily ATR/NATR
 	atr_d   = []
 	natr_d  = []
 	try:
-		atr_d, natr_d = tda_algo_helper.get_atr( pricehistory=daily_ph, period=args.daily_atr_period )
+		atr_d, natr_d = tda_algo_helper.get_atr( pricehistory=stocks[ticker]['pricehistory_daily'], period=args.daily_atr_period )
 
 	except Exception as e:
 		print('Exception caught: date_atr(' + str(ticker) + '): ' + str(e) + '. Daily NATR resistance will not be used.')
@@ -1210,9 +1245,28 @@ for ticker in list(stocks.keys()):
 		print('(' + str(ticker) + ') Warning: daily NATR (' + str(round(stocks[ticker]['natr_daily'], 3)) + ') is above the max_daily_natr (' + str(args.max_daily_natr) + '), removing from the list')
 		stocks[ticker]['isvalid'] = False
 
-	time.sleep(1)
-
 	# End daily ATR/NATR
+
+	# Daily stacked MA
+	daily_ma_type	= 'wma'
+	ma3		= []
+	ma5		= []
+	ma8		= []
+	try:
+		ma3 = tda_algo_helper.get_alt_ma(pricehistory=stocks[ticker]['pricehistory_daily'], ma_type=daily_ma_type, period=3 )
+		ma5 = tda_algo_helper.get_alt_ma(pricehistory=stocks[ticker]['pricehistory_daily'], ma_type=daily_ma_type, period=5 )
+		ma8 = tda_algo_helper.get_alt_ma(pricehistory=stocks[ticker]['pricehistory_daily'], ma_type=daily_ma_type, period=8 )
+
+		assert not isinstance(ma3, bool)
+		assert not isinstance(ma5, bool)
+		assert not isinstance(ma8, bool)
+
+	except AssertionError:
+		print('Exception caught: get_alt_ma(' + str(ticker) + '): returned False, possibly a new ticker?')
+	except Exception as e:
+		print('Exception caught: get_alt_ma(' + str(ticker) + '): ' + str(e) + '. Daily stacked MA will not be available.')
+	else:
+		stocks[ticker]['cur_daily_ma'] = ( ma3[-1], ma5[-1], ma8[-1] )
 
 
 # MAIN: Log into tda-api and run the stream client

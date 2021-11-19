@@ -59,7 +59,7 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 			print( '(' + str(ticker) + '): WARNING: duplicate sequence number detected - seq/timestamp: ' + str(idx['SEQUENCE']) + ' / ' + str(stream['timestamp']) )
 			continue
 
-		stocks[ticker]['prev_seq'] = int( idx['SEQUENCE'] )
+		stocks[ticker]['cur_seq'] = int( idx['SEQUENCE'] )
 
 		candle_data = {	'open':		float( idx['OPEN_PRICE'] ),
 				'high':		float( idx['HIGH_PRICE'] ),
@@ -122,7 +122,6 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 		# SAZ - 2021-08-19 - disable period multiplier. Nice idea but does not function as expected,
 		#  needs more research.
 		stocks[ticker]['period_multiplier'] = 1
-		#if ( args.period_multiplier == 0 ):
 		if ( args.period_multiplier == -999 ):
 
 			num_candles = 0
@@ -147,6 +146,17 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 		ret = stochrsi_gobot( cur_algo=algo_list, debug=debug )
 		if ( ret == False ):
 			print('Error: stochrsi_gobot_start(): stochrsi_gobot(' + str(algo) + '): returned False', file=sys.stderr)
+
+
+	# After all the algos have been processed, iterate through tickers again and set
+	#  the prev_seq to the cur_seq. This provides a record of sequence numbers to ensure
+	#  that we do not process the same candles twice.
+	for idx in stream['content']:
+		ticker = idx['key']
+		if ( stocks[ticker]['isvalid'] == False ):
+			continue
+
+		stocks[ticker]['prev_seq'] = stocks[ticker]['cur_seq']
 
 	return True
 
@@ -300,7 +310,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			print('Market closed, exiting.')
 			signal.raise_signal(signal.SIGTERM)
 			sys.exit(0)
-
 
 	# StochRSI/StochMFI long algorithm
 	def get_stoch_signal_long(algo_name=None, ticker=None, cur_k=0, cur_d=0, prev_k=0, prev_d=0, stoch_offset=0, stoch_signal=False, crossover_signal=False, threshold_signal=False, final_signal=False):
@@ -677,6 +686,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		if ( len(cur_algo['exclude_tickers']) != 0 ):
 			if ( ticker in cur_algo['exclude_tickers'] ):
 				continue
+
+		# Skip processing this ticker again if we have already processed this sequence number.
+		# Sometimes this can happen if the stream socket is reset or if the volume is very low.
+		if ( stocks[ticker]['prev_seq'] == stocks[ticker]['cur_seq'] ):
+			continue
 
 		# Skip this ticker if it conflicts with a per-algo min/max_daily_natr configuration
 		if ( min_daily_natr != None and stocks[ticker]['natr_daily'] < min_daily_natr ):
@@ -1134,7 +1148,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				', timestamp received from API ' +
 				datetime.datetime.fromtimestamp(int(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f') +
 				' (' + str(int(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])) + ')' +
-				' (seq: ' + str(stocks[ticker]['prev_seq']) + ')' )
+				' (seq: ' + str(stocks[ticker]['cur_seq']) + ')' )
 
 			print()
 

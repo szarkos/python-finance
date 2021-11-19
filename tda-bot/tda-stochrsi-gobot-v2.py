@@ -738,6 +738,7 @@ for ticker in stock_list.split(','):
 				   'period_log':		[],
 				   'period_multiplier':		args.period_multiplier,
 				   'prev_timestamp':		0,
+				   'cur_seq':			0,
 				   'prev_seq':			0,
 
 				   # Candle data

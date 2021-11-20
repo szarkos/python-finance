@@ -611,6 +611,7 @@ for ticker in stock_list.split(','):
 				   'failed_usd':		args.max_failed_usd,
 				   'orig_base_price':		float(0),
 				   'base_price':		float(0),
+				   'primary_algo':		None,
 
 				   'incr_threshold':		args.incr_threshold,
 				   'orig_incr_threshold':	args.incr_threshold,

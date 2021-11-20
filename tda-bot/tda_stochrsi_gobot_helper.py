@@ -182,6 +182,11 @@ def reset_signals(ticker=None, id=None, signal_mode=None, exclude_bbands_kchan=F
 		if ( signal_mode != None ):
 			stocks[ticker]['algo_signals'][algo_id]['signal_mode']		= signal_mode
 
+			# If switching into the 'buy' or 'short' mode, reset the
+			#  primary algo to None.
+			if ( signal_mode == 'buy' or signal_mode == 'short' ):
+				stocks[ticker]['primary_algo'] = None
+
 		stocks[ticker]['algo_signals'][algo_id]['buy_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['sell_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['short_signal']			= False
@@ -662,7 +667,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 
 	##########################################################################################
-	# Iterate through the stock tickers, calculate the stochRSI, and make buy/sell decisions
+	# Iterate through the stock tickers, calculate all the indicators, and make buy/sell decisions
 	for ticker in stocks.keys():
 
 		# Initialize some local variables
@@ -1243,7 +1248,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		adx_threshold		= cur_algo['adx_threshold']
 
 
-		# Criteria for when we will not enter new trades
+		# Global criteria for buy or sell mode
 		if ( signal_mode == 'buy' or signal_mode == 'short'):
 
 			# Skip if we've exhausted our maximum number of failed transactions for this stock
@@ -1280,6 +1285,15 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			elif ( args.shortonly == False and args.short == False ):
 				stocks[ticker]['algo_signals'][algo_id]['signal_mode'] = 'buy'
 				signal_mode = 'buy'
+
+		# Global criteria for short or buy_to_cover mode
+		elif ( signal_mode == 'sell' or signal_mode == 'buy_to_cover'):
+
+			# primary_algo is the algorithm that entered the trade.
+			# Some algos may have their own exit criteria, so we will only
+			#  process the sell/buy_to_cover loop for that algo.
+			if ( stocks[ticker]['primary_algo'] != cur_algo['algo_id'] ):
+				continue
 
 
 		# BUY MODE - looking for a signal to purchase the stock
@@ -1759,8 +1773,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['stock_qty'] = 0
 					continue
 
-				net_change = 0
-				stocks[ticker]['base_price'] = stocks[ticker]['orig_base_price']
+				stocks[ticker]['base_price']	= stocks[ticker]['orig_base_price']
+				stocks[ticker]['primary_algo']	= cur_algo['algo_id']
+				net_change			= 0
 
 				tda_gobot_helper.log_monitor(ticker, 0, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
 
@@ -2527,13 +2542,14 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 					continue
 
-				net_change = 0
-				stocks[ticker]['base_price'] = stocks[ticker]['orig_base_price']
+				stocks[ticker]['base_price']	= stocks[ticker]['orig_base_price']
+				stocks[ticker]['primary_algo']	= cur_algo['algo_id']
+				net_change			= 0
 
 				tda_gobot_helper.log_monitor(ticker, 0, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=True, sold=False)
 
+				# Reset and switch all algos to 'buy_to_cover' mode for the next loop
 				reset_signals(ticker, signal_mode='buy_to_cover')
-
 
 				# VARIABLE EXIT
 				# Build a profile of the stock's price action over the 90 minutes and adjust

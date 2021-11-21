@@ -2108,7 +2108,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
 				print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
 				print('(' + str(ticker) + '): BBands: ' + str(round(cur_bbands[0], 4)) + ' / ' + str(round(cur_bbands[2], 4)) +
-								', KChannel: ' + str(round(cur_kchannel[0], 4)) + ' / ' + str(round(cur_kchannel[2], 4)) )
+								', KChannel: ' + str(round(cur_kchannel[0], 4)) + ' / ' + str(round(cur_kchannel[2], 4)) +
+								', Squeeze Count: ' + str(bbands_kchan_signal_counter) )
 				print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
 				print('(' + str(ticker) + '): BUY signal: ' + str(buy_signal) + ', Final BUY signal: ' + str(final_buy_signal))
 				print()

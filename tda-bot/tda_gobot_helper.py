@@ -86,19 +86,20 @@ def ismarketopen_US(date=None, safe_open=False, check_day_only=False):
 		print('Error: ismarketopen_US(): date must be a datetime object')
 		return False
 
-	# US market holidays - source: http://www.nasdaqtrader.com/trader.aspx?id=calendar
-	# I'm hardcoding these dates for now since the other python modules (i.e. python3-holidays)
-	#  do not quite line up with these days (i.e. Good Friday is not a federal holiday).
-
+	# US market holidays - source: https://www.marketbeat.com/stock-market-holidays/
+	# TDA API doesn't provide this, so I'm hardcoding these dates for now.
+	#
 	# 2021-01-01 - New Year's Day
 	# 2021-01-18 - Martin Luther King Jr. Day
 	# 2021-02-15 - President's Day
 	# 2021-04-02 - Good Friday
 	# 2021-05-31 - Memorial Day
+	# 2021-07-02 - Early Close (1:00PM Eastern)
 	# 2021-07-05 - Independence Day
 	# 2021-09-06 - Labor Day
 	# 2021-11-25 - Thanksgiving
-	# 2021-11-26 - This is actually an early close day (1:00PM Eastern)
+	# 2021-11-26 - Early Close (1:00PM Eastern)
+	# 2021-12-23 - Early Close (1:00PM Eastern)
 	# 2021-12-24 - Christmas Eve
 	#  Note: 12-25 is on Saturday this year
 	holidays = [	'2021-01-01',
@@ -109,9 +110,61 @@ def ismarketopen_US(date=None, safe_open=False, check_day_only=False):
 			'2021-07-05',
 			'2021-09-06',
 			'2021-11-25',
-			'2021-11-26',
-			'2021-12-24' ]
+			'2021-12-24',
+			'2021-12-31',
 
+			# 2022
+			'2022-01-17',
+			'2022-02-21',
+			'2022-04-15',
+			'2022-05-30',
+			'2022-07-04',
+			'2022-09-05',
+			'2022-11-24',
+			'2022-12-26',
+
+			# 2023
+			'2023-01-02',
+			'2023-01-16',
+			'2023-02-20',
+			'2023-04-07',
+			'2023-05-29',
+			'2023-07-04',
+			'2023-09-04',
+			'2023-11-23',
+			'2023-12-25',
+
+			# 2024
+			'2024-01-01',
+			'2024-01-15',
+			'2024-02-19',
+			'2024-03-29',
+			'2024-05-27',
+			'2024-07-04',
+			'2024-09-02',
+			'2024-11-28',
+			'2024-12-25' ]
+
+	early_close = [	'2021-07-02',
+			'2021-11-26',
+			'2021-12-23',
+
+			# 2022
+			'2022-07-01',
+			'2022-11-25',
+			'2022-12-23',
+
+			# 2023
+			'2023-07-03',
+			'2023-11-24',
+			'2023-12-22',
+
+			# 2024
+			'2024-07-03',
+			'2024-11-29',
+			'2024-12-24' ]
+
+	# Return false if it's a holiday
 	if ( est_time.strftime('%Y-%m-%d') ) in holidays:
 		return False
 	elif ( check_day_only == True ):
@@ -139,7 +192,13 @@ def ismarketopen_US(date=None, safe_open=False, check_day_only=False):
 					else:
 						return False
 
-			if ( int(est_time.strftime('%-H')) <= 15 and int(est_time.strftime('%-M')) <= 59 ):
+			# Check early close holidays (1:00PM Eastern)
+			if ( est_time.strftime('%Y-%m-%d') ) in early_close:
+				if ( int(est_time.strftime('%-H')) <= 12 and int(est_time.strftime('%-M')) <= 59 ):
+					return True
+
+			# Otherwise consider 3:59 Eastern to be closing time
+			elif ( int(est_time.strftime('%-H')) <= 15 and int(est_time.strftime('%-M')) <= 59 ):
 				return True
 
 	return False

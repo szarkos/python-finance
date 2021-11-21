@@ -25,29 +25,23 @@ group.add_argument("--stocks", help='Stock tickers to check, comma delimited', d
 
 parser.add_argument("-c", "--checkticker", help="Check if ticker is valid", action="store_true")
 parser.add_argument("-p", "--pretty", help="Pretty print the stock data", action="store_true")
-parser.add_argument("-n", "--lines", help="Number of lines to output (relevant for indicators like vwap, rsi, etc.)", default=10, type=int)
+parser.add_argument("-n", "--lines", help="Number of lines to output (relevant for indicators like vwap, etc.)", default=10, type=int)
 parser.add_argument("--skip_check", help="Skip fixup and check of stock ticker", action="store_true")
 
 parser.add_argument("--rawquote", help="Get the raw quote info from the API", action="store_true")
 parser.add_argument("--quote", help="Get the latest price quote", action="store_true")
 parser.add_argument("--history", help="Get price history", action="store_true")
 parser.add_argument("--vwap", help="Get VWAP values", action="store_true")
-parser.add_argument("--rsi", help="Get RSI values", action="store_true")
-parser.add_argument("--stochrsi", help="Get stochastic RSI values", action="store_true")
 parser.add_argument("--volatility", help="Get the historical volatility for a stock", action="store_true")
 parser.add_argument("--get_instrument", help="Stock ticker to obtain instrument data", action="store_true")
+
+parser.add_argument("--is_market_open", help="Check if US market is open. Use --market_time to specify day/time, or current day/time will be used", action="store_true")
+parser.add_argument("--market_datetime", help='Day to check if market is open. Must be in US/Eastern timezone, and in the format "HH-MM-DD hh:mm:ss"', default=None, type=str)
 
 parser.add_argument("--blacklist", help="Blacklist stock ticker for one month", action="store_true")
 parser.add_argument("--permanent", help="Blacklist stock ticker permanently", action="store_true")
 parser.add_argument("--check_blacklist", help="Blacklist stock ticker for one month", action="store_true")
 parser.add_argument("--clean_blacklist", help="Clean blacklist file, remove stale entries", action="store_true")
-
-parser.add_argument("--rsi_period", help="RSI period (default: 14)", default=14, type=int)
-parser.add_argument("--stochrsi_period", help="Stoch RSI period (default: 128)", default=128, type=int)
-parser.add_argument("--rsi_slow", help="RSI slow period (default: 3)", default=3, type=int)
-parser.add_argument("--rsi_k_period", help="RSI K period (default: 128)", default=128, type=int)
-parser.add_argument("--rsi_d_period", help="RSI D period (default: 3)", default=3, type=int)
-parser.add_argument("--rsi_type", help="RSI calc type (default: ohlc4)", default="ohlc4", type=str)
 
 parser.add_argument("--stats", help="Get N-day high, low, avg. price stats", action="store_true")
 parser.add_argument("--freq", help="Frequency to request history data (typically this should be 1, default is None)", default=None, type=int)
@@ -84,7 +78,7 @@ skip_login = False
 if ( (args.blacklist == True or args.check_blacklist == True or args.clean_blacklist == True) and args.skip_check == True ):
 	skip_login = True
 
-if ( args.clean_blacklist == False and args.stock == '' and args.stocks == '' ):
+if ( args.clean_blacklist == False and args.is_market_open == False and args.stock == '' and args.stocks == '' ):
 	print('tda-quote-stock.py: error: one of the arguments stock --stocks is required')
 	sys.exit(0)
 
@@ -214,7 +208,7 @@ elif ( args.vwap == True ):
 		vwap, vwap_up, vwap_down =  tda_algo_helper.get_vwap(data)
 
 	except Exception as e:
-		print('Caught Exception: rsi_analyze(' + str(stock) + '): get_vwap(): ' + str(e), file=sys.stderr)
+		print('Caught Exception: get_vwap(' + str(stock) + '): get_vwap(): ' + str(e), file=sys.stderr)
 		exit(1)
 
 	if ( isinstance(vwap, bool) and vwap == False ):
@@ -231,57 +225,7 @@ elif ( args.vwap == True ):
 	exit(0)
 
 
-elif ( args.rsi == True ):
-
-	# Pull the stock history
-	data, epochs = tda_gobot_helper.get_pricehistory(stock, args.p_type, args.f_type, args.freq, args.period, args.end_date, args.start_date, needExtendedHoursData=True, debug=False)
-	if ( data == False ):
-		exit(1)
-
-	try:
-		rsi =  tda_algo_helper.get_rsi(data, args.rsi_period, args.rsi_type, debug=False)
-
-	except Exception as e:
-		print('Caught Exception: rsi_analyze(' + str(stock) + '): get_rsi(): ' + str(e), file=sys.stderr)
-		exit(1)
-
-	if ( isinstance(rsi, bool) and rsi == False ):
-		print('Error: get_rsi(' + str(stock) + ') returned false - no data', file=sys.stderr)
-		exit(1)
-
-	for i in range(args.lines+1, 1, -1):
-		date = datetime.datetime.fromtimestamp(float(data['candles'][-i]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
-		print( str(stock) + "\t" + str(date) + "\t" + str(rsi[-i]) )
-
-	exit(0)
-
-
-elif (args.stochrsi == True ):
-
-	# Pull the stock history
-	data, epochs = tda_gobot_helper.get_pricehistory(stock, args.p_type, args.f_type, args.freq, args.period, args.start_date, args.end_date, needExtendedHoursData=True, debug=False)
-	if ( data == False ):
-		exit(1)
-
-	try:
-		stochrsi, rsi_k, rsi_d = tda_algo_helper.get_stochrsi(data, rsi_period=args.rsi_period, stochrsi_period=args.stochrsi_period, type=args.rsi_type, slow_period=args.rsi_slow, rsi_k_period=args.rsi_k_period, rsi_d_period=args.rsi_d_period, debug=False)
-
-	except:
-		print('Caught Exception: rsi_analyze(' + str(stock) + '): get_stochrsi(): ' + str(e), file=sys.stderr)
-		exit(1)
-
-	if ( isinstance(stochrsi, bool) and stochrsi == False ):
-		print('Error: get_stochrsi(' + str(stock) + ') returned false - no data', file=sys.stderr)
-		exit(1)
-
-	for i in range(args.lines+1, 1, -1):
-		date = datetime.datetime.fromtimestamp(float(data['candles'][-i]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
-		print( str(stock) + "\t" + str(date) + "\t" + str(stochrsi[-i]) + "\t" + str(rsi_k[-i]) + "\t" + str(rsi_d[-i]) )
-
-	exit(0)
-
-
-elif (args.volatility == True ):
+elif ( args.volatility == True ):
 
 	v = tda_algo_helper.get_historic_volatility(stock, period=21)
 	print( 'NumPy: ' + str(round(v, 2) * 100 ) + "%\n" )
@@ -301,6 +245,17 @@ elif (args.volatility == True ):
 	for i in range(lines, 1, -1):
 		date = datetime.datetime.fromtimestamp(float(data['candles'][-i]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 		print( str(stock) + "\t" + str(date) + "\t" + str(v[-i]) )
+
+
+# Check if market is open
+elif ( args.is_market_open == True ):
+	if ( args.market_datetime == None ):
+		args.market_datetime = datetime.datetime.now( mytimezone )
+	else:
+		args.market_datetime = datetime.datetime.strptime(args.market_datetime, '%Y-%m-%d %H:%M:%S')
+		args.market_datetime = mytimezone.localize(args.market_datetime)
+
+	print( tda_gobot_helper.ismarketopen_US(date=args.market_datetime) )
 
 
 else:

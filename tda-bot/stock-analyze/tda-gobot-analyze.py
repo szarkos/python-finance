@@ -56,10 +56,12 @@ parser.add_argument("--with_stochmfi", help='Use StochMFI as an additional stoch
 parser.add_argument("--with_stochmfi_5m", help='Use StochMFI with 5-min candles as an additional stochastic indicator (Default: False)', action="store_true")
 parser.add_argument("--with_stacked_ma", help='Use stacked MA as a secondary indicator for trade entries (Default: False)', action="store_true")
 
-parser.add_argument("--stacked_ma_type", help='Moving average type to use (Default: vwma)', default='sma', type=str)
+parser.add_argument("--stacked_ma_type", help='Moving average type to use (Default: vwma)', default='vwma', type=str)
 parser.add_argument("--stacked_ma_periods", help='List of MA periods to use, comma-delimited (Default: 3,5,8)', default='3,5,8', type=str)
-parser.add_argument("--stacked_ma_type_primary", help='Moving average type to use when stacked_ma is used as primary indicator (Default: sma)', default='sma', type=str)
-parser.add_argument("--stacked_ma_periods_primary", help='List of MA periods to use when stacked_ma is used as primary indicator, comma-delimited (Default: 3,5,8)', default='3,5,8,13', type=str)
+parser.add_argument("--stacked_ma_type_primary", help='Moving average type to use when stacked_ma is used as primary indicator (Default: wma)', default='wma', type=str)
+parser.add_argument("--stacked_ma_periods_primary", help='List of MA periods to use when stacked_ma is used as primary indicator, comma-delimited (Default: 5,8,13)', default='5,8,13', type=str)
+parser.add_argument("--daily_ma_type", help='Moving average type to use (Default: wma)', default='wma', type=str)
+parser.add_argument("--confirm_daily_ma", help='Confirm that the daily moving average agrees with the direction stock entry', action="store_true")
 
 parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
 parser.add_argument("--with_rsi_simple", help='Use just the current RSI value as a secondary indicator', action="store_true")
@@ -83,9 +85,9 @@ parser.add_argument("--supertrend_min_natr", help='Minimum daily NATR a stock mu
 parser.add_argument("--with_bbands_kchannel", help='Use the Bollinger bands and Keltner channel indicators as secondary to advise on trade entries (Default: False)', action="store_true")
 parser.add_argument("--with_bbands_kchannel_simple", help='Use a simple version of the Bollinger bands and Keltner channel indicators as secondary to advise on trade entries (Default: False)', action="store_true")
 parser.add_argument("--use_bbands_kchannel_5m", help='Use 5-minute candles to calculate the Bollinger bands and Keltner channel indicators (Default: False)', action="store_true")
-parser.add_argument("--use_bbands_kchannel_xover_exit", help='Track the number of periods after the Bollinger bands and Keltner channels cross over and make exit decisions (Default: False)', action="store_true")
 parser.add_argument("--bbands_kchan_crossover_only", help='Only signal on Bollinger bands and Keltner channel crossover (Default: False)', action="store_true")
-parser.add_argument("--bbands_kchannel_xover_exit_count", help='If using --use_bbands_kchannel_xover_exit, this is the maximum number of periods below cost basis to allow before exiting the trade (Default: 5)', default=5, type=int )
+parser.add_argument("--use_bbands_kchannel_xover_exit", help='Use price action after a Bollinger bands and Keltner channel crossover to assist with stock exit (Default: False)', action="store_true")
+parser.add_argument("--bbands_kchannel_xover_exit_count", help='Number of periods to wait after a crossover to trigger --use_bbands_kchannel_xover_exit (Default: 20)', default=20, type=int)
 parser.add_argument("--bbands_kchannel_offset", help='Percentage offset between the Bollinger bands and Keltner channel indicators to trigger an initial trade entry (Default: 0.15)', default=0.15, type=float)
 parser.add_argument("--bbands_kchan_squeeze_count", help='Number of squeeze periods needed before triggering bbands_kchannel signal (Default: 4)', default=4, type=int)
 parser.add_argument("--bbands_period", help='Period to use when calculating the Bollinger Bands (Default: 20)', default=20, type=int)
@@ -109,6 +111,7 @@ parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_thresho
 parser.add_argument("--use_ha_exit", help='Use Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
 parser.add_argument("--use_trend_exit", help='Use ttm_trend algorithm with exit_percent-based exit strategy', action="store_true")
 parser.add_argument("--trend_exit_type", help='Type to use with ttm_trend algorithm (Default: hl2', default='hl2', type=str)
+parser.add_argument("--use_combined_exit", help='Use both the ttm_trend algorithm and Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
 
 parser.add_argument("--blacklist_earnings", help='Blacklist trading one week before and after quarterly earnings dates (Default: False)', action="store_true")
 parser.add_argument("--check_volume", help='Check the last several days (up to 6-days, depending on how much history is available) to ensure stock is not trading at a low volume threshold (Default: False)', action="store_true")
@@ -543,6 +546,7 @@ for algo in args.algo.split(','):
 					'use_ha_exit':				args.use_ha_exit,
 					'use_trend_exit':			args.use_trend_exit,
 					'trend_exit_type':			args.trend_exit_type,
+					'use_combined_exit':			args.use_combined_exit,
 					'hold_overnight':			args.hold_overnight,
 
 					# Stock shorting options
@@ -574,6 +578,8 @@ for algo in args.algo.split(','):
 					'stacked_ma_periods':			args.stacked_ma_periods,
 					'stacked_ma_type_primary':		args.stacked_ma_type_primary,
 					'stacked_ma_periods_primary':		args.stacked_ma_periods_primary,
+					'daily_ma_type':			args.daily_ma_type,
+					'confirm_daily_ma':			args.confirm_daily_ma,
 
 					'with_rsi':				args.with_rsi,
 					'with_rsi_simple':			args.with_rsi_simple,
@@ -603,8 +609,8 @@ for algo in args.algo.split(','):
 					'with_bbands_kchannel':			args.with_bbands_kchannel,
 					'with_bbands_kchannel_simple':		args.with_bbands_kchannel_simple,
 					'use_bbands_kchannel_5m':		args.use_bbands_kchannel_5m,
-					'use_bbands_kchannel_xover_exit':	args.use_bbands_kchannel_xover_exit,
 					'bbands_kchan_crossover_only':		args.bbands_kchan_crossover_only,
+					'use_bbands_kchannel_xover_exit':	args.use_bbands_kchannel_xover_exit,
 					'bbands_kchannel_xover_exit_count':	args.bbands_kchannel_xover_exit_count,
 					'bbands_kchannel_offset':		args.bbands_kchannel_offset,
 					'bbands_kchan_squeeze_count':		args.bbands_kchan_squeeze_count,

@@ -120,6 +120,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	use_ha_exit			= False		if ('use_ha_exit' not in params) else params['use_ha_exit']
 	use_trend_exit			= False		if ('use_trend_exit' not in params) else params['use_trend_exit']
 	trend_exit_type			= 'hl2'		if ('trend_exit_type' not in params) else params['trend_exit_type']
+	use_combined_exit		= False		if ('use_combined_exit' not in params) else params['use_combined_exit']
 	hold_overnight			= False		if ('hold_overnight' not in params) else params['hold_overnight']
 
 	# Stock shorting options
@@ -147,10 +148,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	with_stochmfi_5m		= False		if ('with_stochmfi_5m' not in params) else params['with_stochmfi_5m']
 
 	with_stacked_ma			= False		if ('with_stacked_ma' not in params) else params['with_stacked_ma']
-	stacked_ma_type			= 'sma'		if ('stacked_ma_type' not in params) else params['stacked_ma_type']
-	stacked_ma_periods		= '3,5,8'		if ('stacked_ma_periods' not in params) else params['stacked_ma_periods']
-	stacked_ma_type_primary		= 'sma'		if ('stacked_ma_type_primary' not in params) else params['stacked_ma_type_primary']
-	stacked_ma_periods_primary	= '3,5,8'		if ('stacked_ma_periods_primary' not in params) else params['stacked_ma_periods_primary']
+	stacked_ma_type			= 'vwma'	if ('stacked_ma_type' not in params) else params['stacked_ma_type']
+	stacked_ma_periods		= '3,5,8'	if ('stacked_ma_periods' not in params) else params['stacked_ma_periods']
+	stacked_ma_type_primary		= 'wma'		if ('stacked_ma_type_primary' not in params) else params['stacked_ma_type_primary']
+	stacked_ma_periods_primary	= '5,8,13'	if ('stacked_ma_periods_primary' not in params) else params['stacked_ma_periods_primary']
+	daily_ma_type			= 'wma'		if ('daily_ma_type' not in params) else params['daily_ma_type']
+	confirm_daily_ma		= False		if ('confirm_daily_ma' not in params) else params['confirm_daily_ma']
 
 	with_rsi			= False		if ('with_rsi' not in params) else params['with_rsi']
 	with_rsi_simple			= False		if ('with_rsi_simple' not in params) else params['with_rsi_simple']
@@ -180,9 +183,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	with_bbands_kchannel_simple	= False		if ('with_bbands_kchannel_simple' not in params) else params['with_bbands_kchannel_simple']
 	with_bbands_kchannel		= False		if ('with_bbands_kchannel' not in params) else params['with_bbands_kchannel']
 	use_bbands_kchannel_5m		= False		if ('use_bbands_kchannel_5m' not in params) else params['use_bbands_kchannel_5m']
-	use_bbands_kchannel_xover_exit	= False		if ('use_bbands_kchannel_xover_exit' not in params) else params['use_bbands_kchannel_xover_exit']
 	bbands_kchan_crossover_only	= False		if ('bbands_kchan_crossover_only' not in params) else params['bbands_kchan_crossover_only']
-	bbands_kchannel_xover_exit_count= 5		if ('bbands_kchannel_xover_exit_count' not in params) else params['bbands_kchannel_xover_exit_count']
+	use_bbands_kchannel_xover_exit	= False		if ('use_bbands_kchannel_xover_exit' not in params) else params['use_bbands_kchannel_xover_exit']
+	bbands_kchannel_xover_exit_count= 10		if ('bbands_kchannel_xover_exit_count' not in params) else params['bbands_kchannel_xover_exit_count']
 	bbands_kchannel_offset		= 0.15		if ('bbands_kchannel_offset' not in params) else params['bbands_kchannel_offset']
 	bbands_kchan_squeeze_count	= 4		if ('bbands_kchan_squeeze_count' not in params) else params['bbands_kchan_squeeze_count']
 	bbands_period			= 20		if ('bbands_period' not in params) else params['bbands_period']
@@ -874,33 +877,31 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 		return s_ma
 
+	# Intraday moving averages
 	s_ma = get_stackedma(pricehistory, stacked_ma_periods, stacked_ma_type)
 	if ( primary_stoch_indicator == 'stacked_ma' ):
 		s_ma_primary = get_stackedma(pricehistory, stacked_ma_periods_primary, stacked_ma_type_primary)
 
-
-	# Daily SMA/EMA
-	daily_ema3	= []
-	daily_ema5	= []
-	daily_ema8	= []
-	daily_ema13	= []
+	# Daily moving averages
+	ma = []
 	try:
-		daily_ema3	= tda_algo_helper.get_ema( pricehistory=daily_ph, period=3 )
-		daily_ema5	= tda_algo_helper.get_ema( pricehistory=daily_ph, period=5 )
-		daily_ema8	= tda_algo_helper.get_ema( pricehistory=daily_ph, period=8 )
-		daily_ema13	= tda_algo_helper.get_ema( pricehistory=daily_ph, period=13 )
+		ma = get_stackedma(daily_ph, '3,5,8', daily_ma_type)
 
 	except Exception as e:
 		print('Error, unable to calculate daily EMA: ' + str(e))
 		return False
 
 	daily_ma = OrderedDict()
-	for idx in range(-1, -len(daily_ema3), -1):
+	for idx in range(0, len(daily_ph['candles'])):
 		day = datetime.fromtimestamp(int(daily_ph['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d')
 		if day not in daily_ma:
-			daily_ma[day] = (daily_ema3[idx], daily_ema5[idx], daily_ema8[idx], daily_ema13[idx])
-	del(daily_ema3, daily_ema5, daily_ema8, daily_ema13)
-	# End SMA/EMA
+			if ( idx == 0 ):
+				daily_ma[day] = ma[idx]
+			else:
+				# Use the previous day's moving average to avoid looking at the MA that was
+				#  generated from the current day's candle (which hasn't happened yet)
+				daily_ma[day] = ma[idx-1]
+	# End MA
 
 	# Populate SMA/EMA for etf indicators
 	if ( check_etf_indicators == True ):
@@ -1503,9 +1504,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		except:
 			pass
 
-		cur_daily_ema = (0,0,0,0)
+		cur_daily_ma = (0,0,0)
 		try:
-			cur_daily_ema = daily_ma[date.strftime('%Y-%m-%d')]
+			cur_daily_ma = daily_ma[date.strftime('%Y-%m-%d')]
 		except:
 			pass
 
@@ -2056,6 +2057,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( with_stacked_ma == True and stacked_ma_signal != True ):
 					final_buy_signal = False
 
+				if ( confirm_daily_ma == True and check_stacked_ma(cur_daily_ma, 'bear') == True ):
+					final_buy_signal = False
+
 				if ( no_use_resistance == False and resistance_signal != True ):
 					final_buy_signal = False
 
@@ -2191,6 +2195,29 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						sell_signal		= True
 						end_of_day_exits	+= 1
 
+			# If stock is sinking over n-periods (bbands_kchannel_xover_exit_count) after entry then just exit
+			#  the position
+			if ( use_bbands_kchannel_xover_exit == True ):
+				if ( use_bbands_kchannel_5m == True ):
+					cur_bbands_lower	= bbands_lower[int((idx - bbands_idx) / 5)]
+					cur_bbands_upper	= bbands_upper[int((idx - bbands_idx) / 5)]
+					cur_kchannel_lower	= kchannel_lower[int((idx - kchannel_idx) / 5)]
+					cur_kchannel_upper	= kchannel_upper[int((idx - kchannel_idx) / 5)]
+				else:
+					cur_bbands_lower	= bbands_lower[idx]
+					cur_bbands_upper	= bbands_upper[idx]
+					cur_kchannel_lower	= kchannel_lower[idx]
+					cur_kchannel_upper	= kchannel_upper[idx]
+
+				if ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
+					bbands_kchan_xover_counter += 1
+					if ( last_close < purchase_price and decr_threshold > 0.5 ):
+						decr_threshold = 0.5
+				if ( last_close < purchase_price and bbands_kchan_xover_counter >= bbands_kchannel_xover_exit_count ):
+					sell_signal = True
+
+
+			# STOPLOSS
 			# Monitor cost basis
 			percent_change = 0
 			if ( last_close < base_price and sell_signal == False and exit_percent_signal == False ):
@@ -2270,8 +2297,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 						# We need to pull the latest n-period candles from pricehistory and send it
 						#  to our function.
-						period = 5
-						cndl_slice = []
+						period		= 5
+						cndl_slice	= []
 						for i in range(period+1, 0, -1):
 							cndl_slice.append( cndls[idx-i] )
 
@@ -2286,6 +2313,28 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							sell_signal		= True
 							exit_percent_exits	+= 1
 
+					elif ( use_combined_exit == True ):
+						trend_exit	= False
+						ha_exit		= False
+
+						# Check trend
+						period		= 5
+						cndl_slice	= []
+						for i in range(period+1, 0, -1):
+							cndl_slice.append( pricehistory['candles'][idx-i] )
+						if ( price_trend(cndl_slice, type=trend_exit_type, period=period, affinity='bull') == False ):
+							trend_exit = True
+
+						# Check Heikin Ashi
+						ha_open		= pricehistory['hacandles'][idx]['open']
+						ha_close	= pricehistory['hacandles'][idx]['close']
+						if ( ha_close < ha_open ):
+							ha_exit	= True
+
+						if ( trend_exit == True or ha_exit == True ):
+							sell_signal		= True
+							exit_percent_exits	+= 1
+
 					elif ( last_close < last_open ):
 						sell_signal		= True
 						exit_percent_exits	+= 1
@@ -2294,22 +2343,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# If we've reached this point we probably need to stop out
 				sell_signal = True
 
-
-			# If stock is sinking over n-periods (bbands_kchannel_xover_exit_count) after entry then just exit
-			#  the position
-			if ( with_bbands_kchannel == True and use_bbands_kchannel_xover_exit == True ):
-				cur_bbands_lower	= bbands_lower[idx]
-				cur_bbands_upper	= bbands_upper[idx]
-				cur_kchannel_lower	= kchannel_lower[idx]
-				cur_kchannel_upper	= kchannel_upper[idx]
-
-				if ( bbands_kchan_crossover_only == True ):
-					bbands_kchan_xover_counter += 1
-				elif ( cur_kchannel_lower > cur_bbands_lower ):
-					bbands_kchan_xover_counter += 1
-
-				if ( bbands_kchan_xover_counter >= bbands_kchannel_xover_exit_count and last_close < purchase_price ):
-					sell_signal = True
 
 			# Monitor RSI for SELL signal
 			#  Note that this RSI implementation is more conservative than the one for buy/sell to ensure we don't
@@ -2846,9 +2879,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( with_stacked_ma == True and stacked_ma_signal != True ):
 					final_short_signal = False
 
+				if ( confirm_daily_ma == True and check_stacked_ma(cur_daily_ma, 'bull') == True ):
+					final_short_signal = False
+
 				if ( no_use_resistance == False and resistance_signal != True ):
 					final_short_signal = False
 
+				# Min/max stock behavior options
 				if ( min_intra_natr != None and cur_natr < min_intra_natr ):
 					final_short_signal = False
 				if ( max_intra_natr != None and cur_natr > max_intra_natr ):
@@ -2986,6 +3023,29 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						buy_to_cover_signal	= True
 						end_of_day_exits	+= 1
 
+			# If stock is rising over n-periods (bbands_kchannel_xover_exit_count) after entry then just exit
+			#  the position
+			if ( use_bbands_kchannel_xover_exit == True ):
+				if ( use_bbands_kchannel_5m == True ):
+					cur_bbands_lower	= bbands_lower[int((idx - bbands_idx) / 5)]
+					cur_bbands_upper	= bbands_upper[int((idx - bbands_idx) / 5)]
+					cur_kchannel_lower	= kchannel_lower[int((idx - kchannel_idx) / 5)]
+					cur_kchannel_upper	= kchannel_upper[int((idx - kchannel_idx) / 5)]
+				else:
+					cur_bbands_lower	= bbands_lower[idx]
+					cur_bbands_upper	= bbands_upper[idx]
+					cur_kchannel_lower	= kchannel_lower[idx]
+					cur_kchannel_upper	= kchannel_upper[idx]
+
+				if ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
+					bbands_kchan_xover_counter += 1
+					if ( last_close > short_price and decr_threshold > 0.5 ):
+						decr_threshold = 0.5
+				if ( last_close > short_price and bbands_kchan_xover_counter >= bbands_kchannel_xover_exit_count ):
+					buy_to_cover_signal = True
+
+
+			# STOPLOSS
 			# Monitor cost basis
 			percent_change = 0
 			if ( last_close > base_price and buy_to_cover_signal == False and exit_percent_signal == False ):
@@ -3084,6 +3144,28 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							buy_to_cover_signal	= True
 							exit_percent_exits	+= 1
 
+					elif ( use_combined_exit == True ):
+						trend_exit	= False
+						ha_exit		= False
+
+						# Check trend
+						period = 5
+						cndl_slice = []
+						for i in range(period+1, 0, -1):
+							cndl_slice.append( pricehistory['candles'][idx-i] )
+						if ( price_trend(cndl_slice, type=trend_exit_type, period=period, affinity='bear') == False ):
+							trend_exit = True
+
+						# Check Heikin Ashi
+						ha_open		= pricehistory['hacandles'][idx]['open']
+						ha_close	= pricehistory['hacandles'][idx]['close']
+						if ( ha_close > ha_open ):
+							ha_exit	= True
+
+						if ( trend_exit == True or ha_exit == True ):
+							buy_to_cover_signal	= True
+							exit_percent_exits	+= 1
+
 					elif ( last_close > last_open ):
 						buy_to_cover_signal	= True
 						exit_percent_exits	+= 1
@@ -3092,22 +3174,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# If we've reached this point we probably need to stop out
 				buy_to_cover_signal = True
 
-
-			# If stock is rising over n-periods (bbands_kchannel_xover_exit_count) after entry then just exit
-			#  the position
-			if ( with_bbands_kchannel == True and use_bbands_kchannel_xover_exit == True ):
-				cur_bbands_lower	= bbands_lower[idx]
-				cur_bbands_upper	= bbands_upper[idx]
-				cur_kchannel_lower	= kchannel_lower[idx]
-				cur_kchannel_upper	= kchannel_upper[idx]
-
-				if ( bbands_kchan_crossover_only == True ):
-					bbands_kchan_xover_counter += 1
-				elif ( cur_kchannel_lower > cur_bbands_lower and cur_kchannel_upper < cur_bbands_upper ):
-					bbands_kchan_xover_counter += 1
-
-				if ( bbands_kchan_xover_counter >= bbands_kchannel_xover_exit_count and last_close > short_price ):
-					buy_to_cover_signal = True
 
 			# Monitor RSI for BUY_TO_COVER signal
 			# Do not use stochrsi as an exit signal if strict_exit_percent is set to True

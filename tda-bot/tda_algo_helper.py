@@ -1640,7 +1640,12 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, deb
 	# Reduce noise by eliminating levels that are close to levels that
 	#   have already been discovered
 	def check_atr_level( lvl=None, atr=1, levels=[] ):
-		return np.sum( [abs(lvl - x) < atr for x in levels] ) == 0
+		levels_t = []
+		if ( len(levels) > 0 and isinstance(levels[0], tuple) ):
+			for i in levels:
+				levels_t.append(i[0])
+
+		return np.sum( [abs(lvl - x) < atr for x in levels_t] ) == 0
 
 
 	# Need to massage the data to ensure matplotlib works

@@ -975,7 +975,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			bbands_mid      = []
 			bbands_upper    = []
 			try:
-				bbands_lower, bbands_mid, bbands_upper = tda_algo_helper.get_bbands(pricehistory=stocks[ticker]['pricehistory'], period=cur_algo['bbands_period'])
+				if ( cur_algo['use_bbands_kchannel_5m'] == True ):
+					bbands_lower, bbands_mid, bbands_upper = tda_algo_helper.get_bbands(pricehistory=stocks[ticker]['pricehistory_5m'], period=cur_algo['bbands_period'])
+				else:
+					bbands_lower, bbands_mid, bbands_upper = tda_algo_helper.get_bbands(pricehistory=stocks[ticker]['pricehistory'], period=cur_algo['bbands_period'])
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(' + str(ticker) + '): get_bbands(): ' + str(e))
@@ -988,7 +991,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			kchannel_mid    = []
 			kchannel_upper  = []
 			try:
-				kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory=stocks[ticker]['pricehistory'], period=cur_algo['kchannel_period'], atr_period=cur_algo['kchannel_atr_period'])
+				if ( cur_algo['use_bbands_kchannel_5m'] == True ):
+					kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory=stocks[ticker]['pricehistory_5m'], period=cur_algo['kchannel_period'], atr_period=cur_algo['kchannel_atr_period'])
+				else:
+					kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory=stocks[ticker]['pricehistory'], period=cur_algo['kchannel_period'], atr_period=cur_algo['kchannel_atr_period'])
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(' + str(ticker) + '): get_kchannel(): ' + str(e))
@@ -1159,11 +1165,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 		# Loop continuously while after hours if --multiday or --singleday is set
 		# Also re-set --singleday to False when the market opens
-		if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False ):
-			if ( args.multiday == True or args.singleday == True ):
-				continue
-		else:
-			args.singleday = False
+#		if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False ):
+#			if ( args.multiday == True or args.singleday == True ):
+#				continue
+#		else:
+#			args.singleday = False
 
 		# Set some short variables to improve readability :)
 		signal_mode		= stocks[ticker]['algo_signals'][algo_id]['signal_mode']
@@ -1334,7 +1340,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# Jump to short mode if the stacked moving averages are showing a bearish movement
 				if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True and args.short == True and stocks[ticker]['shortable'] == True ):
-					print('(' + str(ticker) + ') StackedMA values indicate bearish trend ' + str(cur_s_ma_primary) + ', switching to short mode.')
+					print('(' + str(ticker) + ') StackedMA values indicate bearish trend ' + str(cur_s_ma_primary) + ", switching to short mode.\n" )
 					reset_signals(ticker, id=algo_id, signal_mode='short', exclude_bbands_kchan=True)
 					continue
 
@@ -1872,6 +1878,23 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						stocks[ticker]['exit_percent_signal'] = True
 						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
+			# If stock is sinking over n-periods (bbands_kchannel_xover_exit_count) after entry then just exit
+			#  the position
+			if ( cur_algo['use_bbands_kchannel_xover_exit'] == True ):
+
+				cur_bbands_lower        = cur_bbands[0]
+				cur_bbands_upper        = cur_bbands[2]
+				cur_kchannel_lower      = cur_kchannel[0]
+				cur_kchannel_upper      = cur_kchannel[2]
+
+				if ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
+					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1
+					if ( last_close < stocks[ticker]['orig_base_price'] and stocks[ticker]['decr_threshold'] > 0.5 ):
+						stocks[ticker]['decr_threshold'] = 0.5
+
+				if ( last_close < stocks[ticker]['orig_base_price'] and stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] >= cur_algo['bbands_kchannel_xover_exit_count'] ):
+					stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
+
 			# STOPLOSS MONITOR
 			# If price decreases
 			if ( last_price < stocks[ticker]['base_price'] and stocks[ticker]['exit_percent_signal'] == False ):
@@ -2090,7 +2113,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# Jump to short mode if the stacked moving averages are showing a bearish movement
 				if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True and args.shortonly == False ):
-					print('(' + str(ticker) + ') StackedMA values indicate bullish trend ' + str(cur_s_ma_primary) + ', switching to long mode.')
+					print('(' + str(ticker) + ') StackedMA values indicate bullish trend ' + str(cur_s_ma_primary) + ", switching to long mode.\n")
 					reset_signals(ticker, id=algo_id, signal_mode='buy', exclude_bbands_kchan=True)
 					continue
 
@@ -2653,6 +2676,23 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 						stocks[ticker]['exit_percent_signal'] = True
 
+			# If stock is rising over n-periods (bbands_kchannel_xover_exit_count) after entry then just exit
+			#  the position
+			if ( cur_algo['use_bbands_kchannel_xover_exit'] == True ):
+
+				cur_bbands_lower        = cur_bbands[0]
+				cur_bbands_upper        = cur_bbands[2]
+				cur_kchannel_lower      = cur_kchannel[0]
+				cur_kchannel_upper      = cur_kchannel[2]
+
+				if ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
+					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1
+					if ( last_close > stocks[ticker]['orig_base_price'] and stocks[ticker]['decr_threshold'] > 0.5 ):
+						stocks[ticker]['decr_threshold'] = 0.5
+
+				if ( last_close > stocks[ticker]['orig_base_price'] and stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] >= cur_algo['bbands_kchannel_xover_exit_count'] ):
+					stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
+
 
 			# STOPLOSS MONITOR
 			# If price decreases
@@ -2827,8 +2867,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		# Undefined mode - this shouldn't happen
 		else:
 			print('Error: undefined signal_mode: ' + str(signal_mode), file=sys.stderr)
-
-		print() # Make debug log easier to read
 
 	# END stocks.keys() loop
 

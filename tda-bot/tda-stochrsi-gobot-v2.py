@@ -82,10 +82,10 @@ parser.add_argument("--rsi_slow", help='Slowing period to use in StochRSI algori
 parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='hlc3', type=str)
 parser.add_argument("--stochrsi_offset", help='Offset between K and D to determine strength of trend', default=8, type=int)
 
-parser.add_argument("--stacked_ma_type", help='Moving average type to use (Default: sma)', default='sma', type=str)
-parser.add_argument("--stacked_ma_periods", help='List of MA periods to use, comma-delimited (Default: 3,5,8)', default='3,5,8', type=str)
-parser.add_argument("--stacked_ma_type_primary", help='Moving average type to use when stacked_ma is used as primary indicator (Default: sma)', default='sma', type=str)
-parser.add_argument("--stacked_ma_periods_primary", help='List of MA periods to use when stacked_ma is used as primary indicator, comma-delimited (Default: 3,5,8)', default='3,5,8', type=str)
+parser.add_argument("--stacked_ma_type", help='Moving average type to use (Default: sma)', default='kama', type=str)
+parser.add_argument("--stacked_ma_periods", help='List of MA periods to use, comma-delimited (Default: 8,13,21)', default='8,13,21', type=str)
+parser.add_argument("--stacked_ma_type_primary", help='Moving average type to use when stacked_ma is used as primary indicator (Default: kama)', default='kama', type=str)
+parser.add_argument("--stacked_ma_periods_primary", help='List of MA periods to use when stacked_ma is used as primary indicator, comma-delimited (Default: 8,13,21)', default='8,13,21', type=str)
 
 parser.add_argument("--mfi_high_limit", help='MFI high limit', default=80, type=int)
 parser.add_argument("--mfi_low_limit", help='MFI low limit', default=20, type=int)
@@ -119,8 +119,12 @@ parser.add_argument("--macd_signal_period", help='MACD signal (length) period', 
 parser.add_argument("--macd_offset", help='MACD offset for signal lines', default=0.006, type=float)
 parser.add_argument("--supertrend_atr_period", help='ATR period to use for the supertrend indicator (Default: 70)', default=70, type=int)
 parser.add_argument("--supertrend_min_natr", help='Minimum daily NATR a stock must have to enable supertrend indicator (Default: 2)', default=2, type=float)
+
 parser.add_argument("--bbands_kchannel_offset", help='Percentage offset between the Bollinger bands and Keltner channel indicators to trigger an initial trade entry (Default: 0.15)', default=0.15, type=float)
 parser.add_argument("--bbands_kchan_squeeze_count", help='Number of squeeze periods needed before triggering bbands_kchannel signal (Default: 4)', default=4, type=int)
+parser.add_argument("--use_bbands_kchannel_5m", help='Use 5-minute candles to calculate the Bollinger bands and Keltner channel indicators (Default: False)', action="store_true")
+parser.add_argument("--use_bbands_kchannel_xover_exit", help='Use price action after a Bollinger bands and Keltner channel crossover to assist with stock exit (Default: False)', action="store_true")
+parser.add_argument("--bbands_kchannel_xover_exit_count", help='Number of periods to wait after a crossover to trigger --use_bbands_kchannel_xover_exit (Default: 20)', default=20, type=int)
 parser.add_argument("--bbands_period", help='Period to use when calculating the Bollinger Bands (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_period", help='Period to use when calculating the Keltner channels (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_atr_period", help='Period to use when calculating the ATR for use with the Keltner channels (Default: 20)', default=20, type=int)
@@ -302,6 +306,9 @@ for algo in args.algos:
 
 	bbands_kchannel_offset		= args.bbands_kchannel_offset
 	bbands_kchan_squeeze_count	= args.bbands_kchan_squeeze_count
+	use_bbands_kchannel_5m		= args.use_bbands_kchannel_5m
+	use_bbands_kchannel_xover_exit	= args.use_bbands_kchannel_xover_exit
+	bbands_kchannel_xover_exit_count= args.bbands_kchannel_xover_exit_count
 	bbands_period			= args.bbands_period
 	kchannel_period			= args.kchannel_period
 	kchannel_atr_period		= args.kchannel_atr_period
@@ -344,67 +351,70 @@ for algo in args.algos:
 		if ( a == 'support_resistance' ):	support_resistance	= True
 
 		# Modifiers
-		if ( re.match('rsi_high_limit:', a)		!= None ):	rsi_high_limit			= float( a.split(':')[1] )
-		if ( re.match('rsi_low_limit:', a)		!= None ):	rsi_low_limit			= float( a.split(':')[1] )
+		if ( re.match('rsi_high_limit:', a)			!= None ):	rsi_high_limit			= float( a.split(':')[1] )
+		if ( re.match('rsi_low_limit:', a)			!= None ):	rsi_low_limit			= float( a.split(':')[1] )
 
-		if ( re.match('rsi_period:', a)			!= None ):	rsi_period			= int( a.split(':')[1] )
-		if ( re.match('stochrsi_period:', a)		!= None ):	stochrsi_period			= int( a.split(':')[1] )
-		if ( re.match('stochrsi_period_5m:', a)		!= None ):	stochrsi_period_5m		= int( a.split(':')[1] )
-		if ( re.match('rsi_k_period:', a)		!= None ):	rsi_k_period			= int( a.split(':')[1] )
-		if ( re.match('rsi_k_5m_period:', a)		!= None ):	rsi_k_5m_period			= int( a.split(':')[1] )
-		if ( re.match('rsi_d_period:', a)		!= None ):	rsi_d_period			= int( a.split(':')[1] )
-		if ( re.match('rsi_slow:', a)			!= None ):	rsi_slow			= int( a.split(':')[1] )
-		if ( re.match('stochrsi_offset:', a)		!= None ):	stochrsi_offset			= float( a.split(':')[1] )
-		if ( re.match('stochrsi_5m_offset:', a)		!= None ):	stochrsi_5m_offset		= float( a.split(':')[1] )
+		if ( re.match('rsi_period:', a)				!= None ):	rsi_period			= int( a.split(':')[1] )
+		if ( re.match('stochrsi_period:', a)			!= None ):	stochrsi_period			= int( a.split(':')[1] )
+		if ( re.match('stochrsi_period_5m:', a)			!= None ):	stochrsi_period_5m		= int( a.split(':')[1] )
+		if ( re.match('rsi_k_period:', a)			!= None ):	rsi_k_period			= int( a.split(':')[1] )
+		if ( re.match('rsi_k_5m_period:', a)			!= None ):	rsi_k_5m_period			= int( a.split(':')[1] )
+		if ( re.match('rsi_d_period:', a)			!= None ):	rsi_d_period			= int( a.split(':')[1] )
+		if ( re.match('rsi_slow:', a)				!= None ):	rsi_slow			= int( a.split(':')[1] )
+		if ( re.match('stochrsi_offset:', a)			!= None ):	stochrsi_offset			= float( a.split(':')[1] )
+		if ( re.match('stochrsi_5m_offset:', a)			!= None ):	stochrsi_5m_offset		= float( a.split(':')[1] )
 
-		if ( re.match('stacked_ma_type_primary:', a)	!= None ):	stacked_ma_type_primary		= str( a.split(':')[1] )
-		if ( re.match('stacked_ma_periods_primary:', a)	!= None ):	stacked_ma_periods_primary	= str( a.split(':')[1] )
-		if ( re.match('stacked_ma_type:', a)		!= None ):	stacked_ma_type			= str( a.split(':')[1] )
-		if ( re.match('stacked_ma_periods:', a)		!= None ):	stacked_ma_periods		= str( a.split(':')[1] )
+		if ( re.match('stacked_ma_type_primary:', a)		!= None ):	stacked_ma_type_primary		= str( a.split(':')[1] )
+		if ( re.match('stacked_ma_periods_primary:', a)		!= None ):	stacked_ma_periods_primary	= str( a.split(':')[1] )
+		if ( re.match('stacked_ma_type:', a)			!= None ):	stacked_ma_type			= str( a.split(':')[1] )
+		if ( re.match('stacked_ma_periods:', a)			!= None ):	stacked_ma_periods		= str( a.split(':')[1] )
 
-		if ( re.match('mfi_high_limit:', a)		!= None ):	mfi_high_limit			= float( a.split(':')[1] )
-		if ( re.match('mfi_low_limit:', a)		!= None ):	mfi_low_limit			= float( a.split(':')[1] )
+		if ( re.match('mfi_high_limit:', a)			!= None ):	mfi_high_limit			= float( a.split(':')[1] )
+		if ( re.match('mfi_low_limit:', a)			!= None ):	mfi_low_limit			= float( a.split(':')[1] )
 
-		if ( re.match('mfi_period:', a)			!= None ):	mfi_period			= int( a.split(':')[1] )
-		if ( re.match('stochmfi_period:', a)		!= None ):	stoch_mfi_period		= int( a.split(':')[1] )
-		if ( re.match('stochmfi_5m_period:', a)		!= None ):	stoch_mfi_5m_period		= int( a.split(':')[1] )
-		if ( re.match('mfi_k_period:', a)		!= None ):	mfi_k_period			= int( a.split(':')[1] )
-		if ( re.match('mfi_k_5m_period:', a)		!= None ):	mfi_k_5m_period			= int( a.split(':')[1] )
-		if ( re.match('mfi_d_period:', a)		!= None ):	mfi_d_period			= int( a.split(':')[1] )
-		if ( re.match('mfi_slow:', a)			!= None ):	mfi_slow			= int( a.split(':')[1] )
-		if ( re.match('stochmfi_offset:', a)		!= None ):	stochmfi_offset			= float( a.split(':')[1] )
-		if ( re.match('stochmfi_5m_offset:', a)		!= None ):	stochmfi_5m_offset		= float( a.split(':')[1] )
+		if ( re.match('mfi_period:', a)				!= None ):	mfi_period			= int( a.split(':')[1] )
+		if ( re.match('stochmfi_period:', a)			!= None ):	stoch_mfi_period		= int( a.split(':')[1] )
+		if ( re.match('stochmfi_5m_period:', a)			!= None ):	stoch_mfi_5m_period		= int( a.split(':')[1] )
+		if ( re.match('mfi_k_period:', a)			!= None ):	mfi_k_period			= int( a.split(':')[1] )
+		if ( re.match('mfi_k_5m_period:', a)			!= None ):	mfi_k_5m_period			= int( a.split(':')[1] )
+		if ( re.match('mfi_d_period:', a)			!= None ):	mfi_d_period			= int( a.split(':')[1] )
+		if ( re.match('mfi_slow:', a)				!= None ):	mfi_slow			= int( a.split(':')[1] )
+		if ( re.match('stochmfi_offset:', a)			!= None ):	stochmfi_offset			= float( a.split(':')[1] )
+		if ( re.match('stochmfi_5m_offset:', a)			!= None ):	stochmfi_5m_offset		= float( a.split(':')[1] )
 
-		if ( re.match('adx_threshold:', a)		!= None ):	adx_threshold			= float( a.split(':')[1] )
-		if ( re.match('adx_period:', a)			!= None ):	adx_period			= int( a.split(':')[1] )
-		if ( re.match('macd_long_period:', a)		!= None ):	macd_long_period		= int( a.split(':')[1] )
-		if ( re.match('macd_short_period:', a)		!= None ):	macd_short_period		= int( a.split(':')[1] )
-		if ( re.match('macd_signal_period:', a)		!= None ):	macd_signal_period		= int( a.split(':')[1] )
-		if ( re.match('macd_offset:', a)		!= None ):	macd_offset			= float( a.split(':')[1] )
+		if ( re.match('adx_threshold:', a)			!= None ):	adx_threshold			= float( a.split(':')[1] )
+		if ( re.match('adx_period:', a)				!= None ):	adx_period			= int( a.split(':')[1] )
+		if ( re.match('macd_long_period:', a)			!= None ):	macd_long_period		= int( a.split(':')[1] )
+		if ( re.match('macd_short_period:', a)			!= None ):	macd_short_period		= int( a.split(':')[1] )
+		if ( re.match('macd_signal_period:', a)			!= None ):	macd_signal_period		= int( a.split(':')[1] )
+		if ( re.match('macd_offset:', a)			!= None ):	macd_offset			= float( a.split(':')[1] )
 
-		if ( re.match('aroonosc_period:', a)		!= None ):	aroonosc_period			= int( a.split(':')[1] )
-		if ( re.match('di_period:', a)			!= None ):	di_period			= int( a.split(':')[1] )
-		if ( re.match('atr_period:', a)			!= None ):	atr_period			= int( a.split(':')[1] )
-		if ( re.match('vpt_sma_period:', a)		!= None ):	vpt_sma_period			= int( a.split(':')[1] )
+		if ( re.match('aroonosc_period:', a)			!= None ):	aroonosc_period			= int( a.split(':')[1] )
+		if ( re.match('di_period:', a)				!= None ):	di_period			= int( a.split(':')[1] )
+		if ( re.match('atr_period:', a)				!= None ):	atr_period			= int( a.split(':')[1] )
+		if ( re.match('vpt_sma_period:', a)			!= None ):	vpt_sma_period			= int( a.split(':')[1] )
 
-		if ( re.match('chop_period:', a)		!= None ):	chop_period			= int( a.split(':')[1] )
-		if ( re.match('chop_low_limit:', a)		!= None ):	chop_low_limit			= float( a.split(':')[1] )
-		if ( re.match('chop_high_limit:', a)		!= None ):	chop_high_limit			= float( a.split(':')[1] )
+		if ( re.match('chop_period:', a)			!= None ):	chop_period			= int( a.split(':')[1] )
+		if ( re.match('chop_low_limit:', a)			!= None ):	chop_low_limit			= float( a.split(':')[1] )
+		if ( re.match('chop_high_limit:', a)			!= None ):	chop_high_limit			= float( a.split(':')[1] )
 
-		if ( re.match('supertrend_atr_period:', a)	!= None ):	supertrend_atr_period		= int( a.split(':')[1] )
-		if ( re.match('supertrend_min_natr:', a)	!= None ):	supertrend_min_natr		= float( a.split(':')[1] )
+		if ( re.match('supertrend_atr_period:', a)		!= None ):	supertrend_atr_period		= int( a.split(':')[1] )
+		if ( re.match('supertrend_min_natr:', a)		!= None ):	supertrend_min_natr		= float( a.split(':')[1] )
 
-		if ( re.match('bbands_kchannel_offset:', a)	!= None ):	bbands_kchannel_offset		= float( a.split(':')[1] )
-		if ( re.match('bbands_kchan_squeeze_count:', a)	!= None ):	bbands_kchan_squeeze_count	= int( a.split(':')[1] )
-		if ( re.match('bbands_period:', a)		!= None ):	bbands_period			= int( a.split(':')[1] )
-		if ( re.match('kchannel_period:', a)		!= None ):	kchannel_period			= int( a.split(':')[1] )
-		if ( re.match('kchannel_atr_period:', a)	!= None ):	kchannel_atr_period		= int( a.split(':')[1] )
+		if ( re.match('use_bbands_kchannel_5m', a)		!= None ):	use_bbands_kchannel_5m		= True
+		if ( re.match('use_bbands_kchannel_xover_exit', a)	!= None ):	use_bbands_kchannel_xover_exit	= True
+		if ( re.match('bbands_kchannel_offset:', a)		!= None ):	bbands_kchannel_offset		= float( a.split(':')[1] )
+		if ( re.match('bbands_kchan_squeeze_count:', a)		!= None ):	bbands_kchan_squeeze_count	= int( a.split(':')[1] )
+		if ( re.match('bbands_kchannel_xover_exit_count:', a)	!= None ):	bbands_kchannel_xover_exit_count= int( a.split(':')[1] )
+		if ( re.match('bbands_period:', a)			!= None ):	bbands_period			= int( a.split(':')[1] )
+		if ( re.match('kchannel_period:', a)			!= None ):	kchannel_period			= int( a.split(':')[1] )
+		if ( re.match('kchannel_atr_period:', a)		!= None ):	kchannel_atr_period		= int( a.split(':')[1] )
 
-		if ( re.match('use_natr_resistance:', a)	!= None ):	use_natr_resistance		= float( a.split(':')[1] )
-		if ( re.match('min_intra_natr:', a)		!= None ):	min_intra_natr			= float( a.split(':')[1] )
-		if ( re.match('max_intra_natr:', a)		!= None ):	max_intra_natr			= float( a.split(':')[1] )
-		if ( re.match('min_daily_natr:', a)		!= None ):	min_daily_natr			= float( a.split(':')[1] )
-		if ( re.match('max_daily_natr:', a)		!= None ):	max_daily_natr			= float( a.split(':')[1] )
+		if ( re.match('use_natr_resistance:', a)		!= None ):	use_natr_resistance		= float( a.split(':')[1] )
+		if ( re.match('min_intra_natr:', a)			!= None ):	min_intra_natr			= float( a.split(':')[1] )
+		if ( re.match('max_intra_natr:', a)			!= None ):	max_intra_natr			= float( a.split(':')[1] )
+		if ( re.match('min_daily_natr:', a)			!= None ):	min_daily_natr			= float( a.split(':')[1] )
+		if ( re.match('max_daily_natr:', a)			!= None ):	max_daily_natr			= float( a.split(':')[1] )
 
 	# Tweak or check the algo config
 	if ( primary_stochrsi == True and primary_stochmfi == True ):
@@ -433,98 +443,101 @@ for algo in args.algos:
 			macd = False
 			macd_simple = False
 
-	algo_list = {   'algo_id':			algo_id,
+	algo_list = {   'algo_id':				algo_id,
 
-			'primary_stochrsi':		primary_stochrsi,
-			'primary_stochmfi':		primary_stochmfi,
-			'primary_stacked_ma':		primary_stacked_ma,
-			'stacked_ma':			stacked_ma,
-			'stochrsi_5m':			stochrsi_5m,
-			'stochmfi':			stochmfi,
-			'stochmfi_5m':			stochmfi_5m,
-			'rsi':				rsi,
-			'mfi':				mfi,
-			'adx':				adx,
-			'dmi':				dmi,
-			'dmi_simple':			dmi_simple,
-			'macd':				macd,
-			'macd_simple':			macd_simple,
-			'aroonosc':			aroonosc,
-			'chop_index':			chop_index,
-			'chop_simple':			chop_simple,
-			'supertrend':			supertrend,
-			'vwap':				vwap,
-			'vpt':				vpt,
-			'support_resistance':		support_resistance,
+			'primary_stochrsi':			primary_stochrsi,
+			'primary_stochmfi':			primary_stochmfi,
+			'primary_stacked_ma':			primary_stacked_ma,
+			'stacked_ma':				stacked_ma,
+			'stochrsi_5m':				stochrsi_5m,
+			'stochmfi':				stochmfi,
+			'stochmfi_5m':				stochmfi_5m,
+			'rsi':					rsi,
+			'mfi':					mfi,
+			'adx':					adx,
+			'dmi':					dmi,
+			'dmi_simple':				dmi_simple,
+			'macd':					macd,
+			'macd_simple':				macd_simple,
+			'aroonosc':				aroonosc,
+			'chop_index':				chop_index,
+			'chop_simple':				chop_simple,
+			'supertrend':				supertrend,
+			'vwap':					vwap,
+			'vpt':					vpt,
+			'support_resistance':			support_resistance,
 
 			# Algo modifiers
-			'rsi_high_limit':		rsi_high_limit,
-			'rsi_low_limit':		rsi_low_limit,
+			'rsi_high_limit':			rsi_high_limit,
+			'rsi_low_limit':			rsi_low_limit,
 
-			'rsi_period':			rsi_period,
-			'stochrsi_period':		stochrsi_period,
-			'stochrsi_5m_period':		stochrsi_5m_period,
-			'rsi_k_period':			rsi_k_period,
-			'rsi_k_5m_period':		rsi_k_5m_period,
-			'rsi_d_period':			rsi_d_period,
-			'rsi_slow':			rsi_slow,
-			'stochrsi_offset':		stochrsi_offset,
-			'stochrsi_5m_offset':		stochrsi_5m_offset,
+			'rsi_period':				rsi_period,
+			'stochrsi_period':			stochrsi_period,
+			'stochrsi_5m_period':			stochrsi_5m_period,
+			'rsi_k_period':				rsi_k_period,
+			'rsi_k_5m_period':			rsi_k_5m_period,
+			'rsi_d_period':				rsi_d_period,
+			'rsi_slow':				rsi_slow,
+			'stochrsi_offset':			stochrsi_offset,
+			'stochrsi_5m_offset':			stochrsi_5m_offset,
 
-			'mfi_high_limit':		mfi_high_limit,
-			'mfi_low_limit':		mfi_low_limit,
+			'mfi_high_limit':			mfi_high_limit,
+			'mfi_low_limit':			mfi_low_limit,
 
-			'mfi_period':			mfi_period,
-			'stochmfi_period':		stochmfi_period,
-			'stochmfi_5m_period':		stochmfi_5m_period,
-			'mfi_k_period':			mfi_k_period,
-			'mfi_k_5m_period':		mfi_k_5m_period,
-			'mfi_d_period':			mfi_d_period,
-			'mfi_slow':			mfi_slow,
-			'stochmfi_offset':		stochmfi_offset,
-			'stochmfi_5m_offset':		stochmfi_5m_offset,
+			'mfi_period':				mfi_period,
+			'stochmfi_period':			stochmfi_period,
+			'stochmfi_5m_period':			stochmfi_5m_period,
+			'mfi_k_period':				mfi_k_period,
+			'mfi_k_5m_period':			mfi_k_5m_period,
+			'mfi_d_period':				mfi_d_period,
+			'mfi_slow':				mfi_slow,
+			'stochmfi_offset':			stochmfi_offset,
+			'stochmfi_5m_offset':			stochmfi_5m_offset,
 
-			'adx_threshold':		adx_threshold,
-			'adx_period':			adx_period,
+			'adx_threshold':			adx_threshold,
+			'adx_period':				adx_period,
 
-			'macd_long_period':		macd_long_period,
-			'macd_short_period':		macd_short_period,
-			'macd_signal_period':		macd_signal_period,
-			'macd_offset':			macd_offset,
+			'macd_long_period':			macd_long_period,
+			'macd_short_period':			macd_short_period,
+			'macd_signal_period':			macd_signal_period,
+			'macd_offset':				macd_offset,
 
-			'aroonosc_period':		aroonosc_period,
-			'di_period':			di_period,
-			'atr_period':			atr_period,
-			'vpt_sma_period':		vpt_sma_period,
-			'chop_period':			chop_period,
-			'chop_low_limit':		chop_low_limit,
-			'chop_high_limit':		chop_high_limit,
+			'aroonosc_period':			aroonosc_period,
+			'di_period':				di_period,
+			'atr_period':				atr_period,
+			'vpt_sma_period':			vpt_sma_period,
+			'chop_period':				chop_period,
+			'chop_low_limit':			chop_low_limit,
+			'chop_high_limit':			chop_high_limit,
 
-			'supertrend_atr_period':	supertrend_atr_period,
-			'supertrend_min_natr':		supertrend_min_natr,
+			'supertrend_atr_period':		supertrend_atr_period,
+			'supertrend_min_natr':			supertrend_min_natr,
 
-			'bbands_kchannel':		bbands_kchannel,
-			'bbands_kchannel_simple':	bbands_kchannel_simple,
+			'bbands_kchannel':			bbands_kchannel,
+			'bbands_kchannel_simple':		bbands_kchannel_simple,
 
-			'bbands_kchannel_offset':	bbands_kchannel_offset,
-			'bbands_kchan_squeeze_count':	bbands_kchan_squeeze_count,
-			'bbands_period':		bbands_period,
-			'kchannel_period':		kchannel_period,
-			'kchannel_atr_period':		kchannel_atr_period,
+			'bbands_kchannel_offset':		bbands_kchannel_offset,
+			'bbands_kchan_squeeze_count':		bbands_kchan_squeeze_count,
+			'use_bbands_kchannel_5m':		use_bbands_kchannel_5m,
+			'use_bbands_kchannel_xover_exit':	use_bbands_kchannel_xover_exit,
+			'bbands_kchannel_xover_exit_count': 	bbands_kchannel_xover_exit_count,
+			'bbands_period':			bbands_period,
+			'kchannel_period':			kchannel_period,
+			'kchannel_atr_period':			kchannel_atr_period,
 
-			'stacked_ma_type_primary':	stacked_ma_type_primary,
-			'stacked_ma_periods_primary':	stacked_ma_periods_primary,
-			'stacked_ma_type':		stacked_ma_type,
-			'stacked_ma_periods':		stacked_ma_periods,
+			'stacked_ma_type_primary':		stacked_ma_type_primary,
+			'stacked_ma_periods_primary':		stacked_ma_periods_primary,
+			'stacked_ma_type':			stacked_ma_type,
+			'stacked_ma_periods':			stacked_ma_periods,
 
-			'use_natr_resistance':		use_natr_resistance,
-			'min_intra_natr':		min_intra_natr,
-			'max_intra_natr':		max_intra_natr,
-			'min_daily_natr':		min_daily_natr,
-			'max_daily_natr':		max_daily_natr,
+			'use_natr_resistance':			use_natr_resistance,
+			'min_intra_natr':			min_intra_natr,
+			'max_intra_natr':			max_intra_natr,
+			'min_daily_natr':			min_daily_natr,
+			'max_daily_natr':			max_daily_natr,
 
-			'valid_tickers':		[],
-			'exclude_tickers':		[]  }
+			'valid_tickers':			[],
+			'exclude_tickers':			[]  }
 
 	algos.append(algo_list)
 
@@ -536,6 +549,7 @@ del(mfi_high_limit,mfi_low_limit,mfi_period,stochmfi_period,stochmfi_5m_period,m
 del(adx_threshold,adx_period,macd_long_period,macd_short_period,macd_signal_period,macd_offset,aroonosc_period,di_period,atr_period,vpt_sma_period)
 del(chop_period,chop_low_limit,chop_high_limit,supertrend_atr_period,supertrend_min_natr,bbands_kchannel_offset,bbands_kchan_squeeze_count,bbands_period,kchannel_period,kchannel_atr_period)
 del(stacked_ma_type_primary,stacked_ma_periods_primary,stacked_ma_type,stacked_ma_periods,use_natr_resistance,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr)
+del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count)
 
 # Set valid tickers for each algo, if configured
 if ( args.algo_valid_tickers != None ):

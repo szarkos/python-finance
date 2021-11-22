@@ -1173,6 +1173,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		if ( affinity == None or len(s_ma) == 0 ):
 			return False
 
+		# Round the moving average values to two decimal places
+		s_ma = list(s_ma)
+		for i in range(0, len(s_ma)):
+			s_ma[i] = round( s_ma[i], 2 )
+
 		ma_affinity = False
 		if ( affinity == 'bear' ):
 			for i in range(0, len(s_ma)):
@@ -1495,8 +1500,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		cur_s_ma	= s_ma[idx]
 		prev_s_ma	= s_ma[idx-1]
 		if ( primary_stoch_indicator == 'stacked_ma' ):
-			cur_s_ma_primary		= s_ma_primary[idx]
-			prev_s_ma_primary		= s_ma_primary[idx-1]
+			cur_s_ma_primary	= s_ma_primary[idx]
+			prev_s_ma_primary	= s_ma_primary[idx-1]
 
 		cur_natr_daily = 0
 		try:
@@ -2200,15 +2205,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			#  the position
 			if ( use_bbands_kchannel_xover_exit == True ):
 				if ( use_bbands_kchannel_5m == True ):
-					cur_bbands_lower	= bbands_lower[int((idx - bbands_idx) / 5)]
-					cur_bbands_upper	= bbands_upper[int((idx - bbands_idx) / 5)]
-					cur_kchannel_lower	= kchannel_lower[int((idx - kchannel_idx) / 5)]
-					cur_kchannel_upper	= kchannel_upper[int((idx - kchannel_idx) / 5)]
+					cur_bbands_lower	= round( bbands_lower[int((idx - bbands_idx) / 5)], 3 )
+					cur_bbands_upper	= round( bbands_upper[int((idx - bbands_idx) / 5)], 3 )
+					cur_kchannel_lower	= round( kchannel_lower[int((idx - kchannel_idx) / 5)], 3 )
+					cur_kchannel_upper	= round( kchannel_upper[int((idx - kchannel_idx) / 5)], 3 )
 				else:
-					cur_bbands_lower	= bbands_lower[idx]
-					cur_bbands_upper	= bbands_upper[idx]
-					cur_kchannel_lower	= kchannel_lower[idx]
-					cur_kchannel_upper	= kchannel_upper[idx]
+					cur_bbands_lower	= round( bbands_lower[idx], 3 )
+					cur_bbands_upper	= round( bbands_upper[idx], 3 )
+					cur_kchannel_lower	= round( kchannel_lower[idx], 3 )
+					cur_kchannel_upper	= round( kchannel_upper[idx], 3 )
 
 				if ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
 					bbands_kchan_xover_counter += 1
@@ -3028,15 +3033,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			#  the position
 			if ( use_bbands_kchannel_xover_exit == True ):
 				if ( use_bbands_kchannel_5m == True ):
-					cur_bbands_lower	= bbands_lower[int((idx - bbands_idx) / 5)]
-					cur_bbands_upper	= bbands_upper[int((idx - bbands_idx) / 5)]
-					cur_kchannel_lower	= kchannel_lower[int((idx - kchannel_idx) / 5)]
-					cur_kchannel_upper	= kchannel_upper[int((idx - kchannel_idx) / 5)]
+					cur_bbands_lower	= round( bbands_lower[int((idx - bbands_idx) / 5)], 3 )
+					cur_bbands_upper	= round( bbands_upper[int((idx - bbands_idx) / 5)], 3 )
+					cur_kchannel_lower	= round( kchannel_lower[int((idx - kchannel_idx) / 5)], 3 )
+					cur_kchannel_upper	= round( kchannel_upper[int((idx - kchannel_idx) / 5)], 3 )
 				else:
-					cur_bbands_lower	= bbands_lower[idx]
-					cur_bbands_upper	= bbands_upper[idx]
-					cur_kchannel_lower	= kchannel_lower[idx]
-					cur_kchannel_upper	= kchannel_upper[idx]
+					cur_bbands_lower	= round( bbands_lower[idx], 3 )
+					cur_bbands_upper	= round( bbands_upper[idx], 3 )
+					cur_kchannel_lower	= round( kchannel_lower[idx], 3 )
+					cur_kchannel_upper	= round( kchannel_upper[idx], 3 )
 
 				if ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
 					bbands_kchan_xover_counter += 1

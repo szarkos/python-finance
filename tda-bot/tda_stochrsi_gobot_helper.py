@@ -602,6 +602,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		if ( affinity == None or len(s_ma) == 0 ):
 			return False
 
+		# Round the moving average values to two decimal places
+		s_ma = list(s_ma)
+		for i in range(0, len(s_ma)):
+			s_ma[i] = round( s_ma[i], 2 )
+
 		ma_affinity = False
 		if ( affinity == 'bear' ):
 			for i in range(0, len(s_ma)):
@@ -1165,11 +1170,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 		# Loop continuously while after hours if --multiday or --singleday is set
 		# Also re-set --singleday to False when the market opens
-#		if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False ):
-#			if ( args.multiday == True or args.singleday == True ):
-#				continue
-#		else:
-#			args.singleday = False
+		if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False ):
+			if ( args.multiday == True or args.singleday == True ):
+				continue
+		else:
+			args.singleday = False
 
 		# Set some short variables to improve readability :)
 		signal_mode		= stocks[ticker]['algo_signals'][algo_id]['signal_mode']
@@ -1882,10 +1887,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			#  the position
 			if ( cur_algo['use_bbands_kchannel_xover_exit'] == True ):
 
-				cur_bbands_lower        = cur_bbands[0]
-				cur_bbands_upper        = cur_bbands[2]
-				cur_kchannel_lower      = cur_kchannel[0]
-				cur_kchannel_upper      = cur_kchannel[2]
+				cur_bbands_lower	= round( cur_bbands[0], 3 )
+				cur_bbands_upper	= round( cur_bbands[2], 3 )
+				cur_kchannel_lower	= round( cur_kchannel[0], 3 )
+				cur_kchannel_upper	= round( cur_kchannel[2], 3 )
 
 				if ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
 					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1
@@ -2680,10 +2685,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			#  the position
 			if ( cur_algo['use_bbands_kchannel_xover_exit'] == True ):
 
-				cur_bbands_lower        = cur_bbands[0]
-				cur_bbands_upper        = cur_bbands[2]
-				cur_kchannel_lower      = cur_kchannel[0]
-				cur_kchannel_upper      = cur_kchannel[2]
+				cur_bbands_lower	= round( cur_bbands[0], 3 )
+				cur_bbands_upper	= round( cur_bbands[2], 3 )
+				cur_kchannel_lower	= round( cur_kchannel[0], 3 )
+				cur_kchannel_upper	= round( cur_kchannel[2], 3 )
 
 				if ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
 					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1

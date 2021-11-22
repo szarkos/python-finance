@@ -3,7 +3,7 @@
 # Usage:
 #  ./tda-automation.sh <TX-LOG-DIR>
 
-command=${1-"TX_LOGS"}
+command=${1-"TX_LOGS_v2"}
 
 ############################################################################################
 # Monitor the logs

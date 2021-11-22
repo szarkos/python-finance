@@ -17,20 +17,26 @@ nohup ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=25000 --stocks=${tickers
 	--decr_threshold=1.6 --incr_threshold=0.5 --max_failed_txs=2 --exit_percent=0.5 \
 	\
 	--algos=algo_id:main,primary_stochrsi,stochrsi_offset:3,dmi_simple,aroonosc,adx,support_resistance,use_natr_resistance,adx_threshold:6,min_intra_natr:0.15,min_daily_natr:6 \
-	--algos=algo_id:stackedma_kama,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,support_resistance,min_intra_natr:0.65,min_daily_natr:6 \
+	--algos=algo_id:stackedma_kama_5m,primary_stacked_ma,use_bbands_kchannel_5m,stacked_ma_type_primary:kama,bbands_kchannel,bbands_period:15,kchannel_period:15,kchannel_atr_period:15,bbands_kchan_squeeze_count:20,bbands_kchannel_offset:0.45,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count:3,support_resistance,min_intra_natr:0.65,min_daily_natr:6 \
+	--algos=algo_id:stackedma_kama_wma,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,support_resistance,min_intra_natr:0.65,min_daily_natr:6 \
 	\
-	--algo_valid_tickers=main:$HIGH_NATR \
-	--algo_valid_tickers=stackedma_kama:$HIGH_NATR \
+	--algo_exclude_tickers=main:APPS,AUPH,CPE,DOCS,ENPH,FCX,FIGS,FUTU,MTTR,PUBM,RBLX,TOST,U,ZIM \
+	--algo_exclude_tickers=stackedma_kama_5m:AFRM,AUPH,RBLX,RIVN,TTD \
+	--algo_valid_tickers=stackedma_kama_wma:ASAN,BE,BYND,FUTU,QFIN,RBLX,RIVN \
 	\
 	--stacked_ma_periods_primary=8,13,21 --stacked_ma_periods=34,55,89 \
 	--bbands_kchannel_offset=0.15 --bbands_kchan_squeeze_count=8 \
 	--rsi_high_limit=75 --rsi_low_limit=25 --stochrsi_offset=3 --daily_atr_period=3  \
 	--aroonosc_with_macd_simple --variable_exit --lod_hod_check \
 	--weekly_ifile=stock-analyze/weekly-csv/TICKER-weekly-2019-2021.pickle \
-	--daily_ifile=stock-analyze/daily-csv/TICKER-daily-2019-2021.pickle \
 	--tx_log_dir=TX_LOGS_v2 1> logs/gobot-v2.log 2>&1 &
 
 disown
+
+
+#	--algo_valid_tickers=main:AA,AFRM,AI,AMC,ASAN,ATVI,AUPH,BE,BLNK,BMBL,BROS,BYND,CELH,CFLT,CHGG,CHPT,CPE,CPNG,CRWD,DASH,DOCN,DOCS,DWAC,FOUR,FRSH,FSLR,FSLY,FTCH,FUTU,FVRR,GFS,GLBE,IONQ,JAMF,LAC,LI,MP,NET,NVDA,OLO,PACB,PAGS,PRCH,PUBM,RBLX,SE,SKIN,TOST,TTD \
+#	--algo_valid_tickers=stackedma_kama:AA,AFRM,AI,AMC,APP,ARRY,ASAN,ATVI,AUPH,BE,BMBL,BROS,BYND,CELH,CFLT,CHGG,CHPT,CPNG,CRWD,DASH,DOCN,DOCS,DWAC,ENPH,FCX,FIGS,FNGU,FOUR,FRSH,FSLR,FSLY,FTCH,FUTU,FVRR,GDRX,IONQ,JAMF,LAC,LI,MP,NET,NVDA,OLO,OLPX,OSH,PACB,PAGS,PRCH,PTON,PUBM,QFIN,RBLX,SE,SKIN,TOST,TTD,U \
+#	--algos=algo_id:stackedma_kama_wma,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,support_resistance,min_intra_natr:0.65,min_daily_natr:6 \
 
 
 # Other algos - TBD

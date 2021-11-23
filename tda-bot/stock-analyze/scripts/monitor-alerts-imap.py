@@ -120,13 +120,13 @@ for line in data.splitlines():
 			if ( i in remove ):
 				tickers[idx] = ''
 
-		# Remove empty elements in tickers and sort the array
+		# Remove empty elements in tickers
 		tickers = [var for var in tickers if var]
-		tickers = sorted(tickers)
 
 		# Remove any duplicate elements in tickers and turn tickers into
 		#  a comma-delimited string
 		tickers = list( dict.fromkeys(tickers) )
+		tickers = sorted(tickers)
 		tickers = ','.join(tickers)
 
 		line = str(varname) + '="' + str(tickers) + '"'

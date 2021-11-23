@@ -129,8 +129,6 @@ parser.add_argument("--bbands_period", help='Period to use when calculating the 
 parser.add_argument("--kchannel_period", help='Period to use when calculating the Keltner channels (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_atr_period", help='Period to use when calculating the ATR for use with the Keltner channels (Default: 20)', default=20, type=int)
 
-parser.add_argument("--period_multiplier", help='Period multiplier - set statically here, or otherwise gobot will determine based on the number of candles it receives per minute.', default=0, type=int)
-
 # Deprecated - use --algos=... instead
 #parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
 #parser.add_argument("--with_adx", help='Use the Average Directional Index (ADX) as a secondary indicator', action="store_true")
@@ -749,9 +747,6 @@ for ticker in stock_list.split(','):
 				   # Per-algo indicator signals
 				   'algo_signals':		{},
 
-				   # Period log will log datetime to determine period_multiplier
-				   'period_log':		[],
-				   'period_multiplier':		args.period_multiplier,
 				   'prev_timestamp':		0,
 				   'cur_seq':			0,
 				   'prev_seq':			0,
@@ -1041,7 +1036,7 @@ time_now = datetime.datetime.now( mytimezone )
 time_prev = time_now - datetime.timedelta( days=8 )
 
 # Make sure start and end dates don't land on a weekend or outside market hours
-time_now = tda_gobot_helper.fix_timestamp(time_now)
+#time_now = tda_gobot_helper.fix_timestamp(time_now)
 time_prev = tda_gobot_helper.fix_timestamp(time_prev)
 
 time_now_epoch = int( time_now.timestamp() * 1000 )
@@ -1110,15 +1105,11 @@ for ticker in list(stocks.keys()):
 	# Translate and add Heiken Ashi candles to pricehistory (will add new array called stocks[ticker]['pricehistory']['hacandles'])
 	stocks[ticker]['pricehistory'] = tda_gobot_helper.translate_heikin_ashi(stocks[ticker]['pricehistory'])
 
-
-	# Populate the period_log with history data
-	#  and find PDC
+	# Find the previous day close
 	yesterday = time_now - datetime.timedelta(days=1)
 	yesterday = tda_gobot_helper.fix_timestamp(yesterday)
 	yesterday = yesterday.strftime('%Y-%m-%d')
 	for key in data['candles']:
-
-		stocks[ticker]['period_log'].append( key['datetime'] )
 
 		# PDC
 		day = datetime.datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone)

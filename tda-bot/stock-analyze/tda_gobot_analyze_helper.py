@@ -196,7 +196,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	stochrsi_period			= 128		if ('stochrsi_period' not in params) else params['stochrsi_period']
 	stochrsi_5m_period		= 28		if ('stochrsi_5m_period' not in params) else params['stochrsi_5m_period']
 	rsi_period			= 14		if ('rsi_period' not in params) else params['rsi_period']
-	rsi_type			= 'hlc3'		if ('rsi_type' not in params) else params['rsi_type']
+	rsi_type			= 'hlc3'	if ('rsi_type' not in params) else params['rsi_type']
 	rsi_slow			= 3		if ('rsi_slow' not in params) else params['rsi_slow']
 	rsi_k_period			= 128		if ('rsi_k_period' not in params) else params['rsi_k_period']
 	rsi_d_period			= 3		if ('rsi_d_period' not in params) else params['rsi_d_period']
@@ -2112,9 +2112,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
 				print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
 				print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
-				print('(' + str(ticker) + '): BBands: ' + str(round(cur_bbands[0], 4)) + ' / ' + str(round(cur_bbands[2], 4)) +
-								', KChannel: ' + str(round(cur_kchannel[0], 4)) + ' / ' + str(round(cur_kchannel[2], 4)) +
-								', Squeeze Count: ' + str(bbands_kchan_signal_counter) )
+
+				if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
+					print('(' + str(ticker) + '): BBands: ' + str(round(cur_bbands[0], 4)) + ' / ' + str(round(cur_bbands[2], 4)) +
+									', KChannel: ' + str(round(cur_kchannel[0], 4)) + ' / ' + str(round(cur_kchannel[2], 4)) +
+									', Squeeze Count: ' + str(bbands_kchan_signal_counter) )
+
 				print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
 				print('(' + str(ticker) + '): BUY signal: ' + str(buy_signal) + ', Final BUY signal: ' + str(final_buy_signal))
 				print()
@@ -2933,8 +2936,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
 				print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
 				print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
-				print('(' + str(ticker) + '): BBands: ' + str(round(cur_bbands[0], 4)) + ' / ' + str(round(cur_bbands[2], 4)) +
-								', KChannel: ' + str(round(cur_kchannel[0], 4)) + ' / ' + str(round(cur_kchannel[2], 4)) )
+
+				if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
+					print('(' + str(ticker) + '): BBands: ' + str(round(cur_bbands[0], 4)) + ' / ' + str(round(cur_bbands[2], 4)) +
+								  ', KChannel: ' + str(round(cur_kchannel[0], 4)) + ' / ' + str(round(cur_kchannel[2], 4)) )
 				print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
 				print('(' + str(ticker) + '): SHORT signal: ' + str(short_signal) + ', Final SHORT signal: ' + str(final_short_signal))
 				print()

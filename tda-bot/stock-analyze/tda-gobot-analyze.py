@@ -478,8 +478,9 @@ for algo in args.algo.split(','):
 
 			# Make sure start and end dates don't land on a weekend
 			#  or outside market hours
-			time_now = tda_gobot_helper.fix_timestamp(time_now)
 			time_prev = tda_gobot_helper.fix_timestamp(time_prev)
+			if ( int(time_now.strftime('%w')) == 0 or int(time_now.strftime('%w')) == 6 ): # 0=Sunday, 6=Saturday
+				time_now = tda_gobot_helper.fix_timestamp(time_now)
 
 			time_now_epoch = int( time_now.timestamp() * 1000 )
 			time_prev_epoch = int( time_prev.timestamp() * 1000 )

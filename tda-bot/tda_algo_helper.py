@@ -7,6 +7,7 @@ from pytz import timezone
 import numpy as np
 import pandas as pd
 import tulipy as ti
+import talib
 
 import tda_gobot_helper
 
@@ -986,9 +987,15 @@ def get_stochrsi(pricehistory=None, rsi_period=14, stochrsi_period=128, type='cl
 	# Use ti.stoch() to get k and d values
 	#   K measures the strength of the current move relative to the range of the previous n-periods
 	#   D is a simple moving average of the K
+	k = []
+	d = []
 	try:
-		rsi = ti.rsi( prices, period=stochrsi_period )
+		#rsi = ti.rsi( prices, period=stochrsi_period )
+		rsi = talib.RSI( prices, timeperiod=stochrsi_period )
+		rsi[np.isnan(rsi)] = 0
+
 		k, d = ti.stoch( rsi, rsi, rsi, rsi_k_period, slow_period, rsi_d_period )
+		#k, d = talib.STOCH( rsi, rsi, rsi, fastk_period=rsi_k_period, slowk_period=slow_period, slowk_matype=0, slowd_period=rsi_d_period, slowd_matype=0 )
 
 	except Exception as e:
 		print( 'Caught Exception: get_stochrsi(' + str(ticker) + '): ti.stoch(): ' + str(e) + ', len(pricehistory)=' + str(len(pricehistory['candles'])) )

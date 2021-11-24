@@ -2176,6 +2176,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						orig_incr_threshold = incr_threshold
 						orig_decr_threshold = decr_threshold
 
+					elif ( cur_natr*2 < decr_threshold ):
+						decr_threshold = cur_natr*2
+
 				# DEBUG
 				if ( debug_all == True ):
 					print('(' + str(ticker) + '): Incr_Threshold: ' + str(incr_threshold) + ', Decr_Threshold: ' + str(decr_threshold) + ', Exit Percent: ' + str(exit_percent))
@@ -2218,8 +2221,27 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					cur_kchannel_lower	= round( kchannel_lower[idx], 3 )
 					cur_kchannel_upper	= round( kchannel_upper[idx], 3 )
 
-				if ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
+				# Handle adverse conditions before the crossover
+				if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
+					if ( primary_stoch_indicator == 'stacked_ma' ):
+						if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
+
+							# Stock momentum switched directions after entry and before crossover
+							bbands_kchan_xover_counter -= 1
+							if ( bbands_kchan_xover_counter <= -10 and last_close < purchase_price ):
+								if ( decr_threshold > 0.5 ):
+									decr_threshold = 0.5
+
+						elif ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
+							if ( bbands_kchan_xover_counter < 0 ):
+								bbands_kchan_xover_counter = 0
+
+				# Handle adverse conditions after the crossover
+				elif ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
 					bbands_kchan_xover_counter += 1
+					if ( bbands_kchan_xover_counter <= 0 ):
+						bbands_kchan_xover_counter = 1
+
 					if ( last_close < purchase_price and decr_threshold > 0.5 ):
 						decr_threshold = 0.5
 				if ( last_close < purchase_price and bbands_kchan_xover_counter >= bbands_kchannel_xover_exit_count ):
@@ -2348,10 +2370,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						sell_signal		= True
 						exit_percent_exits	+= 1
 
-			elif ( exit_percent_signal == True and last_close < last_open ):
-				# If we've reached this point we probably need to stop out
-				sell_signal = True
-
+			# If we've reached this point we probably need to stop out
+			elif ( exit_percent_signal == True and last_close < purchase_price ):
+				exit_percent_signal = False
+				decr_threshold = 0.5
 
 			# Monitor RSI for SELL signal
 			#  Note that this RSI implementation is more conservative than the one for buy/sell to ensure we don't
@@ -3006,6 +3028,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						orig_incr_threshold = incr_threshold
 						orig_decr_threshold = decr_threshold
 
+					elif ( cur_natr*2 < decr_threshold ):
+						decr_threshold = cur_natr*2
+
 				# DEBUG
 				if ( debug_all == True ):
 					print('(' + str(ticker) + '): Incr_Threshold: ' + str(incr_threshold) + ', Decr_Threshold: ' + str(decr_threshold) + ', Exit Percent: ' + str(exit_percent))
@@ -3048,10 +3073,30 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					cur_kchannel_lower	= round( kchannel_lower[idx], 3 )
 					cur_kchannel_upper	= round( kchannel_upper[idx], 3 )
 
+				# Handle adverse conditions before the crossover
+				if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
+					if ( primary_stoch_indicator == 'stacked_ma' ):
+						if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
+
+							# Stock momentum switched directions after entry and before crossover
+							bbands_kchan_xover_counter -= 1
+							if ( bbands_kchan_xover_counter <= -10 and last_close > short_price ):
+								if ( decr_threshold > 0.5 ):
+									decr_threshold = 0.5
+
+						elif ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
+							if ( bbands_kchan_xover_counter < 0 ):
+								bbands_kchan_xover_counter = 0
+
+				# Handle adverse conditions after the crossover
 				if ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
 					bbands_kchan_xover_counter += 1
+					if ( bbands_kchan_xover_counter <= 0 ):
+						bbands_kchan_xover_counter = 1
+
 					if ( last_close > short_price and decr_threshold > 0.5 ):
 						decr_threshold = 0.5
+
 				if ( last_close > short_price and bbands_kchan_xover_counter >= bbands_kchannel_xover_exit_count ):
 					buy_to_cover_signal = True
 
@@ -3181,10 +3226,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						buy_to_cover_signal	= True
 						exit_percent_exits	+= 1
 
-			elif ( exit_percent_signal == True and last_close > last_open ):
+			elif ( exit_percent_signal == True and last_close > short_price ):
 				# If we've reached this point we probably need to stop out
-				buy_to_cover_signal = True
-
+				exit_percent_signal = False
+				decr_threshold = 0.5
 
 			# Monitor RSI for BUY_TO_COVER signal
 			# Do not use stochrsi as an exit signal if strict_exit_percent is set to True

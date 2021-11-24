@@ -1320,7 +1320,7 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 		return False
 
 	# Check if we were unable to short this stock
-	if ( data['status'] == 'AWAITING_MANUAL_REVIEW' ):
+	if ( data['status'] == 'AWAITING_MANUAL_REVIEW' or data['status'] == 'REJECTED' ):
 		print('Error: short_stock_marketprice(' + str(ticker) + '): tda.get_order(): returned status indicates that stock is not available for shorting', file=sys.stderr)
 		return False
 

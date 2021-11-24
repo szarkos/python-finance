@@ -280,6 +280,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 	if ( valid == 0 ):
 		print("\nNo more valid stock tickers, exiting.")
+		export_pricehistory()
 		signal.raise_signal(signal.SIGTERM)
 		sys.exit(0)
 
@@ -287,6 +288,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 	if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False ):
 		if ( args.singleday == False and args.multiday == False ):
 			print('Market closed, exiting.')
+			export_pricehistory()
 			signal.raise_signal(signal.SIGTERM)
 			sys.exit(0)
 
@@ -673,8 +675,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 		# Skip processing this ticker again if we have already processed this sequence number.
 		# Sometimes this can happen if the stream socket is reset or if the volume is very low.
+		# The exception is if the stock is in sell or buy_to_cover mode, it makes sense to check
+		#  the current price to allow stoploss.
 		if ( stocks[ticker]['prev_seq'] == stocks[ticker]['cur_seq'] ):
-			continue
+			if ( stocks[ticker]['algo_signals'][algo_id]['signal_mode'] == 'buy' or
+				stocks[ticker]['algo_signals'][algo_id]['signal_mode'] == 'short' ):
+				continue
 
 		# Skip this ticker if it conflicts with a per-algo min/max_daily_natr configuration
 		if ( min_daily_natr != None and stocks[ticker]['natr_daily'] < min_daily_natr ):
@@ -1798,6 +1804,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						stocks[ticker]['orig_incr_threshold'] = stocks[ticker]['incr_threshold']
 						stocks[ticker]['orig_decr_threshold'] = stocks[ticker]['decr_threshold']
 
+					elif ( stocks[ticker]['cur_natr'] * 2 < stocks[ticker]['decr_threshold'] ):
+						stocks[ticker]['decr_threshold'] = stocks[ticker]['cur_natr'] * 2
+
 				# VARIABLE EXIT
 
 
@@ -1867,8 +1876,28 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				cur_kchannel_lower	= round( cur_kchannel[0], 3 )
 				cur_kchannel_upper	= round( cur_kchannel[2], 3 )
 
-				if ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
+				# Handle adverse conditions before the crossover
+				if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
+					if ( cur_algo['primary_stacked_ma'] == True ):
+						if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
+
+							# Stock momentum switched directions after entry and before crossover
+							stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] -= 1
+							if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= -10 and last_close < stocks[ticker]['orig_base_price'] ):
+								if ( stocks[ticker]['decr_threshold'] > 0.5 ):
+									stocks[ticker]['decr_threshold'] = 0.5
+
+						# Reset bbands_kchan_xover_counter if momentum switched back
+						elif ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
+							stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 0
+
+				# Handle adverse conditions after the crossover
+				elif ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
+
 					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1
+					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= 0 ):
+						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 1
+
 					if ( last_close < stocks[ticker]['orig_base_price'] and stocks[ticker]['decr_threshold'] > 0.5 ):
 						stocks[ticker]['decr_threshold'] = 0.5
 
@@ -1985,11 +2014,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					elif ( last_close < last_open ):
 						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
-			elif ( stocks[ticker]['exit_percent_signal'] == True and last_close < last_open ):
+			elif ( stocks[ticker]['exit_percent_signal'] == True and last_close < stocks[ticker]['orig_base_price'] ):
 				# If we get to this point then the exit_percent_signal was triggered, but then the stock
 				#  rapidly changed direction below cost basis. But because exit_percent_signal was triggered
 				#  the stoploss routine above will not catch this. So at this point we probably need to stop out.
-				stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
+				stocks[ticker]['exit_percent_signal'] = False
+				stocks[ticker]['decr_threshold'] = 0.5
 
 
 			# StochRSI MONITOR
@@ -2584,6 +2614,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						stocks[ticker]['orig_incr_threshold'] = stocks[ticker]['incr_threshold']
 						stocks[ticker]['orig_decr_threshold'] = stocks[ticker]['decr_threshold']
 
+					elif ( stocks[ticker]['cur_natr'] * 2 < stocks[ticker]['decr_threshold'] ):
+						stocks[ticker]['decr_threshold'] = stocks[ticker]['cur_natr'] * 2
+
 				# VARIABLE EXIT
 
 
@@ -2665,8 +2698,28 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				cur_kchannel_lower	= round( cur_kchannel[0], 3 )
 				cur_kchannel_upper	= round( cur_kchannel[2], 3 )
 
-				if ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
+				# Handle adverse conditions before the crossover
+				if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
+					if ( cur_algo['primary_stacked_ma'] == True ):
+						if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
+
+							# Stock momentum switched directions after entry and before crossover
+							stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] -= 1
+							if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= -10 and last_close > stocks[ticker]['orig_base_price'] ):
+								if ( stocks[ticker]['decr_threshold'] > 0.5 ):
+									stocks[ticker]['decr_threshold'] = 0.5
+
+						# Reset bbands_kchan_xover_counter if momentum switched back
+						elif ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
+							stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 0
+
+				# Handle adverse conditions after the crossover
+				elif ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
+
 					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1
+					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= 0 ):
+						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 1
+
 					if ( last_close > stocks[ticker]['orig_base_price'] and stocks[ticker]['decr_threshold'] > 0.5 ):
 						stocks[ticker]['decr_threshold'] = 0.5
 
@@ -2788,11 +2841,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					elif ( last_close > last_open ):
 						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
-			elif ( stocks[ticker]['exit_percent_signal'] == True and last_close > last_open ):
+			elif ( stocks[ticker]['exit_percent_signal'] == True and last_close > stocks[ticker]['orig_base_price'] ):
 				# If we get to this point then the exit_percent_signal was triggered, but then the stock
 				#  rapidly changed direction above cost basis. But because exit_percent_signal was triggered
 				#  the stoploss routine above will not catch this. So at this point we probably need to stop out.
-				stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
+				stocks[ticker]['exit_percent_signal'] = False
+				stocks[ticker]['decr_threshold'] = 0.5
 
 			# RSI MONITOR
 			# Do not use stochrsi as an exit signal if exit_percent_signal is triggered. That means we've surpassed the

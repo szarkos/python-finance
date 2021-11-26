@@ -1,4 +1,4 @@
-#!/usr/bin/python3 -u
+w#!/usr/bin/python3 -u
 
 import os, sys
 from collections import OrderedDict
@@ -1330,7 +1330,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			#  and before they pop out of the Keltner channel
 			prev_offset	= abs((prev_kchannel_lower / prev_bbands_lower) - 1) * 100
 			cur_offset	= abs((cur_kchannel_lower / cur_bbands_lower) - 1) * 100
-			if ( cur_offset < prev_offset and bbands_kchan_crossover_only == False ):
+			if ( bbands_kchan_crossover_only == False and cur_offset < prev_offset and cur_offset <= bbands_kchannel_offset / 2 ):
 				bbands_kchan_signal = True
 
 			# Check for crossover
@@ -1613,7 +1613,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						signal_mode = 'short'
 					continue
 
-				if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
+				elif ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
 					buy_signal = True
 				else:
 					buy_signal = False
@@ -2223,30 +2223,44 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				# Handle adverse conditions before the crossover
 				if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
+					if ( bbands_kchan_crossover_signal == True ):
+
+						# BBands and KChannel crossed over, but then crossed back. This usually
+						#  indicates that the stock is being choppy or changing direction. Check
+						#  the direction of the stock, and if it's moving in the wrong direction
+						#  then just exit. If we exit early we might even have a chance to re-enter
+						#  in the right direction.
+						if ( primary_stoch_indicator == 'stacked_ma' ):
+							if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True and last_close < purchase_price ):
+								sell_signal = True
+
 					if ( primary_stoch_indicator == 'stacked_ma' ):
 						if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
 
 							# Stock momentum switched directions after entry and before crossover
-							bbands_kchan_xover_counter -= 1
-							if ( bbands_kchan_xover_counter <= -10 and last_close < purchase_price ):
+							# We'll give it bbands_kchannel_xover_exit_count minutes to correct itself
+							#  and then lower decr_threshold to mitigate risk.
+							bbands_kchan_xover_counter += 1
+							if ( bbands_kchan_xover_counter >= bbands_kchannel_xover_exit_count and last_close < purchase_price ):
 								if ( decr_threshold > 0.5 ):
 									decr_threshold = 0.5
 
 						elif ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
-							if ( bbands_kchan_xover_counter < 0 ):
+							if ( bbands_kchan_xover_counter > 0 ):
 								bbands_kchan_xover_counter = 0
 
 				# Handle adverse conditions after the crossover
 				elif ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
-					bbands_kchan_xover_counter += 1
-					if ( bbands_kchan_xover_counter <= 0 ):
-						bbands_kchan_xover_counter = 1
+					bbands_kchan_crossover_signal = True
 
 					if ( last_close < purchase_price and decr_threshold > 0.5 ):
 						decr_threshold = 0.5
-				if ( last_close < purchase_price and bbands_kchan_xover_counter >= bbands_kchannel_xover_exit_count ):
-					sell_signal = True
 
+					if ( primary_stoch_indicator == 'stacked_ma' ):
+						if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True and last_close < purchase_price ):
+							# If we are not trending in the right direction after crossover then this
+							#  strategy is not likely to succeed.
+							sell_signal = True
 
 			# STOPLOSS
 			# Monitor cost basis
@@ -2469,7 +2483,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						signal_mode = 'buy'
 					continue
 
-				if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
+				elif ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
 					short_signal = True
 				else:
 					short_signal = False
@@ -3075,31 +3089,44 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				# Handle adverse conditions before the crossover
 				if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
+					if ( bbands_kchan_crossover_signal == True ):
+
+						# BBands and KChannel crossed over, but then crossed back. This usually
+						#  indicates that the stock is being choppy or changing direction. Check
+						#  the direction of the stock, and if it's moving in the wrong direction
+						#  then just exit. If we exit early we might even have a chance to re-enter
+						#  in the right direction.
+						if ( primary_stoch_indicator == 'stacked_ma' ):
+							if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True and last_close > short_price ):
+								buy_to_cover_signal = True
+
 					if ( primary_stoch_indicator == 'stacked_ma' ):
 						if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
 
-							# Stock momentum switched directions after entry and before crossover
-							bbands_kchan_xover_counter -= 1
-							if ( bbands_kchan_xover_counter <= -10 and last_close > short_price ):
+							# Stock momentum switched directions after entry and before crossover.
+							# We'll give it bbands_kchannel_xover_exit_count minutes to correct itself
+							#  and then lower decr_threshold to mitigate risk.
+							bbands_kchan_xover_counter += 1
+							if ( bbands_kchan_xover_counter >= bbands_kchannel_xover_exit_count and last_close > short_price ):
 								if ( decr_threshold > 0.5 ):
 									decr_threshold = 0.5
 
 						elif ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
-							if ( bbands_kchan_xover_counter < 0 ):
+							if ( bbands_kchan_xover_counter > 0 ):
 								bbands_kchan_xover_counter = 0
 
 				# Handle adverse conditions after the crossover
 				if ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
-					bbands_kchan_xover_counter += 1
-					if ( bbands_kchan_xover_counter <= 0 ):
-						bbands_kchan_xover_counter = 1
+					bbands_kchan_crossover_signal = True
 
 					if ( last_close > short_price and decr_threshold > 0.5 ):
 						decr_threshold = 0.5
 
-				if ( last_close > short_price and bbands_kchan_xover_counter >= bbands_kchannel_xover_exit_count ):
-					buy_to_cover_signal = True
-
+					if ( primary_stoch_indicator == 'stacked_ma' ):
+						if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True and last_close > short_price ):
+							# If we are not trending in the right direction after crossover then this
+							#  strategy is not likely to succeed.
+							buy_to_cover_signal = True
 
 			# STOPLOSS
 			# Monitor cost basis

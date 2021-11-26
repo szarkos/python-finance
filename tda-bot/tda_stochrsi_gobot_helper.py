@@ -1878,12 +1878,23 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# Handle adverse conditions before the crossover
 				if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
+					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] == True ):
+
+						# BBands and KChannel crossed over, but then crossed back. This usually
+						#  indicates that the stock is being choppy or changing direction. Check
+						#  the direction of the stock, and if it's moving in the wrong direction
+						#  then just exit. If we exit early we might even have a chance to re-enter
+						#  in the right direction.
+						if (cur_algo['primary_stacked_ma'] == True ):
+							if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True and last_close < stocks[ticker]['orig_base_price'] ):
+								stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
+
 					if ( cur_algo['primary_stacked_ma'] == True ):
 						if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
 
 							# Stock momentum switched directions after entry and before crossover
-							stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] -= 1
-							if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= -10 and last_close < stocks[ticker]['orig_base_price'] ):
+							stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1
+							if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] >= cur_algo['bbands_kchannel_xover_exit_count'] and last_close < stocks[ticker]['orig_base_price'] ):
 								if ( stocks[ticker]['decr_threshold'] > 0.5 ):
 									stocks[ticker]['decr_threshold'] = 0.5
 
@@ -1893,16 +1904,16 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# Handle adverse conditions after the crossover
 				elif ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
-
-					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1
-					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= 0 ):
-						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 1
+					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] = True
 
 					if ( last_close < stocks[ticker]['orig_base_price'] and stocks[ticker]['decr_threshold'] > 0.5 ):
 						stocks[ticker]['decr_threshold'] = 0.5
 
-				if ( last_close < stocks[ticker]['orig_base_price'] and stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] >= cur_algo['bbands_kchannel_xover_exit_count'] ):
-					stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
+					if ( primary_stoch_indicator == 'stacked_ma' ):
+						if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True and last_close < stocks[ticker]['orig_base_price'] ):
+							# If we are not trending in the right direction after crossover then this
+							#  strategy is not likely to succeed.
+							stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 			# STOPLOSS MONITOR
 			# If price decreases
@@ -2700,12 +2711,23 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# Handle adverse conditions before the crossover
 				if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
+					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] == True ):
+
+						# BBands and KChannel crossed over, but then crossed back. This usually
+						#  indicates that the stock is being choppy or changing direction. Check
+						#  the direction of the stock, and if it's moving in the wrong direction
+						#  then just exit. If we exit early we might even have a chance to re-enter
+						#  in the right direction.
+						if (cur_algo['primary_stacked_ma'] == True ):
+							if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True and last_close > stocks[ticker]['orig_base_price'] ):
+								stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
+
 					if ( cur_algo['primary_stacked_ma'] == True ):
 						if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
 
 							# Stock momentum switched directions after entry and before crossover
-							stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] -= 1
-							if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= -10 and last_close > stocks[ticker]['orig_base_price'] ):
+							stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1
+							if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] >= cur_algo['bbands_kchannel_xover_exit_count'] and last_close > stocks[ticker]['orig_base_price'] ):
 								if ( stocks[ticker]['decr_threshold'] > 0.5 ):
 									stocks[ticker]['decr_threshold'] = 0.5
 
@@ -2715,17 +2737,16 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# Handle adverse conditions after the crossover
 				elif ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
-
-					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1
-					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= 0 ):
-						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 1
+					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] = True
 
 					if ( last_close > stocks[ticker]['orig_base_price'] and stocks[ticker]['decr_threshold'] > 0.5 ):
 						stocks[ticker]['decr_threshold'] = 0.5
 
-				if ( last_close > stocks[ticker]['orig_base_price'] and stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] >= cur_algo['bbands_kchannel_xover_exit_count'] ):
-					stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
-
+					if ( primary_stoch_indicator == 'stacked_ma' ):
+						if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True and last_close > stocks[ticker]['orig_base_price'] ):
+							# If we are not trending in the right direction after crossover then this
+							#  strategy is not likely to succeed.
+							stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 			# STOPLOSS MONITOR
 			# If price decreases

@@ -1,4 +1,4 @@
-w#!/usr/bin/python3 -u
+#!/usr/bin/python3 -u
 
 import os, sys
 from collections import OrderedDict

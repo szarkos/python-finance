@@ -736,9 +736,12 @@ def fix_timestamp(date=None, check_day_only=False, debug=False):
 	elif ( day == 6 ):
 		date = date - timedelta( days=1 )
 	elif ( day == 1 and ismarketopen_US(date=date, check_day_only=check_day_only) == False ):
-		# It Monday, but market is closed (i.e. Labor Day),
+		# It's Monday, but market is closed (i.e. Labor Day),
 		#  move timestamp back to previous Friday
 		date = date - timedelta( days=3 )
+	elif ( day == 4 and ismarketopen_US(date=date, check_day_only=check_day_only) == False ):
+		# Thanksgiving
+		date = date - timedelta( days=2 )
 
 	# Make sure start_end dates aren't outside regular hours
 	# We could use extended hours here, but we assume regular hours

@@ -96,7 +96,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	# Syntax is as follows:
 	#
 	#  Parameter			Default Value	Otherwise, use what was passed in params['var']
-	#
 	#  var			=	default_value	if ( 'var' not in params ) else params['var']
 
 	# Test range and input options
@@ -133,8 +132,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	# Other stock behavior options
 	blacklist_earnings		= False		if ('blacklist_earnings' not in params) else params['blacklist_earnings']
 	check_volume			= False		if ('check_volume' not in params) else params['check_volume']
-	avg_volume			= 2000000		if ('avg_volume' not in params) else params['avg_volume']
-	min_volume			= 1500000		if ('min_volume' not in params) else params['min_volume']
+	avg_volume			= 2000000	if ('avg_volume' not in params) else params['avg_volume']
+	min_volume			= 1500000	if ('min_volume' not in params) else params['min_volume']
 	min_ticker_age			= None		if ('min_ticker_age' not in params) else params['min_ticker_age']
 	min_daily_natr			= None		if ('min_daily_natr' not in params) else params['min_daily_natr']
 	max_daily_natr			= None		if ('max_daily_natr' not in params) else params['max_daily_natr']
@@ -240,12 +239,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	chop_low_limit			= 38.2		if ('chop_low_limit' not in params) else params['chop_low_limit']
 	chop_high_limit			= 61.8		if ('chop_high_limit' not in params) else params['chop_high_limit']
 
-	stochrsi_signal_cancel_low_limit  = 60	if ('stochrsi_signal_cancel_low_limit' not in params) else params['stochrsi_signal_cancel_low_limit']
-	stochrsi_signal_cancel_high_limit = 40	if ('stochrsi_signal_cancel_high_limit' not in params) else params['stochrsi_signal_cancel_high_limit']
-	rsi_signal_cancel_low_limit	= 40	if ('rsi_signal_cancel_low_limit' not in params) else params['rsi_signal_cancel_low_limit']
-	rsi_signal_cancel_high_limit	= 60	if ('rsi_signal_cancel_high_limit' not in params) else params['rsi_signal_cancel_high_limit']
-	mfi_signal_cancel_low_limit	= 30	if ('mfi_signal_cancel_low_limit' not in params) else params['mfi_signal_cancel_low_limit']
-	mfi_signal_cancel_high_limit	= 70	if ('mfi_signal_cancel_high_limit' not in params) else params['mfi_signal_cancel_high_limit']
+	stochrsi_signal_cancel_low_limit  = 60		if ('stochrsi_signal_cancel_low_limit' not in params) else params['stochrsi_signal_cancel_low_limit']
+	stochrsi_signal_cancel_high_limit = 40		if ('stochrsi_signal_cancel_high_limit' not in params) else params['stochrsi_signal_cancel_high_limit']
+	rsi_signal_cancel_low_limit	= 40		if ('rsi_signal_cancel_low_limit' not in params) else params['rsi_signal_cancel_low_limit']
+	rsi_signal_cancel_high_limit	= 60		if ('rsi_signal_cancel_high_limit' not in params) else params['rsi_signal_cancel_high_limit']
+	mfi_signal_cancel_low_limit	= 30		if ('mfi_signal_cancel_low_limit' not in params) else params['mfi_signal_cancel_low_limit']
+	mfi_signal_cancel_high_limit	= 70		if ('mfi_signal_cancel_high_limit' not in params) else params['mfi_signal_cancel_high_limit']
 
 	# Resistance indicators
 	no_use_resistance		= False		if ('no_use_resistance' not in params) else params['no_use_resistance']
@@ -2284,6 +2283,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					cur_kchannel_lower	= round( kchannel_lower[idx], 3 )
 					cur_kchannel_upper	= round( kchannel_upper[idx], 3 )
 
+				stacked_ma_bear_affinity	= check_stacked_ma(cur_s_ma_primary, 'bear')
+				stacked_ma_bull_affinity	= check_stacked_ma(cur_s_ma_primary, 'bull')
+
+				stacked_ma_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bear')
+				stacked_ma_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bull')
+
 				# Handle adverse conditions before the crossover
 				if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
 					if ( bbands_kchan_crossover_signal == True ):
@@ -2294,36 +2299,39 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						#  then just exit. If we exit early we might even have a chance to re-enter
 						#  in the right direction.
 						if ( primary_stoch_indicator == 'stacked_ma' ):
-							if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True and last_close < purchase_price ):
+							if ( stacked_ma_bear_affinity == True and last_close < purchase_price ):
 								sell_signal = True
 
 					if ( primary_stoch_indicator == 'stacked_ma' ):
-						if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
+						if ( stacked_ma_bear_affinity == True or stacked_ma_bear_ha_affinity == True ):
 
 							# Stock momentum switched directions after entry and before crossover
 							# We'll give it bbands_kchannel_xover_exit_count minutes to correct itself
 							#  and then lower decr_threshold to mitigate risk.
-							bbands_kchan_xover_counter += 1
-							if ( bbands_kchan_xover_counter >= bbands_kchannel_xover_exit_count and last_close < purchase_price ):
+							bbands_kchan_xover_counter -= 1
+							if ( bbands_kchan_xover_counter <= -bbands_kchannel_xover_exit_count and last_close < purchase_price ):
 								if ( decr_threshold > 0.5 ):
 									decr_threshold = 0.5
 
-						elif ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
-							if ( bbands_kchan_xover_counter > 0 ):
-								bbands_kchan_xover_counter = 0
+						elif ( stacked_ma_bull_affinity == True ):
+							bbands_kchan_xover_counter = 0
 
 				# Handle adverse conditions after the crossover
 				elif ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
 					bbands_kchan_crossover_signal = True
 
-					if ( last_close < purchase_price and decr_threshold > 0.5 ):
-						decr_threshold = 0.5
+					bbands_kchan_xover_counter += 1
+					if ( bbands_kchan_xover_counter <= 0 ):
+						bbands_kchan_xover_counter = 1
 
 					if ( primary_stoch_indicator == 'stacked_ma' ):
-						if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True and last_close < purchase_price ):
-							# If we are not trending in the right direction after crossover then this
-							#  strategy is not likely to succeed.
-							sell_signal = True
+						if ( stacked_ma_bear_affinity == True or stacked_ma_bear_ha_affinity == True ):
+							if ( decr_threshold > 1 ):
+								decr_threshold = 1
+
+#					if ( last_close < purchase_price ):
+#						if ( decr_threshold > 1 ):
+#							decr_threshold = 1
 
 			# STOPLOSS
 			# Monitor cost basis
@@ -3191,6 +3199,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					cur_kchannel_lower	= round( kchannel_lower[idx], 3 )
 					cur_kchannel_upper	= round( kchannel_upper[idx], 3 )
 
+				stacked_ma_bear_affinity	= check_stacked_ma(cur_s_ma_primary, 'bear')
+				stacked_ma_bull_affinity	= check_stacked_ma(cur_s_ma_primary, 'bull')
+
+				stacked_ma_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bear')
+				stacked_ma_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bull')
+
 				# Handle adverse conditions before the crossover
 				if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
 					if ( bbands_kchan_crossover_signal == True ):
@@ -3201,36 +3215,41 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						#  then just exit. If we exit early we might even have a chance to re-enter
 						#  in the right direction.
 						if ( primary_stoch_indicator == 'stacked_ma' ):
-							if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True and last_close > short_price ):
+							if ( stacked_ma_bull_affinity == True and last_close > short_price ):
 								buy_to_cover_signal = True
 
 					if ( primary_stoch_indicator == 'stacked_ma' ):
-						if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
+						if ( stacked_ma_bull_affinity == True or stacked_ma_bull_ha_affinity == True ):
 
 							# Stock momentum switched directions after entry and before crossover.
 							# We'll give it bbands_kchannel_xover_exit_count minutes to correct itself
 							#  and then lower decr_threshold to mitigate risk.
-							bbands_kchan_xover_counter += 1
-							if ( bbands_kchan_xover_counter >= bbands_kchannel_xover_exit_count and last_close > short_price ):
+							bbands_kchan_xover_counter -= 1
+							if ( bbands_kchan_xover_counter <= -bbands_kchannel_xover_exit_count and last_close > short_price ):
 								if ( decr_threshold > 0.5 ):
 									decr_threshold = 0.5
 
-						elif ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
-							if ( bbands_kchan_xover_counter > 0 ):
-								bbands_kchan_xover_counter = 0
+						elif ( stacked_ma_bear_affinity == True ):
+							bbands_kchan_xover_counter = 0
 
 				# Handle adverse conditions after the crossover
 				if ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
 					bbands_kchan_crossover_signal = True
 
-					if ( last_close > short_price and decr_threshold > 0.5 ):
-						decr_threshold = 0.5
+					bbands_kchan_xover_counter += 1
+					if ( bbands_kchan_xover_counter <= 0 ):
+						bbands_kchan_xover_counter = 1
 
 					if ( primary_stoch_indicator == 'stacked_ma' ):
-						if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True and last_close > short_price ):
-							# If we are not trending in the right direction after crossover then this
-							#  strategy is not likely to succeed.
-							buy_to_cover_signal = True
+						if ( stacked_ma_bull_affinity == True or stacked_ma_bull_ha_affinity == True ):
+							if ( decr_threshold > 1 ):
+								decr_threshold = 1
+
+#					if ( last_close > short_price ):
+#						if ( decr_threshold > 1 ):
+#							decr_threshold = 1
+#					if ( bbands_kchan_xover_counter >= 15 and last_close > short_price ):
+#						buy_to_cover_signal = True
 
 			# STOPLOSS
 			# Monitor cost basis

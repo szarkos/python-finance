@@ -1932,6 +1932,14 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				cur_kchannel_lower	= round( cur_kchannel[0], 3 )
 				cur_kchannel_upper	= round( cur_kchannel[2], 3 )
 
+				# Standard candles
+				stacked_ma_bear_affinity	= check_stacked_ma(cur_s_ma_primary, 'bear')
+				stacked_ma_bull_affinity	= check_stacked_ma(cur_s_ma_primary, 'bull')
+
+				# Heikin Ashi candles
+				stacked_ma_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bear')
+				stacked_ma_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bull')
+
 				# Handle adverse conditions before the crossover
 				if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
 					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] == True ):
@@ -1942,34 +1950,34 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						#  then just exit. If we exit early we might even have a chance to re-enter
 						#  in the right direction.
 						if (cur_algo['primary_stacked_ma'] == True ):
-							if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True and last_close < stocks[ticker]['orig_base_price'] ):
+							if ( stacked_ma_bear_affinity == True and last_close < stocks[ticker]['orig_base_price'] ):
 								stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 					if ( cur_algo['primary_stacked_ma'] == True ):
-						if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
+						if ( stacked_ma_bear_affinity == True ):
 
 							# Stock momentum switched directions after entry and before crossover
-							stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1
-							if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] >= cur_algo['bbands_kchannel_xover_exit_count'] and last_close < stocks[ticker]['orig_base_price'] ):
+							stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] -= 1
+							if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= -cur_algo['bbands_kchannel_xover_exit_count'] and last_close < stocks[ticker]['orig_base_price'] ):
 								if ( stocks[ticker]['decr_threshold'] > 0.5 ):
 									stocks[ticker]['decr_threshold'] = 0.5
 
 						# Reset bbands_kchan_xover_counter if momentum switched back
-						elif ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
+						elif ( stacked_ma_bull_affinity == True ):
 							stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 0
 
 				# Handle adverse conditions after the crossover
 				elif ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
 					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] = True
 
-					if ( last_close < stocks[ticker]['orig_base_price'] and stocks[ticker]['decr_threshold'] > 0.5 ):
-						stocks[ticker]['decr_threshold'] = 0.5
+					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1
+					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= 0 ):
+						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 1
 
 					if ( primary_stoch_indicator == 'stacked_ma' ):
-						if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True and last_close < stocks[ticker]['orig_base_price'] ):
-							# If we are not trending in the right direction after crossover then this
-							#  strategy is not likely to succeed.
-							stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
+						if ( stacked_ma_bear_affinity == True or stacked_ma_bear_ha_affinity == True ):
+							if ( stocks[ticker]['decr_threshold'] > 1 ):
+								stocks[ticker]['decr_threshold'] = 1
 
 			# STOPLOSS MONITOR
 			# If price decreases
@@ -2795,6 +2803,14 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				cur_kchannel_lower	= round( cur_kchannel[0], 3 )
 				cur_kchannel_upper	= round( cur_kchannel[2], 3 )
 
+				# Standard candles
+				stacked_ma_bear_affinity	= check_stacked_ma(cur_s_ma_primary, 'bear')
+				stacked_ma_bull_affinity	= check_stacked_ma(cur_s_ma_primary, 'bull')
+
+				# Heikin Ashi candles
+				stacked_ma_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bear')
+				stacked_ma_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bull')
+
 				# Handle adverse conditions before the crossover
 				if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
 					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] == True ):
@@ -2805,34 +2821,34 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						#  then just exit. If we exit early we might even have a chance to re-enter
 						#  in the right direction.
 						if (cur_algo['primary_stacked_ma'] == True ):
-							if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True and last_close > stocks[ticker]['orig_base_price'] ):
+							if ( stacked_ma_bull_affinity == True and last_close > stocks[ticker]['orig_base_price'] ):
 								stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 					if ( cur_algo['primary_stacked_ma'] == True ):
-						if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
+						if ( stacked_ma_bull_affinity == True or stacked_ma_bull_ha_affinity == True ):
 
 							# Stock momentum switched directions after entry and before crossover
-							stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1
-							if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] >= cur_algo['bbands_kchannel_xover_exit_count'] and last_close > stocks[ticker]['orig_base_price'] ):
+							stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] -= 1
+							if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= -cur_algo['bbands_kchannel_xover_exit_count'] and last_close > stocks[ticker]['orig_base_price'] ):
 								if ( stocks[ticker]['decr_threshold'] > 0.5 ):
 									stocks[ticker]['decr_threshold'] = 0.5
 
 						# Reset bbands_kchan_xover_counter if momentum switched back
-						elif ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
+						elif ( stacked_ma_bear_affinity == True ):
 							stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 0
 
 				# Handle adverse conditions after the crossover
 				elif ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
 					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] = True
 
-					if ( last_close > stocks[ticker]['orig_base_price'] and stocks[ticker]['decr_threshold'] > 0.5 ):
-						stocks[ticker]['decr_threshold'] = 0.5
+					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1
+					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= 0 ):
+						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 1
 
 					if ( primary_stoch_indicator == 'stacked_ma' ):
-						if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True and last_close > stocks[ticker]['orig_base_price'] ):
-							# If we are not trending in the right direction after crossover then this
-							#  strategy is not likely to succeed.
-							stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
+						if ( stacked_ma_bull_affinity == True or stacked_ma_bull_ha_affinity == True ):
+							if ( stocks[ticker]['decr_threshold'] > 1 ):
+								stocks[ticker]['decr_threshold'] = 1
 
 			# STOPLOSS MONITOR
 			# If price decreases

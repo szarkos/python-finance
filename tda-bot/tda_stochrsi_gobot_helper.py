@@ -1974,7 +1974,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= 0 ):
 						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 1
 
-					if ( primary_stoch_indicator == 'stacked_ma' ):
+					if ( cur_algo['primary_stacked_ma'] == True ):
 						if ( stacked_ma_bear_affinity == True or stacked_ma_bear_ha_affinity == True ):
 							if ( stocks[ticker]['decr_threshold'] > 1 ):
 								stocks[ticker]['decr_threshold'] = 1
@@ -2845,7 +2845,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= 0 ):
 						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 1
 
-					if ( primary_stoch_indicator == 'stacked_ma' ):
+					if ( cur_algo['primary_stacked_ma'] == True ):
 						if ( stacked_ma_bull_affinity == True or stacked_ma_bull_ha_affinity == True ):
 							if ( stocks[ticker]['decr_threshold'] > 1 ):
 								stocks[ticker]['decr_threshold'] = 1

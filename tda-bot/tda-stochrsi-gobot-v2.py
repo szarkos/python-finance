@@ -771,7 +771,7 @@ for ticker in stock_list.split(','):
 				   'twenty_week_low':		float(0),
 				   'twenty_week_avg':		float(0),
 
-				   'previous_day_close':	None,
+				   'previous_day_close':	float(0),
 
 				   'kl_long_support':		[],
 				   'kl_long_resistance':	[],
@@ -1141,36 +1141,6 @@ for ticker in list(stocks.keys()):
 	# Translate and add Heiken Ashi candles to pricehistory (will add new array called stocks[ticker]['pricehistory']['hacandles'])
 	stocks[ticker]['pricehistory'] = tda_gobot_helper.translate_heikin_ashi(stocks[ticker]['pricehistory'])
 
-	# Find the previous day close
-	yesterday = time_now - datetime.timedelta(days=1)
-	yesterday = tda_gobot_helper.fix_timestamp(yesterday)
-	yesterday = yesterday.strftime('%Y-%m-%d')
-	for key in data['candles']:
-
-		# PDC
-		day = datetime.datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone)
-		if ( day.strftime('%Y-%m-%d') == yesterday ):
-
-			# Sometimes low/zero EOD volume misses a candle, try a couple EOD candles to be safe
-			hm = day.strftime('%H:%M')
-			if ( hm == '15:59' or hm == '16:00' ):
-				stocks[ticker]['previous_day_close'] = float( key['close'] )
-
-	if ( stocks[ticker]['previous_day_close'] == None ):
-		print('Warning: (' + str(ticker) + '): failed to find PDC from pricehistory, falling back to get_pdc()')
-
-		tries = 0
-		while ( tries < 3 ):
-			stocks[ticker]['previous_day_close'] = tda_gobot_helper.get_pdc(data)
-			if ( stocks[ticker]['previous_day_close'] == None ):
-				print('Error: (' + str(ticker) + '): get_pdc() returned None, retrying...')
-				stocks[ticker]['previous_day_close'] = 0
-				tries += 1
-
-				time.sleep(5)
-				continue
-			break
-
 	# Key Levels
 	# Use weekly_ifile or download weekly candle data
 	if ( args.weekly_ifile != None ):
@@ -1266,6 +1236,14 @@ for ticker in list(stocks.keys()):
 		print('(' + str(ticker) + '): Warning: unable to retrieve daily data, skipping.')
 		stocks[ticker]['pricehistory_daily'] = {}
 		continue
+
+	# Previous day close (PDC)
+	try:
+		stocks[ticker]['previous_day_close'] = stocks[ticker]['pricehistory_daily']['candles'][-1]['close']
+
+	except Exception as e:
+		print('(' + str(ticker) + '): Warning: unable to set previous day close: ' + str(e))
+		stocks[ticker]['previous_day_close'] = 0
 
 	# Calculate the current daily ATR/NATR
 	atr_d   = []

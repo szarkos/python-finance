@@ -109,8 +109,11 @@ parser.add_argument("--strict_exit_percent", help='Only exit when exit_percent s
 parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent strategy was set, do not wait for the next candle', action="store_true")
 parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_threshold and exit_percent based on the price action of the stock over the previous hour', action="store_true")
 parser.add_argument("--use_ha_exit", help='Use Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
+parser.add_argument("--use_ha_candles", help='Use Heikin Ashi candles with entry strategy', action="store_true")
 parser.add_argument("--use_trend_exit", help='Use ttm_trend algorithm with exit_percent-based exit strategy', action="store_true")
-parser.add_argument("--trend_exit_type", help='Type to use with ttm_trend algorithm (Default: hl2', default='hl2', type=str)
+parser.add_argument("--use_trend", help='Use ttm_trend algorithm with entry strategy', action="store_true")
+parser.add_argument("--trend_type", help='Type to use with ttm_trend algorithm (Default: hl2)', default='hl2', type=str)
+parser.add_argument("--trend_period", help='Period to use with ttm_trend algorithm (Default: 5)', default=5, type=int)
 parser.add_argument("--use_combined_exit", help='Use both the ttm_trend algorithm and Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
 
 parser.add_argument("--blacklist_earnings", help='Blacklist trading one week before and after quarterly earnings dates (Default: False)', action="store_true")
@@ -545,8 +548,11 @@ for algo in args.algo.split(','):
 					'strict_exit_percent':			args.strict_exit_percent,
 					'variable_exit':			args.variable_exit,
 					'use_ha_exit':				args.use_ha_exit,
+					'use_ha_candles':			args.use_ha_candles,
 					'use_trend_exit':			args.use_trend_exit,
-					'trend_exit_type':			args.trend_exit_type,
+					'use_trend':				args.use_trend,
+					'trend_type':				args.trend_type,
+					'trend_period':				args.trend_period,
 					'use_combined_exit':			args.use_combined_exit,
 					'hold_overnight':			args.hold_overnight,
 

@@ -66,8 +66,13 @@ parser.add_argument("--max_failed_txs", help='Maximum number of failed transacti
 parser.add_argument("--max_failed_usd", help='Maximum allowed USD for a failed transaction before the stock is blacklisted', default=99999, type=float)
 parser.add_argument("--exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
 parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_threshold and exit_percent based on the price action of the stock over the previous hour',  action="store_true")
+
 parser.add_argument("--use_ha_exit", help='Use Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
+parser.add_argument("--use_ha_candles", help='Use Heikin Ashi candles with stacked MA indicators', action="store_true")
 parser.add_argument("--use_trend_exit", help='Use ttm_trend algorithm with exit_percent-based exit strategy', action="store_true")
+parser.add_argument("--use_trend", help='Use ttm_trend algorithm with stacked MA indicators', action="store_true")
+parser.add_argument("--trend_type", help='Candle type to use with ttm_trend algorithm (Default: hl2)', default='hl2', type=str)
+parser.add_argument("--trend_period", help='Period to use with ttm_trend algorithm (Default: 5)', default=5, type=int)
 
 parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=int)
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
@@ -261,10 +266,29 @@ for algo in args.algos:
 	stochrsi_offset			= args.stochrsi_offset
 	stochrsi_5m_offset		= stochrsi_offset
 
+	# Stacked MA
 	stacked_ma_type_primary		= args.stacked_ma_type_primary
 	stacked_ma_periods_primary	= args.stacked_ma_periods_primary
 	stacked_ma_type			= args.stacked_ma_type
 	stacked_ma_periods		= args.stacked_ma_periods
+
+	# Heikin Ashi and TTM_Trend
+	use_ha_exit			= args.use_ha_exit
+	use_ha_candles			= args.use_ha_candles
+	use_trend_exit			= args.use_trend_exit
+	use_trend			= args.use_trend
+	trend_period			= args.trend_period
+	trend_type			= args.trend_type
+
+	# Bollinger Bands and Keltner Channel
+	bbands_kchannel_offset		= args.bbands_kchannel_offset
+	bbands_kchan_squeeze_count	= args.bbands_kchan_squeeze_count
+	use_bbands_kchannel_5m		= args.use_bbands_kchannel_5m
+	use_bbands_kchannel_xover_exit	= args.use_bbands_kchannel_xover_exit
+	bbands_kchannel_xover_exit_count= args.bbands_kchannel_xover_exit_count
+	bbands_period			= args.bbands_period
+	kchannel_period			= args.kchannel_period
+	kchannel_atr_period		= args.kchannel_atr_period
 
 	# MFI
 	mfi_high_limit			= args.mfi_high_limit
@@ -301,15 +325,6 @@ for algo in args.algos:
 
 	supertrend_atr_period		= args.supertrend_atr_period
 	supertrend_min_natr		= args.supertrend_min_natr
-
-	bbands_kchannel_offset		= args.bbands_kchannel_offset
-	bbands_kchan_squeeze_count	= args.bbands_kchan_squeeze_count
-	use_bbands_kchannel_5m		= args.use_bbands_kchannel_5m
-	use_bbands_kchannel_xover_exit	= args.use_bbands_kchannel_xover_exit
-	bbands_kchannel_xover_exit_count= args.bbands_kchannel_xover_exit_count
-	bbands_period			= args.bbands_period
-	kchannel_period			= args.kchannel_period
-	kchannel_atr_period		= args.kchannel_atr_period
 
 	use_natr_resistance		= args.use_natr_resistance
 	min_intra_natr			= args.min_intra_natr
@@ -367,6 +382,22 @@ for algo in args.algos:
 		if ( re.match('stacked_ma_type:', a)			!= None ):	stacked_ma_type			= str( a.split(':')[1] )
 		if ( re.match('stacked_ma_periods:', a)			!= None ):	stacked_ma_periods		= str( a.split(':')[1] )
 
+		if ( re.match('use_ha_exit', a)				!= None ):	use_ha_exit			= True
+		if ( re.match('use_ha_candles', a)			!= None ):	use_ha_candles			= True
+		if ( re.match('use_trend_exit', a)			!= None ):	use_trend_exit			= True
+		if ( re.match('use_trend', a)				!= None ):	use_trend			= True
+		if ( re.match('trend_period:', a)			!= None ):	trend_period			= str( a.split(':')[1] )
+		if ( re.match('trend_type:', a)				!= None ):	trend_type			= str( a.split(':')[1] )
+
+		if ( re.match('use_bbands_kchannel_5m', a)		!= None ):	use_bbands_kchannel_5m		= True
+		if ( re.match('use_bbands_kchannel_xover_exit', a)	!= None ):	use_bbands_kchannel_xover_exit	= True
+		if ( re.match('bbands_kchannel_offset:', a)		!= None ):	bbands_kchannel_offset		= float( a.split(':')[1] )
+		if ( re.match('bbands_kchan_squeeze_count:', a)		!= None ):	bbands_kchan_squeeze_count	= int( a.split(':')[1] )
+		if ( re.match('bbands_kchannel_xover_exit_count:', a)	!= None ):	bbands_kchannel_xover_exit_count= int( a.split(':')[1] )
+		if ( re.match('bbands_period:', a)			!= None ):	bbands_period			= int( a.split(':')[1] )
+		if ( re.match('kchannel_period:', a)			!= None ):	kchannel_period			= int( a.split(':')[1] )
+		if ( re.match('kchannel_atr_period:', a)		!= None ):	kchannel_atr_period		= int( a.split(':')[1] )
+
 		if ( re.match('mfi_high_limit:', a)			!= None ):	mfi_high_limit			= float( a.split(':')[1] )
 		if ( re.match('mfi_low_limit:', a)			!= None ):	mfi_low_limit			= float( a.split(':')[1] )
 
@@ -398,15 +429,6 @@ for algo in args.algos:
 
 		if ( re.match('supertrend_atr_period:', a)		!= None ):	supertrend_atr_period		= int( a.split(':')[1] )
 		if ( re.match('supertrend_min_natr:', a)		!= None ):	supertrend_min_natr		= float( a.split(':')[1] )
-
-		if ( re.match('use_bbands_kchannel_5m', a)		!= None ):	use_bbands_kchannel_5m		= True
-		if ( re.match('use_bbands_kchannel_xover_exit', a)	!= None ):	use_bbands_kchannel_xover_exit	= True
-		if ( re.match('bbands_kchannel_offset:', a)		!= None ):	bbands_kchannel_offset		= float( a.split(':')[1] )
-		if ( re.match('bbands_kchan_squeeze_count:', a)		!= None ):	bbands_kchan_squeeze_count	= int( a.split(':')[1] )
-		if ( re.match('bbands_kchannel_xover_exit_count:', a)	!= None ):	bbands_kchannel_xover_exit_count= int( a.split(':')[1] )
-		if ( re.match('bbands_period:', a)			!= None ):	bbands_period			= int( a.split(':')[1] )
-		if ( re.match('kchannel_period:', a)			!= None ):	kchannel_period			= int( a.split(':')[1] )
-		if ( re.match('kchannel_atr_period:', a)		!= None ):	kchannel_atr_period		= int( a.split(':')[1] )
 
 		if ( re.match('use_natr_resistance:', a)		!= None ):	use_natr_resistance		= float( a.split(':')[1] )
 		if ( re.match('min_intra_natr:', a)			!= None ):	min_intra_natr			= float( a.split(':')[1] )
@@ -479,6 +501,29 @@ for algo in args.algos:
 			'stochrsi_offset':			stochrsi_offset,
 			'stochrsi_5m_offset':			stochrsi_5m_offset,
 
+			'bbands_kchannel':			bbands_kchannel,
+			'bbands_kchannel_simple':		bbands_kchannel_simple,
+			'bbands_kchannel_offset':		bbands_kchannel_offset,
+			'bbands_kchan_squeeze_count':		bbands_kchan_squeeze_count,
+			'use_bbands_kchannel_5m':		use_bbands_kchannel_5m,
+			'use_bbands_kchannel_xover_exit':	use_bbands_kchannel_xover_exit,
+			'bbands_kchannel_xover_exit_count': 	bbands_kchannel_xover_exit_count,
+			'bbands_period':			bbands_period,
+			'kchannel_period':			kchannel_period,
+			'kchannel_atr_period':			kchannel_atr_period,
+
+			'stacked_ma_type_primary':		stacked_ma_type_primary,
+			'stacked_ma_periods_primary':		stacked_ma_periods_primary,
+			'stacked_ma_type':			stacked_ma_type,
+			'stacked_ma_periods':			stacked_ma_periods,
+
+			'use_ha_exit':				use_ha_exit,
+			'use_ha_candles':			use_ha_candles,
+			'use_trend_exit':			use_trend_exit,
+			'use_trend':				use_trend,
+			'trend_period':				trend_period,
+			'trend_type':				trend_type,
+
 			'mfi_high_limit':			mfi_high_limit,
 			'mfi_low_limit':			mfi_low_limit,
 
@@ -511,23 +556,6 @@ for algo in args.algos:
 			'supertrend_atr_period':		supertrend_atr_period,
 			'supertrend_min_natr':			supertrend_min_natr,
 
-			'bbands_kchannel':			bbands_kchannel,
-			'bbands_kchannel_simple':		bbands_kchannel_simple,
-
-			'bbands_kchannel_offset':		bbands_kchannel_offset,
-			'bbands_kchan_squeeze_count':		bbands_kchan_squeeze_count,
-			'use_bbands_kchannel_5m':		use_bbands_kchannel_5m,
-			'use_bbands_kchannel_xover_exit':	use_bbands_kchannel_xover_exit,
-			'bbands_kchannel_xover_exit_count': 	bbands_kchannel_xover_exit_count,
-			'bbands_period':			bbands_period,
-			'kchannel_period':			kchannel_period,
-			'kchannel_atr_period':			kchannel_atr_period,
-
-			'stacked_ma_type_primary':		stacked_ma_type_primary,
-			'stacked_ma_periods_primary':		stacked_ma_periods_primary,
-			'stacked_ma_type':			stacked_ma_type,
-			'stacked_ma_periods':			stacked_ma_periods,
-
 			'use_natr_resistance':			use_natr_resistance,
 			'min_intra_natr':			min_intra_natr,
 			'max_intra_natr':			max_intra_natr,
@@ -540,6 +568,7 @@ for algo in args.algos:
 	algos.append(algo_list)
 
 # Clean up this mess
+# All the stuff above should be put into a function to avoid this cleanup stuff. I know it. It'll happen eventually.
 del(primary_stochrsi,primary_stochmfi,primary_stacked_ma,stacked_ma,stochrsi_5m,stochmfi,stochmfi_5m)
 del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,bbands_kchannel_simple,vwap,vpt,support_resistance)
 del(rsi_high_limit,rsi_low_limit,rsi_period,stochrsi_period,stochrsi_5m_period,rsi_k_period,rsi_k_5m_period,rsi_d_period,rsi_slow,stochrsi_offset,stochrsi_5m_offset)
@@ -548,6 +577,7 @@ del(adx_threshold,adx_period,macd_long_period,macd_short_period,macd_signal_peri
 del(chop_period,chop_low_limit,chop_high_limit,supertrend_atr_period,supertrend_min_natr,bbands_kchannel_offset,bbands_kchan_squeeze_count,bbands_period,kchannel_period,kchannel_atr_period)
 del(stacked_ma_type_primary,stacked_ma_periods_primary,stacked_ma_type,stacked_ma_periods,use_natr_resistance,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr)
 del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count)
+del(use_ha_exit,use_ha_candles,use_trend_exit,use_trend,trend_period,trend_type)
 
 # Set valid tickers for each algo, if configured
 if ( args.algo_valid_tickers != None ):
@@ -667,6 +697,12 @@ for ticker in stock_list.split(','):
 				   'prev_s_ma_primary':		(0,0,0,0),
 				   'cur_s_ma':			(0,0,0,0),
 				   'prev_s_ma':			(0,0,0,0),
+
+				   'cur_s_ma_ha_primary':	(0,0,0,0),
+				   'prev_s_ma_ha_primary':	(0,0,0,0),
+				   'cur_s_ma_ha':		(0,0,0,0),
+				   'prev_s_ma_ha':		(0,0,0,0),
+
 				   'cur_daily_ma':		(0,0,0,0),
 
 				   # RSI

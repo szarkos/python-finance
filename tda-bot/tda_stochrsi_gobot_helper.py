@@ -525,9 +525,16 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# Cancel the bbands_kchan_signal if the bollinger bands popped back inside the keltner channel,
 			#  or if the bbands_kchan_signal_counter has lingered for too long
-			if ( ((prev_kchannel_lower > prev_bbands_lower and cur_kchannel_lower <= cur_bbands_lower) or
-					(prev_kchannel_upper < prev_bbands_upper and cur_kchannel_upper >= cur_bbands_upper)) or
-					bbands_kchan_xover_counter >= 2 ):
+			#
+			# Note: The criteria for the crossover signal is when *either* the upper or lower bands cross over,
+			#  since they don't always cross at the same time. So when checking if the bands crossed back over,
+			#  it is important that we don't just check the current position but check both the previous and
+			#  current positions. Otherwise a lingering upper or lower band could cause the signal to be cancelled
+			#  just because it hasn't yet crossed over, but probably will.
+			if ( bbands_kchan_crossover_signal == True and
+					((prev_kchannel_lower > prev_bbands_lower and cur_kchannel_lower <= cur_bbands_lower) or
+					 (prev_kchannel_upper < prev_bbands_upper and cur_kchannel_upper >= cur_bbands_upper)) or
+					  bbands_kchan_xover_counter >= 2 ):
 
 				bbands_kchan_init_signal	= False
 				bbands_kchan_crossover_signal	= False
@@ -540,20 +547,29 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 
 	# Intraday stacked moving averages
-	def get_stackedma(pricehistory=None, stacked_ma_periods=None, stacked_ma_type=None):
+	def get_stackedma(pricehistory=None, stacked_ma_periods=None, stacked_ma_type=None, use_ha_candles=False):
 		try:
 			assert pricehistory		!= None
+			if ( use_ha_candles == True ):
+				assert pricehistory['hacandles']
+
 			assert stacked_ma_periods	!= None
 			assert stacked_ma_type		!= None
 		except:
 			return False
+
+		ph = { 'candles': [] }
+		if ( use_ha_candles == True ):
+			ph['candles'] = pricehistory['hacandles']
+		else:
+			ph['candles'] = pricehistory['candles']
 
 		stacked_ma_periods = stacked_ma_periods.split(',')
 		ma_array = []
 		for ma_period in stacked_ma_periods:
 			ma = []
 			try:
-				ma = tda_algo_helper.get_alt_ma(pricehistory, ma_type=stacked_ma_type, period=int(ma_period) )
+				ma = tda_algo_helper.get_alt_ma(ph, ma_type=stacked_ma_type, period=int(ma_period) )
 
 			except Exception as e:
 				print('Error, unable to calculate stacked MAs: ' + str(e))
@@ -637,8 +653,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				return False
 
 		price = price / period
-		#print(str(cur_close) + ' / ' + str(price))
-
 		if ( affinity == 'bull' and cur_close > price ):
 			return True
 		elif ( affinity == 'bear' and cur_close <= price ):
@@ -781,9 +795,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 		# Stacked moving averages
 		if ( cur_algo['primary_stacked_ma'] == True ):
-			s_ma_primary = []
+			s_ma_primary	= []
+			s_ma_ha_primary	= []
 			try:
-				s_ma_primary = get_stackedma(stocks[ticker]['pricehistory'], cur_algo['stacked_ma_periods_primary'], cur_algo['stacked_ma_type_primary'] )
+				s_ma_primary	= get_stackedma(stocks[ticker]['pricehistory'], cur_algo['stacked_ma_periods_primary'], cur_algo['stacked_ma_type_primary'] )
+				s_ma_ha_primary	= get_stackedma(stocks[ticker]['pricehistory'], cur_algo['stacked_ma_periods_primary'], cur_algo['stacked_ma_type_primary'], use_ha_candles=True )
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(): get_stackedma(' + str(ticker) + '): ' + str(e), file=sys.stderr)
@@ -791,11 +807,15 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			stocks[ticker]['cur_s_ma_primary']	= s_ma_primary[-1]
 			stocks[ticker]['prev_s_ma_primary']	= s_ma_primary[-2]
+			stocks[ticker]['cur_s_ma_ha_primary']	= s_ma_ha_primary[-1]
+			stocks[ticker]['prev_s_ma_ha_primary']	= s_ma_ha_primary[-2]
 
 		if ( cur_algo['stacked_ma'] == True ):
-			s_ma = []
+			s_ma	= []
+			s_ma_ha	= []
 			try:
-				s_ma = get_stackedma( stocks[ticker]['pricehistory'], cur_algo['stacked_ma_periods'], cur_algo['stacked_ma_type'] )
+				s_ma	= get_stackedma( stocks[ticker]['pricehistory'], cur_algo['stacked_ma_periods'], cur_algo['stacked_ma_type'] )
+				s_ma_ha	= get_stackedma( stocks[ticker]['pricehistory'], cur_algo['stacked_ma_periods'], cur_algo['stacked_ma_type'], use_ha_candles=True )
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(): get_stackedma(' + str(ticker) + '): ' + str(e), file=sys.stderr)
@@ -803,6 +823,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			stocks[ticker]['cur_s_ma']	= s_ma[-1]
 			stocks[ticker]['prev_s_ma']	= s_ma[-2]
+			stocks[ticker]['cur_s_ma_ha']	= s_ma_ha[-1]
+			stocks[ticker]['prev_s_ma_ha']	= s_ma_ha[-2]
 
 		# RSI
 		if ( cur_algo['rsi'] == True ):
@@ -1188,6 +1210,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		cur_s_ma		= stocks[ticker]['cur_s_ma']
 		prev_s_ma		= stocks[ticker]['prev_s_ma']
 
+		cur_s_ma_ha_primary	= stocks[ticker]['cur_s_ma_ha_primary']
+		prev_s_ma_ha_primary	= stocks[ticker]['prev_s_ma_ha_primary']
+		cur_s_ma_ha		= stocks[ticker]['cur_s_ma_ha']
+		prev_s_ma_ha		= stocks[ticker]['prev_s_ma_ha']
+
 		# Additional Indicators
 		cur_rsi			= stocks[ticker]['cur_rsi']
 		prev_rsi		= stocks[ticker]['prev_rsi']
@@ -1291,6 +1318,22 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		# BUY MODE - looking for a signal to purchase the stock
 		if ( signal_mode == 'buy' ):
 
+			# Bollinger Bands and Keltner Channel
+			# We put this above the primary indicator since we want to keep track of what the
+			#  Bollinger bands and Keltner channel are doing across buy/short transitions.
+			if ( cur_algo['bbands_kchannel'] == True or cur_algo['bbands_kchannel_simple'] == True ):
+				( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] ) = bbands_kchannels( simple=cur_algo['bbands_kchannel_simple'], cur_bbands=cur_bbands, prev_bbands=prev_bbands,
+																cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
+																bbands_kchan_signal_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
+																bbands_kchan_xover_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'],
+																bbands_kchan_init_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
+																bbands_kchan_crossover_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
+																bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'] )
+
 			# PRIMARY STOCHRSI MONITOR
 			if ( cur_algo['primary_stochrsi'] == True or cur_algo['primary_stochmfi'] == True ):
 
@@ -1324,17 +1367,44 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# PRIMARY STACKED MOVING AVERAGE
 			elif ( cur_algo['primary_stacked_ma'] == True ):
 
+				# Standard candles
+				stacked_ma_bear_affinity	= check_stacked_ma(cur_s_ma_primary, 'bear')
+				stacked_ma_bull_affinity	= check_stacked_ma(cur_s_ma_primary, 'bull')
+
+				# Heikin Ashi candles
+				stacked_ma_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bear')
+				stacked_ma_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bull')
+
+				# TTM Trend
+				if ( cur_algo['use_trend'] == True ):
+					cndl_slice	= []
+					for i in range(cur_algo['trend_period']+1, 0, -1):
+						cndl_slice.append( stocks[ticker]['pricehistory']['candles'][-i] )
+
+					price_trend_bear_affinity = price_trend(cndl_slice, type=cur_algo['trend_type'], period=cur_algo['trend_period'], affinity='bear')
+					price_trend_bull_affinity = price_trend(cndl_slice, type=cur_algo['trend_type'], period=cur_algo['trend_period'], affinity='bull')
+
 				# Jump to short mode if the stacked moving averages are showing a bearish movement
-				if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True and args.short == True and stocks[ticker]['shortable'] == True ):
+				if ( args.short == True and stocks[ticker]['shortable'] == True and
+						(cur_algo['use_ha_candles'] == True and (stacked_ma_bear_ha_affinity == True or stacked_ma_bear_affinity == True)) or
+						(cur_algo['use_trend'] == True and price_trend_bear_affinity == True) or
+						(cur_algo['use_ha_candles'] == False and cur_algo['use_trend'] == False and stacked_ma_bear_affinity == True) ):
+
 					print('(' + str(ticker) + ') StackedMA values indicate bearish trend ' + str(cur_s_ma_primary) + ", switching to short mode.\n" )
 					reset_signals(ticker, id=algo_id, signal_mode='short', exclude_bbands_kchan=True)
 					continue
 
-				if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
+				elif ( cur_algo['use_ha_candles'] == True and stacked_ma_bull_ha_affinity == True or stacked_ma_bull_affinity == True ):
 					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = True
+
+				elif ( cur_algo['use_trend'] == True and price_trend_bull_affinity == True ):
+					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = True
+
+				elif ( cur_algo['use_ha_candles'] == False and cur_algo['use_trend'] == False and stacked_ma_bull_affinity == True ):
+					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = True
+
 				else:
 					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = False
-
 
 			# Secondary Stacked Moving Average
 			if ( cur_algo['stacked_ma'] == True ):
@@ -1496,20 +1566,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['algo_signals'][algo_id]['supertrend_signal'] = get_supertrend_signal(	short=False, cur_close=cur_close, prev_close=prev_close,
 																cur_supertrend=cur_supertrend, prev_supertrend=prev_supertrend,
 																supertrend_signal=stocks[ticker]['algo_signals'][algo_id]['supertrend_signal'] )
-
-			# Bollinger Bands and Keltner Channel
-			if ( cur_algo['bbands_kchannel'] == True or cur_algo['bbands_kchannel_simple'] == True ):
-				( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
-				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
-				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
-				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
-				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] ) = bbands_kchannels( simple=cur_algo['bbands_kchannel_simple'], cur_bbands=cur_bbands, prev_bbands=prev_bbands,
-																cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
-																bbands_kchan_signal_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
-																bbands_kchan_xover_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'],
-																bbands_kchan_init_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
-																bbands_kchan_crossover_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
-																bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'] )
 
 			# VWAP signal
 			# This is the most simple/pessimistic approach right now
@@ -1997,17 +2053,18 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			if ( stocks[ticker]['exit_percent'] != None and last_price > stocks[ticker]['orig_base_price'] ):
 				total_percent_change = abs( stocks[ticker]['orig_base_price'] / last_price - 1 ) * 100
 
-				if ( args.use_ha_exit == True ):
-					last_close	= stocks[ticker]['pricehistory']['hacandles'][-1]['close']
-					last_open	= stocks[ticker]['pricehistory']['hacandles'][-1]['open']
-
-				# If exit_percent has been hit, we will sell at the first RED candle
 				if ( total_percent_change >= stocks[ticker]['exit_percent'] ):
 					stocks[ticker]['exit_percent_signal'] = True
 
+				# If exit_percent has been hit, we will sell at the first RED candle
 				if ( stocks[ticker]['exit_percent_signal'] == True ):
-					if ( args.use_trend_exit == True ):
-						if ( args.use_ha_exit == True ):
+
+					if ( cur_algo['use_ha_exit'] == True ):
+						last_close	= stocks[ticker]['pricehistory']['hacandles'][-1]['close']
+						last_open	= stocks[ticker]['pricehistory']['hacandles'][-1]['open']
+
+					if ( cur_algo['use_trend_exit'] == True ):
+						if ( cur_algo['use_ha_exit'] == True ):
 							cndls = stocks[ticker]['pricehistory']['hacandles']
 						else:
 							cndls = stocks[ticker]['pricehistory']['candles']
@@ -2099,7 +2156,22 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		# In this mode we will monitor the RSI and initiate a short sale if the RSI is very high
 		elif ( signal_mode == 'short' ):
 
-			# StochRSI MONITOR
+			# Bollinger Bands and Keltner Channel
+			# We put this above the primary indicator since we want to keep track of what the
+			#  Bollinger bands and Keltner channel are doing across buy/short transitions.
+			if ( cur_algo['bbands_kchannel'] == True or cur_algo['bbands_kchannel_simple'] == True ):
+				( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] ) = bbands_kchannels( simple=cur_algo['bbands_kchannel_simple'], cur_bbands=cur_bbands, prev_bbands=prev_bbands,
+																cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
+																bbands_kchan_signal_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
+																bbands_kchan_xover_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'],
+																bbands_kchan_init_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
+																bbands_kchan_crossover_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
+																bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'] )
+
 			# PRIMARY STOCHRSI MONITOR
 			if ( cur_algo['primary_stochrsi'] == True or cur_algo['primary_stochmfi'] == True ):
 
@@ -2132,14 +2204,42 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# PRIMARY STACKED MOVING AVERAGE
 			elif ( cur_algo['primary_stacked_ma'] == True ):
 
+				# Standard candles
+				stacked_ma_bear_affinity	= check_stacked_ma(cur_s_ma_primary, 'bear')
+				stacked_ma_bull_affinity	= check_stacked_ma(cur_s_ma_primary, 'bull')
+
+				# Heikin Ashi candles
+				stacked_ma_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bear')
+				stacked_ma_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bull')
+
+				# TTM Trend
+				if ( cur_algo['use_trend'] == True ):
+					cndl_slice	= []
+					for i in range(cur_algo['trend_period']+1, 0, -1):
+						cndl_slice.append( stocks[ticker]['pricehistory']['candles'][-i] )
+
+					price_trend_bear_affinity = price_trend(cndl_slice, type=cur_algo['trend_type'], period=cur_algo['trend_period'], affinity='bear')
+					price_trend_bull_affinity = price_trend(cndl_slice, type=cur_algo['trend_type'], period=cur_algo['trend_period'], affinity='bull')
+
 				# Jump to short mode if the stacked moving averages are showing a bearish movement
-				if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True and args.shortonly == False ):
+				if ( args.shortonly == False and
+						(cur_algo['use_ha_candles'] == True and (stacked_ma_bull_ha_affinity == True or stacked_ma_bull_affinity == True)) or
+						(cur_algo['use_trend'] == True and price_trend_bull_affinity == True) or
+						(cur_algo['use_ha_candles'] == False and cur_algo['use_trend'] == False and stacked_ma_bull_affinity == True) ):
+
 					print('(' + str(ticker) + ') StackedMA values indicate bullish trend ' + str(cur_s_ma_primary) + ", switching to long mode.\n")
 					reset_signals(ticker, id=algo_id, signal_mode='buy', exclude_bbands_kchan=True)
 					continue
 
-				if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
+				elif ( cur_algo['use_ha_candles'] == True and stacked_ma_bear_ha_affinity == True or stacked_ma_bear_affinity == True ):
 					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = True
+
+				elif ( cur_algo['use_trend'] == True and price_trend_bear_affinity == True ):
+					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = True
+
+				elif ( cur_algo['use_ha_candles'] == False and cur_algo['use_trend'] == False and stacked_ma_bear_affinity == True ):
+					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = True
+
 				else:
 					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = False
 
@@ -2303,20 +2403,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['algo_signals'][algo_id]['supertrend_signal'] = get_supertrend_signal(	short=True, cur_close=cur_close, prev_close=prev_close,
 																cur_supertrend=cur_supertrend, prev_supertrend=prev_supertrend,
 																supertrend_signal=stocks[ticker]['algo_signals'][algo_id]['supertrend_signal'] )
-
-			# Bollinger Bands and Keltner Channel
-			if ( cur_algo['bbands_kchannel'] == True or cur_algo['bbands_kchannel_simple'] == True ):
-				( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
-				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
-				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
-				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
-				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] ) = bbands_kchannels( simple=cur_algo['bbands_kchannel_simple'], cur_bbands=cur_bbands, prev_bbands=prev_bbands,
-																cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
-																bbands_kchan_signal_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
-																bbands_kchan_xover_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'],
-																bbands_kchan_init_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
-																bbands_kchan_crossover_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
-																bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'] )
 
 			# VWAP signal
 			# This is the most simple/pessimistic approach right now
@@ -2839,12 +2925,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				# If exit_percent has been hit, we will sell at the first GREEN candle
 				if ( stocks[ticker]['exit_percent_signal'] == True ):
 
-					if ( args.use_ha_exit == True ):
+					if ( cur_algo['use_ha_exit'] == True ):
 						last_close	= stocks[ticker]['pricehistory']['hacandles'][-1]['close']
 						last_open	= stocks[ticker]['pricehistory']['hacandles'][-1]['open']
 
-					if ( args.use_trend_exit == True ):
-						if ( args.use_ha_exit == True ):
+					if ( cur_algo['use_trend_exit'] == True ):
+						if ( cur_algo['use_ha_exit'] == True ):
 							cndls = stocks[ticker]['pricehistory']['hacandles']
 						else:
 							cndls = stocks[ticker]['pricehistory']['candles']

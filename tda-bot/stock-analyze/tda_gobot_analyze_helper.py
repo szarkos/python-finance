@@ -118,8 +118,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	strict_exit_percent		= False		if ('strict_exit_percent' not in params) else params['strict_exit_percent']
 	variable_exit			= False		if ('variable_exit' not in params) else params['variable_exit']
 	use_ha_exit			= False		if ('use_ha_exit' not in params) else params['use_ha_exit']
+	use_ha_candles			= False		if ('use_ha_candles' not in params) else params['use_ha_candles']
 	use_trend_exit			= False		if ('use_trend_exit' not in params) else params['use_trend_exit']
-	trend_exit_type			= 'hl2'		if ('trend_exit_type' not in params) else params['trend_exit_type']
+	use_trend			= False		if ('use_trend' not in params) else params['use_trend']
+	trend_type			= 'hl2'		if ('trend_type' not in params) else params['trend_type']
+	trend_period			= 5		if ('trend_period' not in params) else params['trend_period']
 	use_combined_exit		= False		if ('use_combined_exit' not in params) else params['use_combined_exit']
 	hold_overnight			= False		if ('hold_overnight' not in params) else params['hold_overnight']
 
@@ -846,20 +849,29 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 #			print('Warning: stochrsi_analyze_new(' + str(ticker) + '): get_price_stats(): ' + str(e))
 
 	# Intraday stacked moving averages
-	def get_stackedma(pricehistory=None, stacked_ma_periods=None, stacked_ma_type=None):
+	def get_stackedma(pricehistory=None, stacked_ma_periods=None, stacked_ma_type=None, use_ha_candles=False):
 		try:
 			assert pricehistory		!= None
+			if ( use_ha_candles == True ):
+				assert pricehistory['hacandles']
+
 			assert stacked_ma_periods	!= None
 			assert stacked_ma_type		!= None
 		except:
 			return False
+
+		ph = { 'candles': [] }
+		if ( use_ha_candles == True ):
+			ph['candles'] = pricehistory['hacandles']
+		else:
+			ph['candles'] = pricehistory['candles']
 
 		stacked_ma_periods = stacked_ma_periods.split(',')
 		ma_array = []
 		for ma_period in stacked_ma_periods:
 			ma = []
 			try:
-				ma = tda_algo_helper.get_alt_ma(pricehistory, ma_type=stacked_ma_type, period=int(ma_period) )
+				ma = tda_algo_helper.get_alt_ma(ph, ma_type=stacked_ma_type, period=int(ma_period) )
 
 			except Exception as e:
 				print('Error, unable to calculate stacked MAs: ' + str(e))
@@ -879,8 +891,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	# Intraday moving averages
 	s_ma = get_stackedma(pricehistory, stacked_ma_periods, stacked_ma_type)
+	s_ma_ha = get_stackedma(pricehistory, stacked_ma_periods, stacked_ma_type, use_ha_candles=True)
 	if ( primary_stoch_indicator == 'stacked_ma' ):
 		s_ma_primary = get_stackedma(pricehistory, stacked_ma_periods_primary, stacked_ma_type_primary)
+		s_ma_ha_primary = get_stackedma(pricehistory, stacked_ma_periods_primary, stacked_ma_type_primary, use_ha_candles=True)
 
 	# Daily moving averages
 	ma = []
@@ -1349,9 +1363,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# Cancel the bbands_kchan_signal if the bollinger bands popped back inside the keltner channel,
 			#  or if the bbands_kchan_signal_counter has lingered for too long
-			if ( ((prev_kchannel_lower > prev_bbands_lower and cur_kchannel_lower <= cur_bbands_lower) or
-					(prev_kchannel_upper < prev_bbands_upper and cur_kchannel_upper >= cur_bbands_upper)) or
-					bbands_kchan_xover_counter >= 2 ):
+			#
+			# Note: The criteria for the crossover signal is when *either* the upper or lower bands cross over,
+			#  since they don't always cross at the same time. So when checking if the bands crossed back over,
+			#  it is important that we don't just check the current position but check both the previous and
+			#  current positions. Otherwise a lingering upper or lower band could cause the signal to be cancelled
+			#  just because it hasn't yet crossed over, but probably will.
+			if ( bbands_kchan_crossover_signal == True and
+				((prev_kchannel_lower > prev_bbands_lower and cur_kchannel_lower <= cur_bbands_lower) or
+				(prev_kchannel_upper < prev_bbands_upper and cur_kchannel_upper >= cur_bbands_upper)) or
+				bbands_kchan_xover_counter >= 2 ):
 
 				bbands_kchan_init_signal	= False
 				bbands_kchan_signal		= False
@@ -1499,9 +1520,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		# Stacked moving average (1min candles)
 		cur_s_ma	= s_ma[idx]
 		prev_s_ma	= s_ma[idx-1]
+		cur_s_ma_ha	= s_ma_ha[idx]
+		prev_s_ma_ha	= s_ma_ha[idx-1]
 		if ( primary_stoch_indicator == 'stacked_ma' ):
 			cur_s_ma_primary	= s_ma_primary[idx]
 			prev_s_ma_primary	= s_ma_primary[idx-1]
+			cur_s_ma_ha_primary	= s_ma_ha_primary[idx]
+			prev_s_ma_ha_primary	= s_ma_ha_primary[idx-1]
 
 		cur_natr_daily = 0
 		try:
@@ -1581,6 +1606,32 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				reset_signals()
 				continue
 
+			# Bollinger Bands and Keltner Channel crossover
+			# We put this above the primary indicator since we want to keep track of what the
+			#  Bollinger bands and Keltner channel are doing across buy/short transitions.
+			if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
+
+				if ( use_bbands_kchannel_5m == True ):
+					cur_bbands	= (bbands_lower[int((idx - bbands_idx) / 5)], bbands_mid[int((idx - bbands_idx) / 5)], bbands_upper[int((idx - bbands_idx) / 5)])
+					prev_bbands	= (bbands_lower[(int((idx - bbands_idx) / 5))-1], bbands_mid[(int((idx - bbands_idx) / 5))-1], bbands_upper[(int((idx - bbands_idx) / 5))-1])
+					cur_kchannel	= (kchannel_lower[int((idx - kchannel_idx) / 5)], kchannel_mid[int((idx - kchannel_idx) / 5)], kchannel_upper[int((idx - kchannel_idx) / 5)])
+					prev_kchannel	= (kchannel_lower[(int((idx - kchannel_idx) / 5))-1], kchannel_mid[(int((idx - kchannel_idx) / 5))-1], kchannel_upper[(int((idx - kchannel_idx) / 5))-1])
+
+				else:
+					cur_bbands	= (bbands_lower[idx], bbands_mid[idx], bbands_upper[idx])
+					prev_bbands	= (bbands_lower[idx-1], bbands_mid[idx-1], bbands_upper[idx-1])
+					cur_kchannel	= (kchannel_lower[idx], kchannel_mid[idx], kchannel_upper[idx])
+					prev_kchannel	= (kchannel_lower[idx-1], kchannel_mid[idx-1], kchannel_upper[idx-1])
+
+				( bbands_kchan_init_signal,
+				  bbands_kchan_crossover_signal,
+				  bbands_kchan_signal ) = bbands_kchannels( simple=with_bbands_kchannel_simple, cur_bbands=cur_bbands, prev_bbands=prev_bbands,
+										cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
+										bbands_kchan_init_signal=bbands_kchan_init_signal,
+										bbands_kchan_crossover_signal=bbands_kchan_crossover_signal,
+										bbands_kchan_signal=bbands_kchan_signal,
+										debug=False )
+
 			# StochRSI / StochMFI Primary
 			if ( primary_stoch_indicator == 'stochrsi' or primary_stoch_indicator == 'stochmfi' ):
 				# Jump to short mode if StochRSI K and D are already above rsi_high_limit
@@ -1606,14 +1657,39 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Stacked moving average primary
 			elif ( primary_stoch_indicator == 'stacked_ma' ):
 
+				# Standard candles
+				stacked_ma_bear_affinity	= check_stacked_ma(cur_s_ma_primary, 'bear')
+				stacked_ma_bull_affinity	= check_stacked_ma(cur_s_ma_primary, 'bull')
+
+				# Heikin Ashi candles
+				stacked_ma_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bear')
+				stacked_ma_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bull')
+
+				# TTM Trend
+				if ( use_trend == True ):
+					period		= trend_period
+					cndl_slice	= []
+					for i in range(period+1, 0, -1):
+						cndl_slice.append( pricehistory['candles'][idx-i] )
+
+					price_trend_bear_affinity = price_trend(cndl_slice, type=trend_type, period=period, affinity='bear')
+					price_trend_bull_affinity = price_trend(cndl_slice, type=trend_type, period=period, affinity='bull')
+
 				# Jump to short mode if the stacked moving averages are showing a bearish movement
-				if ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
+				if ( (use_ha_candles == True and (stacked_ma_bear_ha_affinity == True or stacked_ma_bear_affinity == True)) or
+					(use_trend == True and price_trend_bear_affinity == True) or
+					(use_ha_candles == False and use_trend == False and stacked_ma_bear_affinity == True) ):
+
 					reset_signals( exclude_bbands_kchan=True )
 					if ( noshort == False ):
 						signal_mode = 'short'
 					continue
 
-				elif ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
+				elif ( use_ha_candles == True and stacked_ma_bull_ha_affinity == True or stacked_ma_bull_affinity == True ):
+					buy_signal = True
+				elif ( use_trend == True and price_trend_bull_affinity == True ):
+					buy_signal = True
+				elif ( use_ha_candles == False and use_trend == False and stacked_ma_bull_affinity == True ):
 					buy_signal = True
 				else:
 					buy_signal = False
@@ -1674,7 +1750,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Secondary Indicators
 			# Stacked moving averages
 			if ( with_stacked_ma == True ):
-				if ( check_stacked_ma(cur_s_ma, 'bull') == True ):
+				stacked_ma_bull_affinity	= check_stacked_ma(cur_s_ma, 'bull')
+				stacked_ma_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bull')
+
+				if ( stacked_ma_bull_affinity == True ):
 					stacked_ma_signal = True
 				else:
 					stacked_ma_signal = False
@@ -1835,30 +1914,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					elif ( supertrend[idx-1] >= float(pricehistory['candles'][idx-1]['close']) and \
 						supertrend[idx] < float(pricehistory['candles'][idx]['close']) ):
 						supertrend_signal = True
-
-			# Bollinger Bands and Keltner Channel crossover
-			if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
-
-				if ( use_bbands_kchannel_5m == True ):
-					cur_bbands	= (bbands_lower[int((idx - bbands_idx) / 5)], bbands_mid[int((idx - bbands_idx) / 5)], bbands_upper[int((idx - bbands_idx) / 5)])
-					prev_bbands	= (bbands_lower[(int((idx - bbands_idx) / 5))-1], bbands_mid[(int((idx - bbands_idx) / 5))-1], bbands_upper[(int((idx - bbands_idx) / 5))-1])
-					cur_kchannel	= (kchannel_lower[int((idx - kchannel_idx) / 5)], kchannel_mid[int((idx - kchannel_idx) / 5)], kchannel_upper[int((idx - kchannel_idx) / 5)])
-					prev_kchannel	= (kchannel_lower[(int((idx - kchannel_idx) / 5))-1], kchannel_mid[(int((idx - kchannel_idx) / 5))-1], kchannel_upper[(int((idx - kchannel_idx) / 5))-1])
-
-				else:
-					cur_bbands	= (bbands_lower[idx], bbands_mid[idx], bbands_upper[idx])
-					prev_bbands	= (bbands_lower[idx-1], bbands_mid[idx-1], bbands_upper[idx-1])
-					cur_kchannel	= (kchannel_lower[idx], kchannel_mid[idx], kchannel_upper[idx])
-					prev_kchannel	= (kchannel_lower[idx-1], kchannel_mid[idx-1], kchannel_upper[idx-1])
-
-				( bbands_kchan_init_signal,
-				  bbands_kchan_crossover_signal,
-				  bbands_kchan_signal ) = bbands_kchannels( simple=with_bbands_kchannel_simple, cur_bbands=cur_bbands, prev_bbands=prev_bbands,
-										cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
-										bbands_kchan_init_signal=bbands_kchan_init_signal,
-										bbands_kchan_crossover_signal=bbands_kchan_crossover_signal,
-										bbands_kchan_signal=bbands_kchan_signal,
-										debug=False )
 
 			# Resistance Levels
 			if ( no_use_resistance == False and buy_signal == True ):
@@ -2342,12 +2397,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 						# We need to pull the latest n-period candles from pricehistory and send it
 						#  to our function.
-						period		= 5
+						period		= trend_period
 						cndl_slice	= []
 						for i in range(period+1, 0, -1):
 							cndl_slice.append( cndls[idx-i] )
 
-						if ( price_trend(cndl_slice, type=trend_exit_type, period=period, affinity='bull') == False ):
+						if ( price_trend(cndl_slice, type=trend_type, period=period, affinity='bull') == False ):
 							sell_signal		= True
 							exit_percent_exits	+= 1
 
@@ -2363,11 +2418,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						ha_exit		= False
 
 						# Check trend
-						period		= 5
+						period		= trend_period
 						cndl_slice	= []
 						for i in range(period+1, 0, -1):
 							cndl_slice.append( pricehistory['candles'][idx-i] )
-						if ( price_trend(cndl_slice, type=trend_exit_type, period=period, affinity='bull') == False ):
+						if ( price_trend(cndl_slice, type=trend_type, period=period, affinity='bull') == False ):
 							trend_exit = True
 
 						# Check Heikin Ashi
@@ -2438,7 +2493,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				exit_percent	= orig_exit_percent
 
 				if ( noshort == False ):
-					short_signal = True
 					signal_mode = 'short'
 					continue
 				else:
@@ -2454,6 +2508,35 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				reset_signals()
 				continue
 
+			# Bollinger Bands and Keltner Channel crossover
+			# We put this above the primary indicator since we want to keep track of what the
+			#  Bollinger bands and Keltner channel are doing across buy/short transitions.
+			if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
+
+				if ( use_bbands_kchannel_5m == True ):
+					bbands_idx	= len(pricehistory['candles']) - len(bbands_mid) * 5
+					kchannel_idx	= len(pricehistory['candles']) - len(kchannel_mid) * 5
+					cur_bbands	= (bbands_lower[int((idx - bbands_idx) / 5)], bbands_mid[int((idx - bbands_idx) / 5)], bbands_upper[int((idx - bbands_idx) / 5)])
+					prev_bbands	= (bbands_lower[(int((idx - bbands_idx) / 5))-1], bbands_mid[(int((idx - bbands_idx) / 5))-1], bbands_upper[(int((idx - bbands_idx) / 5))-1])
+					cur_kchannel	= (kchannel_lower[int((idx - kchannel_idx) / 5)], kchannel_mid[int((idx - kchannel_idx) / 5)], kchannel_upper[int((idx - kchannel_idx) / 5)])
+					prev_kchannel	= (kchannel_lower[(int((idx - kchannel_idx) / 5))-1], kchannel_mid[(int((idx - kchannel_idx) / 5))-1], kchannel_upper[(int((idx - kchannel_idx) / 5))-1])
+
+				else:
+					cur_bbands	= (bbands_lower[idx], bbands_mid[idx], bbands_upper[idx])
+					prev_bbands	= (bbands_lower[idx-1], bbands_mid[idx-1], bbands_upper[idx-1])
+					cur_kchannel	= (kchannel_lower[idx], kchannel_mid[idx], kchannel_upper[idx])
+					prev_kchannel	= (kchannel_lower[idx-1], kchannel_mid[idx-1], kchannel_upper[idx-1])
+
+				( bbands_kchan_init_signal,
+				  bbands_kchan_crossover_signal,
+				  bbands_kchan_signal ) = bbands_kchannels( simple=with_bbands_kchannel_simple, cur_bbands=cur_bbands, prev_bbands=prev_bbands,
+										cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
+										bbands_kchan_init_signal=bbands_kchan_init_signal,
+										bbands_kchan_crossover_signal=bbands_kchan_crossover_signal,
+										bbands_kchan_signal=bbands_kchan_signal,
+										debug=False )
+
+			# StochRSI / StochMFI Primary
 			if ( primary_stoch_indicator == 'stochrsi' or primary_stoch_indicator == 'stochmfi' ):
 				# Jump to buy mode if StochRSI K and D are already below rsi_low_limit
 				if ( cur_rsi_k <= stochrsi_default_low_limit and cur_rsi_d <= stochrsi_default_low_limit ):
@@ -2476,14 +2559,39 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Stacked moving average primary
 			elif ( primary_stoch_indicator == 'stacked_ma' ):
 
+				# Standard candles
+				stacked_ma_bear_affinity	= check_stacked_ma(cur_s_ma_primary, 'bear')
+				stacked_ma_bull_affinity	= check_stacked_ma(cur_s_ma_primary, 'bull')
+
+				# Heikin Ashi candles
+				stacked_ma_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bear')
+				stacked_ma_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bull')
+
+				# TTM Trend
+				if ( use_trend == True ):
+					period		= trend_period
+					cndl_slice	= []
+					for i in range(period+1, 0, -1):
+						cndl_slice.append( pricehistory['candles'][idx-i] )
+
+					price_trend_bear_affinity = price_trend(cndl_slice, type=trend_type, period=period, affinity='bear')
+					price_trend_bull_affinity = price_trend(cndl_slice, type=trend_type, period=period, affinity='bull')
+
 				# Jump to buy mode if the stacked moving averages are showing a bearish movement
-				if ( check_stacked_ma(cur_s_ma_primary, 'bull') == True ):
+				if ( (use_ha_candles == True and (stacked_ma_bull_ha_affinity == True or stacked_ma_bull_affinity == True)) or
+					(use_trend == True and price_trend_bull_affinity == True) or
+					(use_ha_candles == False and stacked_ma_bull_affinity == True) ):
+
 					reset_signals( exclude_bbands_kchan=True )
 					if ( shortonly == False ):
 						signal_mode = 'buy'
 					continue
 
-				elif ( check_stacked_ma(cur_s_ma_primary, 'bear') == True ):
+				elif ( use_ha_candles == True and stacked_ma_bear_ha_affinity == True and stacked_ma_bear_affinity == True ):
+					short_signal = True
+				elif ( use_trend == True and price_trend_bear_affinity == True ):
+					short_signal = True
+				elif ( use_ha_candles == False and use_trend == False and stacked_ma_bear_affinity == True ):
 					short_signal = True
 				else:
 					short_signal = False
@@ -2544,7 +2652,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Secondary Indicators
 			# Stacked moving averages
 			if ( with_stacked_ma == True ):
-				if ( check_stacked_ma(cur_s_ma, 'bear') == True ):
+				stacked_ma_bear_affinity	= check_stacked_ma(cur_s_ma, 'bear')
+				stacked_ma_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bear')
+
+				if ( stacked_ma_bear_affinity == True ):
 					stacked_ma_signal = True
 				else:
 					stacked_ma_signal = False
@@ -2694,32 +2805,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					elif ( supertrend[idx-1] >= float(pricehistory['candles'][idx-1]['close']) and \
 						supertrend[idx] < float(pricehistory['candles'][idx]['close']) ):
 						supertrend_signal = False
-
-			# Bollinger Bands and Keltner Channel crossover
-			if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
-
-				if ( use_bbands_kchannel_5m == True ):
-					bbands_idx	= len(pricehistory['candles']) - len(bbands_mid) * 5
-					kchannel_idx	= len(pricehistory['candles']) - len(kchannel_mid) * 5
-					cur_bbands	= (bbands_lower[int((idx - bbands_idx) / 5)], bbands_mid[int((idx - bbands_idx) / 5)], bbands_upper[int((idx - bbands_idx) / 5)])
-					prev_bbands	= (bbands_lower[(int((idx - bbands_idx) / 5))-1], bbands_mid[(int((idx - bbands_idx) / 5))-1], bbands_upper[(int((idx - bbands_idx) / 5))-1])
-					cur_kchannel	= (kchannel_lower[int((idx - kchannel_idx) / 5)], kchannel_mid[int((idx - kchannel_idx) / 5)], kchannel_upper[int((idx - kchannel_idx) / 5)])
-					prev_kchannel	= (kchannel_lower[(int((idx - kchannel_idx) / 5))-1], kchannel_mid[(int((idx - kchannel_idx) / 5))-1], kchannel_upper[(int((idx - kchannel_idx) / 5))-1])
-
-				else:
-					cur_bbands	= (bbands_lower[idx], bbands_mid[idx], bbands_upper[idx])
-					prev_bbands	= (bbands_lower[idx-1], bbands_mid[idx-1], bbands_upper[idx-1])
-					cur_kchannel	= (kchannel_lower[idx], kchannel_mid[idx], kchannel_upper[idx])
-					prev_kchannel	= (kchannel_lower[idx-1], kchannel_mid[idx-1], kchannel_upper[idx-1])
-
-				( bbands_kchan_init_signal,
-				  bbands_kchan_crossover_signal,
-				  bbands_kchan_signal ) = bbands_kchannels( simple=with_bbands_kchannel_simple, cur_bbands=cur_bbands, prev_bbands=prev_bbands,
-										cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
-										bbands_kchan_init_signal=bbands_kchan_init_signal,
-										bbands_kchan_crossover_signal=bbands_kchan_crossover_signal,
-										bbands_kchan_signal=bbands_kchan_signal,
-										debug=False )
 
 			# Resistance
 			if ( no_use_resistance == False and short_signal == True ):
@@ -2875,7 +2960,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					experimental_signal = True
 
 
-			# Resolve the primary stochrsi buy_signal with the secondary indicators
+			# Resolve the primary stochrsi short_signal with the secondary indicators
 			if ( short_signal == True ):
 				final_short_signal = True
 
@@ -2959,6 +3044,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					', aroonosc_signal: '		+ str(aroonosc_signal) +
 					', macd_signal: '		+ str(macd_signal) +
 					', bbands_kchan_signal: '	+ str(bbands_kchan_signal) +
+					', bbands_kchan_crossover_signal: ' + str(bbands_kchan_crossover_signal) +
+					', bbands_kchan_init_signal: '  + str(bbands_kchan_init_signal) +
 					', stacked_ma_signal: '		+ str(stacked_ma_signal)+
 					', vwap_signal: '		+ str(vwap_signal) +
 					', vpt_signal: '		+ str(vpt_signal) +
@@ -2975,7 +3062,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
 					print('(' + str(ticker) + '): BBands: ' + str(round(cur_bbands[0], 4)) + ' / ' + str(round(cur_bbands[2], 4)) +
-								  ', KChannel: ' + str(round(cur_kchannel[0], 4)) + ' / ' + str(round(cur_kchannel[2], 4)) )
+								  ', KChannel: ' + str(round(cur_kchannel[0], 4)) + ' / ' + str(round(cur_kchannel[2], 4)) +
+								  ', Squeeze Count: ' + str(bbands_kchan_signal_counter) )
 				print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
 				print('(' + str(ticker) + '): SHORT signal: ' + str(short_signal) + ', Final SHORT signal: ' + str(final_short_signal))
 				print()
@@ -3211,12 +3299,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 						# We need to pull the latest n-period candles from pricehistory and send it
 						#  to our function.
-						period = 5
+						period = trend_period
 						cndl_slice = []
 						for i in range(period+1, 0, -1):
 							cndl_slice.append( cndls[idx-i] )
 
-						if ( price_trend(cndl_slice, type=trend_exit_type, period=period, affinity='bear') == False ):
+						if ( price_trend(cndl_slice, type=trend_type, period=period, affinity='bear') == False ):
 							buy_to_cover_signal	= True
 							exit_percent_exits	+= 1
 
@@ -3232,11 +3320,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						ha_exit		= False
 
 						# Check trend
-						period = 5
+						period = trend_period
 						cndl_slice = []
 						for i in range(period+1, 0, -1):
 							cndl_slice.append( pricehistory['candles'][idx-i] )
-						if ( price_trend(cndl_slice, type=trend_exit_type, period=period, affinity='bear') == False ):
+						if ( price_trend(cndl_slice, type=trend_type, period=period, affinity='bear') == False ):
 							trend_exit = True
 
 						# Check Heikin Ashi
@@ -3306,7 +3394,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( shortonly == True ):
 					signal_mode = 'short'
 				else:
-					buy_signal = True
 					signal_mode = 'buy'
 					continue
 

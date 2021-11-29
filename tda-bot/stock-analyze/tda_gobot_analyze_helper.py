@@ -1644,8 +1644,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					continue
 
 				# Check StochRSI
-				stochrsi_signal, stochrsi_crossover_signal, stochrsi_threshold_signal, buy_signal = \
-						get_stoch_signal_long(	cur_rsi_k, cur_rsi_d, prev_rsi_k, prev_rsi_d,
+				( stochrsi_signal,
+				  stochrsi_crossover_signal,
+				  stochrsi_threshold_signal,
+				  buy_signal ) = get_stoch_signal_long(	cur_rsi_k, cur_rsi_d, prev_rsi_k, prev_rsi_d,
 									stochrsi_signal, stochrsi_crossover_signal, stochrsi_threshold_signal, buy_signal )
 
 				if ( cur_rsi_k > stochrsi_signal_cancel_high_limit ):
@@ -1712,9 +1714,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# StochRSI with 5-minute candles
 			if ( with_stochrsi_5m == True ):
-				stochrsi_5m_signal, stochrsi_5m_crossover_signal, stochrsi_5m_threshold_signal, stochrsi_5m_final_signal = \
-						get_stoch_signal_long(	cur_rsi_k_5m, cur_rsi_d_5m, prev_rsi_k_5m, prev_rsi_d_5m,
-									stochrsi_5m_signal, stochrsi_5m_crossover_signal, stochrsi_5m_threshold_signal, stochrsi_5m_final_signal )
+				( stochrsi_5m_signal,
+				  stochrsi_5m_crossover_signal,
+				  stochrsi_5m_threshold_signal,
+				  stochrsi_5m_final_signal ) = get_stoch_signal_long( cur_rsi_k_5m, cur_rsi_d_5m, prev_rsi_k_5m, prev_rsi_d_5m,
+										      stochrsi_5m_signal, stochrsi_5m_crossover_signal, stochrsi_5m_threshold_signal, stochrsi_5m_final_signal )
 
 				if ( cur_rsi_k_5m > stochrsi_signal_cancel_high_limit ):
 					stochrsi_5m_signal		= False
@@ -1724,9 +1728,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# StochMFI
 			if ( with_stochmfi == True ):
-				stochmfi_signal, stochmfi_crossover_signal, stochmfi_threshold_signal, stochmfi_final_signal = \
-						get_stoch_signal_long(	cur_mfi_k, cur_mfi_d, prev_mfi_k, prev_mfi_d,
-									stochmfi_signal, stochmfi_crossover_signal, stochmfi_threshold_signal, stochmfi_final_signal )
+				( stochmfi_signal,
+				  stochmfi_crossover_signal,
+				  stochmfi_threshold_signal,
+				  stochmfi_final_signal ) = get_stoch_signal_long( cur_mfi_k, cur_mfi_d, prev_mfi_k, prev_mfi_d,
+										   stochmfi_signal, stochmfi_crossover_signal, stochmfi_threshold_signal, stochmfi_final_signal )
 
 				if ( cur_mfi_k > stochrsi_signal_cancel_high_limit ):
 					stochmfi_signal			= False
@@ -1736,9 +1742,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# StochMFI with 5-minute candles
 			if ( with_stochmfi_5m == True ):
-				stochmfi_5m_signal, stochmfi_5m_crossover_signal, stochmfi_5m_threshold_signal, stochmfi_5m_final_signal = \
-						get_stoch_signal_long(	cur_mfi_k_5m, cur_mfi_d_5m, prev_mfi_k_5m, prev_mfi_d_5m,
-									stochmfi_5m_signal, stochmfi_5m_crossover_signal, stochmfi_5m_threshold_signal, stochmfi_5m_final_signal )
+				( stochmfi_5m_signal,
+				  stochmfi_5m_crossover_signal,
+				  stochmfi_5m_threshold_signal,
+				  stochmfi_5m_final_signal ) = get_stoch_signal_long( cur_mfi_k_5m, cur_mfi_d_5m, prev_mfi_k_5m, prev_mfi_d_5m,
+										      stochmfi_5m_signal, stochmfi_5m_crossover_signal, stochmfi_5m_threshold_signal, stochmfi_5m_final_signal )
 
 				if ( cur_mfi_k_5m > stochrsi_signal_cancel_high_limit ):
 					stochmfi_5m_signal		= False
@@ -2546,9 +2554,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					continue
 
 				# Monitor StochRSI
-				stochrsi_signal, stochrsi_crossover_signal, stochrsi_threshold_signal, short_signal = \
-						get_stoch_signal_short(	cur_rsi_k, cur_rsi_d, prev_rsi_k, prev_rsi_d,
-									stochrsi_signal, stochrsi_crossover_signal, stochrsi_threshold_signal, short_signal )
+				( stochrsi_signal,
+				  stochrsi_crossover_signal,
+				  stochrsi_threshold_signal,
+				  short_signal ) = get_stoch_signal_short( cur_rsi_k, cur_rsi_d, prev_rsi_k, prev_rsi_d,
+									   stochrsi_signal, stochrsi_crossover_signal, stochrsi_threshold_signal, short_signal )
 
 				if ( cur_rsi_k < stochrsi_signal_cancel_low_limit ):
 					# Reset all signals if the primary stochastic
@@ -2614,9 +2624,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# StochRSI with 5-minute candles
 			if ( with_stochrsi_5m == True ):
-				stochrsi_5m_signal, stochrsi_5m_crossover_signal, stochrsi_5m_threshold_signal, stochrsi_5m_final_signal = \
-						get_stoch_signal_short(	cur_rsi_k_5m, cur_rsi_d_5m, prev_rsi_k_5m, prev_rsi_d_5m,
-									stochrsi_5m_signal, stochrsi_5m_crossover_signal, stochrsi_5m_threshold_signal, stochrsi_5m_final_signal )
+				( stochrsi_5m_signal,
+				  stochrsi_5m_crossover_signal,
+				  stochrsi_5m_threshold_signal,
+				  stochrsi_5m_final_signal ) = get_stoch_signal_short(	cur_rsi_k_5m, cur_rsi_d_5m, prev_rsi_k_5m, prev_rsi_d_5m,
+											stochrsi_5m_signal, stochrsi_5m_crossover_signal, stochrsi_5m_threshold_signal, stochrsi_5m_final_signal )
 
 				if ( cur_rsi_k_5m < stochrsi_signal_cancel_low_limit ):
 					stochrsi_5m_signal		= False
@@ -2626,9 +2638,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# StochMFI
 			if ( with_stochmfi == True ):
-				stochmfi_signal, stochmfi_crossover_signal, stochmfi_threshold_signal, stochmfi_final_signal = \
-						get_stoch_signal_short(	cur_mfi_k, cur_mfi_d, prev_mfi_k, prev_mfi_d,
-									stochmfi_signal, stochmfi_crossover_signal, stochmfi_threshold_signal, stochmfi_final_signal )
+				( stochmfi_signal,
+				  stochmfi_crossover_signal,
+				  stochmfi_threshold_signal,
+				  stochmfi_final_signal ) = get_stoch_signal_short( cur_mfi_k, cur_mfi_d, prev_mfi_k, prev_mfi_d,
+										    stochmfi_signal, stochmfi_crossover_signal, stochmfi_threshold_signal, stochmfi_final_signal )
 
 				if ( cur_mfi_k < stochrsi_signal_cancel_low_limit ):
 					stochmfi_signal			= False
@@ -2638,9 +2652,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# StochMFI with 5-minute candles
 			if ( with_stochmfi_5m == True ):
-				stochmfi_5m_signal, stochmfi_5m_crossover_signal, stochmfi_5m_threshold_signal, stochmfi_5m_final_signal = \
-						get_stoch_signal_short(	cur_mfi_k_5m, cur_mfi_d_5m, prev_mfi_k_5m, prev_mfi_d_5m,
-									stochmfi_5m_signal, stochmfi_5m_crossover_signal, stochmfi_5m_threshold_signal, stochmfi_5m_final_signal )
+				( stochmfi_5m_signal,
+				  stochmfi_5m_crossover_signal,
+				  stochmfi_5m_threshold_signal,
+				  stochmfi_5m_final_signal ) = get_stoch_signal_short(	cur_mfi_k_5m, cur_mfi_d_5m, prev_mfi_k_5m, prev_mfi_d_5m,
+											stochmfi_5m_signal, stochmfi_5m_crossover_signal, stochmfi_5m_threshold_signal, stochmfi_5m_final_signal )
 
 				if ( cur_mfi_k_5m < stochrsi_signal_cancel_low_limit ):
 					stochmfi_5m_signal		= False

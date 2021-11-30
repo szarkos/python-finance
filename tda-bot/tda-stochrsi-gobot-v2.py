@@ -73,6 +73,7 @@ parser.add_argument("--use_trend_exit", help='Use ttm_trend algorithm with exit_
 parser.add_argument("--use_trend", help='Use ttm_trend algorithm with stacked MA indicators', action="store_true")
 parser.add_argument("--trend_type", help='Candle type to use with ttm_trend algorithm (Default: hl2)', default='hl2', type=str)
 parser.add_argument("--trend_period", help='Period to use with ttm_trend algorithm (Default: 5)', default=5, type=int)
+parser.add_argument("--use_combined_exit", help='Use both the ttm_trend algorithm and Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
 
 parser.add_argument("--rsi_high_limit", help='RSI high limit', default=80, type=int)
 parser.add_argument("--rsi_low_limit", help='RSI low limit', default=20, type=int)
@@ -279,6 +280,7 @@ for algo in args.algos:
 	use_trend			= args.use_trend
 	trend_period			= args.trend_period
 	trend_type			= args.trend_type
+	use_combined_exit		= args.use_combined_exit
 
 	# Bollinger Bands and Keltner Channel
 	bbands_kchannel_offset		= args.bbands_kchannel_offset
@@ -388,6 +390,7 @@ for algo in args.algos:
 		if ( re.match('use_trend', a)				!= None ):	use_trend			= True
 		if ( re.match('trend_period:', a)			!= None ):	trend_period			= str( a.split(':')[1] )
 		if ( re.match('trend_type:', a)				!= None ):	trend_type			= str( a.split(':')[1] )
+		if ( re.match('use_combined_exit', a)			!= None ):	use_combined_exit		= True
 
 		if ( re.match('use_bbands_kchannel_5m', a)		!= None ):	use_bbands_kchannel_5m		= True
 		if ( re.match('use_bbands_kchannel_xover_exit', a)	!= None ):	use_bbands_kchannel_xover_exit	= True
@@ -523,6 +526,7 @@ for algo in args.algos:
 			'use_trend':				use_trend,
 			'trend_period':				trend_period,
 			'trend_type':				trend_type,
+			'use_combined_exit':			use_combined_exit,
 
 			'mfi_high_limit':			mfi_high_limit,
 			'mfi_low_limit':			mfi_low_limit,
@@ -577,7 +581,7 @@ del(adx_threshold,adx_period,macd_long_period,macd_short_period,macd_signal_peri
 del(chop_period,chop_low_limit,chop_high_limit,supertrend_atr_period,supertrend_min_natr,bbands_kchannel_offset,bbands_kchan_squeeze_count,bbands_period,kchannel_period,kchannel_atr_period)
 del(stacked_ma_type_primary,stacked_ma_periods_primary,stacked_ma_type,stacked_ma_periods,use_natr_resistance,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr)
 del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count)
-del(use_ha_exit,use_ha_candles,use_trend_exit,use_trend,trend_period,trend_type)
+del(use_ha_exit,use_ha_candles,use_trend_exit,use_trend,trend_period,trend_type,use_combined_exit)
 
 # Set valid tickers for each algo, if configured
 if ( args.algo_valid_tickers != None ):

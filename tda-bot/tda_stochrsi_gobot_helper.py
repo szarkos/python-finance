@@ -2070,8 +2070,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					if ( cur_algo['use_ha_exit'] == True ):
 						last_close	= stocks[ticker]['pricehistory']['hacandles'][-1]['close']
 						last_open	= stocks[ticker]['pricehistory']['hacandles'][-1]['open']
+						if ( last_close < last_open ):
+							stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
-					if ( cur_algo['use_trend_exit'] == True ):
+					elif ( cur_algo['use_trend_exit'] == True ):
 						if ( cur_algo['use_ha_exit'] == True ):
 							cndls = stocks[ticker]['pricehistory']['hacandles']
 						else:
@@ -2085,6 +2087,28 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							cndl_slice.append( cndls[-i] )
 
 						if ( price_trend(cndl_slice, period=period, affinity='bull') == False ):
+							stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
+
+					elif ( cur_algo['use_combined_exit'] ):
+						trend_exit	= False
+						ha_exit		= False
+
+						# Check Trend
+						period = 2
+						cndl_slice = []
+						for i in range(period+1, 0, -1):
+							cndl_slice.append( stocks[ticker]['pricehistory']['candles'][-i] )
+
+						if ( price_trend(cndl_slice, period=period, affinity='bull') == False ):
+							trend_exit = True
+
+						# Check Heikin Ashi candles
+						last_close	= stocks[ticker]['pricehistory']['hacandles'][-1]['close']
+						last_open	= stocks[ticker]['pricehistory']['hacandles'][-1]['open']
+						if ( last_close < last_open ):
+							ha_exit = True
+
+						if ( trend_exit == True and ha_exit == True ):
 							stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 					elif ( last_close < last_open ):
@@ -2944,8 +2968,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					if ( cur_algo['use_ha_exit'] == True ):
 						last_close	= stocks[ticker]['pricehistory']['hacandles'][-1]['close']
 						last_open	= stocks[ticker]['pricehistory']['hacandles'][-1]['open']
+						if ( last_close > last_open ):
+							stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
-					if ( cur_algo['use_trend_exit'] == True ):
+					elif ( cur_algo['use_trend_exit'] == True ):
 						if ( cur_algo['use_ha_exit'] == True ):
 							cndls = stocks[ticker]['pricehistory']['hacandles']
 						else:
@@ -2959,6 +2985,28 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							cndl_slice.append( cndls[-i] )
 
 						if ( price_trend(cndl_slice, period=period, affinity='bear') == False ):
+							stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
+
+					elif ( cur_algo['use_combined_exit'] ):
+						trend_exit	= False
+						ha_exit		= False
+
+						# Check Trend
+						period = 2
+						cndl_slice = []
+						for i in range(period+1, 0, -1):
+							cndl_slice.append( stocks[ticker]['pricehistory']['candles'][-i] )
+
+						if ( price_trend(cndl_slice, period=period, affinity='bear') == False ):
+							trend_exit = True
+
+						# Check Heikin Ashi candles
+						last_close	= stocks[ticker]['pricehistory']['hacandles'][-1]['close']
+						last_open	= stocks[ticker]['pricehistory']['hacandles'][-1]['open']
+						if ( last_close > last_open ):
+							ha_exit = True
+
+						if ( trend_exit == True and ha_exit == True ):
 							stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 					elif ( last_close > last_open ):

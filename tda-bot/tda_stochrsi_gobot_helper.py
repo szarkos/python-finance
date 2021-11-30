@@ -511,7 +511,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			#  and before they pop out of the Keltner channel
 			prev_offset	= abs((prev_kchannel_lower / prev_bbands_lower) - 1) * 100
 			cur_offset	= abs((cur_kchannel_lower / cur_bbands_lower) - 1) * 100
-			if ( cur_offset < prev_offset ):
+			if ( cur_offset < prev_offset and cur_offset <= bbands_kchannel_offset / 2 ):
 				bbands_kchan_signal = True
 
 			# Check for crossover

@@ -2434,7 +2434,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						ha_exit		= False
 
 						# Check trend
-						period		= trend_period
+						period		= 2
 						cndl_slice	= []
 						for i in range(period+1, 0, -1):
 							cndl_slice.append( pricehistory['candles'][idx-i] )
@@ -2442,12 +2442,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							trend_exit = True
 
 						# Check Heikin Ashi
-						ha_open		= pricehistory['hacandles'][idx]['open']
-						ha_close	= pricehistory['hacandles'][idx]['close']
-						if ( ha_close < ha_open ):
+						last_open	= pricehistory['hacandles'][idx]['open']
+						last_close	= pricehistory['hacandles'][idx]['close']
+						if ( last_close < last_open ):
 							ha_exit	= True
 
-						if ( trend_exit == True or ha_exit == True ):
+						if ( trend_exit == True and ha_exit == True ):
 							sell_signal		= True
 							exit_percent_exits	+= 1
 
@@ -3355,20 +3355,20 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						ha_exit		= False
 
 						# Check trend
-						period = trend_period
-						cndl_slice = []
+						period		= 2
+						cndl_slice	= []
 						for i in range(period+1, 0, -1):
 							cndl_slice.append( pricehistory['candles'][idx-i] )
 						if ( price_trend(cndl_slice, type=trend_type, period=period, affinity='bear') == False ):
 							trend_exit = True
 
 						# Check Heikin Ashi
-						ha_open		= pricehistory['hacandles'][idx]['open']
-						ha_close	= pricehistory['hacandles'][idx]['close']
-						if ( ha_close > ha_open ):
+						last_open	= pricehistory['hacandles'][idx]['open']
+						last_close	= pricehistory['hacandles'][idx]['close']
+						if ( last_close > last_open ):
 							ha_exit	= True
 
-						if ( trend_exit == True or ha_exit == True ):
+						if ( trend_exit == True and ha_exit == True ):
 							buy_to_cover_signal	= True
 							exit_percent_exits	+= 1
 

@@ -16,14 +16,14 @@ tickers=$CUR_SET
 nohup ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=25000 --stocks=${tickers} --short --singleday \
 	--decr_threshold=1.5 --incr_threshold=0.5 --max_failed_txs=2 --exit_percent=0.5 \
 	\
-	--algos=algo_id:stackedma_kama_wma,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,support_resistance,use_trend,use_ha_exit,use_bbands_kchannel_xover_exit,min_intra_natr:0.65,min_daily_natr:6 \
+	--algos=algo_id:stackedma_kama_wma,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,min_intra_natr:0.65,min_daily_natr:6 \
 	\
-	--algo_exclude_tickers=stackedma_kama_wma:AFRM,FSLY,FTCH,M,MP,SE,TTD \
+	--algo_exclude_tickers=stackedma_kama_wma:ASAN,FSLY,LAC,LYFT,M,MP,MTTR,ONON,SE,SM,TTD \
 	\
 	--stacked_ma_periods_primary=8,13,21 --stacked_ma_periods=34,55,89 \
 	--bbands_kchannel_offset=0.15 --bbands_kchan_squeeze_count=8 \
 	--rsi_high_limit=75 --rsi_low_limit=25 --stochrsi_offset=3 --daily_atr_period=3  \
-	--aroonosc_with_macd_simple --variable_exit --lod_hod_check \
+	--aroonosc_with_macd_simple --variable_exit --lod_hod_check --use_combined_exit \
 	--weekly_ifile=stock-analyze/weekly-csv/TICKER-weekly-2019-2021.pickle \
 	--tx_log_dir=TX_LOGS_v2 1> logs/gobot-v2.log 2>&1 &
 

@@ -2064,6 +2064,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				if ( total_percent_change >= stocks[ticker]['exit_percent'] ):
 					stocks[ticker]['exit_percent_signal'] = True
 
+					# Once we've hit exit_percent, move the stoploss to break even
+					stocks[ticker]['decr_threshold'] = stocks[ticker]['exit_percent']
+
 				# If exit_percent has been hit, we will sell at the first RED candle
 				if ( stocks[ticker]['exit_percent_signal'] == True ):
 
@@ -2961,6 +2964,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				if ( total_percent_change >= stocks[ticker]['exit_percent'] ):
 					stocks[ticker]['exit_percent_signal'] = True
+
+					# Once we've hit exit_percent, move the stoploss to break even
+					stocks[ticker]['decr_threshold'] = stocks[ticker]['exit_percent']
 
 				# If exit_percent has been hit, we will sell at the first GREEN candle
 				if ( stocks[ticker]['exit_percent_signal'] == True ):

@@ -25,12 +25,12 @@ if ( load_dotenv(dotenv_path=parent_path+'/../.env') != True ):
 	print('Error: unable to load .env file', file=sys.stderr)
 	sys.exit(1)
 
-tda_account_number = os.environ["tda_account_number"]
-passcode = os.environ["tda_encryption_passcode"]
+tda_account_number			= int( os.environ["tda_account_number"] )
+passcode				= os.environ["tda_encryption_passcode"]
 
-tda_gobot_helper.tda = tda
-tda_gobot_helper.tda_account_number = tda_account_number
-tda_gobot_helper.passcode = passcode
+tda_gobot_helper.tda			= tda
+tda_gobot_helper.tda_account_number	= tda_account_number
+tda_gobot_helper.passcode		= passcode
 
 if ( tda_gobot_helper.tdalogin(passcode) != True ):
 	print('Error: Login failure', file=sys.stderr)

@@ -1,15 +1,30 @@
 #!/bin/bash
 
-time_wait=${1-"1"}
+command=${1-""}
+command=$(echo -n "$command" | tr '[:upper:]' '[:lower:]')
 
 # This is just a small script to kick off the gobot
 parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 cd "${parent_path}/../.."
 
 echo "CWD is `pwd`"
-echo "Sleeping $time_wait seconds..."
-sleep $time_wait
 
+if [ "$command" != "force" ]; then
+
+	# Wait until market opens to run the script
+	echo "Sleeping until 06:30AM Eastern time..."
+	while [ 1 ] ; do
+		cur_time=$(TZ="America/New_York" date +%H:%M)
+		echo "Current time is $cur_time"
+
+		if [ "$cur_time" == "06:30" ]; then
+			break
+		fi
+		sleep 30
+	done
+fi
+
+# The list of tickers is contained in the $CUR_SET variable in tickers.conf
 source ./stock-analyze/tickers.conf
 tickers=$CUR_SET
 

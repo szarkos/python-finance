@@ -251,6 +251,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	price_resistance_pct		= 1		if ('price_resistance_pct' not in params) else params['price_resistance_pct']
 	price_support_pct		= 1		if ('price_support_pct' not in params) else params['price_support_pct']
 	use_natr_resistance		= False		if ('use_natr_resistance' not in params) else params['use_natr_resistance']
+	use_pivot_resistance		= False		if ('use_pivot_resistance' not in params) else params['use_pivot_resistance']
 	lod_hod_check			= False		if ('lod_hod_check' not in params) else params['lod_hod_check']
 	keylevel_strict			= False		if ('keylevel_strict' not in params) else params['keylevel_strict']
 	keylevel_use_daily		= False		if ('keylevel_use_daily' not in params) else params['keylevel_use_daily']
@@ -759,13 +760,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					     'low':		float( key['low'] ),
 					     'close':		float( key['close'] ),
 					     'volume':		int( key['volume'] ),
+					     'open_idx':	None,
 					     'high_idx':	None,
 					     'low_idx':		None,
 					     'pdh':		-1,
 					     'pdh_idx':		None,
 					     'pdl':		999999,
 					     'pdl_idx':		None,
-					     'pdc':		-1
+					     'pdc':		-1,
+					     'pivot':		-1,
+					     'pivot_s1':	-1,
+					     'pivot_s2':	-1,
+					     'pivot_r1':	-1,
+					     'pivot_r2':	-1
 			}
 
 			if ( yesterday in day_stats ):
@@ -781,6 +788,21 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# Only warn if the missing PDC data falls within the bounds of the test data
 				if ( today_dt > first_day ):
 					print('Warning: PDC for ' + str(yesterday) + 'not found!')
+
+			# Calculate the Pivot Points
+			#
+			# P = (PDH + PDL + PDC) / 3
+			#  or
+			# P = (Cur_Open + PDH + PDL + PDC) / 4
+			# R1 = (P * 2) - PDL
+			# R2 = P + (PDH - PDL) = P + (R1 - S1)
+			# S1 = (P * 2) - PDH
+			# S2 = P - (PDH - PDL) = P - (R1 - S1)
+			day_stats[today]['pivot']       = ( day_stats[today]['open'] + day_stats[today]['pdh'] + day_stats[today]['pdl'] + day_stats[today]['pdc'] ) / 4
+			day_stats[today]['pivot_r1']    = ( day_stats[today]['pivot'] * 2 ) - day_stats[today]['pdl']
+			day_stats[today]['pivot_r2']    = day_stats[today]['pivot'] + ( day_stats[today]['pdh'] - day_stats[today]['pdl'] )
+			day_stats[today]['pivot_s1']    = ( day_stats[today]['pivot'] * 2 ) - day_stats[today]['pdh']
+			day_stats[today]['pivot_s2']    = day_stats[today]['pivot'] - ( day_stats[today]['pdh'] - day_stats[today]['pdl'] )
 
 		# We still need to iterate over the 1-minute candles to ensure we have all the info we need
 		for idx,key in enumerate( pricehistory['candles'] ):
@@ -798,6 +820,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						day_stats[today]['high_idx'] = idx
 					elif ( float(key['close']) <= day_stats[today]['low'] ):
 						day_stats[today]['low_idx'] = idx
+
+					# Sometimes using the open price from the current day's daily candle
+					#  as retrieved from TDA isn't very accurate, so instead just store
+					#  the index of the first 1min candle so we can use the open price
+					#  from that instead.
+					if ( today_dt.strftime('%-H:%-M') == '9:30' ):
+						day_stats[today]['open_idx'] = idx
 
 				if ( yesterday in day_stats ):
 					day_stats[today]['pdh_idx'] = day_stats[yesterday]['high_idx']
@@ -2054,6 +2083,30 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				# End Key Levels
 
+				# Pivot points and PDH resistance
+				if ( use_pivot_resistance == True and resistance_signal == True and today in day_stats ):
+
+					avg = 0
+					for i in range(15, 0, -1):
+						avg += float( pricehistory['candles'][idx-i]['close'] )
+						avg = avg / 15
+
+					# If stock opened below PDH or pivot, then those can become additional resistance lines for long entry
+					if ( day_stats[today]['open_idx'] != None ):
+						if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] < day_stats[today]['pdh'] ):
+							if ( avg < day_stats[today]['pdh'] and abs((cur_close / day_stats[today]['pdh'] - 1) * 100) <= price_resistance_pct ):
+								resistance_signal = False
+
+						if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] < day_stats[today]['pivot'] ):
+							if ( abs((cur_close / day_stats[today]['pivot'] - 1) * 100) <= price_resistance_pct ):
+								resistance_signal = False
+
+					# Pivot point R1/R2 are resistance
+					if ( abs((cur_close / day_stats[today]['pivot_r1'] - 1) * 100) <= price_resistance_pct or
+							abs((cur_close / day_stats[today]['pivot_r2'] - 1) * 100) <= price_resistance_pct):
+						resistance_signal = False
+
+
 				# 20-week high
 #				purchase_price = float(pricehistory['candles'][idx]['close'])
 #				if ( purchase_price >= twenty_week_high ):
@@ -2329,10 +2382,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							if ( decr_threshold > 1 ):
 								decr_threshold = 1
 
-#					if ( last_close < purchase_price ):
-#						if ( decr_threshold > 1 ):
-#							decr_threshold = 1
-
 			# STOPLOSS
 			# Monitor cost basis
 			percent_change = 0
@@ -2399,7 +2448,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				#  unless --quick_exit was set.
 				total_percent_change = abs( purchase_price / last_close - 1 ) * 100
 				if ( total_percent_change >= exit_percent ):
+
+					# Set stoploss to break even
+					decr_threshold = exit_percent
 					exit_percent_signal = True
+
 					if ( quick_exit == True ):
 						sell_signal		= True
 						exit_percent_exits	+= 1
@@ -2964,6 +3017,30 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				# End Key Levels
 
+				# Pivot points and PDL resistance
+				if ( use_pivot_resistance == True and resistance_signal == True and today in day_stats):
+
+					avg = 0
+					for i in range(15, 0, -1):
+						avg += float( pricehistory['candles'][idx-i]['close'] )
+						avg = avg / 15
+
+					# If stock opened above PDL or pivot, then those can become additional resistance lines for short entry
+					if ( day_stats[today]['open_idx'] != None ):
+						if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] > day_stats[today]['pdl'] ):
+							if ( avg > day_stats[today]['pdl'] and abs((cur_close / day_stats[today]['pdl'] - 1) * 100) <= price_resistance_pct ):
+								resistance_signal = False
+
+						if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] > day_stats[today]['pivot'] ):
+							if ( abs((cur_close / day_stats[today]['pivot'] - 1) * 100) <= price_resistance_pct ):
+								resistance_signal = False
+
+					# Pivot points S1 and S2 are short resistance
+					if ( abs((cur_close / day_stats[today]['pivot_s1'] - 1) * 100) <= price_resistance_pct or
+							abs((cur_close / day_stats[today]['pivot_s2'] - 1) * 100) <= price_resistance_pct):
+						resistance_signal = False
+
+
 				# High / low resistance
 #				short_price = float(pricehistory['candles'][idx]['close'])
 #				if ( float(short_price) <= float(twenty_week_low) ):
@@ -3319,8 +3396,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# If exit_percent has been hit, we will sell at the first GREEN candle
 				#  unless quick_exit was set.
 				total_percent_change = abs( last_close / short_price - 1 ) * 100
-				if ( total_percent_change >= float(exit_percent) ):
+				if ( total_percent_change >= exit_percent ):
+
+					# Set stoploss to break even
+					decr_threshold = exit_percent
 					exit_percent_signal = True
+
 					if ( quick_exit == True ):
 						buy_to_cover_signal	= True
 						exit_percent_exits	+= 1

@@ -40,6 +40,7 @@ parser.add_argument("--keylevel_use_daily", help='Use daily candles to determine
 parser.add_argument("--price_resistance_pct", help='Resistance indicators will come into effect if price is within this percentage of a known support/resistance line', default=1, type=float)
 parser.add_argument("--price_support_pct", help='Support indicators will come into effect if price is within this percentage of a known support/resistance line', default=1, type=float)
 parser.add_argument("--use_natr_resistance", help='Enable the daily NATR resistance check', action="store_true")
+parser.add_argument("--use_pivot_resistance", help='Enable the use of pivot points and PDH/PDL resistance check', action="store_true")
 parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
 
 # Experimental
@@ -685,6 +686,7 @@ for algo in args.algo.split(','):
 					'keylevel_strict':			args.keylevel_strict,
 					'keylevel_use_daily':			args.keylevel_use_daily,
 					'use_natr_resistance':			args.use_natr_resistance,
+					'use_pivot_resistance':			args.use_pivot_resistance,
 
 					'experimental':				args.experimental,
 					'check_etf_indicators':			args.check_etf_indicators,

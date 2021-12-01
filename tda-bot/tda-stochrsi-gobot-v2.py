@@ -193,17 +193,17 @@ if ( load_dotenv() != True ):
         print('Error: unable to load .env file', file=sys.stderr)
         sys.exit(1)
 
-tda_account_number = os.environ["tda_account_number"]
-passcode = os.environ["tda_encryption_passcode"]
+tda_account_number				= int( os.environ["tda_account_number"] )
+passcode					= os.environ["tda_encryption_passcode"]
 
-tda_gobot_helper.tda = tda
-tda_stochrsi_gobot_helper.tda = tda
+tda_gobot_helper.tda				= tda
+tda_stochrsi_gobot_helper.tda			= tda
 
-tda_gobot_helper.tda_account_number = tda_account_number
-tda_stochrsi_gobot_helper.tda_account_number = tda_account_number
+tda_gobot_helper.tda_account_number		= tda_account_number
+tda_stochrsi_gobot_helper.tda_account_number	= tda_account_number
 
-tda_gobot_helper.passcode = passcode
-tda_stochrsi_gobot_helper.passcode = passcode
+tda_gobot_helper.passcode			= passcode
+tda_stochrsi_gobot_helper.passcode		= passcode
 
 if ( tda_gobot_helper.tdalogin(passcode) != True ):
 	print('Error: Login failure', file=sys.stderr)
@@ -1295,8 +1295,8 @@ for ticker in list(stocks.keys()):
 
 
 # MAIN: Log into tda-api and run the stream client
-tda_api_key = os.environ['tda_consumer_key']
-tda_pickle = os.environ['HOME'] + '/.tokens/tda2.pickle'
+tda_api_key	= os.environ['tda_consumer_key']
+tda_pickle	= os.environ['HOME'] + '/.tokens/tda2.pickle'
 
 # Initializes and reads from TDA stream API
 async def read_stream():

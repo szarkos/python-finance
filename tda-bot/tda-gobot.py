@@ -45,9 +45,9 @@ if ( args.stock_usd == -1 and args.checkticker == False ):
 	print('Error: please enter stock amount (USD) to invest')
 	sys.exit(1)
 
-stock = args.stock
-stock_usd = args.stock_usd
-tx_log_dir = args.tx_log_dir
+stock		= args.stock
+stock_usd	= args.stock_usd
+tx_log_dir	= args.tx_log_dir
 
 if ( args.notmarketclosed == True and tda_gobot_helper.ismarketopen_US() == False ):
 	print('Canceled order to purchase $' + str(stock_usd) + ' of stock ' + str(stock) + ', because market is closed and --notmarketclosed was set')
@@ -60,12 +60,11 @@ if ( load_dotenv() != True ):
 	print('Error: unable to load .env file')
 	sys.exit(1)
 
-tda_account_number = os.environ["tda_account_number"]
-passcode = os.environ["tda_encryption_passcode"]
-
-tda_gobot_helper.tda = tda
-tda_gobot_helper.tda_account_number = tda_account_number
-tda_gobot_helper.passcode = passcode
+tda_account_number			= int( os.environ["tda_account_number"] )
+passcode				= os.environ["tda_encryption_passcode"]
+tda_gobot_helper.tda			= tda
+tda_gobot_helper.tda_account_number	= tda_account_number
+tda_gobot_helper.passcode 		= passcode
 
 if ( tda_gobot_helper.tdalogin(passcode) != True ):
 	print('Error: Login failure')

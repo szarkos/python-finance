@@ -1090,9 +1090,9 @@ for ticker in list(stocks.keys()):
 
 	# Pull the stock history that we'll use to calculate the Stochastic RSI and other thingies
 	data = False
-	while ( data == False ):
+	while ( isinstance(data, bool) and data == False ):
 		data, epochs = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, needExtendedHoursData=True, debug=False)
-		if ( data == False ):
+		if ( isinstance(data, bool) and data == False ):
 			time.sleep(5)
 			if ( tda_gobot_helper.tdalogin(passcode) != True ):
 				print('Error: (' + str(ticker) + '): Login failure')

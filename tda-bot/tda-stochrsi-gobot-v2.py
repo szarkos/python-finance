@@ -776,6 +776,8 @@ for ticker in stock_list.split(','):
 				   'twenty_week_avg':		float(0),
 
 				   'previous_day_close':	float(0),
+				   'previous_day_high':		float(0),
+				   'previous_day_low':		float(0),
 
 				   'kl_long_support':		[],
 				   'kl_long_resistance':	[],
@@ -1241,13 +1243,17 @@ for ticker in list(stocks.keys()):
 		stocks[ticker]['pricehistory_daily'] = {}
 		continue
 
-	# Previous day close (PDC)
+	# Previous day high/low/close (PDH/PDL/PDC)
 	try:
-		stocks[ticker]['previous_day_close'] = stocks[ticker]['pricehistory_daily']['candles'][-1]['close']
+		stocks[ticker]['previous_day_high']	= stocks[ticker]['pricehistory_daily']['candles'][-1]['high']
+		stocks[ticker]['previous_day_low']	= stocks[ticker]['pricehistory_daily']['candles'][-1]['low']
+		stocks[ticker]['previous_day_close']	= stocks[ticker]['pricehistory_daily']['candles'][-1]['close']
 
 	except Exception as e:
-		print('(' + str(ticker) + '): Warning: unable to set previous day close: ' + str(e))
-		stocks[ticker]['previous_day_close'] = 0
+		print('(' + str(ticker) + '): Warning: unable to set previous day high/low/close: ' + str(e))
+		stocks[ticker]['previous_day_high']	= 0
+		stocks[ticker]['previous_day_low']	= 0
+		stocks[ticker]['previous_day_close']	= 0
 
 	# Calculate the current daily ATR/NATR
 	atr_d   = []

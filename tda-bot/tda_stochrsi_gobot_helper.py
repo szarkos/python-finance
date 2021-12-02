@@ -1145,8 +1145,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# VWAP
 			if ( cur_algo['vwap'] == True or cur_algo['support_resistance'] == True ):
-				print('(' + str(ticker) + ') PDC: ' + str(round(stocks[ticker]['previous_day_close'], 2)) +
-							' / Current VWAP: ' + str(round(stocks[ticker]['cur_vwap'], 2)) +
+				print('(' + str(ticker) + ') PDH/PDL/PDC: ' + str(round(stocks[ticker]['previous_day_high'], 2)) +
+							' / ' + str(round(stocks[ticker]['previous_day_low'], 2)) +
+							' / ' + str(round(stocks[ticker]['previous_day_close'], 2)) )
+
+				print('(' + str(ticker) + ') Current VWAP: ' + str(round(stocks[ticker]['cur_vwap'], 2)) +
 							' / Current VWAP_UP: ' + str(round(stocks[ticker]['cur_vwap_up'], 2)) +
 							' / Current VWAP_DOWN: ' + str(round(stocks[ticker]['cur_vwap_down'], 2)) +
 							' / VWAP Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['vwap_signal']) )

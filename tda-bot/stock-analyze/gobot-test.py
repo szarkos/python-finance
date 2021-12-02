@@ -33,7 +33,7 @@ scenarios = {
 #								 --stacked_ma_periods_primary=8,13,21 --bbands_kchan_squeeze_count=8 --stacked_ma_type_primary=kama \
 #								 --min_intra_natr=0.65 --min_daily_natr=6 ',
 
-		'stochstackedma_bbands_kchannel_standard_kama_wma_trend5':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+		'stochstackedma_bbands_kchannel_standard_kama_wma':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
 								 --stacked_ma_periods_primary=8,13,21 --bbands_kchan_squeeze_count=8 --stacked_ma_type_primary=kama \
 								 --with_stacked_ma --stacked_ma_periods=34,55,89 --stacked_ma_type=wma \
 								 --min_intra_natr=0.65 --min_daily_natr=6 --use_trend --use_bbands_kchannel_xover_exit --use_combined_exit ',

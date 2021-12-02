@@ -2097,14 +2097,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							if ( avg < day_stats[today]['pdh'] and abs((cur_close / day_stats[today]['pdh'] - 1) * 100) <= price_resistance_pct ):
 								resistance_signal = False
 
-						if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] < day_stats[today]['pivot'] ):
-							if ( abs((cur_close / day_stats[today]['pivot'] - 1) * 100) <= price_resistance_pct ):
-								resistance_signal = False
+#						if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] < day_stats[today]['pivot'] ):
+#						if ( abs((cur_close / day_stats[today]['pivot'] - 1) * 100) <= price_resistance_pct ):
+#							resistance_signal = False
 
 					# Pivot point R1/R2 are resistance
-					if ( abs((cur_close / day_stats[today]['pivot_r1'] - 1) * 100) <= price_resistance_pct or
-							abs((cur_close / day_stats[today]['pivot_r2'] - 1) * 100) <= price_resistance_pct):
-						resistance_signal = False
+#					if ( abs((cur_close / day_stats[today]['pivot_r1'] - 1) * 100) <= price_resistance_pct or
+#							abs((cur_close / day_stats[today]['pivot_r2'] - 1) * 100) <= price_resistance_pct):
+#						resistance_signal = False
 
 
 				# 20-week high
@@ -2229,8 +2229,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
 
 				if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
-					print('(' + str(ticker) + '): BBands: ' + str(round(cur_bbands[0], 4)) + ' / ' + str(round(cur_bbands[2], 4)) +
-									', KChannel: ' + str(round(cur_kchannel[0], 4)) + ' / ' + str(round(cur_kchannel[2], 4)) +
+					print('(' + str(ticker) + '): BBands: ' + str(round(cur_bbands[0], 3)) + ' / ' + str(round(cur_bbands[2], 3)) +
+									', KChannel: ' + str(round(cur_kchannel[0], 3)) + ' / ' + str(round(cur_kchannel[2], 3)) +
 									', Squeeze Count: ' + str(bbands_kchan_signal_counter) )
 
 				print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
@@ -3031,14 +3031,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							if ( avg > day_stats[today]['pdl'] and abs((cur_close / day_stats[today]['pdl'] - 1) * 100) <= price_resistance_pct ):
 								resistance_signal = False
 
-						if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] > day_stats[today]['pivot'] ):
-							if ( abs((cur_close / day_stats[today]['pivot'] - 1) * 100) <= price_resistance_pct ):
-								resistance_signal = False
+#						if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] > day_stats[today]['pivot'] ):
+#							if ( abs((cur_close / day_stats[today]['pivot'] - 1) * 100) <= price_resistance_pct ):
+#								resistance_signal = False
 
 					# Pivot points S1 and S2 are short resistance
-					if ( abs((cur_close / day_stats[today]['pivot_s1'] - 1) * 100) <= price_resistance_pct or
-							abs((cur_close / day_stats[today]['pivot_s2'] - 1) * 100) <= price_resistance_pct):
-						resistance_signal = False
+#					if ( abs((cur_close / day_stats[today]['pivot_s1'] - 1) * 100) <= price_resistance_pct or
+#							abs((cur_close / day_stats[today]['pivot_s2'] - 1) * 100) <= price_resistance_pct):
+#						resistance_signal = False
 
 
 				# High / low resistance
@@ -3162,8 +3162,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
 
 				if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
-					print('(' + str(ticker) + '): BBands: ' + str(round(cur_bbands[0], 4)) + ' / ' + str(round(cur_bbands[2], 4)) +
-								  ', KChannel: ' + str(round(cur_kchannel[0], 4)) + ' / ' + str(round(cur_kchannel[2], 4)) +
+					print('(' + str(ticker) + '): BBands: ' + str(round(cur_bbands[0], 3)) + ' / ' + str(round(cur_bbands[2], 3)) +
+								  ', KChannel: ' + str(round(cur_kchannel[0], 3)) + ' / ' + str(round(cur_kchannel[2], 3)) +
 								  ', Squeeze Count: ' + str(bbands_kchan_signal_counter) )
 				print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
 				print('(' + str(ticker) + '): SHORT signal: ' + str(short_signal) + ', Final SHORT signal: ' + str(final_short_signal))
@@ -3322,6 +3322,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							if ( decr_threshold > 1 ):
 								decr_threshold = 1
 
+					# So far these strategies do not work
+					# Keeping them commented here for reference
+#					if ( bbands_kchan_xover_counter >= 2 and last_close > short_price and abs(last_close / short_price - 1) * 100 > 0.5 ):
+#						if ( decr_threshold > 1 ):
+#							decr_threshold = 1
 #					if ( last_close > short_price ):
 #						if ( decr_threshold > 1 ):
 #							decr_threshold = 1

@@ -814,7 +814,7 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 
 	if ( len( dup.items() ) > 0 ):
 		print("\nWARNING: get_pricehistory(" + str(ticker) + "): DUPLICATE TIMESTAMPS DETECTED\n", file=sys.stderr)
-		return False
+		return False, []
 
 	return data, epochs
 

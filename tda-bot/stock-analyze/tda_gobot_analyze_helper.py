@@ -736,11 +736,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	# Resistance / Support
 	if ( no_use_resistance == False ):
 
-		# Day stats
-		max_hodlod_counter = 30
-		if ( with_stoch_5m == True ):
-			max_hodlod_counter = 6
-
 		# Find the first day from the 1-min pricehistory. We might need this to warn if the PDC
 		#  is not available within the test timeframe.
 		first_day = datetime.fromtimestamp(int(pricehistory['candles'][0]['datetime'])/1000, tz=mytimezone)
@@ -1439,8 +1434,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				return False
 
 		price = price / period
-		#print(str(cur_close) + ' / ' + str(price))
-
 		if ( affinity == 'bull' and cur_close > price ):
 			return True
 		elif ( affinity == 'bear' and cur_close <= price ):
@@ -1472,9 +1465,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 		# Helper variables from the current pricehistory data
 		date		= datetime.fromtimestamp(int(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone)
-		cur_close	= float( pricehistory['candles'][idx]['close'] )
-		cur_high	= float( pricehistory['candles'][idx]['high'] )
-		cur_low		= float( pricehistory['candles'][idx]['low'] )
+		cur_open	= pricehistory['candles'][idx]['open']
+		cur_high	= pricehistory['candles'][idx]['high']
+		cur_low		= pricehistory['candles'][idx]['low']
+		cur_close	= pricehistory['candles'][idx]['close']
+		cur_volume	= pricehistory['candles'][idx]['volume']
 
 		# Indicators current values
 		cur_rsi_k	= rsi_k[idx - stochrsi_idx]
@@ -2042,7 +2037,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						if ( abs((cur_close / hod - 1) * 100) <= price_resistance_pct ):
 							resistance_signal = False
 
-					# END HOD Check
+					# Check PDH/PDL resistance
+					avg = 0
+					for i in range(15, 0, -1):
+						avg += float( pricehistory['candles'][idx-i]['close'] )
+						avg = avg / 15
+
+					# If stock opened below PDH, then those can become additional resistance lines for long entry
+					if ( today in day_stats and day_stats[today]['open_idx'] != None ):
+						if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] < day_stats[today]['pdh'] ):
+							if ( avg < day_stats[today]['pdh'] and abs((cur_close / day_stats[today]['pdh'] - 1) * 100) <= price_resistance_pct ):
+								resistance_signal = False
+
+				# END HOD/LOD/PDH/PDL Check
 
 				# Key Levels
 				# Check if price is near historic key level
@@ -2083,25 +2090,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				# End Key Levels
 
-				# Pivot points and PDH resistance
-				if ( use_pivot_resistance == True and resistance_signal == True and today in day_stats ):
-
-					avg = 0
-					for i in range(15, 0, -1):
-						avg += float( pricehistory['candles'][idx-i]['close'] )
-						avg = avg / 15
-
-					# If stock opened below PDH or pivot, then those can become additional resistance lines for long entry
-					if ( day_stats[today]['open_idx'] != None ):
-						if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] < day_stats[today]['pdh'] ):
-							if ( avg < day_stats[today]['pdh'] and abs((cur_close / day_stats[today]['pdh'] - 1) * 100) <= price_resistance_pct ):
-								resistance_signal = False
-
+#				# Pivot points and PDH resistance
+#				if ( use_pivot_resistance == True and resistance_signal == True and today in day_stats ):
+#					if ( day_stats[today]['open_idx'] != None ):
 #						if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] < day_stats[today]['pivot'] ):
 #						if ( abs((cur_close / day_stats[today]['pivot'] - 1) * 100) <= price_resistance_pct ):
 #							resistance_signal = False
-
-					# Pivot point R1/R2 are resistance
+#
+#					# Pivot point R1/R2 are resistance
 #					if ( abs((cur_close / day_stats[today]['pivot_r1'] - 1) * 100) <= price_resistance_pct or
 #							abs((cur_close / day_stats[today]['pivot_r2'] - 1) * 100) <= price_resistance_pct):
 #						resistance_signal = False
@@ -2304,10 +2300,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		# SELL mode
 		if ( signal_mode == 'sell' ):
 
-			# Set last_close and last_open using either raw candles from API or Heiken Ashi candles
-			last_open	= pricehistory['candles'][idx]['open']
-			last_close	= pricehistory['candles'][idx]['close']
-
 			# hold_overnight=False - drop the stock before market close
 			if ( hold_overnight == False and tda_gobot_helper.isendofday(5, date) ):
 				sell_signal		= True
@@ -2316,8 +2308,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# The last trading hour is a bit unpredictable. If --hold_overnight is false we want
 			#  to sell the stock at a more conservative exit percentage.
 			elif ( tda_gobot_helper.isendofday(60, date) == True and hold_overnight == False ):
-				if ( last_close > purchase_price ):
-					percent_change = abs( purchase_price / last_close - 1 ) * 100
+				if ( cur_close > purchase_price ):
+					percent_change = abs( purchase_price / cur_close - 1 ) * 100
 					if ( percent_change >= last_hour_threshold ):
 						sell_signal		= True
 						end_of_day_exits	+= 1
@@ -2352,7 +2344,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						#  then just exit. If we exit early we might even have a chance to re-enter
 						#  in the right direction.
 						if ( primary_stoch_indicator == 'stacked_ma' ):
-							if ( stacked_ma_bear_affinity == True and last_close < purchase_price ):
+							if ( stacked_ma_bear_affinity == True and cur_close < purchase_price ):
 								sell_signal = True
 
 					if ( primary_stoch_indicator == 'stacked_ma' ):
@@ -2362,7 +2354,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							# We'll give it bbands_kchannel_xover_exit_count minutes to correct itself
 							#  and then lower decr_threshold to mitigate risk.
 							bbands_kchan_xover_counter -= 1
-							if ( bbands_kchan_xover_counter <= -bbands_kchannel_xover_exit_count and last_close < purchase_price ):
+							if ( bbands_kchan_xover_counter <= -bbands_kchannel_xover_exit_count and cur_close < purchase_price ):
 								if ( decr_threshold > 0.5 ):
 									decr_threshold = 0.5
 
@@ -2385,10 +2377,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# STOPLOSS
 			# Monitor cost basis
 			percent_change = 0
-			if ( last_close < base_price and sell_signal == False and exit_percent_signal == False ):
+			if ( cur_close < base_price and sell_signal == False and exit_percent_signal == False ):
 
 				# SELL the security if we are using a trailing stoploss
-				percent_change = abs( last_close / base_price - 1 ) * 100
+				percent_change = abs( cur_close / base_price - 1 ) * 100
 				if ( stoploss == True and percent_change >= decr_threshold ):
 
 					# Sell
@@ -2421,10 +2413,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					signal_mode	= 'short'
 					continue
 
-			elif ( last_close > base_price and sell_signal == False ):
-				percent_change = abs( base_price / last_close - 1 ) * 100
+			elif ( cur_close > base_price and sell_signal == False ):
+				percent_change = abs( base_price / cur_close - 1 ) * 100
 				if ( percent_change >= incr_threshold ):
-					base_price = last_close
+					base_price = cur_close
 
 					# Adapt decr_threshold based on changes made by --variable_exit
 					if ( incr_threshold < default_incr_threshold ):
@@ -2442,11 +2434,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# Additional exit strategies
 			# Sell if exit_percent is specified
-			if ( exit_percent != None and last_close > purchase_price and sell_signal == False ):
+			if ( exit_percent != None and cur_close > purchase_price and sell_signal == False ):
 
 				# If exit_percent has been hit, we will sell at the first RED candle
 				#  unless --quick_exit was set.
-				total_percent_change = abs( purchase_price / last_close - 1 ) * 100
+				total_percent_change	= abs( purchase_price / cur_close - 1 ) * 100
+				high_percent_change	= abs( purchase_price / cur_high - 1 ) * 100
 				if ( total_percent_change >= exit_percent ):
 
 					# Set stoploss to break even
@@ -2456,6 +2449,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					if ( quick_exit == True ):
 						sell_signal		= True
 						exit_percent_exits	+= 1
+
+				# Set the stoploss lower if the candle touches the exit_percent, but closes below it
+				elif ( high_percent_change >= exit_percent and total_percent_change < exit_percent and exit_percent_signal == False ):
+					if ( decr_threshold > 1 ):
+						decr_threshold = 1
 
 				if ( exit_percent_signal == True and sell_signal == False ):
 					if ( use_trend_exit == True ):
@@ -2504,12 +2502,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							sell_signal		= True
 							exit_percent_exits	+= 1
 
-					elif ( last_close < last_open ):
+					elif ( cur_close < cur_open ):
 						sell_signal		= True
 						exit_percent_exits	+= 1
 
 			# If we've reached this point we probably need to stop out
-			elif ( exit_percent_signal == True and last_close < purchase_price ):
+			elif ( exit_percent_signal == True and cur_close < purchase_price ):
 				exit_percent_signal = False
 				decr_threshold = 0.5
 
@@ -2976,7 +2974,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						if ( abs((lod / cur_close - 1) * 100) <= price_resistance_pct ):
 							resistance_signal = False
 
-					# END LOD Check
+					# Check PDH/PDL resistance
+					avg = 0
+					for i in range(15, 0, -1):
+						avg += float( pricehistory['candles'][idx-i]['close'] )
+						avg = avg / 15
+
+					# If stock opened above PDL, then those can become additional resistance lines for short entry
+					if ( today in day_stats and day_stats[today]['open_idx'] != None ):
+						if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] > day_stats[today]['pdl'] ):
+							if ( avg > day_stats[today]['pdl'] and abs((cur_close / day_stats[today]['pdl'] - 1) * 100) <= price_resistance_pct ):
+								resistance_signal = False
+
+				# END HOD/LOD/PDH/PDL Check
 
 				# Key Levels
 				# Check if price is near historic key level
@@ -3017,25 +3027,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				# End Key Levels
 
-				# Pivot points and PDL resistance
-				if ( use_pivot_resistance == True and resistance_signal == True and today in day_stats):
-
-					avg = 0
-					for i in range(15, 0, -1):
-						avg += float( pricehistory['candles'][idx-i]['close'] )
-						avg = avg / 15
-
-					# If stock opened above PDL or pivot, then those can become additional resistance lines for short entry
-					if ( day_stats[today]['open_idx'] != None ):
-						if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] > day_stats[today]['pdl'] ):
-							if ( avg > day_stats[today]['pdl'] and abs((cur_close / day_stats[today]['pdl'] - 1) * 100) <= price_resistance_pct ):
-								resistance_signal = False
-
+#				# Pivot points and PDL resistance
+#				if ( use_pivot_resistance == True and resistance_signal == True and today in day_stats):
 #						if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] > day_stats[today]['pivot'] ):
 #							if ( abs((cur_close / day_stats[today]['pivot'] - 1) * 100) <= price_resistance_pct ):
 #								resistance_signal = False
-
-					# Pivot points S1 and S2 are short resistance
+#
+#					# Pivot points S1 and S2 are short resistance
 #					if ( abs((cur_close / day_stats[today]['pivot_s1'] - 1) * 100) <= price_resistance_pct or
 #							abs((cur_close / day_stats[today]['pivot_s2'] - 1) * 100) <= price_resistance_pct):
 #						resistance_signal = False
@@ -3244,10 +3242,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		# BUY-TO-COVER mode
 		if ( signal_mode == 'buy_to_cover' ):
 
-			# Set last_close and last_open using either raw candles from API or Heiken Ashi candles
-			last_open	= pricehistory['candles'][idx]['open']
-			last_close	= pricehistory['candles'][idx]['close']
-
 			# hold_overnight=False - drop the stock before market close
 			if ( hold_overnight == False and tda_gobot_helper.isendofday(5, date) ):
 				buy_to_cover_signal	= True
@@ -3256,8 +3250,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# The last trading hour is a bit unpredictable. If --hold_overnight is false we want
 			#  to sell the stock at a more conservative exit percentage.
 			elif ( tda_gobot_helper.isendofday(60, date) == True and hold_overnight == False ):
-				if ( last_close < short_price ):
-					percent_change = abs( short_price / last_close - 1 ) * 100
+				if ( cur_close < short_price ):
+					percent_change = abs( short_price / cur_close - 1 ) * 100
 					if ( percent_change >= last_hour_threshold ):
 						buy_to_cover_signal	= True
 						end_of_day_exits	+= 1
@@ -3292,7 +3286,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						#  then just exit. If we exit early we might even have a chance to re-enter
 						#  in the right direction.
 						if ( primary_stoch_indicator == 'stacked_ma' ):
-							if ( stacked_ma_bull_affinity == True and last_close > short_price ):
+							if ( stacked_ma_bull_affinity == True and cur_close > short_price ):
 								buy_to_cover_signal = True
 
 					if ( primary_stoch_indicator == 'stacked_ma' ):
@@ -3302,7 +3296,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							# We'll give it bbands_kchannel_xover_exit_count minutes to correct itself
 							#  and then lower decr_threshold to mitigate risk.
 							bbands_kchan_xover_counter -= 1
-							if ( bbands_kchan_xover_counter <= -bbands_kchannel_xover_exit_count and last_close > short_price ):
+							if ( bbands_kchan_xover_counter <= -bbands_kchannel_xover_exit_count and cur_close > short_price ):
 								if ( decr_threshold > 0.5 ):
 									decr_threshold = 0.5
 
@@ -3324,22 +3318,22 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 					# So far these strategies do not work
 					# Keeping them commented here for reference
-#					if ( bbands_kchan_xover_counter >= 2 and last_close > short_price and abs(last_close / short_price - 1) * 100 > 0.5 ):
+#					if ( bbands_kchan_xover_counter >= 2 and cur_close > short_price and abs(cur_close / short_price - 1) * 100 > 0.5 ):
 #						if ( decr_threshold > 1 ):
 #							decr_threshold = 1
-#					if ( last_close > short_price ):
+#					if ( cur_close > short_price ):
 #						if ( decr_threshold > 1 ):
 #							decr_threshold = 1
-#					if ( bbands_kchan_xover_counter >= 15 and last_close > short_price ):
+#					if ( bbands_kchan_xover_counter >= 15 and cur_close > short_price ):
 #						buy_to_cover_signal = True
 
 			# STOPLOSS
 			# Monitor cost basis
 			percent_change = 0
-			if ( last_close > base_price and buy_to_cover_signal == False and exit_percent_signal == False ):
+			if ( cur_close > base_price and buy_to_cover_signal == False and exit_percent_signal == False ):
 
 				# Buy-to-cover the security if we are using a trailing stoploss
-				percent_change = abs( base_price / last_close - 1 ) * 100
+				percent_change = abs( base_price / cur_close - 1 ) * 100
 				if ( stoploss == True and percent_change >= decr_threshold ):
 
 					# Buy-to-cover
@@ -3374,10 +3368,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						signal_mode = 'buy'
 						continue
 
-			elif ( last_close < base_price and buy_to_cover_signal == False ):
-				percent_change = abs( last_close / base_price - 1 ) * 100
+			elif ( cur_close < base_price and buy_to_cover_signal == False ):
+				percent_change = abs( cur_close / base_price - 1 ) * 100
 				if ( percent_change >= incr_threshold ):
-					base_price = last_close
+					base_price = cur_close
 
 					# Adapt decr_threshold based on changes made by --variable_exit
 					if ( incr_threshold < default_incr_threshold ):
@@ -3396,11 +3390,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# Additional exit strategies
 			# Sell if exit_percent is specified
-			if ( last_close < short_price and exit_percent != None and buy_to_cover_signal == False ):
+			if ( cur_close < short_price and exit_percent != None and buy_to_cover_signal == False ):
 
 				# If exit_percent has been hit, we will sell at the first GREEN candle
 				#  unless quick_exit was set.
-				total_percent_change = abs( last_close / short_price - 1 ) * 100
+				total_percent_change	= abs( cur_close / short_price - 1 ) * 100
+				low_percent_change	= abs( cur_low / short_price - 1 ) * 100
 				if ( total_percent_change >= exit_percent ):
 
 					# Set stoploss to break even
@@ -3410,6 +3405,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					if ( quick_exit == True ):
 						buy_to_cover_signal	= True
 						exit_percent_exits	+= 1
+
+				# Set the stoploss lower if the candle touches the exit_percent, but closes above it
+				elif ( low_percent_change >= exit_percent and total_percent_change < exit_percent and exit_percent_signal == False ):
+					if ( decr_threshold > 1 ):
+						decr_threshold = 1
 
 				if ( exit_percent_signal == True and buy_to_cover_signal == False ):
 					if ( use_trend_exit == True ):
@@ -3458,11 +3458,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							buy_to_cover_signal	= True
 							exit_percent_exits	+= 1
 
-					elif ( last_close > last_open ):
+					elif ( cur_close > cur_open ):
 						buy_to_cover_signal	= True
 						exit_percent_exits	+= 1
 
-			elif ( exit_percent_signal == True and last_close > short_price ):
+			elif ( exit_percent_signal == True and cur_close > short_price ):
 				# If we've reached this point we probably need to stop out
 				exit_percent_signal = False
 				decr_threshold = 0.5

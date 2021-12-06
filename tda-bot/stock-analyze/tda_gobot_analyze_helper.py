@@ -843,9 +843,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 								'volume':	-1,
 								'high_idx':	None,
 								'low_idx':	None,
-								'pdh':		None,
+								'pdh':		-1,
 								'pdh_idx':	None,
-								'pdl':		None,
+								'pdl':		-1,
 								'pdl_idx':	None,
 								'pdc':		-1 }
 

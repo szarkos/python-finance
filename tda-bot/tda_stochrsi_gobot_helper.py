@@ -1185,6 +1185,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		# Set some short variables to improve readability :)
 		signal_mode		= stocks[ticker]['algo_signals'][algo_id]['signal_mode']
 
+		last_open		= stocks[ticker]['pricehistory']['candles'][-1]['open']
+		last_high		= stocks[ticker]['pricehistory']['candles'][-1]['high']
+		last_low		= stocks[ticker]['pricehistory']['candles'][-1]['low']
+		last_close		= stocks[ticker]['pricehistory']['candles'][-1]['close']
+
 		# StochRSI
 		cur_rsi_k		= stocks[ticker]['cur_rsi_k']
 		prev_rsi_k		= stocks[ticker]['prev_rsi_k']
@@ -1574,7 +1579,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# This is the most simple/pessimistic approach right now
 			if ( cur_algo['vwap'] == True ):
 				stocks[ticker]['algo_signals'][algo_id]['vwap_signal'] = False
-				if ( cur_close < cur_vwap ):
+				if ( last_close < cur_vwap ):
 					stocks[ticker]['algo_signals'][algo_id]['vwap_signal'] = True
 
 			# VPT
@@ -1593,7 +1598,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# PDC
 				if ( stocks[ticker]['previous_day_close'] != 0 ):
-					if ( abs((stocks[ticker]['previous_day_close'] / cur_close - 1) * 100) <= price_resistance_pct ):
+					if ( abs((stocks[ticker]['previous_day_close'] / last_close - 1) * 100) <= price_resistance_pct ):
 
 						# Current price is very close to PDC
 						# Next check average of last 15 (minute) candles
@@ -1607,28 +1612,29 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						if ( avg < stocks[ticker]['previous_day_close'] ):
 							if ( debug == True and stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
 								print( '(' + str(ticker) + ') BUY SIGNAL stalled due to PDC resistance - PDC: ' + str(round(stocks[ticker]['previous_day_close'], 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
+								print()
 
 							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# NATR resistance
 				if ( cur_algo['use_natr_resistance'] == True and stocks[ticker]['natr_daily'] != None ):
-					if ( cur_close > stocks[ticker]['previous_day_close'] ):
+					if ( last_close > stocks[ticker]['previous_day_close'] ):
 						natr_mod = 1
 						if ( stocks[ticker]['natr_daily'] >= 8 ):
 							natr_mod = 2
 
 						natr_resistance = ((stocks[ticker]['natr_daily'] / natr_mod) / 100 + 1) * stocks[ticker]['previous_day_close']
-						if ( cur_close > natr_resistance ):
+						if ( last_close > natr_resistance ):
 							if ( abs(cur_rsi_k - cur_rsi_d) < 12 and stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
 								stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
-						if ( abs((cur_close / natr_resistance - 1) * 100) <= price_resistance_pct ):
+						if ( abs((last_close / natr_resistance - 1) * 100) <= price_resistance_pct ):
 							if ( abs(cur_rsi_k - cur_rsi_d) < 10 and stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
 								stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# VWAP
 				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and
-						abs((cur_vwap / cur_close - 1) * 100) <= price_resistance_pct ):
+						abs((cur_vwap / last_close - 1) * 100) <= price_resistance_pct ):
 
 					# Current price is very close to VWAP
 					# Next check average of last 15 (minute) candles
@@ -1642,6 +1648,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					if ( avg < cur_vwap ):
 						if ( debug == True and stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
 							print( '(' + str(ticker) + ') BUY SIGNAL stalled due to VWAP resistance - Current VWAP: ' + str(round(cur_vwap, 3)) + ' / 15-min Avg: ' + str(round(avg, 3)) )
+							print()
 
 						stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
@@ -1669,8 +1676,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					# If the stock has already hit a high of the day, the next rise will likely be
 					#  below HOD. If we are below HOD and less than price_resistance_pct from it
 					#  then we should not enter the trade.
-					if ( cur_close < hod ):
-						if ( abs((cur_close / hod - 1) * 100) <= price_resistance_pct ):
+					if ( last_close < hod ):
+						if ( abs((last_close / hod - 1) * 100) <= price_resistance_pct ):
 							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 					# Check PDH/PDL resistance
@@ -1681,8 +1688,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 					# If stock opened below PDH, then those can become additional resistance lines for long entry
 					if ( stocks[ticker]['today_open'] < stocks[ticker]['previous_day_high'] ):
-						if ( avg < stocks[ticker]['previous_day_high'] and abs((cur_close / stocks[ticker]['previous_day_high'] - 1) * 100) <= price_resistance_pct ):
-							print( '(' + str(ticker) + ') BUY SIGNAL stalled due to PDL resistance - Current Price: ' + str(round(cur_close, 3)) + ' / 15-min Avg: ' + str(round(avg, 3)) )
+						if ( avg < stocks[ticker]['previous_day_high'] and abs((last_close / stocks[ticker]['previous_day_high'] - 1) * 100) <= price_resistance_pct ):
+							print( '(' + str(ticker) + ') BUY SIGNAL stalled due to PDL resistance - Current Price: ' + str(round(last_close, 3)) + ' / 15-min Avg: ' + str(round(avg, 3)) )
+							print()
 							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# END HOD/LOD/PDH/PDL Check
@@ -1692,7 +1700,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True ):
 					near_keylevel = False
 					for lvl,dt in stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']:
-						if ( abs((lvl / cur_close - 1) * 100) <= price_support_pct ):
+						if ( abs((lvl / last_close - 1) * 100) <= price_support_pct ):
 							near_keylevel = True
 
 							# Current price is very close to a key level
@@ -1710,6 +1718,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							if ( avg < lvl or abs((avg / lvl - 1) * 100) <= price_resistance_pct / 3 ):
 								if ( debug == True and stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
 									print( '(' + str(ticker) + ') BUY SIGNAL stalled due to Key Level resistance - KL: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
+									print()
 
 								stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 								break
@@ -1718,7 +1727,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					# Otherwise reject this buy to avoid getting chopped around between levels
 					if ( args.keylevel_strict == True and near_keylevel == False ):
 						if ( debug == True and stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
-							print( '(' + str(ticker) + ') BUY SIGNAL stalled due to keylevel_strict - Current price: ' + str(round(cur_close, 2)) )
+							print( '(' + str(ticker) + ') BUY SIGNAL stalled due to keylevel_strict - Current price: ' + str(round(last_close, 2)) )
+							print()
 
 						stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
@@ -1881,11 +1891,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 		# SELL MODE - look for a signal to sell the stock
 		elif ( signal_mode == 'sell' ):
-
-			last_open	= stocks[ticker]['pricehistory']['candles'][-1]['open']
-			last_high	= stocks[ticker]['pricehistory']['candles'][-1]['high']
-			last_low	= stocks[ticker]['pricehistory']['candles'][-1]['low']
-			last_close	= stocks[ticker]['pricehistory']['candles'][-1]['close']
 
 			# First try to get the latest price from the API, and fall back to the last close only if necessary
 			last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
@@ -2465,7 +2470,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# This is the most simple/pessimistic approach right now
 			if ( cur_algo['vwap'] == True ):
 				stocks[ticker]['algo_signals'][algo_id]['vwap_signal'] = False
-				if ( cur_close > cur_vwap ):
+				if ( last_close > cur_vwap ):
 					stocks[ticker]['algo_signals'][algo_id]['vwap_signal'] = True
 
 			# VPT
@@ -2484,7 +2489,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# PDC
 				if ( stocks[ticker]['previous_day_close'] != 0 ):
-					if ( abs((stocks[ticker]['previous_day_close'] / cur_close - 1) * 100) <= price_resistance_pct ):
+					if ( abs((stocks[ticker]['previous_day_close'] / last_close - 1) * 100) <= price_resistance_pct ):
 
 						# Current price is very close to PDC
 						# Next check average of last 15 (minute) candles
@@ -2498,28 +2503,29 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						if ( avg > stocks[ticker]['previous_day_close'] ):
 							if ( debug == True and stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True ):
 								print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to PDC resistance - PDC: ' + str(round(stocks[ticker]['previous_day_close'], 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
+								print()
 
 							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# NATR resistance
 				if ( cur_algo['use_natr_resistance'] == True and stocks[ticker]['natr_daily'] != None ):
-					if ( cur_close < stocks[ticker]['previous_day_close'] ):
+					if ( last_close < stocks[ticker]['previous_day_close'] ):
 						natr_mod = 1
 						if ( stocks[ticker]['natr_daily'] >= 8 ):
 							natr_mod = 2
 
 						natr_resistance = ((stocks[ticker]['natr_daily'] / natr_mod) / 100 + 1) * stocks[ticker]['previous_day_close']
-						if ( cur_close > natr_resistance ):
+						if ( last_close > natr_resistance ):
 							if ( abs(cur_rsi_k - cur_rsi_d) < 12 and stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True ):
 								stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
-						if ( abs((cur_close / natr_resistance - 1) * 100) <= price_resistance_pct ):
+						if ( abs((last_close / natr_resistance - 1) * 100) <= price_resistance_pct ):
 							if ( abs(cur_rsi_k - cur_rsi_d) < 10 and stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True ):
 								stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# VWAP
 				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and
-						abs((cur_vwap / cur_close - 1) * 100) <= price_resistance_pct ):
+						abs((cur_vwap / last_close - 1) * 100) <= price_resistance_pct ):
 
 					# Current price is very close to VWAP
 					# Next check average of last 15 (minute) candles
@@ -2533,6 +2539,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					if ( avg > cur_vwap ):
 						if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True and debug == True ):
 							print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to VWAP resistance - Current VWAP: ' + str(round(cur_vwap, 3)) + ' / 15-min Avg: ' + str(round(avg, 3)) )
+							print()
 
 						stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
@@ -2561,8 +2568,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					# If the stock has already hit a low of the day, the next decrease will likely be
 					#  above LOD. If we are above LOD and less than price_resistance_pct from it
 					#  then we should not enter the trade.
-					if ( cur_close > lod ):
-						if ( abs((lod / cur_close - 1) * 100) <= price_resistance_pct ):
+					if ( last_close > lod ):
+						if ( abs((lod / last_close - 1) * 100) <= price_resistance_pct ):
 							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 					# Check PDH/PDL resistance
@@ -2573,8 +2580,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 					# If stock opened above PDL, then those can become additional resistance lines for short entry
 					if ( stocks[ticker]['today_open'] > stocks[ticker]['previous_day_low'] ):
-						if ( avg > stocks[ticker]['previous_day_low'] and abs((cur_close / stocks[ticker]['previous_day_low'] - 1) * 100) <= price_resistance_pct ):
-							print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to PDL resistance - Current Price: ' + str(round(cur_close, 3)) + ' / 15-min Avg: ' + str(round(avg, 3)) )
+						if ( avg > stocks[ticker]['previous_day_low'] and abs((last_close / stocks[ticker]['previous_day_low'] - 1) * 100) <= price_resistance_pct ):
+							print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to PDL resistance - Current Price: ' + str(round(last_close, 3)) + ' / 15-min Avg: ' + str(round(avg, 3)) )
+							print()
+
 							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
                                 # END HOD/LOD/PDH/PDL Check
@@ -2584,7 +2593,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True ):
 					near_keylevel = False
 					for lvl,dt in stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']:
-						if ( abs((lvl / cur_close - 1) * 100) <= price_resistance_pct ):
+						if ( abs((lvl / last_close - 1) * 100) <= price_resistance_pct ):
 							near_keylevel = True
 
 							# Current price is very close to a key level
@@ -2602,6 +2611,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							if ( avg > lvl or abs((avg / lvl - 1) * 100) <= price_resistance_pct / 3 ):
 								if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True and debug == True ):
 									print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to Key Level resistance - KL: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
+									print()
 
 								stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 								break
@@ -2610,7 +2620,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					# Otherwise reject this short altogether to avoid getting chopped around between levels
 					if ( args.keylevel_strict == True and near_keylevel == False ):
 						if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True and debug == True ):
-							print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to keylevel_strict - Current price: ' + str(round(cur_close, 2)) )
+							print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to keylevel_strict - Current price: ' + str(round(last_close, 2)) )
+							print()
 
 						stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
@@ -2790,11 +2801,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		#   a buy-to-cover transaction to cover a previous short sale if the RSI if very low. We also
 		#   need to monitor stoploss in case the stock rises above a threshold.
 		elif ( signal_mode == 'buy_to_cover' ):
-
-			last_open	= stocks[ticker]['pricehistory']['candles'][-1]['open']
-			last_high	= stocks[ticker]['pricehistory']['candles'][-1]['high']
-			last_low	= stocks[ticker]['pricehistory']['candles'][-1]['low']
-			last_close	= stocks[ticker]['pricehistory']['candles'][-1]['close']
 
 			# First try to get the latest price from the API, and fall back to the last close only if necessary
 			last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)

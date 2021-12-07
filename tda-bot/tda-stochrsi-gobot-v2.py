@@ -1236,7 +1236,7 @@ for ticker in list(stocks.keys()):
 		while ( stocks[ticker]['pricehistory_daily'] == {} ):
 			stocks[ticker]['pricehistory_daily'], ep = tda_gobot_helper.get_pricehistory(ticker, daily_p_type, daily_f_type, daily_freq, daily_period, needExtendedHoursData=False)
 
-			if ( (isinstance(stocks[ticker]['pricehistory_daily'], bool) and isinstance(stocks[ticker]['pricehistory_daily'] == False)) or
+			if ( (isinstance(stocks[ticker]['pricehistory_daily'], bool) and stocks[ticker]['pricehistory_daily'] == False) or
 					stocks[ticker]['pricehistory_daily'] == {} or
 					('empty' in stocks[ticker]['pricehistory_daily'] and str(stocks[ticker]['pricehistory_daily']['empty']).lower() == 'true') ):
 				time.sleep(5)

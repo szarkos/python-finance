@@ -431,13 +431,14 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 
 	# Bollinger Bands and Keltner Channel crossover
-	def bbands_kchannels(simple=False, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0),
+	def bbands_kchannels(pricehistory=None, simple=False, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0),
 				bbands_kchan_signal_counter=0, bbands_kchan_xover_counter=0, bbands_kchan_init_signal=False, bbands_kchan_crossover_signal=False, bbands_kchan_signal=False, debug=False ):
 
 		nonlocal cur_algo
 
 		bbands_kchannel_offset		= cur_algo['bbands_kchannel_offset']
 		bbands_kchan_squeeze_count	= cur_algo['bbands_kchan_squeeze_count']
+		max_squeeze_natr		= cur_algo['max_squeeze_natr']
 
 		# bbands/kchannel (0,0,0) = lower, middle, upper
 		cur_bbands_lower	= round( cur_bbands[0], 3 )
@@ -489,6 +490,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		# Check if the Bollinger Bands have moved inside the Keltner Channel
 		# Signal when they begin to converge
 		if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
+
 			# Squeeze counter
 			bbands_kchan_signal_counter += 1
 
@@ -522,6 +524,26 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			if ( bbands_kchan_crossover_signal == True ):
 				bbands_kchan_xover_counter += 1
+
+			# If max_squeeze_natr is set, make sure the recent NATR is not too high to disqualify
+			#  this stock movement as a good consolidation.
+			if ( max_squeeze_natr != None and bbands_kchan_signal == True and pricehistory != None ):
+
+				cndl_slice = { 'candles': [] }
+				for i in range(bbands_kchan_squeeze_count+3, 0, -1):
+					cndl_slice['candles'].append( pricehistory['candles'][-i] )
+
+				try:
+					atr_t, natr_t = tda_algo_helper.get_atr( pricehistory=cndl_slice, period=bbands_kchan_squeeze_count )
+
+				except Exception as e:
+					print('Caught exception: bbands_kchannels(): get_atr(): error calculating NATR: ' + str(e))
+					bbands_kchan_signal = False
+
+				if ( natr_t[-1] >= max_squeeze_natr ):
+					bbands_kchan_signal = False
+					if ( debug == True ):
+						print('NOTICE: bbands_kchan_signal canceled due to high NATR above max_squeeze_natr: ' + str(natr_t[-1]) + ' / ' + str(max_squeeze_natr) )
 
 			# Cancel the bbands_kchan_signal if the bollinger bands popped back inside the keltner channel,
 			#  or if the bbands_kchan_signal_counter has lingered for too long
@@ -1334,13 +1356,15 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
-				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] ) = bbands_kchannels( simple=cur_algo['bbands_kchannel_simple'], cur_bbands=cur_bbands, prev_bbands=prev_bbands,
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] ) = bbands_kchannels( pricehistory=stocks[ticker]['pricehistory'], simple=cur_algo['bbands_kchannel_simple'],
+																cur_bbands=cur_bbands, prev_bbands=prev_bbands,
 																cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
 																bbands_kchan_signal_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
 																bbands_kchan_xover_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'],
 																bbands_kchan_init_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
 																bbands_kchan_crossover_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
-																bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'] )
+																bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
+																debug=True )
 
 			# PRIMARY STOCHRSI MONITOR
 			if ( cur_algo['primary_stochrsi'] == True or cur_algo['primary_stochmfi'] == True ):
@@ -1691,6 +1715,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						if ( avg < stocks[ticker]['previous_day_high'] and abs((last_close / stocks[ticker]['previous_day_high'] - 1) * 100) <= price_resistance_pct ):
 							print( '(' + str(ticker) + ') BUY SIGNAL stalled due to PDL resistance - Current Price: ' + str(round(last_close, 3)) + ' / 15-min Avg: ' + str(round(avg, 3)) )
 							print()
+
 							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# END HOD/LOD/PDH/PDL Check
@@ -2226,13 +2251,14 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
-				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] ) = bbands_kchannels( simple=cur_algo['bbands_kchannel_simple'], cur_bbands=cur_bbands, prev_bbands=prev_bbands,
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] ) = bbands_kchannels( pricehistory=stocks[ticker]['pricehistory'], simple=cur_algo['bbands_kchannel_simple'], cur_bbands=cur_bbands, prev_bbands=prev_bbands,
 																cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
 																bbands_kchan_signal_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
 																bbands_kchan_xover_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'],
 																bbands_kchan_init_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
 																bbands_kchan_crossover_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
-																bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'] )
+																bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
+																debug=True )
 
 			# PRIMARY STOCHRSI MONITOR
 			if ( cur_algo['primary_stochrsi'] == True or cur_algo['primary_stochmfi'] == True ):

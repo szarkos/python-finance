@@ -128,6 +128,7 @@ parser.add_argument("--supertrend_min_natr", help='Minimum daily NATR a stock mu
 
 parser.add_argument("--bbands_kchannel_offset", help='Percentage offset between the Bollinger bands and Keltner channel indicators to trigger an initial trade entry (Default: 0.15)', default=0.15, type=float)
 parser.add_argument("--bbands_kchan_squeeze_count", help='Number of squeeze periods needed before triggering bbands_kchannel signal (Default: 4)', default=4, type=int)
+parser.add_argument("--max_squeeze_natr", help='Maximum NATR allowed during consolidation (squeeze) phase (Default: None)', default=None, type=float)
 parser.add_argument("--use_bbands_kchannel_5m", help='Use 5-minute candles to calculate the Bollinger bands and Keltner channel indicators (Default: False)', action="store_true")
 parser.add_argument("--use_bbands_kchannel_xover_exit", help='Use price action after a Bollinger bands and Keltner channel crossover to assist with stock exit (Default: False)', action="store_true")
 parser.add_argument("--bbands_kchannel_xover_exit_count", help='Number of periods to wait after a crossover to trigger --use_bbands_kchannel_xover_exit (Default: 10)', default=10, type=int)
@@ -285,6 +286,7 @@ for algo in args.algos:
 	# Bollinger Bands and Keltner Channel
 	bbands_kchannel_offset		= args.bbands_kchannel_offset
 	bbands_kchan_squeeze_count	= args.bbands_kchan_squeeze_count
+	max_squeeze_natr		= args.max_squeeze_natr
 	use_bbands_kchannel_5m		= args.use_bbands_kchannel_5m
 	use_bbands_kchannel_xover_exit	= args.use_bbands_kchannel_xover_exit
 	bbands_kchannel_xover_exit_count= args.bbands_kchannel_xover_exit_count
@@ -396,6 +398,7 @@ for algo in args.algos:
 		if ( re.match('use_bbands_kchannel_xover_exit', a)	!= None ):	use_bbands_kchannel_xover_exit	= True
 		if ( re.match('bbands_kchannel_offset:', a)		!= None ):	bbands_kchannel_offset		= float( a.split(':')[1] )
 		if ( re.match('bbands_kchan_squeeze_count:', a)		!= None ):	bbands_kchan_squeeze_count	= int( a.split(':')[1] )
+		if ( re.match('max_squeeze_natr:', a)			!= None ):	max_squeeze_natr		= float( a.split(':')[1] )
 		if ( re.match('bbands_kchannel_xover_exit_count:', a)	!= None ):	bbands_kchannel_xover_exit_count= int( a.split(':')[1] )
 		if ( re.match('bbands_period:', a)			!= None ):	bbands_period			= int( a.split(':')[1] )
 		if ( re.match('kchannel_period:', a)			!= None ):	kchannel_period			= int( a.split(':')[1] )
@@ -508,6 +511,7 @@ for algo in args.algos:
 			'bbands_kchannel_simple':		bbands_kchannel_simple,
 			'bbands_kchannel_offset':		bbands_kchannel_offset,
 			'bbands_kchan_squeeze_count':		bbands_kchan_squeeze_count,
+			'max_squeeze_natr':			max_squeeze_natr,
 			'use_bbands_kchannel_5m':		use_bbands_kchannel_5m,
 			'use_bbands_kchannel_xover_exit':	use_bbands_kchannel_xover_exit,
 			'bbands_kchannel_xover_exit_count': 	bbands_kchannel_xover_exit_count,
@@ -578,7 +582,7 @@ del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,
 del(rsi_high_limit,rsi_low_limit,rsi_period,stochrsi_period,stochrsi_5m_period,rsi_k_period,rsi_k_5m_period,rsi_d_period,rsi_slow,stochrsi_offset,stochrsi_5m_offset)
 del(mfi_high_limit,mfi_low_limit,mfi_period,stochmfi_period,stochmfi_5m_period,mfi_k_period,mfi_k_5m_period,mfi_d_period,mfi_slow,stochmfi_offset,stochmfi_5m_offset)
 del(adx_threshold,adx_period,macd_long_period,macd_short_period,macd_signal_period,macd_offset,aroonosc_period,di_period,atr_period,vpt_sma_period)
-del(chop_period,chop_low_limit,chop_high_limit,supertrend_atr_period,supertrend_min_natr,bbands_kchannel_offset,bbands_kchan_squeeze_count,bbands_period,kchannel_period,kchannel_atr_period)
+del(chop_period,chop_low_limit,chop_high_limit,supertrend_atr_period,supertrend_min_natr,bbands_kchannel_offset,bbands_kchan_squeeze_count,bbands_period,kchannel_period,kchannel_atr_period,max_squeeze_natr)
 del(stacked_ma_type_primary,stacked_ma_periods_primary,stacked_ma_type,stacked_ma_periods,use_natr_resistance,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr)
 del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count)
 del(use_ha_exit,use_ha_candles,use_trend_exit,use_trend,trend_period,trend_type,use_combined_exit)

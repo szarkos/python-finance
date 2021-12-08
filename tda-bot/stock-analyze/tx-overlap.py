@@ -39,7 +39,7 @@ for line in algo1.splitlines():
 		continue
 
 	line = re.split('[\s\t]+', line)
-	datestr = str(line[6]) + ' ' + re.sub('\..*', '', line[7])
+	datestr = str(line[6]) + ' ' + re.sub('\..*', '', line[8])
 
 	date = datetime.datetime.strptime(datestr, '%Y-%m-%d %H:%M:%S')
 	date = mytimezone.localize(date)
@@ -53,7 +53,7 @@ for line in algo2.splitlines():
 		continue
 
 	line = re.split('[\s\t]+', line)
-	datestr = str(line[6]) + ' ' + re.sub('\..*', '', line[7])
+	datestr = str(line[6]) + ' ' + re.sub('\..*', '', line[8])
 
 	date = datetime.datetime.strptime(datestr, '%Y-%m-%d %H:%M:%S')
 	date = mytimezone.localize(date)

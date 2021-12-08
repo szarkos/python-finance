@@ -191,6 +191,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	bbands_kchannel_offset		= 0.15		if ('bbands_kchannel_offset' not in params) else params['bbands_kchannel_offset']
 	bbands_kchan_squeeze_count	= 4		if ('bbands_kchan_squeeze_count' not in params) else params['bbands_kchan_squeeze_count']
 	max_squeeze_natr		= None		if ('max_squeeze_natr' not in params) else params['max_squeeze_natr']
+	max_bbands_natr			= None		if ('max_bbands_natr' not in params) else params['max_bbands_natr']
+	min_bbands_natr			= None		if ('min_bbands_natr' not in params) else params['min_bbands_natr']
 	bbands_period			= 20		if ('bbands_period' not in params) else params['bbands_period']
 	kchannel_period			= 20		if ('kchannel_period' not in params) else params['kchannel_period']
 	kchannel_atr_period		= 20		if ('kchannel_atr_period' not in params) else params['kchannel_atr_period']
@@ -1296,6 +1298,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal idx
 
 		nonlocal bbands_natr
+		nonlocal max_bbands_natr
+		nonlocal min_bbands_natr
 
 		# bbands/kchannel (0,0,0) = lower, middle, upper
 		cur_bbands_lower	= round( cur_bbands[0], 3 )
@@ -1350,6 +1354,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		# Signal when they begin to converge
 		if ( cur_kchannel_lower < cur_bbands_lower or cur_kchannel_upper > cur_bbands_upper ):
 
+			# bbands_natr['bbands'] contains the difference between the upper and lower bands
 			if ( bbands_kchan_signal_counter == 0 ):
 				bbands_natr['natr']	= 0
 				bbands_natr['bbands']	= [cur_bbands_upper - cur_bbands_lower]
@@ -1384,18 +1389,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			if ( bbands_kchan_crossover_only == False and cur_offset < prev_offset and cur_offset <= bbands_kchannel_offset / 2 ):
 				bbands_kchan_signal = True
 
-
-				cndl_slice = { 'candles': [] }
-				for i in range(len(bbands_natr['bbands']), 0, -1):
-					cndl_slice['candles'].append( {'open': bbands_natr['bbands'][-i], 'high': bbands_natr['bbands'][-i], 'low': bbands_natr['bbands'][-i], 'close': bbands_natr['bbands'][-i] } )
-				atr, natr = tda_algo_helper.get_atr( cndl_slice, period=len(bbands_natr['bbands']) )
-				bbands_natr['natr'] = natr[-1]
-
 			# Check for crossover
 			if ( (prev_kchannel_lower <= prev_bbands_lower and cur_kchannel_lower > cur_bbands_lower) or
 					(prev_kchannel_upper >= prev_bbands_upper and cur_kchannel_upper < cur_bbands_upper) ):
 				bbands_kchan_crossover_signal	= True
-#				bbands_kchan_signal		= True
+				bbands_kchan_signal		= True
 
 			if ( bbands_kchan_crossover_signal == True ):
 				bbands_kchan_xover_counter += 1
@@ -1404,6 +1402,26 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( len(bbands_kchannel_offset_debug['cur_squeeze']) > 0 ):
 					bbands_kchannel_offset_debug['squeeze'].append( max(bbands_kchannel_offset_debug['cur_squeeze']) )
 					bbands_kchannel_offset_debug['cur_squeeze'] = []
+
+
+			# The NATR of the bbands_natr['bbands'] will help tell us how much volatility there
+			#  has been between the upper and lower Bolinger Bands during the squeeze.
+			if ( (max_bbands_natr != None or min_bbands_natr != None) and bbands_kchan_signal == True ):
+				cndl_slice = { 'candles': [] }
+				for i in range(len(bbands_natr['bbands']), 0, -1):
+					cndl_slice['candles'].append( {'open': bbands_natr['bbands'][-i], 'high': bbands_natr['bbands'][-i], 'low': bbands_natr['bbands'][-i], 'close': bbands_natr['bbands'][-i] } )
+
+				try:
+					atr, natr = tda_algo_helper.get_atr( cndl_slice, period=len(bbands_natr['bbands']) )
+				except:
+					pass
+				else:
+					bbands_natr['natr'] = natr[-1]
+
+				if ( max_bbands_natr != None and bbands_natr['natr'] > max_bbands_natr ):
+					bbands_kchan_signal = False
+				elif ( min_bbands_natr != None and bbands_natr['natr'] < min_bbands_natr ):
+					bbands_kchan_signal = False
 
 			# If max_squeeze_natr is set, make sure the recent NATR is not too high to disqualify
 			#  this stock movement as a good consolidation.

@@ -534,7 +534,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					cndl_slice['candles'].append( pricehistory['candles'][-i] )
 
 				try:
-					atr_t, natr_t = tda_algo_helper.get_atr( pricehistory=cndl_slice, period=bbands_kchan_squeeze_count+10 )
+					atr_t, natr_t = tda_algo_helper.get_atr( pricehistory=cndl_slice, period=bbands_kchan_squeeze_count )
 
 				except Exception as e:
 					print('Caught exception: bbands_kchannels(): get_atr(): error calculating NATR: ' + str(e))

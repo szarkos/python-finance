@@ -91,6 +91,7 @@ parser.add_argument("--use_bbands_kchannel_xover_exit", help='Use price action a
 parser.add_argument("--bbands_kchannel_xover_exit_count", help='Number of periods to wait after a crossover to trigger --use_bbands_kchannel_xover_exit (Default: 10)', default=10, type=int)
 parser.add_argument("--bbands_kchannel_offset", help='Percentage offset between the Bollinger bands and Keltner channel indicators to trigger an initial trade entry (Default: 0.15)', default=0.15, type=float)
 parser.add_argument("--bbands_kchan_squeeze_count", help='Number of squeeze periods needed before triggering bbands_kchannel signal (Default: 4)', default=4, type=int)
+parser.add_argument("--max_squeeze_natr", help='Maximum NATR allowed during consolidation (squeeze) phase (Default: None)', default=None, type=float)
 parser.add_argument("--bbands_period", help='Period to use when calculating the Bollinger Bands (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_period", help='Period to use when calculating the Keltner channels (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_atr_period", help='Period to use when calculating the ATR for use with the Keltner channels (Default: 20)', default=20, type=int)
@@ -620,6 +621,7 @@ for algo in args.algo.split(','):
 					'bbands_kchannel_xover_exit_count':	args.bbands_kchannel_xover_exit_count,
 					'bbands_kchannel_offset':		args.bbands_kchannel_offset,
 					'bbands_kchan_squeeze_count':		args.bbands_kchan_squeeze_count,
+					'max_squeeze_natr':			args.max_squeeze_natr,
 					'bbands_period':			args.bbands_period,
 					'kchannel_period':			args.kchannel_period,
 					'kchannel_atr_period':			args.kchannel_atr_period,

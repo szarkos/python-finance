@@ -1406,7 +1406,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# The NATR of the bbands_natr['bbands'] will help tell us how much volatility there
 			#  has been between the upper and lower Bolinger Bands during the squeeze.
-			if ( (max_bbands_natr != None or min_bbands_natr != None) and bbands_kchan_signal == True ):
+			if ( bbands_kchan_signal == True ):
 				cndl_slice = { 'candles': [] }
 				for i in range(len(bbands_natr['bbands']), 0, -1):
 					cndl_slice['candles'].append( {'open': bbands_natr['bbands'][-i], 'high': bbands_natr['bbands'][-i], 'low': bbands_natr['bbands'][-i], 'close': bbands_natr['bbands'][-i] } )

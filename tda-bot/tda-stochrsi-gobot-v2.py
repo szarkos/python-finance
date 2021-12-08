@@ -1239,7 +1239,9 @@ for ticker in list(stocks.keys()):
 			if ( (isinstance(stocks[ticker]['pricehistory_daily'], bool) and stocks[ticker]['pricehistory_daily'] == False) or
 					stocks[ticker]['pricehistory_daily'] == {} or
 					('empty' in stocks[ticker]['pricehistory_daily'] and str(stocks[ticker]['pricehistory_daily']['empty']).lower() == 'true') ):
+
 				time.sleep(5)
+				stocks[ticker]['pricehistory_daily'] = {}
 				if ( tda_gobot_helper.tdalogin(passcode) != True ):
 					print('Error: (' + str(ticker) + '): Login failure')
 				continue

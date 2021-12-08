@@ -1075,6 +1075,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	bbands_kchan_crossover_signal	= False
 	bbands_kchan_signal		= False
 	stacked_ma_signal		= False
+	bbands_natr			= { 'bbands': [], 'natr': 0 }
 
 	plus_di_crossover		= False
 	minus_di_crossover		= False
@@ -1290,7 +1291,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal bbands_kchan_signal_counter
 		nonlocal bbands_kchan_xover_counter
 		nonlocal bbands_kchan_crossover_only
+
 		nonlocal max_squeeze_natr
+		nonlocal idx
+
+		nonlocal bbands_natr
 
 		# bbands/kchannel (0,0,0) = lower, middle, upper
 		cur_bbands_lower	= round( cur_bbands[0], 3 )
@@ -1344,6 +1349,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		# Check if the Bollinger Bands have moved inside the Keltner Channel
 		# Signal when they begin to converge
 		if ( cur_kchannel_lower < cur_bbands_lower or cur_kchannel_upper > cur_bbands_upper ):
+
+			if ( bbands_kchan_signal_counter == 0 ):
+				bbands_natr['natr']	= 0
+				bbands_natr['bbands']	= [cur_bbands_upper - cur_bbands_lower]
+			else:
+				bbands_natr['bbands'].append(cur_bbands_upper - cur_bbands_lower)
+
 			# Squeeze counter
 			bbands_kchan_signal_counter += 1
 
@@ -1372,11 +1384,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			if ( bbands_kchan_crossover_only == False and cur_offset < prev_offset and cur_offset <= bbands_kchannel_offset / 2 ):
 				bbands_kchan_signal = True
 
+
+				cndl_slice = { 'candles': [] }
+				for i in range(len(bbands_natr['bbands']), 0, -1):
+					cndl_slice['candles'].append( {'open': bbands_natr['bbands'][-i], 'high': bbands_natr['bbands'][-i], 'low': bbands_natr['bbands'][-i], 'close': bbands_natr['bbands'][-i] } )
+				atr, natr = tda_algo_helper.get_atr( cndl_slice, period=len(bbands_natr['bbands']) )
+				bbands_natr['natr'] = natr[-1]
+
 			# Check for crossover
 			if ( (prev_kchannel_lower <= prev_bbands_lower and cur_kchannel_lower > cur_bbands_lower) or
 					(prev_kchannel_upper >= prev_bbands_upper and cur_kchannel_upper < cur_bbands_upper) ):
 				bbands_kchan_crossover_signal	= True
-				bbands_kchan_signal		= True
+#				bbands_kchan_signal		= True
 
 			if ( bbands_kchan_crossover_signal == True ):
 				bbands_kchan_xover_counter += 1
@@ -1386,14 +1405,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					bbands_kchannel_offset_debug['squeeze'].append( max(bbands_kchannel_offset_debug['cur_squeeze']) )
 					bbands_kchannel_offset_debug['cur_squeeze'] = []
 
-
 			# If max_squeeze_natr is set, make sure the recent NATR is not too high to disqualify
 			#  this stock movement as a good consolidation.
 			if ( max_squeeze_natr != None and bbands_kchan_signal == True and pricehistory != None ):
 
 				cndl_slice = { 'candles': [] }
 				for i in range(bbands_kchan_squeeze_count+10, 0, -1):
-					cndl_slice['candles'].append( pricehistory['candles'][-i] )
+					cndl_slice['candles'].append( pricehistory['candles'][idx-i] )
 
 				try:
 					atr_t, natr_t = tda_algo_helper.get_atr( pricehistory=cndl_slice, period=bbands_kchan_squeeze_count )
@@ -2266,7 +2284,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				results.append( str(purchase_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
 						str(round(cur_natr,3)) + ',' + str(round(cur_natr_daily,2)) + ',' +
-						str(round(cur_adx,2)) + ',' + str(purchase_time) )
+						str(round(cur_adx,2)) + ',' + str(round(bbands_natr['natr'], 3)) + ',' + str(purchase_time) )
 
 				reset_signals()
 				signal_mode = 'sell'
@@ -3208,7 +3226,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				results.append( str(short_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
 						str(round(cur_natr, 3)) + ',' + str(round(cur_natr_daily, 3)) + ',' +
-						str(round(cur_adx, 2)) + ',' + str(short_time) )
+						str(round(cur_adx, 2)) + ',' + str(round(bbands_natr['natr'], 3)) + ',' + str(short_time) )
 
 				reset_signals()
 

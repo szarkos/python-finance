@@ -1083,6 +1083,7 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 
 	# Get order information to determine if it was filled
 	try:
+		tdalogin(passcode)
 		data,err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
 		if ( debug == True ):
 			print(data)
@@ -1092,8 +1093,7 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 		return data
 
 	if ( err != None ):
-		print('Error: buy_stock_marketprice(' + str(ticker) + '): ' + str(err), file=sys.stderr)
-		return False
+		print('Error: buy_stock_marketprice(' + str(ticker) + '): tda.get_order(): ' + str(err), file=sys.stderr)
 
 	print('buy_stock_marketprice(' + str(ticker) + '): Order successfully placed (Order ID:' + str(order_id) + ')')
 
@@ -1200,7 +1200,8 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 
 	# Get order information to determine if it was filled
 	try:
-		data,err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
+		tdalogin(passcode)
+		data, err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
 		if ( debug == True ):
 			print(data)
 
@@ -1209,8 +1210,7 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 		return data
 
 	if ( err != None ):
-		print('Error: sell_stock_marketprice(' + str(ticker) + '): ' + str(err), file=sys.stderr)
-		return False
+		print('Error: sell_stock_marketprice(' + str(ticker) + '): tda.get_order(): ' + str(err), file=sys.stderr)
 
 	print('sell_stock_marketprice(' + str(ticker) + '): Order successfully placed (Order ID:' + str(order_id) + ')')
 
@@ -1314,7 +1314,8 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 
 	# Get order information to determine if it was filled
 	try:
-		data,err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
+		tdalogin(passcode)
+		data, err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
 		if ( debug == True ):
 			print(data)
 
@@ -1324,7 +1325,6 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 
 	if ( err != None ):
 		print('Error: short_stock_marketprice(' + str(ticker) + '): tda.get_order(): ' + str(err), file=sys.stderr)
-		return False
 
 	# Check if we were unable to short this stock
 	if ( data['status'] == 'AWAITING_MANUAL_REVIEW' or data['status'] == 'REJECTED' ):
@@ -1434,7 +1434,8 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 
 	# Get order information to determine if it was filled
 	try:
-		data,err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
+		tdalogin(passcode)
+		data, err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
 		if ( debug == True ):
 			print(data)
 
@@ -1444,7 +1445,6 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 
 	if ( err != None ):
 		print('Error: buytocover_stock_marketprice(' + str(ticker) + '): tda.get_order(): ' + str(err), file=sys.stderr)
-		return False
 
 	print('buytocover_stock_marketprice(' + str(ticker) + '): Order successfully placed (Order ID:' + str(order_id) + ')')
 

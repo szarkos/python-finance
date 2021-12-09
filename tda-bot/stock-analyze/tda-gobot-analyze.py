@@ -714,7 +714,7 @@ for algo in args.algo.split(','):
 		elif ( (algo == 'stochrsi' or algo == 'stochrsi-new') and args.verbose ):
 			print()
 			print('### Trade Ledger ###')
-			print('{0:18} {1:15} {2:15} {3:10} {4:12} {5:8} {6:15} {7:10}'.format('Buy/Sell Price', 'Net Change', 'RSI_K/RSI_D', 'NATR', 'Daily_NATR', 'ADX', 'BBands_NATR',  'Time'))
+			print('{0:18} {1:15} {2:15} {3:10} {4:12} {5:15} {6:20} {7:10} {8:10}'.format('Buy/Sell Price', 'Net Change', 'RSI_K/RSI_D', 'NATR', 'Daily_NATR', 'BBands_NATR', 'BBands_Squeeze_NATR', 'ADX', 'Time'))
 
 		rating = 0
 		success = fail = 0
@@ -724,7 +724,7 @@ for algo in args.algo.split(','):
 		counter = 0
 		while ( counter < len(results) - 1 ):
 
-			price_tx, short, rsi_tx, natr_tx, dnatr_tx, adx_tx, bbands_natr, time_tx = results[counter].split( ',', 8 )
+			price_tx, short, rsi_tx, natr_tx, dnatr_tx, bbands_natr, bbands_squeeze_natr, adx_tx, time_tx = results[counter].split( ',', 9 )
 			price_rx, short, rsi_rx, natr_rx, dnatr_rx, adx_rx, time_rx = results[counter+1].split( ',', 7 )
 
 			vwap_tx = vwap_rx = 0
@@ -798,13 +798,13 @@ for algo in args.algo.split(','):
 				rsi_rx = str(rsi_prev_rx) + '/' + str(rsi_cur_rx)
 
 				print(text_color, end='')
-				print('{0:18} {1:15} {2:15} {3:10} {4:12} {5:8} {6:15} {7:10}'.format(str(price_tx), '-', str(rsi_tx), str(natr_tx), str(dnatr_tx), str(adx_tx), str(bbands_natr), time_tx), end='')
+				print('{0:18} {1:15} {2:15} {3:10} {4:12} {5:15} {6:20} {7:10} {8:10}'.format(str(price_tx), '-', str(rsi_tx), str(natr_tx), str(dnatr_tx), str(bbands_natr), str(bbands_squeeze_natr), str(adx_tx), time_tx), end='')
 				print(reset_color, end='')
 
 				print()
 
 				print(text_color, end='')
-				print('{0:18} {1:15} {2:15} {3:10} {4:12} {5:8} {6:15} {7:10}'.format(str(price_rx), str(net_change), str(rsi_rx), '-', '-', str(adx_tx), '-', time_rx), end='')
+				print('{0:18} {1:15} {2:15} {3:10} {4:12} {5:15} {6:20} {7:10} {8:10}'.format(str(price_rx), str(net_change), str(rsi_rx), '-', '-', '-', '-', str(adx_tx), time_rx), end='')
 				print(reset_color, end='')
 
 				print()

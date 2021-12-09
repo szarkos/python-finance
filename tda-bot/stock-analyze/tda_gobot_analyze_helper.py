@@ -1077,7 +1077,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	bbands_kchan_crossover_signal	= False
 	bbands_kchan_signal		= False
 	stacked_ma_signal		= False
-	bbands_natr			= { 'bbands': [], 'natr': 0 }
+	bbands_natr			= { 'bbands': [], 'natr': 0, 'squeeze_natr': 0 }
 
 	plus_di_crossover		= False
 	minus_di_crossover		= False
@@ -1294,9 +1294,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal bbands_kchan_xover_counter
 		nonlocal bbands_kchan_crossover_only
 
-		nonlocal max_squeeze_natr
 		nonlocal idx
-
+		nonlocal max_squeeze_natr
 		nonlocal bbands_natr
 		nonlocal max_bbands_natr
 		nonlocal min_bbands_natr
@@ -1356,8 +1355,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# bbands_natr['bbands'] contains the difference between the upper and lower bands
 			if ( bbands_kchan_signal_counter == 0 ):
-				bbands_natr['natr']	= 0
-				bbands_natr['bbands']	= [cur_bbands_upper - cur_bbands_lower]
+				bbands_natr['natr']		= 0
+				bbands_natr['squeeze_natr']	= 0
+				bbands_natr['bbands']		= [cur_bbands_upper - cur_bbands_lower]
 			else:
 				bbands_natr['bbands'].append(cur_bbands_upper - cur_bbands_lower)
 
@@ -1405,18 +1405,21 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 
 			# The NATR of the bbands_natr['bbands'] will help tell us how much volatility there
-			#  has been between the upper and lower Bolinger Bands during the squeeze.
+			#  has been between the upper and lower Bollinger Bands during the squeeze.
 			if ( bbands_kchan_signal == True ):
 				cndl_slice = { 'candles': [] }
 				for i in range(len(bbands_natr['bbands']), 0, -1):
 					cndl_slice['candles'].append( {'open': bbands_natr['bbands'][-i], 'high': bbands_natr['bbands'][-i], 'low': bbands_natr['bbands'][-i], 'close': bbands_natr['bbands'][-i] } )
 
 				try:
-					atr, natr = tda_algo_helper.get_atr( cndl_slice, period=len(bbands_natr['bbands']) )
-				except:
-					pass
+					atr_t, natr_t = tda_algo_helper.get_atr( cndl_slice, period=len(bbands_natr['bbands']) )
+
+				except Exception as e:
+					print('Caught exception: bbands_kchannels(): get_atr(): error calculating NATR: ' + str(e))
+					bbands_kchan_signal = False
+
 				else:
-					bbands_natr['natr'] = natr[-1]
+					bbands_natr['natr'] = natr_t[-1]
 
 				if ( max_bbands_natr != None and bbands_natr['natr'] > max_bbands_natr ):
 					bbands_kchan_signal = False
@@ -1425,20 +1428,23 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# If max_squeeze_natr is set, make sure the recent NATR is not too high to disqualify
 			#  this stock movement as a good consolidation.
-			if ( max_squeeze_natr != None and bbands_kchan_signal == True and pricehistory != None ):
+			if ( bbands_kchan_signal == True and pricehistory != None ):
 
 				cndl_slice = { 'candles': [] }
-				for i in range(bbands_kchan_squeeze_count+10, 0, -1):
+				for i in range(bbands_kchan_signal_counter+2, 0, -1):
 					cndl_slice['candles'].append( pricehistory['candles'][idx-i] )
 
 				try:
-					atr_t, natr_t = tda_algo_helper.get_atr( pricehistory=cndl_slice, period=bbands_kchan_squeeze_count )
+					atr_t, natr_t = tda_algo_helper.get_atr( pricehistory=cndl_slice, period=bbands_kchan_signal_counter )
 
 				except Exception as e:
 					print('Caught exception: bbands_kchannels(): get_atr(): error calculating NATR: ' + str(e))
 					bbands_kchan_signal = False
 
-				if ( natr_t[-1] >= max_squeeze_natr ):
+				else:
+					bbands_natr['squeeze_natr'] = natr_t[-1]
+
+				if ( max_squeeze_natr != None and natr_t[-1] > max_squeeze_natr ):
 					bbands_kchan_signal = False
 
 			# Cancel the bbands_kchan_signal if the bollinger bands popped back inside the keltner channel,
@@ -2302,7 +2308,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				results.append( str(purchase_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
 						str(round(cur_natr,3)) + ',' + str(round(cur_natr_daily,2)) + ',' +
-						str(round(cur_adx,2)) + ',' + str(round(bbands_natr['natr'], 3)) + ',' + str(purchase_time) )
+						str(round(bbands_natr['natr'], 3)) + ',' + str(round(bbands_natr['squeeze_natr'], 3)) + ',' +
+						str(round(cur_adx,2)) + ',' + str(purchase_time) )
 
 				reset_signals()
 				signal_mode = 'sell'
@@ -3244,7 +3251,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				results.append( str(short_price) + ',' + str(short) + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
 						str(round(cur_natr, 3)) + ',' + str(round(cur_natr_daily, 3)) + ',' +
-						str(round(cur_adx, 2)) + ',' + str(round(bbands_natr['natr'], 3)) + ',' + str(short_time) )
+						str(round(bbands_natr['natr'], 3)) + ',' + str(round(bbands_natr['squeeze_natr'], 3)) + ',' +
+						str(round(cur_adx, 2)) + ',' + str(short_time) )
 
 				reset_signals()
 

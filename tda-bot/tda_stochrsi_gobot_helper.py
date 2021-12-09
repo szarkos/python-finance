@@ -530,11 +530,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			if ( max_squeeze_natr != None and bbands_kchan_signal == True and pricehistory != None ):
 
 				cndl_slice = { 'candles': [] }
-				for i in range(bbands_kchan_squeeze_count+10, 0, -1):
+				for i in range(bbands_kchan_signal_counter+2, 0, -1):
 					cndl_slice['candles'].append( pricehistory['candles'][-i] )
 
 				try:
-					atr_t, natr_t = tda_algo_helper.get_atr( pricehistory=cndl_slice, period=bbands_kchan_squeeze_count )
+					atr_t, natr_t = tda_algo_helper.get_atr( pricehistory=cndl_slice, period=bbands_kchan_signal_counter )
 
 				except Exception as e:
 					print('Caught exception: bbands_kchannels(): get_atr(): error calculating NATR: ' + str(e))

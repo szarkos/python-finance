@@ -30,7 +30,7 @@ source ./stock-analyze/tickers.conf
 tickers=$CUR_SET
 
 nohup ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=20000 --stocks=${tickers} --short --singleday \
-	--decr_threshold=1.5 --incr_threshold=0.5 --max_failed_txs=2 --exit_percent=0.5 \
+	--decr_threshold=1.6 --incr_threshold=0.5 --max_failed_txs=2 --exit_percent=0.5 \
 	\
 	--algos=algo_id:stackedma_kama_wma,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,min_intra_natr:0.65,min_daily_natr:6 \
 	\

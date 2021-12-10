@@ -1315,44 +1315,6 @@ def get_kchannels(pricehistory=None, type='hlc3', period=20, atr_period=None, at
 	if ( atr_period == None ):
 		atr_period = period
 
-	prices = []
-	if ( type == 'close' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['close']))
-
-	elif ( type == 'high' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['high']))
-
-	elif ( type == 'low' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['low']))
-
-	elif ( type == 'open' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['open']))
-
-	elif ( type == 'volume' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['volume']))
-
-	elif ( type == 'hl2' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['high']) + float(key['low'])) / 2 )
-
-	elif ( type == 'hlc3' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
-
-	elif ( type == 'ohlc4' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
-
-	else:
-		# Undefined type
-		print('Error: get_kchannel(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
-		return False, [], []
-
 	# Keltner Channel Middle Line	= EMA
 	# Keltner Channel Upper Band	= EMA+2∗ATR
 	# Keltner Channel Lower Band	= EMA−2∗ATR
@@ -1360,7 +1322,7 @@ def get_kchannels(pricehistory=None, type='hlc3', period=20, atr_period=None, at
 	atr	= []
 	natr	= []
 	try:
-		ema = get_ema( pricehistory, period=period )
+		ema = get_ema( pricehistory, type=type, period=period )
 
 	except Exception as e:
 		print('Error: get_kchannel(' + str(ticker) + '): unable to calculate EMA: ' + str(e))
@@ -1795,4 +1757,79 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, deb
 
 
 	return long_support, long_resistance
+
+
+# Calculate the rate of change
+def get_roc(pricehistory=None, type='hlc3', period=50, debug=False):
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	if ( pricehistory == None ):
+		print('Error: get_roc(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False
+
+	prices = []
+	if ( type == 'close' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['close']))
+
+	elif ( type == 'high' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['high']))
+
+	elif ( type == 'low' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['low']))
+
+	elif ( type == 'open' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['open']))
+
+	elif ( type == 'volume' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['volume']))
+
+	elif ( type == 'hl2' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+
+	elif ( type == 'hlc3' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+
+	elif ( type == 'ohlc4' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+
+	else:
+		# Undefined type
+		print('Error: get_roc(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
+		return False
+
+	if ( len(prices) < period ):
+		# Something is wrong with the data we got back from tda.get_price_history()
+		print('Warning: get_roc(' + str(ticker) + '): len(pricehistory) is less than period - is this a new stock ticker?', file=sys.stderr)
+
+	roc = []
+	try:
+		prices = np.array( prices )
+		roc = ti.roc( prices, period=period )
+
+	except Exception as e:
+		print('Error: get_roc(' + str(ticker) + '): unable to calculate rate of change: ' + str(e))
+		return False
+
+	# Normalize the size of roc[] to match the input size
+	tmp = []
+	for i in range(0, period):
+		tmp.append(0)
+	roc = tmp + list(roc)
+
+
+	return roc
+
 

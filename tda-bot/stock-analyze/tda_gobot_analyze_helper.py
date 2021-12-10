@@ -262,8 +262,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	check_etf_indicators_strict	= False		if ('check_etf_indicators_strict' not in params) else params['check_etf_indicators_strict']
 	check_etf_indicators		= False		if ('check_etf_indicators' not in params) else params['check_etf_indicators']
 	check_etf_indicators		= True		if (check_etf_indicators_strict == True ) else check_etf_indicators ; params['check_etf_indicators'] = check_etf_indicators
-	etf_tickers			= ['SPY','QQQ','DIA']	if ('etf_tickers' not in params) else params['etf_tickers']
+	etf_tickers			= ['SPY']	if ('etf_tickers' not in params) else params['etf_tickers']
 	etf_indicators			= {}		if ('etf_indicators' not in params) else params['etf_indicators']
+	etf_roc_period			= 50		if ('etf_roc_period' not in params) else params['etf_roc_period']
 
 	experimental			= False		if ('experimental' not in params) else params['experimental']
 	# End params{} configuration
@@ -785,7 +786,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				# Only warn if the missing PDC data falls within the bounds of the test data
 				if ( today_dt > first_day ):
-					print('Warning: PDC for ' + str(yesterday) + 'not found!')
+					print('Warning: PDC for ' + str(yesterday) + ' not found!')
 
 			# Calculate the Pivot Points
 			#
@@ -943,57 +944,28 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				daily_ma[day] = ma[idx-1]
 	# End MA
 
-	# Populate SMA/EMA for etf indicators
+	# Populate rate-of-change for etf indicators
+	etf_roc		= []
+	stock_roc	= []
 	if ( check_etf_indicators == True ):
 		if ( len(etf_indicators) == 0 ):
 			print('Error: etf_indicators{} is empty, exiting.')
 			sys.exit(1)
 
-		all_datetime = []
 		for t in etf_tickers:
-			etf_indicators[t]['sma'] = {}
-			etf_indicators[t]['ema'] = {}
-
-			sma_period = ema_period = 5
-			etf_sma = []
-			etf_ema = []
+			stock_roc		= []
+			etf_roc			= []
 			try:
-				etf_sma = tda_algo_helper.get_sma( etf_indicators[t]['pricehistory'], period=sma_period, type='hlc3' )
-				etf_ema = tda_algo_helper.get_ema( etf_indicators[t]['pricehistory'], period=ema_period )
+				etf_roc		= tda_algo_helper.get_roc( etf_indicators[t]['pricehistory'], period=etf_roc_period, type='hlc3' )
+				stock_roc	= tda_algo_helper.get_roc( pricehistory, period=etf_roc_period, type='hlc3' )
 
 			except Exception as e:
-				print('Error, unable to calculate SMA/EMA for ticker ' + str(t) + ': ' + str(e))
+				print('Error, unable to calculate rate-of-change for ticker ' + str(t) + ': ' + str(e))
 				sys.exit(1)
 
-			# Note:
-			#  len(sma) = len(pricehistory) - sma_period-1
-			#  len(ema) = len(pricehistory)
-			for i in range( 0, len(etf_sma) ):
-				# Format:
-				#  etf_indicators[t]['sma'] = { cur_datetime: cur_sma, ... }
-				cur_datetime = int( etf_indicators[t]['pricehistory']['candles'][i+sma_period-1]['datetime'] )
-				etf_indicators[t]['sma'][cur_datetime] = etf_sma[i]
-				etf_indicators[t]['ema'][cur_datetime] = etf_ema[i+ema_period-1]
-
-			all_datetime = all_datetime + list( etf_indicators[t]['sma'].keys() )
-
-		all_datetime = list(dict.fromkeys(all_datetime))
-		etf_indicators['sma_avg'] = {}
-		etf_indicators['ema_avg'] = {}
-		for i in all_datetime:
-			found = 0
-			etf_indicators['sma_avg'][i] = 0
-			etf_indicators['ema_avg'][i] = 0
-			for t in etf_tickers:
-				if ( i not in etf_indicators[t]['sma'] ):
-					continue
-
-				found += 1
-				etf_indicators['sma_avg'][i] += etf_indicators[t]['sma'][i]
-				etf_indicators['ema_avg'][i] += etf_indicators[t]['ema'][i]
-
-			etf_indicators['sma_avg'][i] = etf_indicators['sma_avg'][i] / found
-			etf_indicators['ema_avg'][i] = etf_indicators['ema_avg'][i] / found
+			for i in range( len(etf_indicators[t]['pricehistory']['candles']) ):
+				dt = etf_indicators[t]['pricehistory']['candles'][i]['datetime']
+				etf_indicators[t]['roc'].update( { dt: etf_roc[i] } )
 
 
 	# Run through the RSI values and log the results
@@ -1659,30 +1631,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		if ( max_daily_natr != None and cur_natr_daily > max_daily_natr ):
 			continue
 
-		# Check the moving average of the main ETF tickers
-		if ( check_etf_indicators == True ):
-			etf_affinity = None
-
-			# Floor the current datetime to the lower 5-min
-			# This produces and even 5-minute timestamp, with seconds/microseconds=0,
-			#  which happens to be what I get from the API.
-			cur_dt = date - timedelta(minutes=date.minute % 5, seconds=date.second, microseconds=date.microsecond)
-			cur_dt = int( cur_dt.timestamp() * 1000 )
-
-			cur_etf_sma = etf_indicators['sma_avg'][cur_dt]
-			cur_etf_ema = etf_indicators['ema_avg'][cur_dt]
-
-			if ( cur_etf_ema > cur_etf_sma ):
-				etf_affinity	= 'bull'
-				rsi_low_limit	= 15
-				rsi_high_limit	= 95
-
-			elif ( cur_etf_ema < cur_etf_sma ):
-				etf_affinity	= 'bear'
-				rsi_low_limit	= 5
-				rsi_high_limit	= 85
-
-
 		# BUY mode
 		if ( signal_mode == 'buy' ):
 			short = False
@@ -2254,10 +2202,40 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					final_buy_signal = False
 
 				# Experimental indicators here
-				if ( check_etf_indicators_strict == True and etf_affinity == 'bear' ):
-					final_buy_signal = False
 				if ( experimental == True and experimental_signal != True ):
 					final_buy_signal = False
+
+				# Relative Strength vs. an ETF indicator (i.e. SPY)
+				if ( check_etf_indicators == True and final_buy_signal == True ):
+					tmp_dt = pricehistory['candles'][idx]['datetime']
+					for t in etf_tickers:
+						cur_rs = -1
+						if ( tmp_dt in etf_indicators[t]['roc'] ):
+							if ( stock_roc[idx] > 0 and etf_indicators[t]['roc'][tmp_dt] < 0 ):
+								# Stock is rising compared to ETF
+								cur_rs = abs( stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt] )
+
+							elif ( stock_roc[idx] < 0 and etf_indicators[t]['roc'][tmp_dt] < 0 ):
+								# Both stocks are sinking
+								cur_rs = -( stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt] )
+								final_buy_signal = False
+
+							elif ( stock_roc[idx] < 0 and etf_indicators[t]['roc'][tmp_dt] > 0 ):
+								# Stock is sinking relative to ETF
+								cur_rs = stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
+								final_buy_signal = False
+
+							else:
+								# Both stocks are rising
+								cur_rs = stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
+								if ( check_etf_indicators_strict == True ):
+									final_buy_signal = False
+								else:
+									if ( cur_rs < 10 ):
+										final_buy_signal = False
+
+						else:
+							print('Warning: etf_indicators does not include timestamp (' + str(tmp_dt) + ')')
 
 			# DEBUG
 			if ( debug_all == True ):
@@ -2309,7 +2287,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
 						str(round(cur_natr,3)) + ',' + str(round(cur_natr_daily,2)) + ',' +
 						str(round(bbands_natr['natr'], 3)) + ',' + str(round(bbands_natr['squeeze_natr'], 3)) + ',' +
-						str(round(cur_adx,2)) + ',' + str(purchase_time) )
+						str(round(cur_rs, 3)) + ',' + str(round(cur_adx,2)) + ',' + str(purchase_time) )
 
 				reset_signals()
 				signal_mode = 'sell'
@@ -3191,10 +3169,40 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					final_short_signal = False
 
 				# Experimental
-				if ( check_etf_indicators_strict == True and etf_affinity == 'bull' ):
-					final_short_signal = False
 				if ( experimental == True and experimental_signal != True ):
 					final_short_signal = False
+
+				# Relative Strength vs. an ETF indicator (i.e. SPY)
+				if ( check_etf_indicators == True and final_short_signal == True ):
+					tmp_dt = pricehistory['candles'][idx]['datetime']
+					for t in etf_tickers:
+						cur_rs = -1
+						if ( tmp_dt in etf_indicators[t]['roc'] ):
+							if ( stock_roc[idx] > 0 and etf_indicators[t]['roc'][tmp_dt] < 0 ):
+								# Stock is rising compared to ETF
+								cur_rs = abs( stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt] )
+								final_short_signal = False
+
+							elif ( stock_roc[idx] < 0 and etf_indicators[t]['roc'][tmp_dt] < 0 ):
+								# Both stocks are sinking
+								cur_rs = -( stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt] )
+								if ( check_etf_indicators_strict == True ):
+									final_short_signal = False
+								else:
+									if ( abs(cur_rs) < 10 ):
+										final_short_signal = False
+
+							elif ( stock_roc[idx] < 0 and etf_indicators[t]['roc'][tmp_dt] > 0 ):
+								# Stock is sinking relative to ETF
+								cur_rs = stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
+
+							else:
+								# Both stocks are rising
+								cur_rs = stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
+								final_short_signal = False
+
+						else:
+							print('Warning: etf_indicators does not include timestamp (' + str(tmp_dt) + ')')
 
 			# DEBUG
 			if ( debug_all == True ):
@@ -3252,7 +3260,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
 						str(round(cur_natr, 3)) + ',' + str(round(cur_natr_daily, 3)) + ',' +
 						str(round(bbands_natr['natr'], 3)) + ',' + str(round(bbands_natr['squeeze_natr'], 3)) + ',' +
-						str(round(cur_adx, 2)) + ',' + str(short_time) )
+						str(round(cur_rs, 3)) + ',' + str(round(cur_adx, 2)) + ',' + str(short_time) )
 
 				reset_signals()
 

@@ -265,6 +265,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	etf_tickers			= ['SPY']	if ('etf_tickers' not in params) else params['etf_tickers']
 	etf_indicators			= {}		if ('etf_indicators' not in params) else params['etf_indicators']
 	etf_roc_period			= 50		if ('etf_roc_period' not in params) else params['etf_roc_period']
+	etf_min_rs			= None		if ('etf_min_rs' not in params) else params['etf_min_rs']
 
 	experimental			= False		if ('experimental' not in params) else params['experimental']
 	# End params{} configuration
@@ -2234,6 +2235,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 									if ( cur_rs < 10 ):
 										final_buy_signal = False
 
+							if ( etf_min_rs != None and abs(cur_rs) < etf_min_rs ):
+								final_buy_signal = False
+
 						else:
 							print('Warning: etf_indicators does not include timestamp (' + str(tmp_dt) + ')')
 
@@ -3200,6 +3204,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 								# Both stocks are rising
 								cur_rs = stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
 								final_short_signal = False
+
+							if ( etf_min_rs != None and abs(cur_rs) < etf_min_rs ):
+								final_buy_signal = False
 
 						else:
 							print('Warning: etf_indicators does not include timestamp (' + str(tmp_dt) + ')')

@@ -45,11 +45,13 @@ parser.add_argument("--use_natr_resistance", help='Enable the daily NATR resista
 parser.add_argument("--use_pivot_resistance", help='Enable the use of pivot points and PDH/PDL resistance check', action="store_true")
 parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
 
-# Experimental
 parser.add_argument("--check_etf_indicators", help='Tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior of key ETFs (SPY, QQQ, DIA)', action="store_true")
 parser.add_argument("--check_etf_indicators_strict", help='Do not allow trade unless the 5-minute SMA/EMA behavior of key ETFs (SPY, QQQ, DIA) agree with direction', action="store_true")
 parser.add_argument("--etf_tickers", help='List of tickers to use with --check_etf_indicators (Default: SPY)', default='SPY', type=str)
 parser.add_argument("--etf_roc_period", help='Rate of change lookback period (Default: 50)', default=50, type=int)
+parser.add_argument("--etf_min_rs", help='Rate of change lookback period (Default: None)', default=None, type=float)
+
+# Experimental
 parser.add_argument("--experimental", help='Enable experimental features (Default: False)', action="store_true")
 # Experimental
 
@@ -702,6 +704,7 @@ for algo in args.algo.split(','):
 					'etf_tickers':				etf_tickers,
 					'etf_indicators':			etf_indicators,
 					'etf_roc_period':			args.etf_roc_period,
+					'etf_min_rs':				args.etf_min_rs,
 			}
 
 			# Call stochrsi_analyze_new() with test_params{} to run the backtest

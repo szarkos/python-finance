@@ -10,21 +10,21 @@ source ./tickers.conf
 rm -f ./monthly-1min-csv/*.csv      2>/dev/null
 rm -f ./monthly-1min-csv/*.json      2>/dev/null
 rm -f ./monthly-1min-csv/*.pickle   2>/dev/null
-./download-history-1min.sh "$BIGLIST,$HIGH_NATR"
+./download-history-1min.sh "$BIGLIST,$HIGH_NATR,$ETF"
 
 # Weekly
 rm -f ./weekly-csv/*.csv       2>/dev/null
 rm -f ./weekly-csv/*.json       2>/dev/null
 rm -f ./weekly-csv/*.pickle    2>/dev/null
 #./download-history-weekly.sh $BIGLIST
-./tda-download-history.py --stocks="$BIGLIST,$HIGH_NATR" --chart_freq=weekly --odir=./weekly-csv/
+./tda-download-history.py --stocks="$BIGLIST,$HIGH_NATR,$ETF" --chart_freq=weekly --odir=./weekly-csv/
 
 # Daily
 rm -f ./daily-csv/*.csv       2>/dev/null
 rm -f ./daily-csv/*.json       2>/dev/null
 rm -f ./daily-csv/*.pickle    2>/dev/null
 #./download-history-daily.sh $BIGLIST
-./tda-download-history.py --stocks="$BIGLIST,$HIGH_NATR" --chart_freq=daily --odir=./daily-csv/
+./tda-download-history.py --stocks="$BIGLIST,$HIGH_NATR,$ETF" --chart_freq=daily --odir=./daily-csv/
 
 # Create the .pickle files
 opts=""

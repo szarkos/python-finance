@@ -136,6 +136,12 @@ parser.add_argument("--bbands_period", help='Period to use when calculating the 
 parser.add_argument("--kchannel_period", help='Period to use when calculating the Keltner channels (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_atr_period", help='Period to use when calculating the ATR for use with the Keltner channels (Default: 20)', default=20, type=int)
 
+parser.add_argument("--check_etf_indicators", help='Tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior of key ETFs (i.e. SPY, QQQ, DIA)', action="store_true")
+parser.add_argument("--check_etf_indicators_strict", help='Do not allow trade unless the 5-minute SMA/EMA behavior of key ETFs (i.e. SPY, QQQ, DIA) agree with direction', action="store_true")
+parser.add_argument("--etf_tickers", help='List of tickers to use with --check_etf_indicators (Default: SPY)', default='SPY', type=str)
+parser.add_argument("--etf_roc_period", help='Rate of change lookback period (Default: 50)', default=50, type=int)
+parser.add_argument("--etf_min_rs", help='Rate of change lookback period (Default: None)', default=None, type=float)
+
 # Deprecated - use --algos=... instead
 #parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
 #parser.add_argument("--with_adx", help='Use the Average Directional Index (ADX) as a secondary indicator', action="store_true")
@@ -294,6 +300,12 @@ for algo in args.algos:
 	kchannel_period			= args.kchannel_period
 	kchannel_atr_period		= args.kchannel_atr_period
 
+	check_etf_indicators		= args.check_etf_indicators
+	check_etf_indicators_strict	= args.check_etf_indicators_strict
+	etf_tickers			= args.etf_tickers
+	etf_roc_period			= args.etf_roc_period
+	etf_min_rs			= args.etf_min_rs
+
 	# MFI
 	mfi_high_limit			= args.mfi_high_limit
 	mfi_low_limit			= args.mfi_low_limit
@@ -404,9 +416,14 @@ for algo in args.algos:
 		if ( re.match('kchannel_period:', a)			!= None ):	kchannel_period			= int( a.split(':')[1] )
 		if ( re.match('kchannel_atr_period:', a)		!= None ):	kchannel_atr_period		= int( a.split(':')[1] )
 
+		if ( re.match('check_etf_indicators', a)		!= None ):	check_etf_indicators		= True
+		if ( re.match('check_etf_indicators_strict', a)		!= None ):	check_etf_indicators_strict	= True
+		if ( re.match('etf_tickers:', a)			!= None ):	etf_tickers			= str( a.split(':')[1] )
+		if ( re.match('etf_roc_period:', a)			!= None ):	etf_roc_period			= int( a.split(':')[1] )
+		if ( re.match('etf_min_rs:', a)				!= None ):	etf_min_rs			= float( a.split(':')[1] )
+
 		if ( re.match('mfi_high_limit:', a)			!= None ):	mfi_high_limit			= float( a.split(':')[1] )
 		if ( re.match('mfi_low_limit:', a)			!= None ):	mfi_low_limit			= float( a.split(':')[1] )
-
 		if ( re.match('mfi_period:', a)				!= None ):	mfi_period			= int( a.split(':')[1] )
 		if ( re.match('stochmfi_period:', a)			!= None ):	stoch_mfi_period		= int( a.split(':')[1] )
 		if ( re.match('stochmfi_5m_period:', a)			!= None ):	stoch_mfi_5m_period		= int( a.split(':')[1] )
@@ -519,6 +536,12 @@ for algo in args.algos:
 			'kchannel_period':			kchannel_period,
 			'kchannel_atr_period':			kchannel_atr_period,
 
+			'check_etf_indicators':			check_etf_indicators,
+			'check_etf_indicators_strict':		check_etf_indicators_strict,
+			'etf_tickers':				etf_tickers,
+			'etf_roc_period':			etf_roc_period,
+			'etf_min_rs':				etf_min_rs,
+
 			'stacked_ma_type_primary':		stacked_ma_type_primary,
 			'stacked_ma_periods_primary':		stacked_ma_periods_primary,
 			'stacked_ma_type':			stacked_ma_type,
@@ -586,6 +609,7 @@ del(chop_period,chop_low_limit,chop_high_limit,supertrend_atr_period,supertrend_
 del(stacked_ma_type_primary,stacked_ma_periods_primary,stacked_ma_type,stacked_ma_periods,use_natr_resistance,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr)
 del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count)
 del(use_ha_exit,use_ha_candles,use_trend_exit,use_trend,trend_period,trend_type,use_combined_exit)
+del(check_etf_indicators,check_etf_indicators_strict,etf_tickers,etf_roc_period,etf_min_rs)
 
 # Set valid tickers for each algo, if configured
 if ( args.algo_valid_tickers != None ):
@@ -631,6 +655,11 @@ if ( args.algo_exclude_tickers != None ):
 			sys.exit(1)
 
 
+# Add etf_tickers if check_etf_indicators is True
+# etf_tickers should go in the front of args.stocks to ensure these stocks are not truncated
+if ( args.check_etf_indicators == True ):
+	args.stocks = str(args.etf_tickers) + ',' + str(args.stocks)
+
 # Initialize stocks{}
 stock_list = args.stocks.split(',')
 stock_list = list( dict.fromkeys(stock_list) )
@@ -654,6 +683,7 @@ for ticker in stock_list.split(','):
 
 	stocks.update( { ticker: { 'shortable':			True,
 				   'isvalid':			True,
+				   'tradeable':			True,
 				   'tx_id':			random.randint(1000, 9999),
 				   'stock_qty':			int(0),
 				   'num_purchases':		args.num_purchases,
@@ -791,6 +821,9 @@ for ticker in stock_list.split(','):
 				   'cur_sma':			None,
 				   'cur_ema':			None,
 
+				   # Rate of Change (ROC)
+				   'cur_roc':			float(0),
+
 				   # Per-algo indicator signals
 				   'algo_signals':		{},
 
@@ -854,6 +887,9 @@ for ticker in stock_list.split(','):
 						'bbands_kchan_signal_counter':		0,
 						'bbands_kchan_xover_counter':		0,
 
+						# Relative Strength
+						'rs_signal':				False,
+
 						'plus_di_crossover':			False,
 						'minus_di_crossover':			False,
 						'macd_crossover':			False,
@@ -864,6 +900,18 @@ for ticker in stock_list.split(','):
 if ( len(stocks) == 0 ):
 	print('Error: no valid stock tickers provided, exiting.')
 	sys.exit(1)
+
+
+# If check_etf_indicators is enabled then make sure the ETF stocks are listed in the global stocks{} dict
+#  and are configured as not tradeable.
+if ( args.check_etf_indicators == True ):
+	for ticker in args.etf_tickers.split(','):
+		if ( ticker not in stocks ):
+			print('Error: check_etf_indicators is enabled, however ticker "' + str(ticker) + '" does not appear to be configured in global stocks{} dictionary, exiting.')
+			sys.exit(1)
+
+		stocks[ticker]['tradeable'] = False
+
 
 # Get stock_data info about the stock that we can use later (i.e. shortable)
 try:

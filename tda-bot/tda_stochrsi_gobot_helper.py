@@ -204,6 +204,7 @@ def reset_signals(ticker=None, id=None, signal_mode=None, exclude_bbands_kchan=F
 			stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter']		= 0
 			stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter']		= 0
 
+		stocks[ticker]['algo_signals'][algo_id]['rs_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['plus_di_crossover']		= False
 		stocks[ticker]['algo_signals'][algo_id]['minus_di_crossover']		= False
 		stocks[ticker]['algo_signals'][algo_id]['macd_crossover']		= False
@@ -291,6 +292,28 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			export_pricehistory()
 			signal.raise_signal(signal.SIGTERM)
 			sys.exit(0)
+
+
+	# If check_etf_indicators is configured, then calculate the rate-of-change for each ETF ticker
+	#  before we reach the main loop for all the tradeable tickers.
+	if ( cur_algo['check_etf_indicators'] == True ):
+		etf_roc = []
+		for ticker in cur_algo['etf_tickers'].split(','):
+			stocks[ticker]['cur_roc'] = -1
+
+			try:
+				etf_roc = tda_algo_helper.get_roc( pricehistory=stocks[ticker]['pricehistory'], period=cur_algo['etf_roc_period'], type='hlc3' )
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(): get_roc(' + str(ticker) + '): ' + str(e), file=sys.stderr)
+				continue
+
+			if ( isinstance(etf_roc, bool) and etf_roc == False ):
+				print('Error: stochrsi_gobot(): get_roc(' + str(ticker) + ') returned false - no data', file=sys.stderr)
+				continue
+
+			stocks[ticker]['cur_roc'] = etf_roc[-1]
+
 
 	# StochRSI/StochMFI long algorithm
 	def get_stoch_signal_long(algo_name=None, ticker=None, cur_k=0, cur_d=0, prev_k=0, prev_d=0, stoch_offset=0, stoch_signal=False, crossover_signal=False, threshold_signal=False, final_signal=False):
@@ -696,8 +719,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		min_daily_natr	= cur_algo['min_daily_natr']
 		max_daily_natr	= cur_algo['max_daily_natr']
 
-		# Skip this ticker if it has been marked as invalid
-		if ( stocks[ticker]['isvalid'] == False ):
+		# Skip this ticker if it has been marked as invalid or not tradeable
+		if ( stocks[ticker]['isvalid'] == False or stocks[ticker]['tradeable'] == False ):
 			continue
 
 		# Skip this ticker if it is not listed in this algorithm's per-algo valid_tickers[],
@@ -876,6 +899,21 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 		stocks[ticker]['cur_atr']  = atr[-1]
 		stocks[ticker]['cur_natr'] = natr[-1]
+
+		# Rate-of-Change and Relative Strength
+		stock_roc	= []
+		try:
+			stock_roc = tda_algo_helper.get_roc( pricehistory=stocks[ticker]['pricehistory'], period=cur_algo['etf_roc_period'], type='hlc3' )
+
+		except Exception as e:
+			print('Error: stochrsi_gobot(): get_roc(' + str(ticker) + '): ' + str(e), file=sys.stderr)
+			continue
+
+		if ( isinstance(stock_roc, bool) and stock_roc == False ):
+			print('Error: stochrsi_gobot(): get_roc(' + str(ticker) + ') returned false - no data', file=sys.stderr)
+			continue
+
+		stocks[ticker]['cur_roc'] = stock_roc[-1]
 
 		# MFI
 		if ( cur_algo['mfi'] == True ):
@@ -1165,6 +1203,14 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							' / BBands_Kchannel Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal']) +
 							' / BBands_Kchannel Crossover Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal']) )
 
+			# Rate of Change
+			if ( cur_algo['check_etf_indicators'] == True ):
+				print( '(' + str(ticker) + ') Current Rate-of-Change: ' + str(round(stocks[ticker]['cur_roc'], 5)), end='' )
+				for t in cur_algo['etf_tickers'].split(','):
+					print( ', ' + str(t) + ': ' + str(round(stocks[t]['cur_roc'], 5)), end='' )
+
+				print( ' / RelStrength Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['rs_signal']) )
+
 			# VWAP
 			if ( cur_algo['vwap'] == True or cur_algo['support_resistance'] == True ):
 				print('(' + str(ticker) + ') PDH/PDL/PDC: ' + str(round(stocks[ticker]['previous_day_high'], 2)) +
@@ -1288,6 +1334,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		prev_vpt		= stocks[ticker]['prev_vpt']
 		cur_vpt_sma		= stocks[ticker]['cur_vpt_sma']
 		prev_vpt_sma		= stocks[ticker]['prev_vpt_sma']
+
+		cur_roc			= stocks[ticker]['cur_roc']
 
 		# Algo modifiers
 		stoch_high_limit	= cur_algo['rsi_high_limit']
@@ -1599,6 +1647,39 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 																cur_supertrend=cur_supertrend, prev_supertrend=prev_supertrend,
 																supertrend_signal=stocks[ticker]['algo_signals'][algo_id]['supertrend_signal'] )
 
+			# Relative Strength
+			if ( cur_algo['check_etf_indicators'] == True ):
+
+				cur_rs = 0
+				for t in cur_algo['etf_tickers'].split(','):
+
+					if ( cur_roc > 0 and stocks[t]['cur_roc'] < 0 ):
+						# Stock is rising compared to ETF
+						cur_rs = abs( cur_roc / stocks[t]['cur_roc'] )
+						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = True
+
+					elif ( cur_roc < 0 and stocks[t]['cur_roc'] < 0 ):
+						# Both stocks are sinking
+						cur_rs = -( cur_roc / stocks[t]['cur_roc'] )
+						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
+
+					elif ( cur_roc < 0 and stocks[t]['cur_roc'] > 0 ):
+						# Stock is sinking relative to ETF
+						cur_rs = cur_roc / stocks[t]['cur_roc']
+						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
+
+					else:
+						# Both stocks are rising
+						cur_rs = cur_roc / stocks[t]['cur_roc']
+						if ( cur_algo['check_etf_indicators_strict'] == True ):
+							stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
+						else:
+							if ( cur_rs > 10 ):
+								stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = True
+
+					if ( cur_algo['etf_min_rs'] != None and abs(cur_rs) < cur_algo['etf_min_rs'] ):
+						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
+
 			# VWAP signal
 			# This is the most simple/pessimistic approach right now
 			if ( cur_algo['vwap'] == True ):
@@ -1776,6 +1857,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				supertrend_signal		= stocks[ticker]['algo_signals'][algo_id]['supertrend_signal']
 				bbands_kchan_init_signal	= stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal']
 				bbands_kchan_signal		= stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal']
+				rs_signal			= stocks[ticker]['algo_signals'][algo_id]['rs_signal']
 				vwap_signal			= stocks[ticker]['algo_signals'][algo_id]['vwap_signal']
 				vpt_signal			= stocks[ticker]['algo_signals'][algo_id]['vpt_signal']
 				resistance_signal		= stocks[ticker]['algo_signals'][algo_id]['resistance_signal']
@@ -1819,6 +1901,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['final_buy_signal'] = False
 
 				if ( (cur_algo['bbands_kchannel'] == True or cur_algo['bbands_kchannel_simple'] == True) and bbands_kchan_signal != True ):
+					stocks[ticker]['final_buy_signal'] = False
+
+				if ( cur_algo['check_etf_indicators'] == True and rs_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
 				if ( cur_algo['vwap'] == True and vwap_signal != True ):
@@ -2492,6 +2577,38 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 																cur_supertrend=cur_supertrend, prev_supertrend=prev_supertrend,
 																supertrend_signal=stocks[ticker]['algo_signals'][algo_id]['supertrend_signal'] )
 
+			# Relative Strength
+			if ( cur_algo['check_etf_indicators'] == True ):
+				cur_rs = 0
+				for t in cur_algo['etf_tickers'].split(','):
+
+					if ( cur_roc > 0 and stocks[t]['cur_roc'] < 0 ):
+						# Stock is rising compared to ETF
+						cur_rs = abs( cur_roc / stocks[t]['cur_roc'] )
+						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
+
+					elif ( cur_roc < 0 and stocks[t]['cur_roc'] < 0 ):
+						# Both stocks are sinking
+						cur_rs = -( cur_roc / stocks[t]['cur_roc'] )
+						if ( cur_algo['check_etf_indicators_strict'] == True ):
+							stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
+						else:
+							if ( abs(cur_rs) > 10 ):
+								stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = True
+
+					elif ( cur_roc < 0 and stocks[t]['cur_roc'] > 0 ):
+						# Stock is sinking relative to ETF
+						cur_rs = cur_roc / stocks[t]['cur_roc']
+						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = True
+
+					else:
+						# Both stocks are rising
+						cur_rs = cur_roc / stocks[t]['cur_roc']
+						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
+
+					if ( cur_algo['etf_min_rs'] != None and abs(cur_rs) < cur_algo['etf_min_rs'] ):
+						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
+
 			# VWAP signal
 			# This is the most simple/pessimistic approach right now
 			if ( cur_algo['vwap'] == True ):
@@ -2670,6 +2787,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				supertrend_signal		= stocks[ticker]['algo_signals'][algo_id]['supertrend_signal']
 				bbands_kchan_init_signal	= stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal']
 				bbands_kchan_signal		= stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal']
+				rs_signal			= stocks[ticker]['algo_signals'][algo_id]['rs_signal']
 				vwap_signal			= stocks[ticker]['algo_signals'][algo_id]['vwap_signal']
 				vpt_signal			= stocks[ticker]['algo_signals'][algo_id]['vpt_signal']
 				resistance_signal		= stocks[ticker]['algo_signals'][algo_id]['resistance_signal']
@@ -2713,6 +2831,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['final_short_signal'] = False
 
 				if ( (cur_algo['bbands_kchannel'] == True or cur_algo['bbands_kchannel_simple'] == True) and bbands_kchan_signal != True ):
+					stocks[ticker]['final_short_signal'] = False
+
+				if ( cur_algo['check_etf_indicators'] == True and rs_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
 
 				if ( cur_algo['vwap'] == True and vwap_signal != True ):

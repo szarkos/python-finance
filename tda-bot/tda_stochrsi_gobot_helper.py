@@ -186,6 +186,7 @@ def reset_signals(ticker=None, id=None, signal_mode=None, exclude_bbands_kchan=F
 
 		stocks[ticker]['algo_signals'][algo_id]['rsi_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['mfi_signal']			= False
+		stocks[ticker]['algo_signals'][algo_id]['rs_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['adx_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['dmi_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['macd_signal']			= False
@@ -204,7 +205,6 @@ def reset_signals(ticker=None, id=None, signal_mode=None, exclude_bbands_kchan=F
 			stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter']		= 0
 			stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter']		= 0
 
-		stocks[ticker]['algo_signals'][algo_id]['rs_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['plus_di_crossover']		= False
 		stocks[ticker]['algo_signals'][algo_id]['minus_di_crossover']		= False
 		stocks[ticker]['algo_signals'][algo_id]['macd_crossover']		= False
@@ -299,8 +299,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 	if ( cur_algo['check_etf_indicators'] == True ):
 		etf_roc = []
 		for ticker in cur_algo['etf_tickers'].split(','):
-			stocks[ticker]['cur_roc'] = -1
-
+			stocks[ticker]['cur_roc'] = 0
 			try:
 				etf_roc = tda_algo_helper.get_roc( pricehistory=stocks[ticker]['pricehistory'], period=cur_algo['etf_roc_period'], type='hlc3' )
 

@@ -1131,7 +1131,7 @@ time_now = datetime.datetime.now( mytimezone )
 time_prev = time_now - datetime.timedelta( days=8 )
 
 # Make sure start and end dates don't land on a weekend or outside market hours
-#time_now = tda_gobot_helper.fix_timestamp(time_now)
+#time_now = tda_gobot_helper.fix_timestamp(time_now)	# SAZ - This needs to be commented for now
 time_prev = tda_gobot_helper.fix_timestamp(time_prev)
 
 time_now_epoch = int( time_now.timestamp() * 1000 )

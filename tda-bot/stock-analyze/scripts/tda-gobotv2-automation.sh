@@ -32,11 +32,14 @@ tickers=$CUR_SET
 nohup ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=20000 --stocks=${tickers} --short --singleday \
 	--decr_threshold=1.6 --incr_threshold=0.5 --max_failed_txs=2 --exit_percent=0.5 \
 	\
+	--algos=algo_id:stochrsi,primary_stochrsi,stochrsi_offset:3,dmi_simple,aroonosc,adx,support_resistance,use_natr_resistance,adx_threshold:6,min_intra_natr:0.15,min_daily_natr:6 \
 	--algos=algo_id:stackedma_kama_wma,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,min_intra_natr:0.65,min_daily_natr:6 \
 	\
 	--algo_exclude_tickers=stackedma_kama_wma:${STACKEDMA_KAMA_WMA_EXCLUDE} \
+	--algo_exclude_tickers=stackedma_kama_wma:${STOCHRSI_EXCLUDE} \
 	\
-	--stacked_ma_periods_primary=8,13,21 --stacked_ma_periods=34,55,89 --check_etf_indicators --check_etf_indicators_strict --etf_min_rs=4 \
+	--stacked_ma_periods_primary=8,13,21 --stacked_ma_periods=34,55,89 \
+	--check_etf_indicators --check_etf_indicators_strict --etf_min_rs=4 \
 	--bbands_kchannel_offset=0.15 --bbands_kchan_squeeze_count=8 \
 	--rsi_high_limit=75 --rsi_low_limit=25 --stochrsi_offset=3 --daily_atr_period=3  \
 	--aroonosc_with_macd_simple --variable_exit --lod_hod_check --use_combined_exit \
@@ -45,7 +48,6 @@ nohup ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=20000 --stocks=${tickers
 
 disown
 
-#	--algos=algo_id:main,primary_stochrsi,stochrsi_offset:3,dmi_simple,aroonosc,adx,support_resistance,use_natr_resistance,adx_threshold:6,min_intra_natr:0.15,min_daily_natr:6 \
 #	--algos=algo_id:stackedma_kama_5m,primary_stacked_ma,use_bbands_kchannel_5m,stacked_ma_type_primary:kama,bbands_kchannel,bbands_period:15,kchannel_period:15,kchannel_atr_period:15,bbands_kchan_squeeze_count:20,bbands_kchannel_offset:0.45,support_resistance,min_intra_natr:0.65,min_daily_natr:6 \
 #	--algos=algo_id:stackedma_kama_wma,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,support_resistance,min_intra_natr:0.65,min_daily_natr:6 \
 

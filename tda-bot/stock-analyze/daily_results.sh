@@ -41,13 +41,13 @@ for tst in $tests; do
 				# Even numbers are exits
 				if [ $(echo "$linenum % 2" | bc) -eq 0 ]; then
 
-					gain=$( echo -n "$line" | awk '{print $2}' )
+					gain=$( echo -n "$line" | awk '{print $3}' )
 					if  [ $(echo -n "$gain" | sed 's/\-//') == "0.0" ]; then
 						linenum=$((linenum+1))
 						continue
 					fi
 
-					tx_date=$( echo -n "$line" | awk '{print $10}' )
+					tx_date=$( echo -n "$line" | awk '{print $11}' )
 					if [[ -v fail_tx_num["$tx_date"] ]]; then
 						fail_tx_num["$tx_date"]=$((${fail_tx_num["$tx_date"]}+1))
 					else
@@ -92,13 +92,13 @@ for tst in $tests; do
 				# Even numbers are exits
 				if [ $(echo "$linenum % 2" | bc) -eq 0 ]; then
 
-					gain=$( echo -n "$line" | awk '{print $2}' | sed 's/\-//' )
+					gain=$( echo -n "$line" | awk '{print $3}' | sed 's/\-//' )
 					if  [ $(echo -n "$gain" | sed 's/\-//') == "0.0" ]; then
 						linenum=$((linenum+1))
 						continue
 					fi
 
-					tx_date=$( echo -n "$line" | awk '{print $10}' )
+					tx_date=$( echo -n "$line" | awk '{print $11}' )
 					if [[ -v success_tx_num["$tx_date"] ]]; then
 						success_tx_num["$tx_date"]=$((${success_tx_num["$tx_date"]}+1))
 					else

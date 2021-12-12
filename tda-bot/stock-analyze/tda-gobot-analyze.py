@@ -45,8 +45,8 @@ parser.add_argument("--use_natr_resistance", help='Enable the daily NATR resista
 parser.add_argument("--use_pivot_resistance", help='Enable the use of pivot points and PDH/PDL resistance check', action="store_true")
 parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
 
-parser.add_argument("--check_etf_indicators", help='Tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior of key ETFs (SPY, QQQ, DIA)', action="store_true")
-parser.add_argument("--check_etf_indicators_strict", help='Do not allow trade unless the 5-minute SMA/EMA behavior of key ETFs (SPY, QQQ, DIA) agree with direction', action="store_true")
+parser.add_argument("--check_etf_indicators", help='Use the relative strength against one or more ETF indicators to assist with trade entrycheck_etf_indicators', action="store_true")
+parser.add_argument("--check_etf_indicators_strict", help='Do not allow trade unless check_etf_indicators agrees with direction', action="store_true")
 parser.add_argument("--etf_tickers", help='List of tickers to use with --check_etf_indicators (Default: SPY)', default='SPY', type=str)
 parser.add_argument("--etf_roc_period", help='Rate of change lookback period (Default: 50)', default=50, type=int)
 parser.add_argument("--etf_min_rs", help='Rate of change lookback period (Default: None)', default=None, type=float)
@@ -427,9 +427,9 @@ for algo in args.algo.split(','):
 	etf_tickers = args.etf_tickers.split(',')
 	etf_indicators = {}
 	for t in etf_tickers:
-		etf_indicators[t] = { 'roc': {}, 'pricehistory': {} }
+		etf_indicators[t] = { 'roc': {}, 'roc_close': {}, 'pricehistory': {} }
 
-	if ( args.check_etf_indicators == True or args.check_etf_indicators_strict == True ):
+	if ( args.check_etf_indicators == True ):
 		for t in etf_tickers:
 			etf_data = None
 			etf_ifile = re.sub('^.*\/' + str(stock), '', args.ifile)
@@ -539,6 +539,8 @@ for algo in args.algo.split(','):
 
 			test_params = {
 					# Test range and input options
+					'stock_usd':				args.stock_usd,
+
 					'start_date':				args.start_date,
 					'stop_date':				args.stop_date,
 					'safe_open':				safe_open,
@@ -723,7 +725,7 @@ for algo in args.algo.split(','):
 		elif ( (algo == 'stochrsi' or algo == 'stochrsi-new') and args.verbose ):
 			print()
 			print('### Trade Ledger ###')
-			print('{0:18} {1:15} {2:15} {3:10} {4:12} {5:15} {6:20} {7:10} {8:10} {9:10}'.format('Buy/Sell Price', 'Net Change', 'RSI_K/RSI_D', 'NATR', 'Daily_NATR', 'BBands_NATR', 'BBands_Squeeze_NATR', 'RS', 'ADX', 'Time'))
+			print('{0:18} {1:12} {2:12} {3:15} {4:10} {5:12} {6:15} {7:20} {8:10} {9:10} {10:10}'.format('Buy/Sell Price', 'Num Shares', 'Net Change', 'RSI_K/RSI_D', 'NATR', 'Daily_NATR', 'BBands_NATR', 'BBands_Squeeze_NATR', 'RS', 'ADX', 'Time'))
 
 		rating = 0
 		success = fail = 0
@@ -733,7 +735,7 @@ for algo in args.algo.split(','):
 		counter = 0
 		while ( counter < len(results) - 1 ):
 
-			price_tx, short, rsi_tx, natr_tx, dnatr_tx, bbands_natr, bbands_squeeze_natr, rs, adx_tx, time_tx = results[counter].split( ',', 10 )
+			price_tx, num_shares, short, rsi_tx, natr_tx, dnatr_tx, bbands_natr, bbands_squeeze_natr, rs, adx_tx, time_tx = results[counter].split( ',', 11 )
 			price_rx, short, rsi_rx, natr_rx, dnatr_rx, adx_rx, time_rx = results[counter+1].split( ',', 7 )
 
 			vwap_tx = vwap_rx = 0
@@ -764,7 +766,8 @@ for algo in args.algo.split(','):
 
 			net_change = round(net_change, 2)
 
-			num_shares = int(stock_usd / price_tx)
+			#num_shares = int(stock_usd / price_tx)
+			num_shares = int(num_shares)
 
 			if ( short == str(False) ):
 				total_return += num_shares * net_change
@@ -807,13 +810,13 @@ for algo in args.algo.split(','):
 				rsi_rx = str(rsi_prev_rx) + '/' + str(rsi_cur_rx)
 
 				print(text_color, end='')
-				print('{0:18} {1:15} {2:15} {3:10} {4:12} {5:15} {6:20} {7:10} {8:10} {9:10}'.format(str(price_tx), '-', str(rsi_tx), str(natr_tx), str(dnatr_tx), str(bbands_natr), str(bbands_squeeze_natr), str(rs), str(adx_tx), time_tx), end='')
+				print('{0:18} {1:12} {2:12} {3:15} {4:10} {5:12} {6:15} {7:20} {8:10} {9:10} {10:10}'.format(str(price_tx), str(num_shares), '-', str(rsi_tx), str(natr_tx), str(dnatr_tx), str(bbands_natr), str(bbands_squeeze_natr), str(rs), str(adx_tx), time_tx), end='')
 				print(reset_color, end='')
 
 				print()
 
 				print(text_color, end='')
-				print('{0:18} {1:15} {2:15} {3:10} {4:12} {5:15} {6:20} {7:10} {8:10} {9:10}'.format(str(price_rx), str(net_change), str(rsi_rx), '-', '-', '-', '-', '-', str(adx_tx), time_rx), end='')
+				print('{0:18} {1:12} {2:12} {3:15} {4:10} {5:12} {6:15} {7:20} {8:10} {9:10} {10:10}'.format(str(price_rx), '-', str(net_change), str(rsi_rx), '-', '-', '-', '-', '-', str(adx_tx), time_rx), end='')
 				print(reset_color, end='')
 
 				print()

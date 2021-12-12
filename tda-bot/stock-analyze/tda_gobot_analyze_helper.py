@@ -2139,37 +2139,40 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 
 			# Relative Strength vs. an ETF indicator (i.e. SPY)
-			if ( check_etf_indicators == True and rs_signal != True ):
+			if ( check_etf_indicators == True ):
 				rs_signal	= False
 				tmp_dt		= pricehistory['candles'][idx]['datetime']
 				for t in etf_tickers:
-					cur_rs = -1
+					cur_rs = 0
 					if ( tmp_dt in etf_indicators[t]['roc'] ):
+						try:
+							cur_rs = stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
+						except ZeroDivisionError:
+							cur_rs = 0
+
+						# Stock is rising compared to ETF
 						if ( stock_roc[idx] > 0 and etf_indicators[t]['roc'][tmp_dt] < 0 ):
-							# Stock is rising compared to ETF
-							cur_rs		= abs( stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt] )
+							cur_rs		= abs( cur_rs )
 							rs_signal	= True
 							stock_usd	= orig_stock_usd
 
+						# Both stocks are sinking
 						elif ( stock_roc[idx] < 0 and etf_indicators[t]['roc'][tmp_dt] < 0 ):
-							# Both stocks are sinking
-							cur_rs		= -( stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt] )
+							cur_rs		= -cur_rs
 							rs_signal	= False
 
+						# Stock is sinking relative to ETF
 						elif ( stock_roc[idx] < 0 and etf_indicators[t]['roc'][tmp_dt] > 0 ):
-							# Stock is sinking relative to ETF
-							cur_rs		= stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
 							rs_signal	= False
 
+						# Both stocks are rising
 						else:
-							# Both stocks are rising
 							#pct1		= abs((cur_close - abs(stock_roc[idx]*50)) / cur_close - 1) * 100
 							#pct2		= abs((etf_indicators[t]['roc_close'][tmp_dt] - abs(etf_indicators[t]['roc'][tmp_dt]*50)) / etf_indicators[t]['roc_close'][tmp_dt] - 1) * 100
 							#print(str(pct1) + ' / ' + str(pct2) + ' / ' + str(pct1/pct2) )
-							cur_rs		= stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
 							rs_signal	= False
 							if ( check_etf_indicators_strict == False ):
-								stock_usd = orig_stock_usd / 2
+								#stock_usd = orig_stock_usd / 2
 								rs_signal = True
 
 						if ( etf_min_rs != None and abs(cur_rs) < etf_min_rs ):
@@ -3128,31 +3131,34 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				rs_signal	= False
 				tmp_dt		= pricehistory['candles'][idx]['datetime']
 				for t in etf_tickers:
-					cur_rs = -1
+					cur_rs = 0
 					if ( tmp_dt in etf_indicators[t]['roc'] ):
+						try:
+							cur_rs = stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
+						except ZeroDivisionError:
+							cur_rs = 0
+
+						# Stock is rising compared to ETF
 						if ( stock_roc[idx] > 0 and etf_indicators[t]['roc'][tmp_dt] < 0 ):
-							# Stock is rising compared to ETF
-							cur_rs		= abs( stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt] )
+							cur_rs		= abs( cur_rs )
 							rs_signal	= False
 
+						# Both stocks are sinking
 						elif ( stock_roc[idx] < 0 and etf_indicators[t]['roc'][tmp_dt] < 0 ):
-							# Both stocks are sinking
-							cur_rs		= -( stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt] )
+							cur_rs		= -cur_rs
 							rs_signal	= False
 							if ( check_etf_indicators_strict == False ):
-								stock_usd = orig_stock_usd / 2
+								#stock_usd = orig_stock_usd / 2
 								rs_signal = True
 
+						# Stock is sinking relative to ETF
 						elif ( stock_roc[idx] < 0 and etf_indicators[t]['roc'][tmp_dt] > 0 ):
-							# Stock is sinking relative to ETF
-							cur_rs		= stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
 							stock_usd	= orig_stock_usd
 							rs_signal	= True
 
+						# Both stocks are rising
 						else:
-							# Both stocks are rising
-							cur_rs		= stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
-							rs_signal	= False
+							rs_signal = False
 
 						if ( etf_min_rs != None and abs(cur_rs) < etf_min_rs ):
 							rs_signal = False

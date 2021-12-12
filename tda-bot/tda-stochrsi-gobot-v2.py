@@ -1330,14 +1330,17 @@ for ticker in list(stocks.keys()):
 	stocks[ticker]['atr_daily']	= float( atr_d[-1] )
 	stocks[ticker]['natr_daily']	= float( natr_d[-1] )
 
-	# Ignore days where cur_daily_natr is below min_daily_natr or above max_daily_natr, if configured
+	# Ignore days where cur_daily_natr is below min_daily_natr or above max_daily_natr, if configured.
+	# However, ignore stocks that are not listed as 'tradeable' (i.e. ETF indicators).
 	if ( args.min_daily_natr != None and stocks[ticker]['natr_daily'] < args.min_daily_natr ):
-		print('(' + str(ticker) + ') Warning: daily NATR (' + str(round(stocks[ticker]['natr_daily'], 3)) + ') is below the min_daily_natr (' + str(args.min_daily_natr) + '), removing from the list')
-		stocks[ticker]['isvalid'] = False
+		if ( stocks[ticker]['tradeable'] == True ):
+			print('(' + str(ticker) + ') Warning: daily NATR (' + str(round(stocks[ticker]['natr_daily'], 3)) + ') is below the min_daily_natr (' + str(args.min_daily_natr) + '), removing from the list')
+			stocks[ticker]['isvalid'] = False
 
 	if ( args.max_daily_natr != None and stocks[ticker]['natr_daily'] > args.max_daily_natr ):
-		print('(' + str(ticker) + ') Warning: daily NATR (' + str(round(stocks[ticker]['natr_daily'], 3)) + ') is above the max_daily_natr (' + str(args.max_daily_natr) + '), removing from the list')
-		stocks[ticker]['isvalid'] = False
+		if ( stocks[ticker]['tradeable'] == True ):
+			print('(' + str(ticker) + ') Warning: daily NATR (' + str(round(stocks[ticker]['natr_daily'], 3)) + ') is above the max_daily_natr (' + str(args.max_daily_natr) + '), removing from the list')
+			stocks[ticker]['isvalid'] = False
 
 	# End daily ATR/NATR
 

@@ -6,6 +6,8 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 from pytz import timezone
 
+import numpy as np
+
 parent_path = os.path.dirname( os.path.realpath(__file__) )
 sys.path.append(parent_path + '/../')
 import tda_gobot_helper
@@ -2146,7 +2148,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					cur_rs = 0
 					if ( tmp_dt in etf_indicators[t]['roc'] ):
 						try:
-							cur_rs = stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
+							with np.errstate(divide='ignore'):
+								cur_rs = stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
+
 						except ZeroDivisionError:
 							cur_rs = 0
 
@@ -2155,6 +2159,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							cur_rs		= abs( cur_rs )
 							rs_signal	= True
 							stock_usd	= orig_stock_usd
+
+							#pct1		= abs((cur_close - abs(stock_roc[idx]*50)) / cur_close - 1) * 100
+							#pct2		= abs((etf_indicators[t]['roc_close'][tmp_dt] - abs(etf_indicators[t]['roc'][tmp_dt]*50)) / etf_indicators[t]['roc_close'][tmp_dt] - 1) * 100
+							#print(str(pct1) + ' / ' + str(pct2) + ' / ' + str(pct1/pct2) + ' / ' + str(cur_rs))
 
 						# Both stocks are sinking
 						elif ( stock_roc[idx] < 0 and etf_indicators[t]['roc'][tmp_dt] < 0 ):
@@ -2167,12 +2175,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 						# Both stocks are rising
 						else:
-							#pct1		= abs((cur_close - abs(stock_roc[idx]*50)) / cur_close - 1) * 100
-							#pct2		= abs((etf_indicators[t]['roc_close'][tmp_dt] - abs(etf_indicators[t]['roc'][tmp_dt]*50)) / etf_indicators[t]['roc_close'][tmp_dt] - 1) * 100
-							#print(str(pct1) + ' / ' + str(pct2) + ' / ' + str(pct1/pct2) )
 							rs_signal	= False
 							if ( check_etf_indicators_strict == False ):
-								#stock_usd = orig_stock_usd / 2
+								stock_usd = orig_stock_usd / 2
 								rs_signal = True
 
 						if ( etf_min_rs != None and abs(cur_rs) < etf_min_rs ):
@@ -3134,7 +3139,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					cur_rs = 0
 					if ( tmp_dt in etf_indicators[t]['roc'] ):
 						try:
-							cur_rs = stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
+							with np.errstate(divide='ignore'):
+								cur_rs = stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
+
 						except ZeroDivisionError:
 							cur_rs = 0
 
@@ -3148,7 +3155,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							cur_rs		= -cur_rs
 							rs_signal	= False
 							if ( check_etf_indicators_strict == False ):
-								#stock_usd = orig_stock_usd / 2
+								stock_usd = orig_stock_usd / 2
 								rs_signal = True
 
 						# Stock is sinking relative to ETF

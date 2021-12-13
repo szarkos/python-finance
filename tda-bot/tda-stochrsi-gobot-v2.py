@@ -260,6 +260,9 @@ for algo in args.algos:
 	chop_index = chop_simple = supertrend = bbands_kchannel = bbands_kchannel_simple = False
 	vwap = vpt = support_resistance = False
 
+	# Per-algo entry limit
+	stock_usd			= args.stock_usd
+
 	# Indicator modifiers
 	rsi_high_limit			= args.rsi_high_limit
 	rsi_low_limit			= args.rsi_low_limit
@@ -352,7 +355,7 @@ for algo in args.algos:
 		a = re.sub( '[\s\t]*', '', a )
 
 		# Algo_ID
-		if ( re.match('algo_id:', a) != None ):	algo_id			= a.split(':')[1]
+		if ( re.match('algo_id:', a) != None ): algo_id = a.split(':')[1]
 
 		# Algorithms
 		if ( a == 'primary_stochrsi' ):		primary_stochrsi	= True
@@ -378,6 +381,9 @@ for algo in args.algos:
 		if ( a == 'vwap' ):			vwap			= True
 		if ( a == 'vpt' ):			vpt			= True
 		if ( a == 'support_resistance' ):	support_resistance	= True
+
+		# Entry limit
+		if ( re.match('stock_usd:', a)				!= None ):	stock_usd			= float( a.split(':')[1] )
 
 		# Modifiers
 		if ( re.match('rsi_high_limit:', a)			!= None ):	rsi_high_limit			= float( a.split(':')[1] )
@@ -487,6 +493,8 @@ for algo in args.algos:
 			macd_simple = False
 
 	algo_list = {   'algo_id':				algo_id,
+
+			'stock_usd':				stock_usd,
 
 			'primary_stochrsi':			primary_stochrsi,
 			'primary_stochmfi':			primary_stochmfi,
@@ -600,7 +608,7 @@ for algo in args.algos:
 
 # Clean up this mess
 # All the stuff above should be put into a function to avoid this cleanup stuff. I know it. It'll happen eventually.
-del(primary_stochrsi,primary_stochmfi,primary_stacked_ma,stacked_ma,stochrsi_5m,stochmfi,stochmfi_5m)
+del(stock_usd, primary_stochrsi,primary_stochmfi,primary_stacked_ma,stacked_ma,stochrsi_5m,stochmfi,stochmfi_5m)
 del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,bbands_kchannel_simple,vwap,vpt,support_resistance)
 del(rsi_high_limit,rsi_low_limit,rsi_period,stochrsi_period,stochrsi_5m_period,rsi_k_period,rsi_k_5m_period,rsi_d_period,rsi_slow,stochrsi_offset,stochrsi_5m_offset)
 del(mfi_high_limit,mfi_low_limit,mfi_period,stochmfi_period,stochmfi_5m_period,mfi_k_period,mfi_k_5m_period,mfi_d_period,mfi_slow,stochmfi_offset,stochmfi_5m_offset)
@@ -1077,7 +1085,6 @@ tda_stochrsi_gobot_helper.args					= args
 tda_stochrsi_gobot_helper.algos					= algos
 tda_stochrsi_gobot_helper.tx_log_dir				= args.tx_log_dir
 tda_stochrsi_gobot_helper.stocks				= stocks
-tda_stochrsi_gobot_helper.stock_usd				= args.stock_usd
 tda_stochrsi_gobot_helper.prev_timestamp			= 0
 
 # StochRSI / RSI

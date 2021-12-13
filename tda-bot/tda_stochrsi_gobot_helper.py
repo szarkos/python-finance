@@ -1925,7 +1925,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# Calculate stock quantity from investment amount
 				last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
-				stocks[ticker]['stock_qty'] = int( float(stock_usd) / float(last_price) )
+				stocks[ticker]['stock_qty'] = int( cur_algo['stock_usd'] / float(last_price) )
 
 				# Purchase the stock
 				if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == True ):
@@ -2855,7 +2855,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# Calculate stock quantity from investment amount
 				last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
-				stocks[ticker]['stock_qty'] = int( float(stock_usd) / float(last_price) )
+				stocks[ticker]['stock_qty'] = int( cur_algo['stock_usd'] / float(last_price) )
 
 				# Short the stock
 				if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == True ):

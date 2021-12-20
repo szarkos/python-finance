@@ -1009,10 +1009,23 @@ def get_pdc(pricehistory=None, debug=False):
 #
 # Notes:
 #  - Global object "tda" needs to exist, and tdalogin() should be called first.
-def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False):
+def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, account_number=None, debug=False):
 
 	if ( ticker == None or quantity == None ):
 		return False
+
+	if ( account_number == None ):
+		try:
+			account_number = int( tda_account_number )
+		except:
+			print('Error: buy_stock_marketprice(' + str(ticker) + '): invalid account number: ' + str(account_number), file=sys.stderr)
+			return False
+	else:
+		try:
+			account_number = int( account_number )
+		except:
+			print('Error: buy_stock_marketprice(' + str(ticker) + '): account number must be an integer: ' + str(account_number), file=sys.stderr)
+			return False
 
 	ticker = str(ticker).upper()
 	num_attempts = 3 # Number of attempts to buy the stock in case of failure
@@ -1039,7 +1052,7 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 	# Try to buy the stock num_attempts tries or return False
 	for attempt in range(num_attempts):
 		try:
-			data, err = func_timeout(5, tda.place_order, args=(tda_account_number, order, True))
+			data, err = func_timeout(5, tda.place_order, args=(account_number, order, True))
 			if ( debug == True ):
 				print('DEBUG: buy_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
 				print(order)
@@ -1084,7 +1097,7 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 	# Get order information to determine if it was filled
 	try:
 		tdalogin(passcode)
-		data,err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
+		data,err = func_timeout(5, tda.get_order, args=(account_number, order_id, True))
 		if ( debug == True ):
 			print(data)
 
@@ -1101,7 +1114,7 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 	if ( fillwait == True and data['filledQuantity'] != quantity ):
 		while time.sleep(5):
 			try:
-				data,err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
+				data,err = func_timeout(5, tda.get_order, args=(account_number, order_id, True))
 				if ( debug == True ):
 					print(data)
 
@@ -1126,10 +1139,23 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False
 #  fillwait = (boolean) wait for order to be filled before returning
 # Notes:
 #  - Global object "tda" needs to exist, and tdalogin() should be called first.
-def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False):
+def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, account_number=None, debug=False):
 
 	if ( ticker == None or quantity == None ):
 		return False
+
+	if ( account_number == None ):
+		try:
+			account_number = int( tda_account_number )
+		except:
+			print('Error: sell_stock_marketprice(' + str(ticker) + '): invalid account number: ' + str(account_number), file=sys.stderr)
+			return False
+	else:
+		try:
+			account_number = int( account_number )
+		except:
+			print('Error: sell_stock_marketprice(' + str(ticker) + '): account number must be an integer: ' + str(account_number), file=sys.stderr)
+			return False
 
 	ticker = str(ticker).upper()
 	num_attempts = 3 # Number of attempts to sell the stock in case of failure
@@ -1156,7 +1182,7 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 	# Try to sell the stock num_attempts tries or return False
 	for attempt in range(num_attempts):
 		try:
-			data, err = func_timeout(5, tda.place_order, args=(tda_account_number, order, True))
+			data, err = func_timeout(5, tda.place_order, args=(account_number, order, True))
 			if ( debug == True ):
 				print('DEBUG: sell_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
 				print(order)
@@ -1201,7 +1227,7 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 	# Get order information to determine if it was filled
 	try:
 		tdalogin(passcode)
-		data, err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
+		data, err = func_timeout(5, tda.get_order, args=(account_number, order_id, True))
 		if ( debug == True ):
 			print(data)
 
@@ -1218,7 +1244,7 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 	if ( fillwait == True and data['filledQuantity'] != quantity ):
 		while time.sleep(5):
 			try:
-				data,err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
+				data,err = func_timeout(5, tda.get_order, args=(account_number, order_id, True))
 				if ( debug == True ):
 					print(data)
 
@@ -1241,10 +1267,23 @@ def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False)
 #  Ticker = stock ticker
 #  Quantity = amount of stock to sell short
 #  fillwait = (boolean) wait for order to be filled before returning
-def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=False):
+def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, account_number=None, debug=False):
 
 	if ( ticker == None or quantity == None ):
 		return False
+
+	if ( account_number == None ):
+		try:
+			account_number = int( tda_account_number )
+		except:
+			print('Error: short_stock_marketprice(' + str(ticker) + '): invalid account number: ' + str(account_number), file=sys.stderr)
+			return False
+	else:
+		try:
+			account_number = int( account_number )
+		except:
+			print('Error: short_stock_marketprice(' + str(ticker) + '): account number must be an integer: ' + str(account_number), file=sys.stderr)
+			return False
 
 	ticker = str(ticker).upper()
 	num_attempts = 3 # Number of attempts to buy the stock in case of failure
@@ -1270,7 +1309,7 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 	# Try to buy the stock num_attempts tries or return False
 	for attempt in range(num_attempts):
 		try:
-			data, err = func_timeout(5, tda.place_order, args=(tda_account_number, order, True))
+			data, err = func_timeout(5, tda.place_order, args=(account_number, order, True))
 			if ( debug == True ):
 				print('DEBUG: sell_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
 				print(order)
@@ -1315,7 +1354,7 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 	# Get order information to determine if it was filled
 	try:
 		tdalogin(passcode)
-		data, err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
+		data, err = func_timeout(5, tda.get_order, args=(account_number, order_id, True))
 		if ( debug == True ):
 			print(data)
 
@@ -1337,7 +1376,7 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 	if ( fillwait == True and float(data['filledQuantity']) != float(quantity) ):
 		while time.sleep(5):
 			try:
-				data,err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
+				data,err = func_timeout(5, tda.get_order, args=(account_number, order_id, True))
 				if ( debug == True ):
 					print(data)
 
@@ -1359,10 +1398,23 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, debug=Fal
 #  Ticker = stock ticker
 #  Quantity = amount of stock to buy-to-cover
 #  fillwait = (boolean) wait for order to be filled before returning
-def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=False):
+def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, account_number=None, debug=False):
 
 	if ( ticker == None or quantity == None ):
 		return False
+
+	if ( account_number == None ):
+		try:
+			account_number = int( tda_account_number )
+		except:
+			print('Error: buytocover_stock_marketprice(' + str(ticker) + '): invalid account number: ' + str(account_number), file=sys.stderr)
+			return False
+	else:
+		try:
+			account_number = int( account_number )
+		except:
+			print('Error: buytocover_stock_marketprice(' + str(ticker) + '): account number must be an integer: ' + str(account_number), file=sys.stderr)
+			return False
 
 	ticker = str(ticker).upper()
 	num_attempts = 3 # Number of attempts to sell the stock in case of failure
@@ -1389,8 +1441,7 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 	# Try to sell the stock num_attempts tries or return False
 	for attempt in range(num_attempts):
 		try:
-			#data, err = tda.place_order(tda_account_number, order, True)
-			data, err = func_timeout(5, tda.place_order, args=(tda_account_number, order, True))
+			data, err = func_timeout(5, tda.place_order, args=(account_number, order, True))
 			if ( debug == True ):
 				print('DEBUG: buytocover_stock_marketprice(): tda.place_order(' + str(ticker) + '): attempt ' + str(attempt+1))
 				print(order)
@@ -1435,7 +1486,7 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 	# Get order information to determine if it was filled
 	try:
 		tdalogin(passcode)
-		data, err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
+		data, err = func_timeout(5, tda.get_order, args=(account_number, order_id, True))
 		if ( debug == True ):
 			print(data)
 
@@ -1452,7 +1503,7 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, debug=
 	if ( fillwait == True and data['filledQuantity'] != quantity ):
 		while time.sleep(5):
 			try:
-				data,err = func_timeout(5, tda.get_order, args=(tda_account_number, order_id, True))
+				data,err = func_timeout(5, tda.get_order, args=(account_number, order_id, True))
 				if ( debug == True ):
 					print(data)
 

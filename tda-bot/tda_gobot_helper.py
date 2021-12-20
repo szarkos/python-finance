@@ -167,7 +167,9 @@ def ismarketopen_US(date=None, safe_open=False, check_day_only=False):
 	# Return false if it's a holiday
 	if ( est_time.strftime('%Y-%m-%d') ) in holidays:
 		return False
-	elif ( check_day_only == True ):
+	if ( int(est_time.strftime('%w')) == 0 or int(est_time.strftime('%w')) == 6 ): # 0=Sunday, 6=Saturday
+		return False
+	if ( check_day_only == True ):
 		return True
 
 	if ( int(est_time.strftime('%w')) != 0 and int(est_time.strftime('%w')) != 6 ): # 0=Sunday, 6=Saturday

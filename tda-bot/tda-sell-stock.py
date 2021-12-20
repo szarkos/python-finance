@@ -11,6 +11,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("stock", help='Stock ticker to purchase', nargs='?', default='', type=str)
+parser.add_argument("--account_number", help='Account number to use (default: None)', default=None, type=int)
 parser.add_argument("--panic", help='Sell all stocks in portfolio immediately', action="store_true")
 parser.add_argument("--force", help='Used with --panic to force sell all stocks in portfolio immediately without prompt', action="store_true")
 parser.add_argument("--prompt", help='Wait for prompt before selling security', action="store_true")
@@ -39,6 +40,9 @@ tda_gobot_helper.tda			= tda
 tda_gobot_helper.tda_account_number	= tda_account_number
 tda_gobot_helper.passcode		= passcode
 
+if ( args.account_number == None ):
+	args.account_number = tda_account_number
+
 if ( tda_gobot_helper.tdalogin(passcode) != True ):
 	print('Error: Login failure')
 	exit(1)
@@ -55,7 +59,7 @@ if ( stock != '' ):
 
 	# Look up the stock in the account and sell
 	found = 0
-	data = tda.get_account(tda_account_number, options='positions', jsonify=True)
+	data = tda.get_account(args.account_number, options='positions', jsonify=True)
 	for asset in data[0]['securitiesAccount']['positions']:
 		if ( str(asset['instrument']['symbol']).upper() == str(stock).upper() ):
 			last_price = tda_gobot_helper.get_lastprice(stock)
@@ -136,7 +140,7 @@ if ( stock != '' ):
 
 
 	if ( found == 0 ):
-		print('Error: no ' + str(stock) + ' stock found under account number ' + str(tda_account_number))
+		print('Error: no ' + str(stock) + ' stock found under account number ' + str(args.account_number))
 		exit(1)
 
 elif ( args.panic == True ): ## Panic button
@@ -148,7 +152,7 @@ elif ( args.panic == True ): ## Panic button
 			exit(0)
 
 	found = False
-	data = tda.get_account(tda_account_number, options='positions', jsonify=True)
+	data = tda.get_account(args.account_number, options='positions', jsonify=True)
 	for asset in data[0]['securitiesAccount']['positions']:
 		if ( asset['instrument']['assetType'] != 'EQUITY' ):
 			continue
@@ -159,18 +163,18 @@ elif ( args.panic == True ): ## Panic button
 		if ( float(asset['shortQuantity']) > 0 ):
 			sell_value = float(last_price) * float(asset['shortQuantity'])
 			print('Covering ' + str(asset['shortQuantity']) + ' shares of ' + str(stock) + ' at market price (~$' + str(sell_value) + ")\n")
-			data = tda_gobot_helper.buytocover_stock_marketprice(stock, asset['shortQuantity'], fillwait=False, debug=True)
+			data = tda_gobot_helper.buytocover_stock_marketprice(stock, asset['shortQuantity'], fillwait=False, account_number=args.account_number, debug=True)
 		else:
 			sell_value = float(last_price) * float(asset['longQuantity'])
 			print('Selling ' + str(asset['longQuantity']) + ' shares of ' + str(stock) + ' at market price (~$' + str(sell_value) + ")\n")
-			data = tda_gobot_helper.sell_stock_marketprice(stock, asset['longQuantity'], fillwait=False, debug=True)
+			data = tda_gobot_helper.sell_stock_marketprice(stock, asset['longQuantity'], fillwait=False, account_number=args.account_number, debug=True)
 
 		time.sleep(0.2) # Avoid hammering
 
 		found = True
 
 	if ( found == False ):
-		print('Error: no stocks found under account number ' + str(tda_account_number))
+		print('Error: no stocks found under account number ' + str(args.account_number))
 
 
 else:
@@ -178,7 +182,7 @@ else:
 	import pprint
 	pp = pprint.PrettyPrinter(indent=4)
 
-	data = tda.get_account(tda_account_number, options='positions', jsonify=True)
+	data = tda.get_account(args.account_number, options='positions', jsonify=True)
 	pp.pprint(data)
 	exit(0)
 

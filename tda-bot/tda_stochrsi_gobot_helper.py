@@ -1761,42 +1761,90 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				#  the first 2 hours or so of trading can create small hod/lods, but they
 				#  often won't persist. Also, we are more concerned about the slow, low volume
 				#  creeps toward HOD/LOD that are often permanent for the day.
-				cur_time	= datetime.datetime.fromtimestamp(float(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone)
-				cur_day		= cur_time.strftime('%Y-%m-%d')
-				cur_hour	= int( cur_time.strftime('%-H') )
-				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and args.lod_hod_check == True and cur_hour >= 13 ):
-					cur_day_start = datetime.datetime.strptime(cur_day + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
-					cur_day_start = mytimezone.localize(cur_day_start)
+				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and args.lod_hod_check == True ):
+					cur_time	= datetime.datetime.fromtimestamp(float(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone)
+					cur_day		= cur_time.strftime('%Y-%m-%d')
+					cur_hour	= int( cur_time.strftime('%-H') )
 
-					delta = cur_time - cur_day_start
-					delta = int( delta.total_seconds() / 60 )
+					cur_day_start	= datetime.datetime.strptime(cur_day + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
+					cur_day_start	= mytimezone.localize(cur_day_start)
 
-					# Find HOD
-					hod = 0
-					for i in range (delta, 0, -1):
-						if ( float(stocks[ticker]['pricehistory']['candles'][-i]['close']) > hod ):
-							hod = float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
+					delta		= cur_time - cur_day_start
+					delta		= int( delta.total_seconds() / 60 )
 
-					# If the stock has already hit a high of the day, the next rise will likely be
-					#  below HOD. If we are below HOD and less than price_resistance_pct from it
-					#  then we should not enter the trade.
-					if ( last_close < hod ):
-						if ( abs((last_close / hod - 1) * 100) <= price_resistance_pct ):
-							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
+					# Check for current-day HOD after 1PM Eastern
+					if ( cur_hour >= 13 ):
+						hod = 0
+						for i in range (delta, 0, -1):
+							if ( float(stocks[ticker]['pricehistory']['candles'][-i]['close']) > hod ):
+								hod = float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
 
-					# Check PDH/PDL resistance
-					avg = 0
-					for i in range(15, 0, -1):
-						avg += float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
-					avg = avg / 15
+						# If the stock has already hit a high of the day, the next rise will likely be
+						#  below HOD. If we are below HOD and less than price_resistance_pct from it
+						#  then we should not enter the trade.
+						if ( last_close < hod ):
+							if ( abs((last_close / hod - 1) * 100) <= price_resistance_pct ):
+								stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 					# If stock opened below PDH, then those can become additional resistance lines for long entry
-					if ( stocks[ticker]['today_open'] < stocks[ticker]['previous_day_high'] ):
+					if ( cur_hour >= 12 and stocks[ticker]['today_open'] < stocks[ticker]['previous_day_high'] ):
+
+						# Check PDH/PDL resistance
+						avg = 0
+						for i in range(15, 0, -1):
+							avg += float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
+						avg = avg / 15
+
 						if ( avg < stocks[ticker]['previous_day_high'] and abs((last_close / stocks[ticker]['previous_day_high'] - 1) * 100) <= price_resistance_pct ):
 							print( '(' + str(ticker) + ') BUY SIGNAL stalled due to PDL resistance - Current Price: ' + str(round(last_close, 3)) + ' / 15-min Avg: ' + str(round(avg, 3)) )
 							print()
 
 							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
+
+					# If stock has been sinking for a couple days, then oftentimes the 2-day previous day high will be long resistance,
+					#  but also check touch and xover. If price has touched two-day PDH multiple times and not crossed over more than
+					#  1% then it's stronger resistance.
+					if ( stocks[ticker]['previous_day_high'] < stocks[ticker]['previous_twoday_high'] and
+						stocks[ticker]['previous_day_close'] < stocks[ticker]['previous_twoday_high'] and
+						stocks[ticker]['today_open'] < stocks[ticker]['previous_twoday_high'] ):
+
+						if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and
+							abs((last_high / stocks[ticker]['previous_twoday_high'] - 1) * 100) <= price_resistance_pct ):
+
+							# Count the number of times over the last two days where the price has touched
+							#  PDH/PDL and failed to break through
+							#
+							# Walk through the 1-min candles for the previous two-days, but be sure to take
+							#  into account after-hours trading two-days prior as PDH2/PDL2 is only calculate
+							#  using the daily candles (which use standard open hours only)
+							cur_time		= datetime.datetime.fromtimestamp(stocks[ticker]['pricehistory']['candles'][-1]['datetime']/1000, tz=mytimezone)
+							twoday_dt		= cur_time - datetime.timedelta(days=2)
+							twoday_dt		= tda_gobot_helper.fix_timestamp(twoday_dt, check_day_only=True)
+							twoday			= twoday_dt.strftime('%Y-%m-%d')
+
+							yesterday_timestamp	= datetime.datetime.strptime(twoday + ' 16:00:00', '%Y-%m-%d %H:%M:%S')
+							yesterday_timestamp	= mytimezone.localize(yesterday_timestamp).timestamp() * 1000
+
+							pdh2_touch		= 0
+							pdh2_xover		= 0
+							for m_key in stocks[ticker]['pricehistory']['candles']:
+								if ( m_key['datetime'] < yesterday_timestamp ):
+									continue
+
+								if ( m_key['high'] >= stocks[ticker]['previous_twoday_high'] ):
+									pdh2_touch += 1
+
+									# Price crossed over PDH2, check if it exceeded that level by > 1%
+									if ( m_key['high'] > stocks[ticker]['previous_twoday_high'] ):
+										if ( abs(stocks[ticker]['previous_twoday_high'] / m_key['high'] - 1) * 100 > 1 ):
+											pdh2_xover += 1
+
+							if ( pdh2_touch > 0 and pdh2_xover < 1 ):
+								if ( debug == True and stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
+									print( '(' + str(ticker) + ') BUY SIGNAL stalled due to PDH2 resistance' )
+									print()
+
+								stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# END HOD/LOD/PDH/PDL Check
 
@@ -2690,43 +2738,90 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				#  the first 1-2.5 hours or so of trading can create small hod/lods, but they
 				#  often won't persist. Also, we are more concerned about the slow, low volume
 				#  creeps toward HOD/LOD that are often permanent for the day.
-				cur_time	= datetime.datetime.fromtimestamp(float(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone)
-				cur_day		= cur_time.strftime('%Y-%m-%d')
-				cur_hour	= int( cur_time.strftime('%-H') )
-				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and args.lod_hod_check == True and cur_hour >= 13 ):
+				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and args.lod_hod_check == True ):
+					cur_time	= datetime.datetime.fromtimestamp(float(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone)
+					cur_day		= cur_time.strftime('%Y-%m-%d')
+					cur_hour	= int( cur_time.strftime('%-H') )
 
-					cur_day_start = datetime.datetime.strptime(cur_day + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
-					cur_day_start = mytimezone.localize(cur_day_start)
+					cur_day_start	= datetime.datetime.strptime(cur_day + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
+					cur_day_start	= mytimezone.localize(cur_day_start)
 
-					delta = cur_time - cur_day_start
-					delta = int( delta.total_seconds() / 60 )
+					delta		= cur_time - cur_day_start
+					delta		= int( delta.total_seconds() / 60 )
 
-					# Find LOD
-					lod = 9999
-					for i in range (delta, 0, -1):
-						if ( float(stocks[ticker]['pricehistory']['candles'][-i]['close']) < lod ):
-							lod = float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
+					# Check for current-day LOD after 1PM Eastern
+					if ( cur_hour >= 13 ):
+						lod = 9999
+						for i in range (delta, 0, -1):
+							if ( float(stocks[ticker]['pricehistory']['candles'][-i]['close']) < lod ):
+								lod = float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
 
-					# If the stock has already hit a low of the day, the next decrease will likely be
-					#  above LOD. If we are above LOD and less than price_resistance_pct from it
-					#  then we should not enter the trade.
-					if ( last_close > lod ):
-						if ( abs((lod / last_close - 1) * 100) <= price_resistance_pct ):
-							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
-
-					# Check PDH/PDL resistance
-					avg = 0
-					for i in range(15, 0, -1):
-						avg += float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
-					avg = avg / 15
+						# If the stock has already hit a low of the day, the next decrease will likely be
+						#  above LOD. If we are above LOD and less than price_resistance_pct from it
+						#  then we should not enter the trade.
+						if ( last_close > lod ):
+							if ( abs((lod / last_close - 1) * 100) <= price_resistance_pct ):
+								stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 					# If stock opened above PDL, then those can become additional resistance lines for short entry
-					if ( stocks[ticker]['today_open'] > stocks[ticker]['previous_day_low'] ):
+					if ( cur_hour >= 12 and stocks[ticker]['today_open'] > stocks[ticker]['previous_day_low'] ):
+
+						# Check PDH/PDL resistance
+						avg = 0
+						for i in range(15, 0, -1):
+							avg += float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
+						avg = avg / 15
+
 						if ( avg > stocks[ticker]['previous_day_low'] and abs((last_close / stocks[ticker]['previous_day_low'] - 1) * 100) <= price_resistance_pct ):
 							print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to PDL resistance - Current Price: ' + str(round(last_close, 3)) + ' / 15-min Avg: ' + str(round(avg, 3)) )
 							print()
 
 							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
+
+					# If stock has been rising for a couple days, then oftentimes the 2-day previous day low will be short resistance,
+					#  but also check touch and xover. If price has touched two-day PDL multiple times and not crossed over more than
+					#  1% then it's stronger resistance.
+					if ( stocks[ticker]['previous_day_low'] > stocks[ticker]['previous_twoday_low'] and
+						stocks[ticker]['previous_day_close'] > stocks[ticker]['previous_twoday_low'] and
+						stocks[ticker]['today_open'] > stocks[ticker]['previous_twoday_low'] ):
+
+						if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and
+							abs((last_low / stocks[ticker]['previous_twoday_low'] - 1) * 100) <= price_resistance_pct ):
+
+							# Count the number of times over the last two days where the price has touched
+							#  PDH/PDL and failed to break through
+							#
+							# Walk through the 1-min candles for the previous two-days, but be sure to take
+							#  into account after-hours trading two-days prior as PDH2/PDL2 is only calculate
+							#  using the daily candles (which use standard open hours only)
+							cur_time		= datetime.datetime.fromtimestamp(stocks[ticker]['pricehistory']['candles'][-1]['datetime']/1000, tz=mytimezone)
+							twoday_dt		= cur_time - datetime.timedelta(days=2)
+							twoday_dt		= tda_gobot_helper.fix_timestamp(twoday_dt, check_day_only=True)
+							twoday			= twoday_dt.strftime('%Y-%m-%d')
+
+							yesterday_timestamp	= datetime.datetime.strptime(twoday + ' 16:00:00', '%Y-%m-%d %H:%M:%S')
+							yesterday_timestamp	= mytimezone.localize(yesterday_timestamp).timestamp() * 1000
+
+							pdl2_touch		= 0
+							pdl2_xover		= 0
+							for m_key in stocks[ticker]['pricehistory']['candles']:
+								if ( m_key['datetime'] < yesterday_timestamp ):
+									continue
+
+								if ( m_key['low'] <= stocks[ticker]['previous_twoday_low'] ):
+									pdl2_touch += 1
+
+									# Price crossed over PDL2, check if it exceeded that level by > 1%
+									if ( m_key['low'] < stocks[ticker]['previous_twoday_low'] ):
+										if ( abs(m_key['low'] / stocks[ticker]['previous_twoday_low'] - 1) * 100 > 1 ):
+											pdl2_xover += 1
+
+							if ( pdl2_touch > 0 and pdl2_xover < 1 ):
+								if ( debug == True and stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
+									print( '(' + str(ticker) + ') BUY SIGNAL stalled due to PDH2 resistance' )
+									print()
+
+								stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
                                 # END HOD/LOD/PDH/PDL Check
 

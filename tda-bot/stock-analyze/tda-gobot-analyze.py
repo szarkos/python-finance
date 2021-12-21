@@ -90,9 +90,12 @@ parser.add_argument("--supertrend_min_natr", help='Minimum daily NATR a stock mu
 
 parser.add_argument("--with_bbands_kchannel", help='Use the Bollinger bands and Keltner channel indicators as secondary to advise on trade entries (Default: False)', action="store_true")
 parser.add_argument("--with_bbands_kchannel_simple", help='Use a simple version of the Bollinger bands and Keltner channel indicators as secondary to advise on trade entries (Default: False)', action="store_true")
+parser.add_argument("--bbands_use_talib", help='Use talib for Bollinger Bands calculation (Default: False)', action="store_true")
+parser.add_argument("--bbands_matype", help='Moving average type to use with Bollinger Bands calculation, requires --bbands_use_talib (Default: 0)', default=0, type=int)
 parser.add_argument("--use_bbands_kchannel_5m", help='Use 5-minute candles to calculate the Bollinger bands and Keltner channel indicators (Default: False)', action="store_true")
 parser.add_argument("--bbands_kchan_crossover_only", help='Only signal on Bollinger bands and Keltner channel crossover (Default: False)', action="store_true")
 parser.add_argument("--use_bbands_kchannel_xover_exit", help='Use price action after a Bollinger bands and Keltner channel crossover to assist with stock exit (Default: False)', action="store_true")
+parser.add_argument("--bbands_kchannel_straddle", help='Attempt straddle trade if primary trade is not working (Default: False)', action="store_true")
 parser.add_argument("--bbands_kchannel_xover_exit_count", help='Number of periods to wait after a crossover to trigger --use_bbands_kchannel_xover_exit (Default: 10)', default=10, type=int)
 parser.add_argument("--bbands_kchannel_offset", help='Percentage offset between the Bollinger bands and Keltner channel indicators to trigger an initial trade entry (Default: 0.15)', default=0.15, type=float)
 parser.add_argument("--bbands_kchan_squeeze_count", help='Number of squeeze periods needed before triggering bbands_kchannel signal (Default: 4)', default=4, type=int)
@@ -102,6 +105,7 @@ parser.add_argument("--min_bbands_natr", help='Minimum NATR between upper and lo
 parser.add_argument("--bbands_period", help='Period to use when calculating the Bollinger Bands (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_period", help='Period to use when calculating the Keltner channels (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_atr_period", help='Period to use when calculating the ATR for use with the Keltner channels (Default: 20)', default=20, type=int)
+parser.add_argument("--bbands_kchan_use_stochrsi", help='When using Bollinger bands/Keltner channel strategy, use Stochastic RSI to confirm entry (Default: False)', action="store_true")
 
 parser.add_argument("--aroonosc_with_macd_simple", help='When using Aroon Oscillator, use macd_simple as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
 parser.add_argument("--aroonosc_with_vpt", help='When using Aroon Oscillator, use vpt as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
@@ -430,21 +434,48 @@ for algo in args.algo.split(','):
 		etf_indicators[t] = { 'roc': {}, 'roc_close': {}, 'pricehistory': {} }
 
 	if ( args.check_etf_indicators == True ):
-		for t in etf_tickers:
-			etf_data = None
-			etf_ifile = re.sub('^.*\/' + str(stock), '', args.ifile)
-			etf_ifile = 'monthly-1min-csv/' + str(t) + etf_ifile
-			try:
-				with open(etf_ifile, 'rb') as handle:
-					etf_data = handle.read()
-					etf_data = pickle.loads(etf_data)
+		if ( args.ifile != None ):
+			for t in etf_tickers:
+				etf_data	= None
+				stock_path	= re.sub('\/[a-zA-Z0-9\.\-_]*$', '', args.ifile)
+				etf_ifile	= re.sub('^.*\/' + str(stock), '', args.ifile)
+				etf_ifile	= stock_path + '/' + str(t) + etf_ifile
+				try:
+					with open(etf_ifile, 'rb') as handle:
+						etf_data = handle.read()
+						etf_data = pickle.loads(etf_data)
 
-			except Exception as e:
-				print('Error opening file ' + str(etf_ifile) + ': ' + str(e))
-				exit(1)
+				except Exception as e:
+					print('Error opening file ' + str(etf_ifile) + ': ' + str(e))
+					sys.exit(1)
 
-			etf_indicators[t]['pricehistory'] = etf_data
+				etf_indicators[t]['pricehistory'] = etf_data
 
+		else:
+			days = 5
+			time_now = datetime.datetime.now( mytimezone )
+			time_prev = time_now - datetime.timedelta( days=days )
+
+			# Make sure start and end dates don't land on a weekend
+			#  or outside market hours
+			time_prev = tda_gobot_helper.fix_timestamp(time_prev)
+			if ( int(time_now.strftime('%w')) == 0 or int(time_now.strftime('%w')) == 6 ): # 0=Sunday, 6=Saturday
+				time_now = tda_gobot_helper.fix_timestamp(time_now)
+
+			time_now_epoch = int( time_now.timestamp() * 1000 )
+			time_prev_epoch = int( time_prev.timestamp() * 1000 )
+
+			for t in etf_tickers:
+
+				etf_data = []
+				try:
+					etf_data, epochs = tda_gobot_helper.get_pricehistory(t, p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=False)
+
+				except Exception as e:
+					print('Caught Exception: get_pricehistory(' + str(t) + ', ' + str(time_prev_epoch) + ', ' + str(time_now_epoch) + '): ' + str(e))
+					continue
+
+				etf_indicators[t]['pricehistory'] = etf_data
 
 	# Print results for the most recent 10 and 5 days of data
 	for days in str(args.days).split(','):
@@ -626,9 +657,12 @@ for algo in args.algo.split(','):
 
 					'with_bbands_kchannel':			args.with_bbands_kchannel,
 					'with_bbands_kchannel_simple':		args.with_bbands_kchannel_simple,
+					'bbands_use_talib':			args.bbands_use_talib,
+					'bbands_matype':			args.bbands_matype,
 					'use_bbands_kchannel_5m':		args.use_bbands_kchannel_5m,
 					'bbands_kchan_crossover_only':		args.bbands_kchan_crossover_only,
 					'use_bbands_kchannel_xover_exit':	args.use_bbands_kchannel_xover_exit,
+					'bbands_kchannel_straddle':		args.bbands_kchannel_straddle,
 					'bbands_kchannel_xover_exit_count':	args.bbands_kchannel_xover_exit_count,
 					'bbands_kchannel_offset':		args.bbands_kchannel_offset,
 					'bbands_kchan_squeeze_count':		args.bbands_kchan_squeeze_count,
@@ -637,6 +671,7 @@ for algo in args.algo.split(','):
 					'bbands_period':			args.bbands_period,
 					'kchannel_period':			args.kchannel_period,
 					'kchannel_atr_period':			args.kchannel_atr_period,
+					'bbands_kchan_use_stochrsi':		args.bbands_kchan_use_stochrsi,
 
  					# Indicator parameters and modifiers
 					'stochrsi_period':			args.stochrsi_period,
@@ -712,7 +747,6 @@ for algo in args.algo.split(','):
 			# Call stochrsi_analyze_new() with test_params{} to run the backtest
 			results = tda_gobot_analyze_helper.stochrsi_analyze_new( pricehistory=data, ticker=stock, params=test_params )
 
-
 		# Check and print the results from stochrsi_analyze_new()
 		if ( isinstance(results, bool) and results == False ):
 			print('Error: rsi_analyze(' + str(stock) + ') returned false', file=sys.stderr)
@@ -725,7 +759,7 @@ for algo in args.algo.split(','):
 		elif ( (algo == 'stochrsi' or algo == 'stochrsi-new') and args.verbose ):
 			print()
 			print('### Trade Ledger ###')
-			print('{0:18} {1:12} {2:12} {3:15} {4:10} {5:12} {6:15} {7:20} {8:10} {9:10} {10:10}'.format('Buy/Sell Price', 'Num Shares', 'Net Change', 'RSI_K/RSI_D', 'NATR', 'Daily_NATR', 'BBands_NATR', 'BBands_Squeeze_NATR', 'RS', 'ADX', 'Time'))
+			print('{0:18} {1:12} {2:12} {3:12} {4:15} {5:12} {6:12} {7:15} {8:20} {9:10} {10:10} {11:10}'.format('Buy/Sell Price', 'Num Shares', 'Net Change', 'RSI_K/RSI_D', 'MFI_K/MFI_D', 'NATR', 'Daily_NATR', 'BBands_NATR', 'BBands_Squeeze_NATR', 'RS', 'ADX', 'Time'))
 
 		rating = 0
 		success = fail = 0
@@ -735,15 +769,18 @@ for algo in args.algo.split(','):
 		counter = 0
 		while ( counter < len(results) - 1 ):
 
-			price_tx, num_shares, short, rsi_tx, natr_tx, dnatr_tx, bbands_natr, bbands_squeeze_natr, rs, adx_tx, time_tx = results[counter].split( ',', 11 )
-			price_rx, short, rsi_rx, natr_rx, dnatr_rx, adx_rx, time_rx = results[counter+1].split( ',', 7 )
+			price_tx, num_shares, short, rsi_tx, mfi_tx, natr_tx, dnatr_tx, bbands_natr, bbands_squeeze_natr, rs, adx_tx, time_tx = results[counter].split( ',', 12 )
+			price_rx, short, rsi_rx, mfi_rx, natr_rx, dnatr_rx, adx_rx, time_rx = results[counter+1].split( ',', 8 )
 
 			vwap_tx = vwap_rx = 0
 			stochrsi_tx = stochrsi_rx = 0
 
-			# Returned RSI format is "prev_rsi/cur_rsi"
-			rsi_prev_tx,rsi_cur_tx = rsi_tx.split( '/', 2 )
-			rsi_prev_rx,rsi_cur_rx = rsi_rx.split( '/', 2 )
+			# Returned RSI/MFI format is "prev_rsi/cur_rsi"
+			rsi_k_tx,rsi_d_tx = rsi_tx.split( '/', 2 )
+			rsi_k_rx,rsi_d_rx = rsi_rx.split( '/', 2 )
+
+			mfi_k_tx,mfi_d_tx = mfi_tx.split( '/', 2 )
+			mfi_k_rx,mfi_d_rx = mfi_rx.split( '/', 2 )
 
 			net_change = float(price_rx) - float(price_tx)
 			if ( short == str(False) ):
@@ -781,10 +818,15 @@ for algo in args.algo.split(','):
 			vwap_tx = round( float(vwap_tx), 2 )
 			vwap_rx = round( float(vwap_rx), 2 )
 
-			rsi_prev_tx = round( float(rsi_prev_tx), 1 )
-			rsi_cur_tx = round( float(rsi_cur_tx), 1 )
-			rsi_prev_rx = round( float(rsi_prev_rx), 1 )
-			rsi_cur_rx = round( float(rsi_cur_rx), 1 )
+			rsi_k_tx = round( float(rsi_k_tx), 1 )
+			rsi_d_tx = round( float(rsi_d_tx), 1 )
+			rsi_k_rx = round( float(rsi_k_rx), 1 )
+			rsi_d_rx = round( float(rsi_d_rx), 1 )
+
+			mfi_k_tx = round( float(mfi_k_tx), 1 )
+			mfi_d_tx = round( float(mfi_d_tx), 1 )
+			mfi_k_rx = round( float(mfi_k_rx), 1 )
+			mfi_d_rx = round( float(mfi_d_rx), 1 )
 
 			stochrsi_tx = round( float(stochrsi_tx), 4 )
 			stochrsi_rx = round( float(stochrsi_rx), 4 )
@@ -806,17 +848,20 @@ for algo in args.algo.split(','):
 				if ( is_success == True ):
 					text_color = green
 
-				rsi_tx = str(rsi_prev_tx) + '/' + str(rsi_cur_tx)
-				rsi_rx = str(rsi_prev_rx) + '/' + str(rsi_cur_rx)
+				rsi_tx = str(rsi_k_tx) + '/' + str(rsi_d_tx)
+				rsi_rx = str(rsi_k_rx) + '/' + str(rsi_d_rx)
+
+				mfi_tx = str(mfi_k_tx) + '/' + str(mfi_d_tx)
+				mfi_rx = str(mfi_k_rx) + '/' + str(mfi_d_rx)
 
 				print(text_color, end='')
-				print('{0:18} {1:12} {2:12} {3:15} {4:10} {5:12} {6:15} {7:20} {8:10} {9:10} {10:10}'.format(str(price_tx), str(num_shares), '-', str(rsi_tx), str(natr_tx), str(dnatr_tx), str(bbands_natr), str(bbands_squeeze_natr), str(rs), str(adx_tx), time_tx), end='')
+				print('{0:18} {1:12} {2:12} {3:12} {4:15} {5:12} {6:12} {7:15} {8:20} {9:10} {10:10} {11:10}'.format(str(price_tx), str(num_shares), '-', str(rsi_tx), str(mfi_tx), str(natr_tx), str(dnatr_tx), str(bbands_natr), str(bbands_squeeze_natr), str(rs), str(adx_tx), time_tx), end='')
 				print(reset_color, end='')
 
 				print()
 
 				print(text_color, end='')
-				print('{0:18} {1:12} {2:12} {3:15} {4:10} {5:12} {6:15} {7:20} {8:10} {9:10} {10:10}'.format(str(price_rx), '-', str(net_change), str(rsi_rx), '-', '-', '-', '-', '-', str(adx_tx), time_rx), end='')
+				print('{0:18} {1:12} {2:12} {3:12} {4:15} {5:12} {6:12} {7:15} {8:20} {9:10} {10:10} {11:10}'.format(str(price_rx), '-', str(net_change), str(rsi_rx), str(mfi_rx), '-', '-', '-', '-', '-', str(adx_tx), time_rx), end='')
 				print(reset_color, end='')
 
 				print()

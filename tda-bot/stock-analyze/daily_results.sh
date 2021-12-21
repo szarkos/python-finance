@@ -47,7 +47,7 @@ for tst in $tests; do
 						continue
 					fi
 
-					tx_date=$( echo -n "$line" | awk '{print $11}' )
+					tx_date=$( echo -n "$line" | awk '{print $12}' )
 					if [[ -v fail_tx_num["$tx_date"] ]]; then
 						fail_tx_num["$tx_date"]=$((${fail_tx_num["$tx_date"]}+1))
 					else
@@ -98,7 +98,7 @@ for tst in $tests; do
 						continue
 					fi
 
-					tx_date=$( echo -n "$line" | awk '{print $11}' )
+					tx_date=$( echo -n "$line" | awk '{print $12}' )
 					if [[ -v success_tx_num["$tx_date"] ]]; then
 						success_tx_num["$tx_date"]=$((${success_tx_num["$tx_date"]}+1))
 					else

@@ -584,6 +584,8 @@ def get_atr(pricehistory=None, period=14, debug=False):
 	natr = []
 	try:
 		atr = ti.atr(high, low, close, period=period)
+		#atr = talib.ATR(high, low, close, timeperiod=period)
+		#atr = np.nan_to_num(atr, copy=True)
 
 	except Exception as e:
 		print('Caught Exception: get_atr(' + str(ticker) + '): ti.atr(): ' + str(e))
@@ -1312,7 +1314,7 @@ def get_bbands(pricehistory=None, type='hlc3', period=20, stddev=2, use_talib=Fa
 
 
 # Calculate the Keltner channel upper, middle and lower lines
-def get_kchannels(pricehistory=None, type='hlc3', period=20, atr_period=None, atr_multiplier=1.5, debug=False):
+def get_kchannels(pricehistory=None, type='hlc3', period=20, matype='ema', atr_period=None, atr_multiplier=1.5, debug=False):
 
 	ticker = ''
 	try:
@@ -1327,14 +1329,14 @@ def get_kchannels(pricehistory=None, type='hlc3', period=20, atr_period=None, at
 	if ( atr_period == None ):
 		atr_period = period
 
-	# Keltner Channel Middle Line	= EMA
-	# Keltner Channel Upper Band	= EMA+2∗ATR
-	# Keltner Channel Lower Band	= EMA−2∗ATR
-	ema	= []
+	# Keltner Channel Middle Line	= MA
+	# Keltner Channel Upper Band	= MA+2∗ATR
+	# Keltner Channel Lower Band	= MA−2∗ATR
+	ma	= []
 	atr	= []
 	natr	= []
 	try:
-		ema = get_ema( pricehistory, type=type, period=period )
+		ma = get_alt_ma(pricehistory=pricehistory, period=period, ma_type=matype, type=type)
 
 	except Exception as e:
 		print('Error: get_kchannel(' + str(ticker) + '): unable to calculate EMA: ' + str(e))
@@ -1347,19 +1349,24 @@ def get_kchannels(pricehistory=None, type='hlc3', period=20, atr_period=None, at
 		print('Error: get_kchannel(' + str(ticker) + '): unable to calculate ATR: ' + str(e))
 		return False, [], []
 
-	# Normalize the size of atr[] to match the input size
+	# Normalize the size of ma[] and atr[] to match the input size
 	tmp = []
 	for i in range(0, atr_period - 1):
 		tmp.append(0)
 	atr = tmp + list(atr)
 
+	tmp = []
+	for i in range(0, len(pricehistory['candles']) - len(ma)):
+		tmp.append(0)
+	ma = tmp + list(ma)
+
 	# Calculate the upper/lower values
-	kchannel_mid	= ema
+	kchannel_mid	= ma
 	kchannel_upper	= []
 	kchannel_lower	= []
-	for idx in range(0, len(ema)):
-		kchannel_upper.append(ema[idx] + (atr[idx] * atr_multiplier) )
-		kchannel_lower.append(ema[idx] - (atr[idx] * atr_multiplier) )
+	for idx in range(0, len(ma)):
+		kchannel_upper.append(ma[idx] + (atr[idx] * atr_multiplier) )
+		kchannel_lower.append(ma[idx] - (atr[idx] * atr_multiplier) )
 
 	return kchannel_lower, kchannel_mid, kchannel_upper
 

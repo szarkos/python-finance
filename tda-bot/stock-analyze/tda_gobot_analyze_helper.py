@@ -208,6 +208,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	bbands_period			= 20		if ('bbands_period' not in params) else params['bbands_period']
 	kchannel_period			= 20		if ('kchannel_period' not in params) else params['kchannel_period']
 	kchannel_atr_period		= 20		if ('kchannel_atr_period' not in params) else params['kchannel_atr_period']
+	kchannel_multiplier		= 1.5		if ('kchannel_multiplier' not in params) else params['kchannel_multiplier']
 	bbands_kchan_use_stochrsi	= False		if ('bbands_kchan_use_stochrsi' not in params) else params['bbands_kchan_use_stochrsi']
 
 	# Indicator parameters and modifiers
@@ -419,7 +420,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	for idx in range(-1, -len(atr_d), -1):
 		day = datetime.fromtimestamp(int(daily_ph['candles'][idx]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d')
 		if day not in daily_natr:
-			daily_natr[day] = { 'atr': atr_d[idx], 'natr': natr_d[idx] }
+			try:
+				daily_natr[day] = { 'atr': atr_d[idx], 'natr': natr_d[idx] }
+			except:
+				pass
 
 	# End ATR
 
@@ -641,9 +645,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		kchannel_upper	= []
 		try:
 			if ( use_bbands_kchannel_5m == True ):
-				kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory_5m, period=kchannel_period, atr_period=kchannel_atr_period)
+				kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory_5m, period=kchannel_period, atr_period=kchannel_atr_period, atr_multiplier=kchannel_multiplier)
 			else:
-				kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory, period=kchannel_period, atr_period=kchannel_atr_period)
+				kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory, period=kchannel_period, atr_period=kchannel_atr_period, atr_multiplier=kchannel_multiplier)
 
 		except Exception as e:
 			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_kchannel(): ' + str(e))
@@ -877,11 +881,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 								'low':		-1,
 								'close':	-1,
 								'volume':	-1,
+								'open_idx':	None,
 								'high_idx':	None,
 								'low_idx':	None,
 								'pdh':		-1,
+								'pdh2':		-1,
 								'pdh_idx':	None,
 								'pdl':		-1,
+								'pdl2':		-1,
 								'pdl_idx':	None,
 								'pdc':		-1 }
 
@@ -1412,6 +1419,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			cur_offset	= abs((cur_kchannel_lower / cur_bbands_lower) - 1) * 100
 			if ( bbands_kchan_crossover_only == False and cur_offset < prev_offset and cur_offset <= bbands_kchannel_offset / 4 ):
 				bbands_kchan_signal = True
+
+#			elif ( bbands_kchan_crossover_only == False and bbands_kchan_crossover_signal == False and
+#					cur_offset < prev_offset and cur_offset < bbands_kchannel_offset ):
+#
+#				# Calculate angle of the bbands as it heads toward the keltner channel
+#				x	= (0, 1)
+#				y	= (prev_bbands_upper, cur_bbands_upper)
+#				angle_x	= np.arctan2(*x[::-1])
+#				angle_y	= np.arctan2(*y[::-1])
+#				angle_f	= np.rad2deg((angle_x - angle_y) % (2 * np.pi))
+#
+#				if ( round(angle_f) > 40 ):
+#					bbands_kchan_signal = True
 
 			# Check for crossover
 			if ( (prev_kchannel_lower <= prev_bbands_lower and cur_kchannel_lower > cur_bbands_lower) or
@@ -2399,7 +2419,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
 					print('(' + str(ticker) + '): BBands: ' + str(round(cur_bbands[0], 3)) + ' / ' + str(round(cur_bbands[2], 3)) +
-									', KChannel: ' + str(round(cur_kchannel[0], 3)) + ' / ' + str(round(cur_kchannel[2], 3)) +
+									', KChannel: ' + str(round(cur_kchannel[0], 3)) + ' / ' + str(round(cur_kchannel[1], 3)) + ' / ' + str(round(cur_kchannel[2], 3)) +
 									', Squeeze Count: ' + str(bbands_kchan_signal_counter) )
 
 				print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
@@ -3505,7 +3525,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
 					print('(' + str(ticker) + '): BBands: ' + str(round(cur_bbands[0], 3)) + ' / ' + str(round(cur_bbands[2], 3)) +
-								  ', KChannel: ' + str(round(cur_kchannel[0], 3)) + ' / ' + str(round(cur_kchannel[2], 3)) +
+								  ', KChannel: ' + str(round(cur_kchannel[0], 3)) + ' / ' + str(round(cur_kchannel[1], 3)) + ' / ' + str(round(cur_kchannel[2], 3)) +
 								  ', Squeeze Count: ' + str(bbands_kchan_signal_counter) )
 				print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
 				print('(' + str(ticker) + '): SHORT signal: ' + str(short_signal) + ', Final SHORT signal: ' + str(final_short_signal))

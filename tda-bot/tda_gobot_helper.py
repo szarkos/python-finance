@@ -54,8 +54,34 @@ def isendofday(mins=5, date=None):
 		print('Error: isendofday(): date must be a datetime object')
 		return False
 
+	# Early close (1PM) days
+	early_close = [	'2021-07-02',
+			'2021-11-26',
+			'2021-12-23',
+
+			# 2022
+			'2022-07-01',
+			'2022-11-25',
+			'2022-12-23',
+
+			# 2023
+			'2023-07-03',
+			'2023-11-24',
+			'2023-12-22',
+
+			# 2024
+			'2024-07-03',
+			'2024-11-29',
+			'2024-12-24' ]
+
 	mins = 60 - int(mins)
-	if ( int(est_time.strftime('%-H')) == 15 and int(est_time.strftime('%-M')) >= mins ):
+
+	# Check early close holidays (1:00PM Eastern)
+	if ( est_time.strftime('%Y-%m-%d') ) in early_close:
+		if ( int(est_time.strftime('%-H')) == 12 and int(est_time.strftime('%-M')) >= mins ):
+			return True
+
+	elif ( int(est_time.strftime('%-H')) == 15 and int(est_time.strftime('%-M')) >= mins ):
 		return True
 
 	return False
@@ -185,7 +211,7 @@ def ismarketopen_US(date=None, safe_open=False, check_day_only=False):
 				else:
 					return False
 
-			if ( int(est_time.strftime('%-H')) == 10 ):
+			elif ( int(est_time.strftime('%-H')) == 10 ):
 
 				# Do not return True until after 10:15AM to void some of the volatility of the open
 				if ( isinstance(safe_open, bool) and safe_open == True ):

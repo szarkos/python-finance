@@ -98,10 +98,13 @@ parser.add_argument("--use_bbands_kchannel_xover_exit", help='Use price action a
 parser.add_argument("--bbands_kchannel_straddle", help='Attempt straddle trade if primary trade is not working (Default: False)', action="store_true")
 parser.add_argument("--bbands_kchannel_xover_exit_count", help='Number of periods to wait after a crossover to trigger --use_bbands_kchannel_xover_exit (Default: 10)', default=10, type=int)
 parser.add_argument("--bbands_kchannel_offset", help='Percentage offset between the Bollinger bands and Keltner channel indicators to trigger an initial trade entry (Default: 0.15)', default=0.15, type=float)
-parser.add_argument("--bbands_kchan_squeeze_count", help='Number of squeeze periods needed before triggering bbands_kchannel signal (Default: 4)', default=4, type=int)
+parser.add_argument("--bbands_kchan_squeeze_count", help='Number of squeeze periods needed before triggering bbands_kchannel signal (Default: 8)', default=8, type=int)
 parser.add_argument("--max_squeeze_natr", help='Maximum NATR allowed during consolidation (squeeze) phase (Default: None)', default=None, type=float)
 parser.add_argument("--max_bbands_natr", help='Maximum NATR between upper and lower Bolinger Bands allowed during consolidation (squeeze) phase (Default: None)', default=None, type=float)
 parser.add_argument("--min_bbands_natr", help='Minimum NATR between upper and lower Bolinger Bands allowed during consolidation (squeeze) phase (Default: None)', default=None, type=float)
+parser.add_argument("--bbands_roc_threshold", help='BBands rate of change threshold to trigger bbands signal (Default: 50)', default=50, type=float)
+parser.add_argument("--bbands_roc_count", help='Number of times the BBands rate of change threshold must be met to trigger bbands signal (Default: 1)', default=1, type=int)
+parser.add_argument("--bbands_roc_strict", help='Require a change in Bollinger Bands rate-of-change equivalent to --bbands_roc_threshold (Default: False) to signal', action="store_true")
 parser.add_argument("--bbands_period", help='Period to use when calculating the Bollinger Bands (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_period", help='Period to use when calculating the Keltner channels (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_atr_period", help='Period to use when calculating the ATR for use with the Keltner channels (Default: 20)', default=20, type=int)
@@ -122,6 +125,7 @@ parser.add_argument("--exit_percent", help='Sell security if price improves by t
 parser.add_argument("--strict_exit_percent", help='Only exit when exit_percent signals an exit, ignore stochrsi', action="store_true")
 parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent strategy was set, do not wait for the next candle', action="store_true")
 parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_threshold and exit_percent based on the price action of the stock over the previous hour', action="store_true")
+parser.add_argument("--cost_basis_exit", help='Set stoploss to cost-basis if price improves by this percentile', default=None, type=float)
 parser.add_argument("--use_ha_exit", help='Use Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
 parser.add_argument("--use_ha_candles", help='Use Heikin Ashi candles with entry strategy', action="store_true")
 parser.add_argument("--use_trend_exit", help='Use ttm_trend algorithm with exit_percent-based exit strategy', action="store_true")
@@ -590,6 +594,7 @@ for algo in args.algo.split(','):
 					'quick_exit':				args.quick_exit,
 					'strict_exit_percent':			args.strict_exit_percent,
 					'variable_exit':			args.variable_exit,
+					'cost_basis_exit':			args.cost_basis_exit,
 					'use_ha_exit':				args.use_ha_exit,
 					'use_ha_candles':			args.use_ha_candles,
 					'use_trend_exit':			args.use_trend_exit,
@@ -669,6 +674,9 @@ for algo in args.algo.split(','):
 					'bbands_kchan_squeeze_count':		args.bbands_kchan_squeeze_count,
 					'max_squeeze_natr':			args.max_squeeze_natr,
 					'max_bbands_natr':			args.max_bbands_natr,
+					'bbands_roc_threshold':			args.bbands_roc_threshold,
+					'bbands_roc_count':			args.bbands_roc_count,
+					'bbands_roc_strict':			args.bbands_roc_strict,
 					'bbands_period':			args.bbands_period,
 					'kchannel_period':			args.kchannel_period,
 					'kchannel_atr_period':			args.kchannel_atr_period,

@@ -82,6 +82,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		if ( exclude_bbands_kchan == False ):
 			nonlocal bbands_kchan_signal_counter		; bbands_kchan_signal_counter		= 0
 			nonlocal bbands_kchan_xover_counter		; bbands_kchan_xover_counter		= 0
+			nonlocal bbands_roc_counter			; bbands_roc_counter			= 0
 			nonlocal bbands_kchan_init_signal		; bbands_kchan_init_signal		= False
 			nonlocal bbands_kchan_crossover_signal		; bbands_kchan_crossover_signal		= False
 			nonlocal bbands_kchan_signal			; bbands_kchan_signal			= False
@@ -121,6 +122,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	stoploss			= False		if ('stoploss' not in params) else params['stoploss']
 	exit_percent_long		= None		if ('exit_percent' not in params) else params['exit_percent']
 	exit_percent_short		= None		if ('exit_percent' not in params) else params['exit_percent']
+	cost_basis_exit			= None		if ('cost_basis_exit' not in params) else params['cost_basis_exit']
 	orig_exit_percent		= None		if ('exit_percent' not in params) else params['exit_percent']
 	quick_exit			= False		if ('quick_exit' not in params) else params['quick_exit']
 	strict_exit_percent		= False		if ('strict_exit_percent' not in params) else params['strict_exit_percent']
@@ -201,10 +203,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	bbands_kchannel_straddle	= False		if ('bbands_kchannel_straddle' not in params) else params['bbands_kchannel_straddle']
 	bbands_kchannel_xover_exit_count= 10		if ('bbands_kchannel_xover_exit_count' not in params) else params['bbands_kchannel_xover_exit_count']
 	bbands_kchannel_offset		= 0.15		if ('bbands_kchannel_offset' not in params) else params['bbands_kchannel_offset']
-	bbands_kchan_squeeze_count	= 4		if ('bbands_kchan_squeeze_count' not in params) else params['bbands_kchan_squeeze_count']
+	bbands_kchan_squeeze_count	= 8		if ('bbands_kchan_squeeze_count' not in params) else params['bbands_kchan_squeeze_count']
 	max_squeeze_natr		= None		if ('max_squeeze_natr' not in params) else params['max_squeeze_natr']
 	max_bbands_natr			= None		if ('max_bbands_natr' not in params) else params['max_bbands_natr']
 	min_bbands_natr			= None		if ('min_bbands_natr' not in params) else params['min_bbands_natr']
+	bbands_roc_threshold		= 50		if ('bbands_roc_threshold' not in params) else params['bbands_roc_threshold']
+	bbands_roc_strict		= False		if ('bbands_roc_strict' not in params) else params['bbands_roc_strict']
+	bbands_roc_count		= 1		if ('bbands_roc_count' not in params) else params['bbands_roc_count']
 	bbands_period			= 20		if ('bbands_period' not in params) else params['bbands_period']
 	kchannel_period			= 20		if ('kchannel_period' not in params) else params['kchannel_period']
 	kchannel_atr_period		= 20		if ('kchannel_atr_period' not in params) else params['kchannel_atr_period']
@@ -640,6 +645,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_bbands(): ' + str(e))
 			return False
 
+		# Calculate bbands the rate-of-change
+		bbands_ph	= { 'candles': [], 'symbol': ticker }
+		bbands_roc	= []
+		for i in range( len(bbands_upper) ):
+			bbands_ph['candles'].append( {	'upper':	bbands_upper[i],
+							'middle':	bbands_mid[i],
+							'lower':	bbands_lower[i],
+							'close':	bbands_upper[i],
+							'open':		bbands_lower[i] } )
+
+		bbands_roc = tda_algo_helper.get_roc( bbands_ph, period=bbands_kchan_squeeze_count, type='close' )
+
+		# Keltner Channel
 		kchannel_lower	= []
 		kchannel_mid	= []
 		kchannel_upper	= []
@@ -1090,6 +1108,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	bbands_kchan_signal_counter	= 0
 	bbands_kchan_xover_counter	= 0
+	bbands_roc_counter		= 0
 	bbands_kchan_init_signal	= False
 	bbands_kchan_crossover_signal	= False
 	bbands_kchan_signal		= False
@@ -1325,6 +1344,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal bbands_kchan_xover_counter
 		nonlocal bbands_kchan_crossover_only
 
+		nonlocal bbands_roc_threshold
+		nonlocal bbands_roc_strict
+		nonlocal bbands_roc_count
+		nonlocal bbands_roc_counter
+		nonlocal bbands_roc
+		nonlocal signal_mode
+		nonlocal cur_rsi_k
+
 		nonlocal idx
 		nonlocal max_squeeze_natr
 		nonlocal bbands_natr
@@ -1377,6 +1404,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			bbands_kchan_crossover_signal	= False
 			bbands_kchan_signal_counter	= 0
 			bbands_kchan_xover_counter	= 0
+			bbands_roc_counter		= 0
 
 			return bbands_kchan_init_signal, bbands_kchan_crossover_signal, bbands_kchan_signal
 
@@ -1417,27 +1445,48 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			#  and before they pop out of the Keltner channel
 			prev_offset	= abs((prev_kchannel_lower / prev_bbands_lower) - 1) * 100
 			cur_offset	= abs((cur_kchannel_lower / cur_bbands_lower) - 1) * 100
-			if ( bbands_kchan_crossover_only == False and cur_offset < prev_offset and cur_offset <= bbands_kchannel_offset / 4 ):
-				bbands_kchan_signal = True
 
-#			elif ( bbands_kchan_crossover_only == False and bbands_kchan_crossover_signal == False and
-#					cur_offset < prev_offset and cur_offset < bbands_kchannel_offset ):
-#
-#				# Calculate angle of the bbands as it heads toward the keltner channel
-#				x	= (0, 1)
-#				y	= (prev_bbands_upper, cur_bbands_upper)
-#				angle_x	= np.arctan2(*x[::-1])
-#				angle_y	= np.arctan2(*y[::-1])
-#				angle_f	= np.rad2deg((angle_x - angle_y) % (2 * np.pi))
-#
-#				if ( round(angle_f) > 40 ):
-#					bbands_kchan_signal = True
+			# Monitor the rate-of-change of the bbands to detect a breakout before the crossover happens
+			if ( bbands_kchan_crossover_only == False and bbands_kchan_crossover_signal == False and cur_offset < prev_offset ):
+				if ( cur_bbands_upper > prev_bbands_upper and bbands_roc[idx] > bbands_roc[idx-1] ):
+					roc_pct = (abs(bbands_roc[idx] - bbands_roc[idx-1]) / bbands_roc[idx-1]) * 100
+
+					if ( roc_pct >= bbands_roc_threshold ):
+						bbands_roc_counter += 1
+
+					if ( bbands_roc_counter >= bbands_roc_count ):
+						if ( (signal_mode['primary'] == 'long' and cur_rsi_k < 40) or
+								(signal_mode['primary'] == 'short' and cur_rsi_k > 60) ):
+							pass
+#							bbands_kchan_signal = True
+
+					elif ( roc_pct >= 75 ):
+						#nonlocal date
+						#print(date.strftime('%Y-%m-%d %H:%M:%S'))
+						if ( (signal_mode['primary'] == 'long' and cur_rsi_k < 40) or
+								(signal_mode['primary'] == 'short' and cur_rsi_k > 60) ):
+
+							bbands_kchan_signal = True
+
+			# Reset bbands_roc_counter if the bbands start to move back away from the Keltner channel
+			if ( bbands_kchan_signal == False and (cur_bbands_upper < prev_bbands_upper or cur_bbands_lower > prev_bbands_lower) ):
+				bbands_roc_counter = 0
+
+			# Trigger bbands_kchan_signal is the bbands/kchannel offset is narrowing to a point where crossover is emminent.
+			# Unless bbands_roc_strict is True, in which case a stronger change in the bbands rate-of-change is needed to
+			#  allow the bbands_kchan_signal to trigger.
+			if ( bbands_kchan_crossover_only == False and cur_offset < prev_offset and cur_offset <= bbands_kchannel_offset / 4 ):
+				if ( bbands_roc_strict == False or (bbands_roc_strict == True and bbands_roc_counter >= bbands_roc_count) ):
+					bbands_kchan_signal = True
+					bbands_kchan_crossover_signal = True
 
 			# Check for crossover
 			if ( (prev_kchannel_lower <= prev_bbands_lower and cur_kchannel_lower > cur_bbands_lower) or
 					(prev_kchannel_upper >= prev_bbands_upper and cur_kchannel_upper < cur_bbands_upper) ):
-				bbands_kchan_crossover_signal	= True
-				bbands_kchan_signal		= True
+
+				bbands_kchan_crossover_signal = True
+				if ( bbands_roc_strict == False or (bbands_roc_strict == True and bbands_roc_counter >= bbands_roc_count) ):
+					bbands_kchan_signal = True
 
 			if ( bbands_kchan_crossover_signal == True ):
 				bbands_kchan_xover_counter += 1
@@ -1472,7 +1521,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# If max_squeeze_natr is set, make sure the recent NATR is not too high to disqualify
 			#  this stock movement as a good consolidation.
-			if ( bbands_kchan_signal == True and pricehistory != None ):
+			if ( max_squeeze_natr != None and bbands_kchan_signal == True and pricehistory != None ):
 
 				cndl_slice = { 'candles': [] }
 				for i in range(bbands_kchan_signal_counter+2, 0, -1):
@@ -1509,6 +1558,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				bbands_kchan_crossover_signal	= False
 				bbands_kchan_signal_counter	= 0
 				bbands_kchan_xover_counter	= 0
+				bbands_roc_counter		= 0
 
 		return bbands_kchan_init_signal, bbands_kchan_crossover_signal, bbands_kchan_signal
 
@@ -1706,6 +1756,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			continue
 		if ( max_daily_natr != None and cur_natr_daily > max_daily_natr ):
 			continue
+
 
 		# BUY mode
 		if ( signal_mode['primary'] == 'long' ):
@@ -2443,7 +2494,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						str(round(bbands_natr['natr'], 3)) + ',' + str(round(bbands_natr['squeeze_natr'], 3)) + ',' +
 						str(round(cur_rs, 3)) + ',' + str(round(cur_adx,2)) + ',' + str(purchase_time) )
 
-				reset_signals()
+				reset_signals( exclude_bbands_kchan=True )
 				signal_mode['primary'] = 'sell'
 
 				# Build a profile of the stock's price action over the 90 minutes and adjust
@@ -2559,9 +2610,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							bbands_kchan_xover_counter = 0
 
 				# Handle adverse conditions after the crossover
-				elif ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
-					bbands_kchan_crossover_signal = True
+				elif ( (cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper) or bbands_kchan_crossover_signal == True ):
 
+					if ( bbands_kchan_crossover_signal == True and cur_close < purchase_price ):
+						if ( decr_threshold_long > 1 ):
+							decr_threshold_long = 1
+
+					bbands_kchan_crossover_signal = True
 					bbands_kchan_xover_counter += 1
 					if ( bbands_kchan_xover_counter <= 0 ):
 						bbands_kchan_xover_counter = 1
@@ -2694,11 +2749,21 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						sell_signal		= True
 						exit_percent_exits	+= 1
 
-				# Set the stoploss lower if the candle touches the exit_percent, but closes below it
+				# Set the stoploss to the entry price if the candle touches the exit_percent, but closes below it
 				elif ( high_percent_change >= exit_percent_long and total_percent_change < exit_percent_long and exit_percent_signal_long == False ):
-					if ( decr_threshold_long > 1 ):
-						decr_threshold_long = 1
+#					if ( decr_threshold_long > 1 ):
+#						decr_threshold_long = 1
+					if ( decr_threshold_long > total_percent_change ):
+						decr_threshold_long = total_percent_change
 
+				# Cost-basis exit may be a bit lower than exit_percent, but if closing prices surpass this limit
+				#  then set the stoploss to the cost-basis
+				elif ( cost_basis_exit != None and exit_percent_signal_long == False ):
+					if ( total_percent_change >= cost_basis_exit and total_percent_change < exit_percent_long ):
+						if ( decr_threshold_long > total_percent_change ):
+							decr_threshold_long = total_percent_change
+
+				# If the exit_percent has been surpased, then this section will handle the stock exit
 				if ( exit_percent_signal_long == True and sell_signal == False ):
 					if ( use_trend_exit == True ):
 						if ( use_ha_exit == True ):
@@ -3548,8 +3613,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						str(round(bbands_natr['natr'], 3)) + ',' + str(round(bbands_natr['squeeze_natr'], 3)) + ',' +
 						str(round(cur_rs, 3)) + ',' + str(round(cur_adx, 2)) + ',' + str(short_time) )
 
-				reset_signals()
-
+				reset_signals( exclude_bbands_kchan=True )
 				signal_mode['primary'] = 'buy_to_cover'
 
 				# Build a profile of the stock's price action over the 90 minutes and adjust
@@ -3665,9 +3729,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							bbands_kchan_xover_counter = 0
 
 				# Handle adverse conditions after the crossover
-				if ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
-					bbands_kchan_crossover_signal = True
+				if ( (cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper) or bbands_kchan_crossover_signal == True ):
 
+					if ( bbands_kchan_crossover_signal == True and cur_close > short_price ):
+						if ( decr_threshold_long > 1 ):
+							decr_threshold_long = 1
+
+					bbands_kchan_crossover_signal = True
 					bbands_kchan_xover_counter += 1
 					if ( bbands_kchan_xover_counter <= 0 ):
 						bbands_kchan_xover_counter = 1
@@ -3811,11 +3879,21 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						buy_to_cover_signal	= True
 						exit_percent_exits	+= 1
 
-				# Set the stoploss lower if the candle touches the exit_percent, but closes above it
+				# Set the stoploss to the entry price if the candle touches the exit_percent, but closes below it
 				elif ( low_percent_change >= exit_percent_short and total_percent_change < exit_percent_short and exit_percent_signal_short == False ):
-					if ( decr_threshold_short > 1 ):
-						decr_threshold_short = 1
+#					if ( decr_threshold_short > 1 ):
+#						decr_threshold_short = 1
+					if ( decr_threshold_short > total_percent_change ):
+						decr_threshold_short = total_percent_change
 
+				# Cost-basis exit may be a bit lower than exit_percent, but if closing prices surpass this limit
+				#  then set the stoploss to the cost-basis
+				elif ( cost_basis_exit != None and exit_percent_signal_long == False ):
+					if ( total_percent_change >= cost_basis_exit and total_percent_change < exit_percent_long ):
+						if ( decr_threshold_long > total_percent_change ):
+							decr_threshold_long = total_percent_change
+
+				# If the exit_percent has been surpased, then this section will handle the stock exit
 				if ( exit_percent_signal_short == True and buy_to_cover_signal == False ):
 					if ( use_trend_exit == True ):
 						if ( use_ha_exit == True ):

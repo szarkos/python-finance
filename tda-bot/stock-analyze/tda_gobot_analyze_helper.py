@@ -1459,7 +1459,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 					# Check bbands_roc_threshold and set bbands_roc_threshold_signal
 					# Backtesting shows a greater success rate if used with a modest stochrsi check
-					if ( roc_pct >= bbands_roc_threshold ):
+					if ( bbands_roc_threshold > 0 and roc_pct >= bbands_roc_threshold ):
 						bbands_roc_threshold_signal = True
 
 					if ( bbands_roc_threshold_signal == True and

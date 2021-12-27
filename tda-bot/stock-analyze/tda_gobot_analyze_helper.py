@@ -215,7 +215,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	kchannel_period			= 20		if ('kchannel_period' not in params) else params['kchannel_period']
 	kchannel_atr_period		= 20		if ('kchannel_atr_period' not in params) else params['kchannel_atr_period']
 	kchannel_multiplier		= 1.5		if ('kchannel_multiplier' not in params) else params['kchannel_multiplier']
-	bbands_kchan_use_stochrsi	= False		if ('bbands_kchan_use_stochrsi' not in params) else params['bbands_kchan_use_stochrsi']
 
 	# Indicator parameters and modifiers
 	stochrsi_period			= 128		if ('stochrsi_period' not in params) else params['stochrsi_period']
@@ -506,7 +505,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_stochrsi() returned false - no data', file=sys.stderr)
 			return False
 
-	if ( with_stochmfi == True or bbands_kchan_use_stochrsi == True ):
+	if ( with_stochmfi == True ):
 		mfi_k		= []
 		mfi_d		= []
 		try:
@@ -1039,7 +1038,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		stochrsi_5m_idx		= len(pricehistory['candles']) - len(rsi_k) * 5
 	if ( with_stochrsi_5m == True ):
 		stochrsi_5m_idx		= len(pricehistory['candles']) - len(rsi_k_5m) * 5
-	if ( with_stochmfi == True or bbands_kchan_use_stochrsi == True ):
+	if ( with_stochmfi == True ):
 		stochmfi_idx		= len(pricehistory['candles']) - len(mfi_k)
 	if ( with_stochmfi_5m == True ):
 		stochmfi_5m_idx		= len(pricehistory['candles']) - len(mfi_k_5m) * 5
@@ -1650,7 +1649,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			prev_rsi_d_5m	= rsi_d_5m[int((idx - stochrsi_5m_idx) / 5) - 1]
 
 		cur_mfi_k = cur_mfi_d = 0
-		if ( with_stochmfi == True or bbands_kchan_use_stochrsi == True ):
+		if ( with_stochmfi == True ):
 			cur_mfi_k	= mfi_k[idx - stochmfi_idx]
 			prev_mfi_k	= mfi_k[idx - stochmfi_idx - 1]
 			cur_mfi_d	= mfi_d[idx - stochmfi_idx]
@@ -1798,11 +1797,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 										bbands_kchan_crossover_signal=bbands_kchan_crossover_signal,
 										bbands_kchan_signal=bbands_kchan_signal,
 										debug=False )
-
-				if ( bbands_kchan_signal == True and bbands_kchan_use_stochrsi == True ):
-#					if ( cur_rsi_k > 55 or (cur_rsi_k < 30 and cur_mfi_k > 55) ):
-					if ( cur_rsi_k > 55 ):
-						bbands_kchan_signal = False
 
 
 			# StochRSI / StochMFI Primary
@@ -2942,12 +2936,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 										bbands_kchan_crossover_signal=bbands_kchan_crossover_signal,
 										bbands_kchan_signal=bbands_kchan_signal,
 										debug=False )
-
-				if ( bbands_kchan_signal == True and bbands_kchan_use_stochrsi == True ):
-#					if ( cur_rsi_k < 35 or (cur_rsi_k > 70 and cur_mfi_k < 35) ):
-					if ( cur_rsi_k < 35 ):
-						bbands_kchan_signal = False
-
 
 			# StochRSI / StochMFI Primary
 			if ( primary_stoch_indicator == 'stochrsi' or primary_stoch_indicator == 'stochmfi' ):

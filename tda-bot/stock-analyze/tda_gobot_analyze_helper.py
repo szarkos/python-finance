@@ -86,6 +86,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			nonlocal bbands_kchan_init_signal		; bbands_kchan_init_signal		= False
 			nonlocal bbands_kchan_crossover_signal		; bbands_kchan_crossover_signal		= False
 			nonlocal bbands_kchan_signal			; bbands_kchan_signal			= False
+			nonlocal bbands_roc_threshold_signal		; bbands_roc_threshold_signal		= False
 
 		nonlocal plus_di_crossover		; plus_di_crossover		= False
 		nonlocal minus_di_crossover		; minus_di_crossover		= False
@@ -207,9 +208,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	max_squeeze_natr		= None		if ('max_squeeze_natr' not in params) else params['max_squeeze_natr']
 	max_bbands_natr			= None		if ('max_bbands_natr' not in params) else params['max_bbands_natr']
 	min_bbands_natr			= None		if ('min_bbands_natr' not in params) else params['min_bbands_natr']
-	bbands_roc_threshold		= 50		if ('bbands_roc_threshold' not in params) else params['bbands_roc_threshold']
+	bbands_roc_threshold		= 15		if ('bbands_roc_threshold' not in params) else params['bbands_roc_threshold']
 	bbands_roc_strict		= False		if ('bbands_roc_strict' not in params) else params['bbands_roc_strict']
-	bbands_roc_count		= 1		if ('bbands_roc_count' not in params) else params['bbands_roc_count']
+	bbands_roc_count		= 2		if ('bbands_roc_count' not in params) else params['bbands_roc_count']
 	bbands_period			= 20		if ('bbands_period' not in params) else params['bbands_period']
 	kchannel_period			= 20		if ('kchannel_period' not in params) else params['kchannel_period']
 	kchannel_atr_period		= 20		if ('kchannel_atr_period' not in params) else params['kchannel_atr_period']
@@ -1112,6 +1113,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	bbands_kchan_init_signal	= False
 	bbands_kchan_crossover_signal	= False
 	bbands_kchan_signal		= False
+	bbands_roc_threshold_signal	= False
 	stacked_ma_signal		= False
 	bbands_natr			= { 'bbands': [], 'natr': 0, 'squeeze_natr': 0 }
 
@@ -1336,7 +1338,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	# Bollinger Bands and Keltner Channel crossover
 	def bbands_kchannels(pricehistory=None, simple=False, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0),
-				bbands_kchan_init_signal=False, bbands_kchan_crossover_signal=False, bbands_kchan_signal=False, debug=False ):
+				bbands_kchan_init_signal=False, bbands_roc_threshold_signal=False, bbands_kchan_crossover_signal=False, bbands_kchan_signal=False, debug=False ):
 
 		nonlocal bbands_kchannel_offset
 		nonlocal bbands_kchannel_offset_debug
@@ -1390,7 +1392,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			elif ( cur_kchannel_lower > cur_bbands_lower and cur_kchannel_upper < cur_bbands_upper ):
 				bbands_kchan_signal = False
 
-			return bbands_kchan_init_signal, bbands_kchan_crossover_signal, bbands_kchan_signal
+			return bbands_kchan_init_signal, bbands_roc_threshold_signal, bbands_kchan_crossover_signal, bbands_kchan_signal
 
 		# If the Bollinger Bands are outside the Keltner channel and the init signal hasn't been triggered,
 		#  then we can just make sure everything is reset and return False. We need to make sure that at least
@@ -1402,11 +1404,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			bbands_kchan_init_signal	= False
 			bbands_kchan_signal		= False
 			bbands_kchan_crossover_signal	= False
+			bbands_roc_threshold_signal	= False
 			bbands_kchan_signal_counter	= 0
 			bbands_kchan_xover_counter	= 0
 			bbands_roc_counter		= 0
 
-			return bbands_kchan_init_signal, bbands_kchan_crossover_signal, bbands_kchan_signal
+			return bbands_kchan_init_signal, bbands_roc_threshold_signal, bbands_kchan_crossover_signal, bbands_kchan_signal
 
 		# Check if the Bollinger Bands have moved inside the Keltner Channel
 		# Signal when they begin to converge
@@ -1451,25 +1454,25 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( cur_bbands_upper > prev_bbands_upper and bbands_roc[idx] > bbands_roc[idx-1] ):
 					roc_pct = (abs(bbands_roc[idx] - bbands_roc[idx-1]) / bbands_roc[idx-1]) * 100
 
-					if ( roc_pct >= bbands_roc_threshold ):
+					# Counter for use with bbands_roc_strict
+					if ( roc_pct >= 15 ):
 						bbands_roc_counter += 1
 
-					if ( bbands_roc_counter >= bbands_roc_count ):
-						if ( (signal_mode['primary'] == 'long' and cur_rsi_k < 40) or
-								(signal_mode['primary'] == 'short' and cur_rsi_k > 60) ):
-							pass
-#							bbands_kchan_signal = True
+					# Check bbands_roc_threshold and set bbands_roc_threshold_signal
+					# Backtesting shows a greater success rate if used with a modest stochrsi check
+					if ( roc_pct >= bbands_roc_threshold ):
+						bbands_roc_threshold_signal = True
 
-					elif ( roc_pct >= 75 ):
-						#nonlocal date
-						#print(date.strftime('%Y-%m-%d %H:%M:%S'))
-						if ( (signal_mode['primary'] == 'long' and cur_rsi_k < 40) or
-								(signal_mode['primary'] == 'short' and cur_rsi_k > 60) ):
+					if ( bbands_roc_threshold_signal == True and
+							((signal_mode['primary'] == 'long' and cur_rsi_k < 40) or
+							 (signal_mode['primary'] == 'short' and cur_rsi_k > 60)) ):
 
-							bbands_kchan_signal = True
+						bbands_kchan_signal = True
 
-			# Reset bbands_roc_counter if the bbands start to move back away from the Keltner channel
+			# Reset bbands_roc_counter and bbands_roc_threshold_signal if crossover has not yet happened and
+			#  the bbands start to move back away from the Keltner channel
 			if ( bbands_kchan_signal == False and (cur_bbands_upper < prev_bbands_upper or cur_bbands_lower > prev_bbands_lower) ):
+				bbands_roc_threshold_signal = False
 				bbands_roc_counter = 0
 
 			# Trigger bbands_kchan_signal is the bbands/kchannel offset is narrowing to a point where crossover is emminent.
@@ -1556,11 +1559,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				bbands_kchan_init_signal	= False
 				bbands_kchan_signal		= False
 				bbands_kchan_crossover_signal	= False
+				bbands_roc_threshold_signal	= False
 				bbands_kchan_signal_counter	= 0
 				bbands_kchan_xover_counter	= 0
 				bbands_roc_counter		= 0
 
-		return bbands_kchan_init_signal, bbands_kchan_crossover_signal, bbands_kchan_signal
+		return bbands_kchan_init_signal, bbands_roc_threshold_signal, bbands_kchan_crossover_signal, bbands_kchan_signal
 
 
 	# Return a bull/bear signal based on the ttm_trend algorithm
@@ -1784,11 +1788,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					prev_kchannel	= (kchannel_lower[idx-1], kchannel_mid[idx-1], kchannel_upper[idx-1])
 
 				( bbands_kchan_init_signal,
+				  bbands_roc_threshold_signal,
 				  bbands_kchan_crossover_signal,
 				  bbands_kchan_signal ) = bbands_kchannels( pricehistory=pricehistory, simple=with_bbands_kchannel_simple,
 										cur_bbands=cur_bbands, prev_bbands=prev_bbands,
 										cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
 										bbands_kchan_init_signal=bbands_kchan_init_signal,
+										bbands_roc_threshold_signal=bbands_roc_threshold_signal,
 										bbands_kchan_crossover_signal=bbands_kchan_crossover_signal,
 										bbands_kchan_signal=bbands_kchan_signal,
 										debug=False )
@@ -2452,6 +2458,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					', aroonosc_signal: '		+ str(aroonosc_signal) +
 					', macd_signal: '		+ str(macd_signal) +
 					', bbands_kchan_signal: '	+ str(bbands_kchan_signal) +
+					', bbands_roc_threshold_signal: ' + str(bbands_roc_threshold_signal) +
 					', bbands_kchan_crossover_signal: ' + str(bbands_kchan_crossover_signal) +
 					', bbands_kchan_init_signal: '	+ str(bbands_kchan_init_signal) +
 					', stacked_ma_signal: '		+ str(stacked_ma_signal) +
@@ -2925,11 +2932,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					prev_kchannel	= (kchannel_lower[idx-1], kchannel_mid[idx-1], kchannel_upper[idx-1])
 
 				( bbands_kchan_init_signal,
+				  bbands_roc_threshold_signal,
 				  bbands_kchan_crossover_signal,
 				  bbands_kchan_signal ) = bbands_kchannels( pricehistory=pricehistory, simple=with_bbands_kchannel_simple,
 										cur_bbands=cur_bbands, prev_bbands=prev_bbands,
 										cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
 										bbands_kchan_init_signal=bbands_kchan_init_signal,
+										bbands_roc_threshold_signal=bbands_roc_threshold_signal,
 										bbands_kchan_crossover_signal=bbands_kchan_crossover_signal,
 										bbands_kchan_signal=bbands_kchan_signal,
 										debug=False )
@@ -3572,6 +3581,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					', aroonosc_signal: '		+ str(aroonosc_signal) +
 					', macd_signal: '		+ str(macd_signal) +
 					', bbands_kchan_signal: '	+ str(bbands_kchan_signal) +
+					', bbands_roc_threshold_signal: ' + str(bbands_roc_threshold_signal) +
 					', bbands_kchan_crossover_signal: ' + str(bbands_kchan_crossover_signal) +
 					', bbands_kchan_init_signal: '  + str(bbands_kchan_init_signal) +
 					', stacked_ma_signal: '		+ str(stacked_ma_signal)+

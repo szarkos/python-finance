@@ -135,7 +135,7 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 	return True
 
 
-# Reset all the buy/sell/short/buy-to-cover and indicator signals
+# Reset all the long/sell/short/buy-to-cover and indicator signals
 def reset_signals(ticker=None, id=None, signal_mode=None, exclude_bbands_kchan=False):
 
 	if ( ticker == None ):
@@ -156,9 +156,9 @@ def reset_signals(ticker=None, id=None, signal_mode=None, exclude_bbands_kchan=F
 		if ( signal_mode != None ):
 			stocks[ticker]['algo_signals'][algo_id]['signal_mode']		= signal_mode
 
-			# If switching into the 'buy' or 'short' mode, reset the
+			# If switching into the 'long' or 'short' mode, reset the
 			#  primary algo to None.
-			if ( signal_mode == 'buy' or signal_mode == 'short' ):
+			if ( signal_mode == 'long' or signal_mode == 'short' ):
 				stocks[ticker]['primary_algo'] = None
 
 		stocks[ticker]['algo_signals'][algo_id]['buy_signal']			= False
@@ -453,10 +453,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 
 	# Bollinger Bands and Keltner Channel crossover
-	def bbands_kchannels(pricehistory=None, simple=False, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0),
-				bbands_kchan_signal_counter=0, bbands_kchan_xover_counter=0, bbands_kchan_init_signal=False, bbands_kchan_crossover_signal=False, bbands_kchan_signal=False, debug=False ):
+	def bbands_kchannels(pricehistory=None, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0),
+				bbands_kchan_signal_counter=0, bbands_kchan_xover_counter=0, bbands_roc=None, bbands_kchan_init_signal=False, bbands_kchan_crossover_signal=False, bbands_kchan_signal=False, debug=False ):
 
 		nonlocal cur_algo
+		nonlocal signal_mode
+		nonlocal cur_rsi_k
 
 		bbands_kchannel_offset		= cur_algo['bbands_kchannel_offset']
 		bbands_kchan_squeeze_count	= cur_algo['bbands_kchan_squeeze_count']
@@ -479,26 +481,22 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		prev_kchannel_mid	= round( prev_kchannel[1], 3 )
 		prev_kchannel_upper	= round( prev_kchannel[2], 3 )
 
-		if ( simple == True ):
-			bbands_kchan_init_signal = True
-			if ( cur_kchannel_lower < cur_bbands_lower and prev_kchannel_lower < prev_bbands_lower ):
-				prev_offset	= ((prev_kchannel_lower / prev_bbands_lower) - 1) * 100
-				cur_offset	= ((cur_kchannel_lower / cur_bbands_lower) - 1) * 100
-				if ( cur_offset < prev_offset ):
-					bbands_kchan_signal = True
+		cur_bbands_roc		= 0
+		prev_bbands_roc		= 0
+		if ( bbands_roc != None ):
+			try:
+				cur_bbands_roc		= bbands_roc[-1]
+				prev_bbands_roc		= bbands_roc[-2]
+			except:
+				cur_bbands_roc = prev_bbands_roc = 0
 
-			elif ( cur_kchannel_lower > cur_bbands_lower and cur_kchannel_upper < cur_bbands_upper ):
-				bbands_kchan_signal = False
-
-			return ( bbands_kchan_init_signal, bbands_kchan_crossover_signal, bbands_kchan_signal,
-					bbands_kchan_signal_counter, bbands_kchan_xover_counter )
 
 		# If the Bollinger Bands are outside the Keltner channel and the init signal hasn't been triggered,
 		#  then we can just make sure everything is reset and return False. We need to make sure that at least
 		#  bbands_kchan_signal_counter is reset and is not left set to >0 after a half-triggered squeeze.
 		#
 		# If the init signal has been triggered then we can move on and the signal may be canceled later
-		#  either via the buy/short signal or using bbands_kchan_xover_counter below
+		#  either via the long/short signal or using bbands_kchan_xover_counter below
 		if ( (cur_bbands_lower <= cur_kchannel_lower or cur_bbands_upper >= cur_kchannel_upper) and bbands_kchan_init_signal == False ):
 			bbands_kchan_init_signal        = False
 			bbands_kchan_signal             = False
@@ -537,6 +535,17 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			cur_offset	= abs((cur_kchannel_lower / cur_bbands_lower) - 1) * 100
 			if ( cur_offset < prev_offset and cur_offset <= bbands_kchannel_offset / 4 ):
 				bbands_kchan_signal = True
+
+			# Aggressive strategy #2 is to detect any sudden change in the Bollinger Bands' toward
+			#  the Keltner channel. This often indicates a sudden rise in volatility and likely breakout.
+			elif ( bbands_kchan_crossover_signal == False and cur_offset < prev_offset ):
+				if ( cur_bbands_upper > prev_bbands_upper and cur_bbands_roc > prev_bbands_roc ):
+					roc_pct = (abs(cur_bbands_roc - prev_bbands_roc) / prev_bbands_roc) * 100
+
+					if ( roc_pct >= cur_algo['bbands_roc_threshold'] ):
+						if ( (signal_mode == 'long' and cur_rsi_k <= 40) or
+								(signal_mode == 'short' and cur_rsi_k >= 60) ):
+							bbands_kchan_signal = True
 
 			# Check for crossover
 			if ( (prev_kchannel_lower <= prev_bbands_lower and cur_kchannel_lower > cur_bbands_lower) or
@@ -736,7 +745,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		# The exception is if the stock is in sell or buy_to_cover mode, it makes sense to check
 		#  the current price to allow stoploss.
 		if ( stocks[ticker]['prev_seq'] == stocks[ticker]['cur_seq'] ):
-			if ( stocks[ticker]['algo_signals'][algo_id]['signal_mode'] == 'buy' or
+			if ( stocks[ticker]['algo_signals'][algo_id]['signal_mode'] == 'long' or
 				stocks[ticker]['algo_signals'][algo_id]['signal_mode'] == 'short' ):
 				continue
 
@@ -748,7 +757,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 
 		# Get stochastic RSI
-		if ( cur_algo['primary_stochrsi'] == True or cur_algo['primary_stochmfi'] == True ):
+		if ( cur_algo['primary_stochrsi'] == True or cur_algo['primary_stochmfi'] == True or cur_algo['bbands_kchannel'] == True ):
 			rsi_k		= []
 			rsi_d		= []
 			stochrsi	= []
@@ -969,7 +978,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			stocks[ticker]['cur_aroonosc'] = aroonosc[-1]
 
 			# Enable macd_simple if --aroonosc_with_macd_simple is True
-			# We do this here just so that the MACD values will be calculated below, but the buy/short logic
+			# We do this here just so that the MACD values will be calculated below, but the long/short logic
 			#  later on will determine if MACD is actually used to make a decision.
 			if ( args.aroonosc_with_macd_simple == True ):
 				cur_algo['macd_simple'] = True
@@ -1019,7 +1028,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 
 		# Bollinger Bands and Keltner Channel
-		if ( cur_algo['bbands_kchannel'] == True or cur_algo['bbands_kchannel_simple'] == True ):
+		if ( cur_algo['bbands_kchannel'] == True ):
 
 			bbands_lower    = []
 			bbands_mid      = []
@@ -1037,6 +1046,19 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			stocks[ticker]['cur_bbands']	= ( bbands_lower[-1], bbands_mid[-1], bbands_upper[-1] )
 			stocks[ticker]['prev_bbands']	= ( bbands_lower[-2], bbands_mid[-2], bbands_upper[-2] )
 
+			# Calculation bbands the rate-of-change
+			bbands_ph	= { 'candles': [], 'symbol': ticker }
+			bbands_roc	= []
+			for i in range( len(bbands_upper) ):
+				bbands_ph['candles'].append( {  'upper':        bbands_upper[i],
+								'middle':       bbands_mid[i],
+								'lower':        bbands_lower[i],
+								'close':        bbands_upper[i],
+								'open':         bbands_lower[i] } )
+
+			bbands_roc = tda_algo_helper.get_roc( bbands_ph, period=cur_algo['bbands_kchan_squeeze_count'], type='close' )
+
+			# Keltner channel
 			kchannel_lower  = []
 			kchannel_mid    = []
 			kchannel_upper  = []
@@ -1189,7 +1211,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							' / Supertrend Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['supertrend_signal']) )
 
 			# Bollinger Bands and Keltner Channel
-			if ( cur_algo['bbands_kchannel'] == True or cur_algo['bbands_kchannel_simple'] == True ):
+			if ( cur_algo['bbands_kchannel'] == True ):
 				print('(' + str(ticker) + ') Current BBands: ' +
 								str(round(stocks[ticker]['cur_bbands'][0], 3)) + ',' +
 								str(round(stocks[ticker]['cur_bbands'][1], 3)) + ',' +
@@ -1344,8 +1366,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		adx_threshold		= cur_algo['adx_threshold']
 
 
-		# Global criteria for buy or sell mode
-		if ( signal_mode == 'buy' or signal_mode == 'short'):
+		# Global criteria for long or sell mode
+		if ( signal_mode == 'long' or signal_mode == 'short'):
 
 			# Skip if we've exhausted our maximum number of failed transactions for this stock
 			if ( stocks[ticker]['failed_txs'] <= 0 ):
@@ -1379,8 +1401,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				signal_mode = 'short'
 
 			elif ( args.shortonly == False and args.short == False ):
-				stocks[ticker]['algo_signals'][algo_id]['signal_mode'] = 'buy'
-				signal_mode = 'buy'
+				stocks[ticker]['algo_signals'][algo_id]['signal_mode'] = 'long'
+				signal_mode = 'long'
 
 		# Global criteria for short or buy_to_cover mode
 		elif ( signal_mode == 'sell' or signal_mode == 'buy_to_cover'):
@@ -1393,17 +1415,17 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 
 		# BUY MODE - looking for a signal to purchase the stock
-		if ( signal_mode == 'buy' ):
+		if ( signal_mode == 'long' ):
 
 			# Bollinger Bands and Keltner Channel
 			# We put this above the primary indicator since we want to keep track of what the
-			#  Bollinger bands and Keltner channel are doing across buy/short transitions.
-			if ( cur_algo['bbands_kchannel'] == True or cur_algo['bbands_kchannel_simple'] == True ):
+			#  Bollinger bands and Keltner channel are doing across long/short transitions.
+			if ( cur_algo['bbands_kchannel'] == True ):
 				( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
-				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] ) = bbands_kchannels( pricehistory=stocks[ticker]['pricehistory'], simple=cur_algo['bbands_kchannel_simple'],
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] ) = bbands_kchannels( pricehistory=stocks[ticker]['pricehistory'],
 																cur_bbands=cur_bbands, prev_bbands=prev_bbands,
 																cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
 																bbands_kchan_signal_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
@@ -1411,7 +1433,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 																bbands_kchan_init_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
 																bbands_kchan_crossover_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
 																bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
-																debug=True )
+																bbands_roc=bbands_roc, debug=True )
 
 			# PRIMARY STOCHRSI MONITOR
 			if ( cur_algo['primary_stochrsi'] == True or cur_algo['primary_stochmfi'] == True ):
@@ -1947,7 +1969,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				if ( cur_algo['supertrend'] == True and supertrend_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
-				if ( (cur_algo['bbands_kchannel'] == True or cur_algo['bbands_kchannel_simple'] == True) and bbands_kchan_signal != True ):
+				if ( cur_algo['bbands_kchannel'] == True and bbands_kchan_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
 				if ( cur_algo['check_etf_indicators'] == True and rs_signal != True ):
@@ -2088,7 +2110,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['base_price'] = 0
 					stocks[ticker]['orig_base_price'] = 0
 
-					reset_signals(ticker, signal_mode='buy')
+					reset_signals(ticker, signal_mode='long')
 					continue
 
 			# The last trading hour is a bit unpredictable. If --hold_overnight is false we want
@@ -2184,7 +2206,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							if ( args.fake == False ):
 								tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 
-					# Change signal to 'buy' and generate new tx_id for next iteration
+					# Change signal to 'long' and generate new tx_id for next iteration
 					stocks[ticker]['tx_id']			= random.randint(1000, 9999)
 					stocks[ticker]['stock_qty']		= 0
 					stocks[ticker]['base_price']		= 0
@@ -2195,7 +2217,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['orig_decr_threshold']	= args.decr_threshold
 					stocks[ticker]['exit_percent']		= args.exit_percent
 
-					reset_signals(ticker, signal_mode='buy')
+					reset_signals(ticker, signal_mode='long')
 					continue
 
 
@@ -2248,8 +2270,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				# Set the stoploss lower if the candle touches the exit_percent, but closes below it
 				elif ( high_percent_change >= stocks[ticker]['exit_percent'] and total_percent_change < stocks[ticker]['exit_percent'] and
 						stocks[ticker]['exit_percent_signal'] == False ):
-					if ( stocks[ticker]['decr_threshold'] > 1 ):
-						stocks[ticker]['decr_threshold'] = 1
+					if ( stocks[ticker]['decr_threshold'] > total_percent_change ):
+						stocks[ticker]['decr_threshold'] = total_percent_change
 
 				# If exit_percent has been hit, we will sell at the first RED candle
 				if ( stocks[ticker]['exit_percent_signal'] == True ):
@@ -2353,7 +2375,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						if ( args.fake == False ):
 							tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 
-				# Change signal to 'buy' or 'short' and generate new tx_id for next iteration
+				# Change signal to 'long' or 'short' and generate new tx_id for next iteration
 				stocks[ticker]['tx_id']			= random.randint(1000, 9999)
 				stocks[ticker]['stock_qty']		= 0
 				stocks[ticker]['base_price']		= 0
@@ -2368,7 +2390,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				if ( args.short == True and stocks[ticker]['shortable'] == True ):
 					reset_signals(ticker, signal_mode='short')
 				else:
-					reset_signals(ticker, signal_mode='buy')
+					reset_signals(ticker, signal_mode='long')
 
 
 		# SHORT SELL the stock
@@ -2377,30 +2399,31 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# Bollinger Bands and Keltner Channel
 			# We put this above the primary indicator since we want to keep track of what the
-			#  Bollinger bands and Keltner channel are doing across buy/short transitions.
-			if ( cur_algo['bbands_kchannel'] == True or cur_algo['bbands_kchannel_simple'] == True ):
+			#  Bollinger bands and Keltner channel are doing across long/short transitions.
+			if ( cur_algo['bbands_kchannel'] == True ):
 				( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
-				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] ) = bbands_kchannels( pricehistory=stocks[ticker]['pricehistory'], simple=cur_algo['bbands_kchannel_simple'], cur_bbands=cur_bbands, prev_bbands=prev_bbands,
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] ) = bbands_kchannels( pricehistory=stocks[ticker]['pricehistory'],
+																cur_bbands=cur_bbands, prev_bbands=prev_bbands,
 																cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
 																bbands_kchan_signal_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
 																bbands_kchan_xover_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'],
 																bbands_kchan_init_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
 																bbands_kchan_crossover_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
 																bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
-																debug=True )
+																bbands_roc=bbands_roc, debug=True )
 
 			# PRIMARY STOCHRSI MONITOR
 			if ( cur_algo['primary_stochrsi'] == True or cur_algo['primary_stochmfi'] == True ):
 
-				# Jump to buy mode if StochRSI K and D are already below stoch_low_limit
+				# Jump to long mode if StochRSI K and D are already below stoch_low_limit
 				# The intent here is if the bot starts up while the RSI is low we don't want to wait until the stock
 				#  does a full loop again before acting on it.
 				if ( cur_rsi_k < stoch_default_low_limit and cur_rsi_d < stoch_default_low_limit and args.shortonly == False ):
-					print('(' + str(ticker) + ') StochRSI K and D values already below ' + str(stoch_default_low_limit) + ', switching to buy mode.')
-					reset_signals(ticker, id=algo_id, signal_mode='buy')
+					print('(' + str(ticker) + ') StochRSI K and D values already below ' + str(stoch_default_low_limit) + ', switching to long mode.')
+					reset_signals(ticker, id=algo_id, signal_mode='long')
 					continue
 
 				( stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal'],
@@ -2448,7 +2471,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						(cur_algo['use_ha_candles'] == False and cur_algo['use_trend'] == False and stacked_ma_bull_affinity == True) ):
 
 					print('(' + str(ticker) + ') StackedMA values indicate bullish trend ' + str(cur_s_ma_primary) + ", switching to long mode.\n")
-					reset_signals(ticker, id=algo_id, signal_mode='buy', exclude_bbands_kchan=True)
+					reset_signals(ticker, id=algo_id, signal_mode='long', exclude_bbands_kchan=True)
 					continue
 
 				elif ( cur_algo['use_ha_candles'] == True and stacked_ma_bear_ha_affinity == True or stacked_ma_bear_affinity == True ):
@@ -2924,7 +2947,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				if ( cur_algo['supertrend'] == True and supertrend_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
 
-				if ( (cur_algo['bbands_kchannel'] == True or cur_algo['bbands_kchannel_simple'] == True) and bbands_kchan_signal != True ):
+				if ( cur_algo['bbands_kchannel'] == True and bbands_kchan_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
 
 				if ( cur_algo['check_etf_indicators'] == True and rs_signal != True ):
@@ -2972,7 +2995,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							else:
 								print('Error: Unable to short "' + str(ticker) + '" - disabling shorting', file=sys.stderr)
 
-								reset_signals(ticker, signal_mode='buy')
+								reset_signals(ticker, signal_mode='long')
 								stocks[ticker]['shortable'] = False
 								stocks[ticker]['stock_qty'] = 0
 								continue
@@ -2988,7 +3011,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['stock_qty'] = 0
 					reset_signals(ticker)
 					if ( args.shortonly == False ):
-						reset_signals(ticker, signal_mode='buy')
+						reset_signals(ticker, signal_mode='long')
 
 					continue
 
@@ -3090,7 +3113,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					if ( args.shortonly == True ):
 						reset_signals(ticker, signal_mode='short')
 					else:
-						reset_signals(ticker, signal_mode='buy')
+						reset_signals(ticker, signal_mode='long')
 
 					continue
 
@@ -3214,7 +3237,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							if ( args.fake == False ):
 								tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 
-					# Change signal to 'buy' and generate new tx_id for next iteration
+					# Change signal to 'long' and generate new tx_id for next iteration
 					stocks[ticker]['tx_id']			= random.randint(1000, 9999)
 					stocks[ticker]['stock_qty']		= 0
 					stocks[ticker]['base_price']		= 0
@@ -3228,7 +3251,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					if ( args.shortonly == True ):
 						reset_signals(ticker, signal_mode='short')
 					else:
-						reset_signals(ticker, signal_mode='buy')
+						reset_signals(ticker, signal_mode='long')
 
 					continue
 
@@ -3254,8 +3277,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				# Set the stoploss lower if the candle touches the exit_percent, but closes above it
 				elif ( low_percent_change >= stocks[ticker]['exit_percent'] and total_percent_change < stocks[ticker]['exit_percent'] and
 						stocks[ticker]['exit_percent_signal'] == False ):
-					if ( stocks[ticker]['decr_threshold'] > 1 ):
-						stocks[ticker]['decr_threshold'] = 1
+					if ( stocks[ticker]['decr_threshold'] > total_percent_change ):
+						stocks[ticker]['decr_threshold'] = total_percent_change
 
 				# If exit_percent has been hit, we will sell at the first GREEN candle
 				if ( stocks[ticker]['exit_percent_signal'] == True ):
@@ -3352,7 +3375,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						if ( args.fake == False ):
 							tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 
-				# Change signal to 'buy' and generate new tx_id for next iteration
+				# Change signal to 'long' and generate new tx_id for next iteration
 				stocks[ticker]['tx_id'] = random.randint(1000, 9999)
 				stocks[ticker]['stock_qty'] = 0
 				stocks[ticker]['base_price'] = 0
@@ -3361,7 +3384,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				if ( args.shortonly == True ):
 					reset_signals(ticker, signal_mode='short')
 				else:
-					reset_signals(ticker, signal_mode='buy')
+					reset_signals(ticker, signal_mode='long')
 
 
 		# Undefined mode - this shouldn't happen

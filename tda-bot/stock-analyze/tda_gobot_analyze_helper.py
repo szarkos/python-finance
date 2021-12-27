@@ -208,7 +208,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	max_squeeze_natr		= None		if ('max_squeeze_natr' not in params) else params['max_squeeze_natr']
 	max_bbands_natr			= None		if ('max_bbands_natr' not in params) else params['max_bbands_natr']
 	min_bbands_natr			= None		if ('min_bbands_natr' not in params) else params['min_bbands_natr']
-	bbands_roc_threshold		= 15		if ('bbands_roc_threshold' not in params) else params['bbands_roc_threshold']
+	bbands_roc_threshold		= 90		if ('bbands_roc_threshold' not in params) else params['bbands_roc_threshold']
 	bbands_roc_strict		= False		if ('bbands_roc_strict' not in params) else params['bbands_roc_strict']
 	bbands_roc_count		= 2		if ('bbands_roc_count' not in params) else params['bbands_roc_count']
 	bbands_period			= 20		if ('bbands_period' not in params) else params['bbands_period']

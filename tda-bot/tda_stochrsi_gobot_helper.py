@@ -200,6 +200,7 @@ def reset_signals(ticker=None, id=None, signal_mode=None, exclude_bbands_kchan=F
 
 		if ( exclude_bbands_kchan == False ):
 			stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal']		= False
+			stocks[ticker]['algo_signals'][algo_id]['bbands_roc_threshold_signal']		= False
 			stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal']	= False
 			stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal']			= False
 			stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter']		= 0
@@ -453,8 +454,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 
 	# Bollinger Bands and Keltner Channel crossover
-	def bbands_kchannels(pricehistory=None, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0),
-				bbands_kchan_signal_counter=0, bbands_kchan_xover_counter=0, bbands_roc=None, bbands_kchan_init_signal=False, bbands_kchan_crossover_signal=False, bbands_kchan_signal=False, debug=False ):
+	def bbands_kchannels(pricehistory=None, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0), bbands_roc=None,
+				bbands_kchan_signal_counter=0, bbands_kchan_xover_counter=0,
+				bbands_kchan_init_signal=False, bbands_roc_threshold_signal=False, bbands_kchan_crossover_signal=False, bbands_kchan_signal=False, debug=False ):
 
 		nonlocal cur_algo
 		nonlocal signal_mode
@@ -501,10 +503,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			bbands_kchan_init_signal        = False
 			bbands_kchan_signal             = False
 			bbands_kchan_crossover_signal   = False
+			bbands_roc_threshold_signal	= False
 			bbands_kchan_signal_counter     = 0
 			bbands_kchan_xover_counter      = 0
 
-			return ( bbands_kchan_init_signal, bbands_kchan_crossover_signal, bbands_kchan_signal,
+			return ( bbands_kchan_init_signal, bbands_roc_threshold_signal, bbands_kchan_crossover_signal, bbands_kchan_signal,
 					bbands_kchan_signal_counter, bbands_kchan_xover_counter )
 
 		# Check if the Bollinger Bands have moved inside the Keltner Channel
@@ -543,9 +546,18 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					roc_pct = (abs(cur_bbands_roc - prev_bbands_roc) / prev_bbands_roc) * 100
 
 					if ( roc_pct >= cur_algo['bbands_roc_threshold'] ):
-						if ( (signal_mode == 'long' and cur_rsi_k <= 40) or
-								(signal_mode == 'short' and cur_rsi_k >= 60) ):
-							bbands_kchan_signal = True
+						bbands_roc_threshold_signal = True
+
+					if ( bbands_roc_threshold_signal == True and
+							((signal_mode == 'long' and cur_rsi_k <= 40) or
+							 (signal_mode == 'short' and cur_rsi_k >= 60)) ):
+
+						bbands_kchan_signal = True
+
+			# Reset bbands_roc_threshold_signal if crossover has not yet happened and  the bbands start
+			#  to move back away from the Keltner channel
+                        if ( bbands_kchan_signal == False and (cur_bbands_upper < prev_bbands_upper or cur_bbands_lower > prev_bbands_lower) ):
+                                bbands_roc_threshold_signal = False
 
 			# Check for crossover
 			if ( (prev_kchannel_lower <= prev_bbands_lower and cur_kchannel_lower > cur_bbands_lower) or
@@ -592,10 +604,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				bbands_kchan_init_signal	= False
 				bbands_kchan_crossover_signal	= False
 				bbands_kchan_signal		= False
+				bbands_roc_threshold_signal	= False
 				bbands_kchan_signal_counter	= 0
 				bbands_kchan_xover_counter	= 0
 
-		return ( bbands_kchan_init_signal, bbands_kchan_crossover_signal, bbands_kchan_signal,
+		return ( bbands_kchan_init_signal, bbands_roc_threshold_signal, bbands_kchan_crossover_signal, bbands_kchan_signal,
 				bbands_kchan_signal_counter, bbands_kchan_xover_counter )
 
 
@@ -1222,6 +1235,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 								str(round(stocks[ticker]['cur_kchannel'][2], 3)) +
 							' / Squeeze Count: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter']) +
 							' / BBands_Kchannel Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal']) +
+							' / BBands_Threshold Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_roc_threshold_signal']) +
 							' / BBands_Kchannel Crossover Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal']) )
 
 			# Rate of Change
@@ -1422,6 +1436,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			#  Bollinger bands and Keltner channel are doing across long/short transitions.
 			if ( cur_algo['bbands_kchannel'] == True ):
 				( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_roc_threshold_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
@@ -1431,6 +1446,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 																bbands_kchan_signal_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
 																bbands_kchan_xover_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'],
 																bbands_kchan_init_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
+																bbands_roc_threshold_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_roc_threshold_signal'],
 																bbands_kchan_crossover_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
 																bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
 																bbands_roc=bbands_roc, debug=True )
@@ -2402,6 +2418,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			#  Bollinger bands and Keltner channel are doing across long/short transitions.
 			if ( cur_algo['bbands_kchannel'] == True ):
 				( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_roc_threshold_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
@@ -2411,6 +2428,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 																bbands_kchan_signal_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
 																bbands_kchan_xover_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'],
 																bbands_kchan_init_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
+																bbands_roc_threshold_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_roc_threshold_signal'],
 																bbands_kchan_crossover_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
 																bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
 																bbands_roc=bbands_roc, debug=True )

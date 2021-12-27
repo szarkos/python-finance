@@ -40,7 +40,7 @@ nohup ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=20000 --stocks=${tickers
 	\
 	--stacked_ma_periods_primary=8,13,21 --stacked_ma_periods=34,55,89 \
 	--check_etf_indicators --check_etf_indicators_strict --etf_min_rs=3 \
-	--bbands_kchannel_offset=0.15 --bbands_kchan_squeeze_count=8 \
+	--bbands_kchannel_offset=0.15 --bbands_kchan_squeeze_count=10 \
 	--rsi_high_limit=75 --rsi_low_limit=25 --stochrsi_offset=3 --daily_atr_period=3  \
 	--aroonosc_with_macd_simple --variable_exit --lod_hod_check --use_combined_exit \
 	--weekly_ifile=stock-analyze/weekly-csv/TICKER-weekly-2019-2021.pickle \

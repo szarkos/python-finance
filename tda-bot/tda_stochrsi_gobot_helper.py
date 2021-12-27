@@ -492,7 +492,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			except:
 				cur_bbands_roc = prev_bbands_roc = 0
 
-
 		# If the Bollinger Bands are outside the Keltner channel and the init signal hasn't been triggered,
 		#  then we can just make sure everything is reset and return False. We need to make sure that at least
 		#  bbands_kchan_signal_counter is reset and is not left set to >0 after a half-triggered squeeze.
@@ -545,7 +544,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				if ( cur_bbands_upper > prev_bbands_upper and cur_bbands_roc > prev_bbands_roc ):
 					roc_pct = (abs(cur_bbands_roc - prev_bbands_roc) / prev_bbands_roc) * 100
 
-					if ( roc_pct >= cur_algo['bbands_roc_threshold'] ):
+					if ( cur_algo['bbands_roc_threshold'] > 0 and roc_pct >= cur_algo['bbands_roc_threshold'] ):
 						bbands_roc_threshold_signal = True
 
 					if ( bbands_roc_threshold_signal == True and
@@ -556,8 +555,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# Reset bbands_roc_threshold_signal if crossover has not yet happened and  the bbands start
 			#  to move back away from the Keltner channel
-                        if ( bbands_kchan_signal == False and (cur_bbands_upper < prev_bbands_upper or cur_bbands_lower > prev_bbands_lower) ):
-                                bbands_roc_threshold_signal = False
+			if ( bbands_kchan_signal == False and (cur_bbands_upper < prev_bbands_upper or cur_bbands_lower > prev_bbands_lower) ):
+				bbands_roc_threshold_signal = False
 
 			# Check for crossover
 			if ( (prev_kchannel_lower <= prev_bbands_lower and cur_kchannel_lower > cur_bbands_lower) or
@@ -775,7 +774,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			rsi_d		= []
 			stochrsi	= []
 			try:
-				if ( cur_algo['primary_stochrsi'] == True ):
+				if ( cur_algo['primary_stochrsi'] == True or cur_algo['bbands_kchannel'] == True ):
 					stochrsi, rsi_k, rsi_d = tda_algo_helper.get_stochrsi( stocks[ticker]['pricehistory'], rsi_period=cur_algo['rsi_period'], stochrsi_period=cur_algo['stochrsi_period'], type=rsi_type,
 												slow_period=cur_algo['rsi_slow'], rsi_k_period=cur_algo['rsi_k_period'], rsi_d_period=cur_algo['rsi_d_period'], debug=False )
 

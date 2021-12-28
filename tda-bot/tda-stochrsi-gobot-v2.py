@@ -909,7 +909,7 @@ for ticker in stock_list.split(','):
 						'bbands_kchan_signal':			False,
 						'bbands_kchan_signal_counter':		0,
 						'bbands_kchan_xover_counter':		0,
-						'bbands_roc_count':			0,
+						'bbands_roc_counter':			0,
 
 						# Relative Strength
 						'rs_signal':				False,

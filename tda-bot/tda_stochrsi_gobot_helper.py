@@ -205,6 +205,7 @@ def reset_signals(ticker=None, id=None, signal_mode=None, exclude_bbands_kchan=F
 			stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal']			= False
 			stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter']		= 0
 			stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter']		= 0
+			stocks[ticker]['algo_signals'][algo_id]['bbands_roc_counter']			= 0
 
 		stocks[ticker]['algo_signals'][algo_id]['plus_di_crossover']		= False
 		stocks[ticker]['algo_signals'][algo_id]['minus_di_crossover']		= False
@@ -455,7 +456,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 	# Bollinger Bands and Keltner Channel crossover
 	def bbands_kchannels(pricehistory=None, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0), bbands_roc=None,
-				bbands_kchan_signal_counter=0, bbands_kchan_xover_counter=0,
+				bbands_kchan_signal_counter=0, bbands_kchan_xover_counter=0, bbands_roc_counter=0,
 				bbands_kchan_init_signal=False, bbands_roc_threshold_signal=False, bbands_kchan_crossover_signal=False, bbands_kchan_signal=False, debug=False ):
 
 		nonlocal cur_algo
@@ -505,9 +506,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			bbands_roc_threshold_signal	= False
 			bbands_kchan_signal_counter     = 0
 			bbands_kchan_xover_counter      = 0
+			bbands_roc_counter		= 0
 
 			return ( bbands_kchan_init_signal, bbands_roc_threshold_signal, bbands_kchan_crossover_signal, bbands_kchan_signal,
-					bbands_kchan_signal_counter, bbands_kchan_xover_counter )
+					bbands_kchan_signal_counter, bbands_kchan_xover_counter, bbands_roc_counter )
 
 		# Check if the Bollinger Bands have moved inside the Keltner Channel
 		# Signal when they begin to converge
@@ -535,34 +537,47 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			#  and before they pop out of the Keltner channel
 			prev_offset	= abs((prev_kchannel_lower / prev_bbands_lower) - 1) * 100
 			cur_offset	= abs((cur_kchannel_lower / cur_bbands_lower) - 1) * 100
-			if ( cur_offset < prev_offset and cur_offset <= bbands_kchannel_offset / 4 ):
-				bbands_kchan_signal = True
 
 			# Aggressive strategy #2 is to detect any sudden change in the Bollinger Bands' toward
 			#  the Keltner channel. This often indicates a sudden rise in volatility and likely breakout.
-			elif ( bbands_kchan_crossover_signal == False and cur_offset < prev_offset ):
+			if ( bbands_kchan_crossover_signal == False and cur_offset < prev_offset ):
 				if ( cur_bbands_upper > prev_bbands_upper and cur_bbands_roc > prev_bbands_roc ):
 					roc_pct = (abs(cur_bbands_roc - prev_bbands_roc) / prev_bbands_roc) * 100
+
+					# Counter for use with bbands_roc_strict
+					if ( roc_pct >= 15 ):
+						bbands_roc_counter += 1
 
 					if ( cur_algo['bbands_roc_threshold'] > 0 and roc_pct >= cur_algo['bbands_roc_threshold'] ):
 						bbands_roc_threshold_signal = True
 
-					if ( bbands_roc_threshold_signal == True and
-							((signal_mode == 'long' and cur_rsi_k <= 40) or
-							 (signal_mode == 'short' and cur_rsi_k >= 60)) ):
+				if ( bbands_roc_threshold_signal == True and
+						((signal_mode == 'long' and cur_rsi_k <= 40) or
+						 (signal_mode == 'short' and cur_rsi_k >= 60)) ):
 
-						bbands_kchan_signal = True
+					bbands_kchan_signal = True
 
-			# Reset bbands_roc_threshold_signal if crossover has not yet happened and  the bbands start
-			#  to move back away from the Keltner channel
-			if ( bbands_kchan_signal == False and (cur_bbands_upper < prev_bbands_upper or cur_bbands_lower > prev_bbands_lower) ):
-				bbands_roc_threshold_signal = False
+			# Reset bbands_roc_counter and bbands_roc_threshold_signal if crossover has not yet happened and
+			#  the bbands start to move back away from the Keltner channel
+			if ( bbands_kchan_signal == False and cur_offset > prev_offset ):
+				bbands_roc_threshold_signal	= False
+				bbands_roc_counter		= 0
+
+			# Trigger bbands_kchan_signal is the bbands/kchannel offset is narrowing to a point where crossover is emminent.
+			# Unless bbands_roc_strict is True, in which case a stronger change in the bbands rate-of-change is needed to
+			#  allow the bbands_kchan_signal to trigger.
+			if ( cur_offset < prev_offset and cur_offset <= bbands_kchannel_offset / 4 ):
+				if ( cur_algo['bbands_roc_strict'] == False or (cur_algo['bbands_roc_strict'] == True and bbands_roc_counter >= cur_algo['bbands_roc_count']) ):
+					bbands_kchan_signal = True
+					bbands_kchan_crossover_signal = True
 
 			# Check for crossover
 			if ( (prev_kchannel_lower <= prev_bbands_lower and cur_kchannel_lower > cur_bbands_lower) or
 					(prev_kchannel_upper >= prev_bbands_upper and cur_kchannel_upper < cur_bbands_upper) ):
-				bbands_kchan_crossover_signal   = True
-				bbands_kchan_signal             = True
+				bbands_kchan_crossover_signal = True
+
+				if ( cur_algo['bbands_roc_strict'] == False or (cur_algo['bbands_roc_strict'] == True and bbands_roc_counter >= cur_algo['bbands_roc_count']) ):
+					bbands_kchan_signal = True
 
 			if ( bbands_kchan_crossover_signal == True ):
 				bbands_kchan_xover_counter += 1
@@ -606,9 +621,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				bbands_roc_threshold_signal	= False
 				bbands_kchan_signal_counter	= 0
 				bbands_kchan_xover_counter	= 0
+				bbands_roc_counter		= 0
 
 		return ( bbands_kchan_init_signal, bbands_roc_threshold_signal, bbands_kchan_crossover_signal, bbands_kchan_signal,
-				bbands_kchan_signal_counter, bbands_kchan_xover_counter )
+				bbands_kchan_signal_counter, bbands_kchan_xover_counter, bbands_roc_counter )
 
 
 	# Intraday stacked moving averages
@@ -1439,16 +1455,18 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
-				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] ) = bbands_kchannels( pricehistory=stocks[ticker]['pricehistory'],
-																cur_bbands=cur_bbands, prev_bbands=prev_bbands,
-																cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
-																bbands_kchan_signal_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
-																bbands_kchan_xover_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'],
-																bbands_kchan_init_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
-																bbands_roc_threshold_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_roc_threshold_signal'],
-																bbands_kchan_crossover_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
-																bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
-																bbands_roc=bbands_roc, debug=True )
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'],
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_roc_counter'] ) = bbands_kchannels( pricehistory=stocks[ticker]['pricehistory'],
+															cur_bbands=cur_bbands, prev_bbands=prev_bbands,
+															cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
+															bbands_kchan_signal_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
+															bbands_kchan_xover_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'],
+															bbands_roc_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_roc_counter'],
+															bbands_kchan_init_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
+															bbands_roc_threshold_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_roc_threshold_signal'],
+															bbands_kchan_crossover_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
+															bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
+															bbands_roc=bbands_roc, debug=True )
 
 			# PRIMARY STOCHRSI MONITOR
 			if ( cur_algo['primary_stochrsi'] == True or cur_algo['primary_stochmfi'] == True ):
@@ -2045,7 +2063,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				tda_gobot_helper.log_monitor(ticker, 0, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
 
 				# Reset and switch all algos to 'sell' mode for the next loop
-				reset_signals(ticker, signal_mode='sell')
+				reset_signals(ticker, signal_mode='sell', exclude_bbands_kchan=True)
+				stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 0
 
 				# VARIABLE EXIT
 				# Build a profile of the stock's price action over the 90 minutes and adjust
@@ -2168,7 +2187,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 								stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 					if ( cur_algo['primary_stacked_ma'] == True ):
-						if ( stacked_ma_bear_affinity == True ):
+						if ( stacked_ma_bear_affinity == True or stacked_ma_bear_ha_affinity == True ):
 
 							# Stock momentum switched directions after entry and before crossover
 							stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] -= 1
@@ -2181,9 +2200,14 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 0
 
 				# Handle adverse conditions after the crossover
-				elif ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
-					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] = True
+				elif ( (cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper) or
+						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] == True ):
 
+					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] == True and last_price < stocks[ticker]['orig_base_price'] ):
+						if ( stocks[ticker]['decr_threshold'] > 1 ):
+							stocks[ticker]['decr_threshold'] = 1
+
+					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] = True
 					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1
 					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= 0 ):
 						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 1
@@ -2421,16 +2445,18 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
 				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
-				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] ) = bbands_kchannels( pricehistory=stocks[ticker]['pricehistory'],
-																cur_bbands=cur_bbands, prev_bbands=prev_bbands,
-																cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
-																bbands_kchan_signal_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
-																bbands_kchan_xover_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'],
-																bbands_kchan_init_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
-																bbands_roc_threshold_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_roc_threshold_signal'],
-																bbands_kchan_crossover_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
-																bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
-																bbands_roc=bbands_roc, debug=True )
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'],
+				  stocks[ticker]['algo_signals'][algo_id]['bbands_roc_counter'] ) = bbands_kchannels( pricehistory=stocks[ticker]['pricehistory'],
+															cur_bbands=cur_bbands, prev_bbands=prev_bbands,
+															cur_kchannel=cur_kchannel, prev_kchannel=prev_kchannel,
+															bbands_kchan_signal_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter'],
+															bbands_kchan_xover_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'],
+															bbands_roc_counter=stocks[ticker]['algo_signals'][algo_id]['bbands_roc_counter'],
+															bbands_kchan_init_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal'],
+															bbands_roc_threshold_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_roc_threshold_signal'],
+															bbands_kchan_crossover_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
+															bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
+															bbands_roc=bbands_roc, debug=True )
 
 			# PRIMARY STOCHRSI MONITOR
 			if ( cur_algo['primary_stochrsi'] == True or cur_algo['primary_stochmfi'] == True ):
@@ -3039,7 +3065,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				tda_gobot_helper.log_monitor(ticker, 0, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=True, sold=False)
 
 				# Reset and switch all algos to 'buy_to_cover' mode for the next loop
-				reset_signals(ticker, signal_mode='buy_to_cover')
+				reset_signals(ticker, signal_mode='buy_to_cover', exclude_bbands_kchan=True)
+				stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 0
 
 				# VARIABLE EXIT
 				# Build a profile of the stock's price action over the 90 minutes and adjust
@@ -3173,7 +3200,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							if ( stacked_ma_bull_affinity == True and last_close > stocks[ticker]['orig_base_price'] ):
 								stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
-					if ( cur_algo['primary_stacked_ma'] == True ):
+					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] == False and cur_algo['primary_stacked_ma'] == True ):
 						if ( stacked_ma_bull_affinity == True or stacked_ma_bull_ha_affinity == True ):
 
 							# Stock momentum switched directions after entry and before crossover
@@ -3187,9 +3214,14 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 0
 
 				# Handle adverse conditions after the crossover
-				elif ( cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper ):
-					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] = True
+				elif ( (cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper) or
+						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] == True ):
 
+					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] == True and last_price > stocks[ticker]['orig_base_price'] ):
+						if ( stocks[ticker]['decr_threshold'] > 1 ):
+							stocks[ticker]['decr_threshold'] = 1
+
+					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] = True
 					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1
 					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= 0 ):
 						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 1

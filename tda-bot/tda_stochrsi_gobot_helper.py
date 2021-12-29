@@ -295,44 +295,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			signal.raise_signal(signal.SIGTERM)
 			sys.exit(0)
 
-
-	# If check_etf_indicators is configured, then calculate the rate-of-change for each ETF ticker
-	#  before we reach the main loop for all the tradeable tickers.
-	if ( cur_algo['check_etf_indicators'] == True ):
-		etf_roc = []
-		for ticker in cur_algo['etf_tickers'].split(','):
-			stocks[ticker]['cur_roc'] = 0
-			try:
-				etf_roc = tda_algo_helper.get_roc( pricehistory=stocks[ticker]['pricehistory'], period=cur_algo['etf_roc_period'], type='hlc3' )
-
-			except Exception as e:
-				print('Error: stochrsi_gobot(): get_roc(' + str(ticker) + '): ' + str(e), file=sys.stderr)
-				continue
-
-			if ( isinstance(etf_roc, bool) and etf_roc == False ):
-				print('Error: stochrsi_gobot(): get_roc(' + str(ticker) + ') returned false - no data', file=sys.stderr)
-				continue
-
-			stocks[ticker]['cur_roc'] = etf_roc[-1]
-
-			# Calculate the EMA for the rate-of-change for the ETF tickers
-			temp_ph         = { 'candles': [] }
-			roc_stacked_ma  = []
-			try:
-				for i in range(len(etf_roc)):
-					etf_roc[i] = etf_roc[i] * 10000
-					temp_ph['candles'].append({ 'open': etf_roc[i], 'high': etf_roc[i], 'low': etf_roc[i], 'close': etf_roc[i] })
-
-				roc_stacked_ma = get_stackedma(temp_ph, cur_algo['stacked_ma_periods_primary'], cur_algo['stacked_ma_type_primary'] )
-				del(temp_ph)
-
-			except Exception as e:
-				print('Error: stochrsi_gobot(): get_stackedma(' + str(ticker) + '): ' + str(e), file=sys.stderr)
-
-			stocks[ticker]['cur_s_ma_primary']	= roc_stacked_ma[-1]
-			stocks[ticker]['prev_s_ma_primary']	= roc_stacked_ma[-2]
-
-
 	# StochRSI/StochMFI long algorithm
 	def get_stoch_signal_long(algo_name=None, ticker=None, cur_k=0, cur_d=0, prev_k=0, prev_d=0, stoch_offset=0, stoch_signal=False, crossover_signal=False, threshold_signal=False, final_signal=False):
 
@@ -757,6 +719,43 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			return True
 
 		return False
+
+
+	# If check_etf_indicators is configured, then calculate the rate-of-change for each ETF ticker
+	#  before we reach the main loop for all the tradeable tickers.
+	if ( cur_algo['check_etf_indicators'] == True ):
+		etf_roc = []
+		for ticker in cur_algo['etf_tickers'].split(','):
+			stocks[ticker]['cur_roc'] = 0
+			try:
+				etf_roc = tda_algo_helper.get_roc( pricehistory=stocks[ticker]['pricehistory'], period=cur_algo['etf_roc_period'], type='hlc3' )
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(): get_roc(' + str(ticker) + '): ' + str(e), file=sys.stderr)
+				continue
+
+			if ( isinstance(etf_roc, bool) and etf_roc == False ):
+				print('Error: stochrsi_gobot(): get_roc(' + str(ticker) + ') returned false - no data', file=sys.stderr)
+				continue
+
+			stocks[ticker]['cur_roc'] = etf_roc[-1]
+
+			# Calculate the EMA for the rate-of-change for the ETF tickers
+			temp_ph         = { 'candles': [] }
+			roc_stacked_ma  = []
+			try:
+				for i in range(len(etf_roc)):
+					etf_roc[i] = etf_roc[i] * 10000
+					temp_ph['candles'].append({ 'open': etf_roc[i], 'high': etf_roc[i], 'low': etf_roc[i], 'close': etf_roc[i] })
+
+				roc_stacked_ma = get_stackedma(temp_ph, cur_algo['stacked_ma_periods_primary'], cur_algo['stacked_ma_type_primary'] )
+				del(temp_ph)
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(): get_stackedma(' + str(ticker) + '): ' + str(e), file=sys.stderr)
+
+			stocks[ticker]['cur_s_ma_primary']	= roc_stacked_ma[-1]
+			stocks[ticker]['prev_s_ma_primary']	= roc_stacked_ma[-2]
 
 
 	##########################################################################################
@@ -1273,8 +1272,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# Rate of Change
 			if ( cur_algo['check_etf_indicators'] == True ):
 				print( '(' + str(ticker) + ') Current Rate-of-Change: ' + str(round(stocks[ticker]['cur_roc'], 5)), end='' )
-				for t in cur_algo['etf_tickers'].split(','):
-					print( ', ' + str(t) + ': ' + str(round(stocks[t]['cur_roc'], 5)), end='' )
+				for etf_ticker in cur_algo['etf_tickers'].split(','):
+					print( ', ' + str(etf_ticker) + ': ' + str(round(stocks[etf_ticker]['cur_roc'], 5)), end='' )
 
 				print( ' / RelStrength Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['rs_signal']) )
 
@@ -1728,29 +1727,29 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				cur_algo['quick_exit']					= False
 
 				cur_rs = 0
-				for t in cur_algo['etf_tickers'].split(','):
+				for etf_ticker in cur_algo['etf_tickers'].split(','):
 
 					# Stock is rising compared to ETF
-					if ( cur_roc > 0 and stocks[t]['cur_roc'] < 0 ):
-						cur_rs = abs( cur_roc / stocks[t]['cur_roc'] )
+					if ( cur_roc > 0 and stocks[etf_ticker]['cur_roc'] < 0 ):
+						cur_rs = abs( cur_roc / stocks[etf_ticker]['cur_roc'] )
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = True
 
 						if ( cur_rs < 20 ):
 							cur_algo['quick_exit'] = True
 
 					# Both stocks are sinking
-					elif ( cur_roc < 0 and stocks[t]['cur_roc'] < 0 ):
-						cur_rs = -( cur_roc / stocks[t]['cur_roc'] )
+					elif ( cur_roc < 0 and stocks[etf_ticker]['cur_roc'] < 0 ):
+						cur_rs = -( cur_roc / stocks[etf_ticker]['cur_roc'] )
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
 
 					# Stock is sinking relative to ETF
-					elif ( cur_roc < 0 and stocks[t]['cur_roc'] > 0 ):
-						cur_rs = cur_roc / stocks[t]['cur_roc']
+					elif ( cur_roc < 0 and stocks[etf_ticker]['cur_roc'] > 0 ):
+						cur_rs = cur_roc / stocks[etf_ticker]['cur_roc']
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
 
 					# Both stocks are rising
-					elif ( cur_roc > 0 and stocks[t]['cur_roc'] > 0 ):
-						cur_rs = cur_roc / stocks[t]['cur_roc']
+					elif ( cur_roc > 0 and stocks[etf_ticker]['cur_roc'] > 0 ):
+						cur_rs = cur_roc / stocks[etf_ticker]['cur_roc']
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
 
 						if ( cur_algo['check_etf_indicators_strict'] == False and cur_rs > 10 ):
@@ -1773,9 +1772,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 					# Do not allow trade if the stacked MA of the rate of change does not agree with the
 					#  direction of entry. This could indicate a choppy market.
-					for etf_ticker in cur_algo['etf_tickers'].split(','):
-						if ( check_stacked_ma(stocks[etf_ticker]['cur_s_ma_primary'], 'bull') == False ):
-							stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
+					if ( check_stacked_ma(stocks[etf_ticker]['cur_s_ma_primary'], 'bull') == False ):
+						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
 
 
 			# VWAP signal
@@ -2752,16 +2750,16 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				cur_algo['quick_exit']					= False
 
 				cur_rs = 0
-				for t in cur_algo['etf_tickers'].split(','):
+				for etf_ticker in cur_algo['etf_tickers'].split(','):
 
 					# Stock is rising compared to ETF
-					if ( cur_roc > 0 and stocks[t]['cur_roc'] < 0 ):
-						cur_rs = abs( cur_roc / stocks[t]['cur_roc'] )
+					if ( cur_roc > 0 and stocks[etf_ticker]['cur_roc'] < 0 ):
+						cur_rs = abs( cur_roc / stocks[etf_ticker]['cur_roc'] )
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
 
 					# Both stocks are sinking
-					elif ( cur_roc < 0 and stocks[t]['cur_roc'] < 0 ):
-						cur_rs = -( cur_roc / stocks[t]['cur_roc'] )
+					elif ( cur_roc < 0 and stocks[etf_ticker]['cur_roc'] < 0 ):
+						cur_rs = -( cur_roc / stocks[etf_ticker]['cur_roc'] )
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
 
 						if ( cur_algo['check_etf_indicators_strict'] == False and cur_rs > 10 ):
@@ -2776,16 +2774,16 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 								cur_algo['quick_exit']		= True
 
 					# Stock is sinking relative to ETF
-					elif ( cur_roc < 0 and stocks[t]['cur_roc'] > 0 ):
-						cur_rs = cur_roc / stocks[t]['cur_roc']
+					elif ( cur_roc < 0 and stocks[etf_ticker]['cur_roc'] > 0 ):
+						cur_rs = cur_roc / stocks[etf_ticker]['cur_roc']
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = True
 
 						if ( abs(cur_rs) < 20 ):
 							cur_algo['quick_exit'] = True
 
 					# Both stocks are rising
-					elif ( cur_roc > 0 and stocks[t]['cur_roc'] > 0 ):
-						cur_rs = cur_roc / stocks[t]['cur_roc']
+					elif ( cur_roc > 0 and stocks[etf_ticker]['cur_roc'] > 0 ):
+						cur_rs = cur_roc / stocks[etf_ticker]['cur_roc']
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
 
 					# Weird
@@ -2797,9 +2795,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 					# Do not allow trade if the stacked MA of the rate of change does not agree with the
 					#  direction of entry. This could indicate a choppy market.
-					for etf_ticker in cur_algo['etf_tickers'].split(','):
-						if ( check_stacked_ma(stocks[etf_ticker]['cur_s_ma_primary'], 'bear') == False ):
-							stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
+					if ( check_stacked_ma(stocks[etf_ticker]['cur_s_ma_primary'], 'bear') == False ):
+						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
 
 
 			# VWAP signal

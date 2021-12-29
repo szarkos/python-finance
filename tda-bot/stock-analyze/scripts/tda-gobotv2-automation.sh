@@ -17,7 +17,7 @@ if [ "$command" != "force" ]; then
 		cur_time=$(TZ="America/New_York" date +%H:%M)
 		echo "Current time is $cur_time"
 
-		if [ "$cur_time" == "06:30" ]; then
+		if [ "$cur_time" == "09:30" ]; then
 			break
 		fi
 		sleep 30

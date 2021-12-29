@@ -159,7 +159,7 @@ def reset_signals(ticker=None, id=None, signal_mode=None, exclude_bbands_kchan=F
 			# If switching into the 'long' or 'short' mode, reset the
 			#  primary algo to None.
 			if ( signal_mode == 'long' or signal_mode == 'short' ):
-				stocks[ticker]['primary_algo'] = None
+				stocks[ticker]['primary_algo']				= None
 
 		stocks[ticker]['algo_signals'][algo_id]['buy_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['sell_signal']			= False
@@ -314,6 +314,23 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				continue
 
 			stocks[ticker]['cur_roc'] = etf_roc[-1]
+
+			# Calculate the EMA for the rate-of-change for the ETF tickers
+			temp_ph         = { 'candles': [] }
+			roc_stacked_ma  = []
+			try:
+				for i in range(len(etf_roc)):
+					etf_roc[i] = etf_roc[i] * 10000
+					temp_ph['candles'].append({ 'open': etf_roc[i], 'high': etf_roc[i], 'low': etf_roc[i], 'close': etf_roc[i] })
+
+				roc_stacked_ma = get_stackedma(temp_ph, cur_algo['stacked_ma_periods_primary'], cur_algo['stacked_ma_type_primary'] )
+				del(temp_ph)
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(): get_stackedma(' + str(ticker) + '): ' + str(e), file=sys.stderr)
+
+			stocks[ticker]['cur_s_ma_primary']	= roc_stacked_ma[-1]
+			stocks[ticker]['prev_s_ma_primary']	= roc_stacked_ma[-2]
 
 
 	# StochRSI/StochMFI long algorithm
@@ -675,10 +692,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		if ( affinity == None or len(s_ma) == 0 ):
 			return False
 
-		# Round the moving average values to two decimal places
+		# Round the moving average values to three decimal places
 		s_ma = list(s_ma)
 		for i in range(0, len(s_ma)):
-			s_ma[i] = round( s_ma[i], 2 )
+			s_ma[i] = round( s_ma[i], 3 )
 
 		ma_affinity = False
 		if ( affinity == 'bear' ):
@@ -1704,35 +1721,62 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# Relative Strength
 			if ( cur_algo['check_etf_indicators'] == True ):
 
+				stocks[ticker]['algo_signals'][algo_id]['rs_signal']	= False
+				stocks[ticker]['decr_threshold']			= args.decr_threshold
+				stocks[ticker]['orig_decr_threshold']			= args.decr_threshold
+				stocks[ticker]['exit_percent']				= args.exit_percent
+				cur_algo['quick_exit']					= False
+
 				cur_rs = 0
 				for t in cur_algo['etf_tickers'].split(','):
 
+					# Stock is rising compared to ETF
 					if ( cur_roc > 0 and stocks[t]['cur_roc'] < 0 ):
-						# Stock is rising compared to ETF
 						cur_rs = abs( cur_roc / stocks[t]['cur_roc'] )
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = True
 
+						if ( cur_rs < 20 ):
+							cur_algo['quick_exit'] = True
+
+					# Both stocks are sinking
 					elif ( cur_roc < 0 and stocks[t]['cur_roc'] < 0 ):
-						# Both stocks are sinking
 						cur_rs = -( cur_roc / stocks[t]['cur_roc'] )
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
 
+					# Stock is sinking relative to ETF
 					elif ( cur_roc < 0 and stocks[t]['cur_roc'] > 0 ):
-						# Stock is sinking relative to ETF
 						cur_rs = cur_roc / stocks[t]['cur_roc']
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
 
-					else:
-						# Both stocks are rising
+					# Both stocks are rising
+					elif ( cur_roc > 0 and stocks[t]['cur_roc'] > 0 ):
 						cur_rs = cur_roc / stocks[t]['cur_roc']
-						if ( cur_algo['check_etf_indicators_strict'] == True ):
-							stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
-						else:
-							if ( cur_rs > 10 ):
-								stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = True
+						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
+
+						if ( cur_algo['check_etf_indicators_strict'] == False and cur_rs > 10 ):
+							stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = True
+
+							if ( stocks[ticker]['decr_threshold'] > 1 ):
+								stocks[ticker]['orig_decr_threshold']	= stocks[ticker]['decr_threshold']
+								stocks[ticker]['decr_threshold']	= 1
+
+							if ( stocks[ticker]['exit_percent'] != None ):
+								stocks[ticker]['exit_percent']	= stocks[ticker]['exit_percent'] / 2
+								cur_algo['quick_exit']		= True
+
+					# Weird
+					else:
+						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
 
 					if ( cur_algo['etf_min_rs'] != None and abs(cur_rs) < cur_algo['etf_min_rs'] ):
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
+
+					# Do not allow trade if the stacked MA of the rate of change does not agree with the
+					#  direction of entry. This could indicate a choppy market.
+					for etf_ticker in cur_algo['etf_tickers'].split(','):
+						if ( check_stacked_ma(stocks[etf_ticker]['cur_s_ma_primary'], 'bull') == False ):
+							stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
+
 
 			# VWAP signal
 			# This is the most simple/pessimistic approach right now
@@ -2028,7 +2072,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# Calculate stock quantity from investment amount
 				last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
-				stocks[ticker]['stock_qty'] = int( cur_algo['stock_usd'] / float(last_price) )
+				stocks[ticker]['stock_qty'] = int( stocks[ticker]['stock_usd'] / float(last_price) )
 
 				# Purchase the stock
 				if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == True ):
@@ -2039,8 +2083,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						data = tda_gobot_helper.buy_stock_marketprice(ticker, stocks[ticker]['stock_qty'], fillwait=True, debug=True)
 						if ( data == False ):
 							print('Error: Unable to buy stock "' + str(ticker) + '"', file=sys.stderr)
-							stocks[ticker]['stock_qty'] = 0
-							stocks[ticker]['isvalid'] = False
+							stocks[ticker]['stock_usd']	= cur_algo['stock_usd']
+							stocks[ticker]['stock_qty']	= 0
+							stocks[ticker]['isvalid']	= False
 							reset_signals(ticker)
 							continue
 
@@ -2053,6 +2098,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					print('Stock ' + str(ticker) + ' not purchased because market is closed.')
 
 					reset_signals(ticker)
+					stocks[ticker]['stock_usd'] = cur_algo['stock_usd']
 					stocks[ticker]['stock_qty'] = 0
 					continue
 
@@ -2139,10 +2185,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							if ( args.fake == False ):
 								tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, 0)
 
-					stocks[ticker]['tx_id'] = random.randint(1000, 9999)
-					stocks[ticker]['stock_qty'] = 0
-					stocks[ticker]['base_price'] = 0
-					stocks[ticker]['orig_base_price'] = 0
+					stocks[ticker]['tx_id']			= random.randint(1000, 9999)
+					stocks[ticker]['stock_usd']		= cur_algo['stock_usd']
+					stocks[ticker]['stock_qty']		= 0
+					stocks[ticker]['base_price']		= 0
+					stocks[ticker]['orig_base_price']	= 0
 
 					reset_signals(ticker, signal_mode='long')
 					continue
@@ -2247,6 +2294,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 					# Change signal to 'long' and generate new tx_id for next iteration
 					stocks[ticker]['tx_id']			= random.randint(1000, 9999)
+					stocks[ticker]['stock_usd']		= cur_algo['stock_usd']
 					stocks[ticker]['stock_qty']		= 0
 					stocks[ticker]['base_price']		= 0
 					stocks[ticker]['orig_base_price']	= 0
@@ -2305,6 +2353,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 					# Once we've hit exit_percent, move the stoploss to break even
 					stocks[ticker]['decr_threshold'] = stocks[ticker]['exit_percent']
+
+					if ( cur_algo['quick_exit'] == True ):
+						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 				# Set the stoploss lower if the candle touches the exit_percent, but closes below it
 				elif ( high_percent_change >= stocks[ticker]['exit_percent'] and total_percent_change < stocks[ticker]['exit_percent'] and
@@ -2416,6 +2467,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# Change signal to 'long' or 'short' and generate new tx_id for next iteration
 				stocks[ticker]['tx_id']			= random.randint(1000, 9999)
+				stocks[ticker]['stock_usd']		= cur_algo['stock_usd']
 				stocks[ticker]['stock_qty']		= 0
 				stocks[ticker]['base_price']		= 0
 				stocks[ticker]['orig_base_price']	= 0
@@ -2692,35 +2744,63 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# Relative Strength
 			if ( cur_algo['check_etf_indicators'] == True ):
+
+				stocks[ticker]['algo_signals'][algo_id]['rs_signal']	= False
+				stocks[ticker]['decr_threshold']			= args.decr_threshold
+				stocks[ticker]['orig_decr_threshold']			= args.decr_threshold
+				stocks[ticker]['exit_percent']				= args.exit_percent
+				cur_algo['quick_exit']					= False
+
 				cur_rs = 0
 				for t in cur_algo['etf_tickers'].split(','):
 
+					# Stock is rising compared to ETF
 					if ( cur_roc > 0 and stocks[t]['cur_roc'] < 0 ):
-						# Stock is rising compared to ETF
 						cur_rs = abs( cur_roc / stocks[t]['cur_roc'] )
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
 
+					# Both stocks are sinking
 					elif ( cur_roc < 0 and stocks[t]['cur_roc'] < 0 ):
-						# Both stocks are sinking
 						cur_rs = -( cur_roc / stocks[t]['cur_roc'] )
-						if ( cur_algo['check_etf_indicators_strict'] == True ):
-							stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
-						else:
-							if ( abs(cur_rs) > 10 ):
-								stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = True
+						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
 
+						if ( cur_algo['check_etf_indicators_strict'] == False and cur_rs > 10 ):
+							stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = True
+
+							if ( stocks[ticker]['decr_threshold'] > 1 ):
+								stocks[ticker]['orig_decr_threshold']	= stocks[ticker]['decr_threshold']
+								stocks[ticker]['decr_threshold']	= 1
+
+							if ( stocks[ticker]['exit_percent'] != None ):
+								stocks[ticker]['exit_percent']	= stocks[ticker]['exit_percent'] / 2
+								cur_algo['quick_exit']		= True
+
+					# Stock is sinking relative to ETF
 					elif ( cur_roc < 0 and stocks[t]['cur_roc'] > 0 ):
-						# Stock is sinking relative to ETF
 						cur_rs = cur_roc / stocks[t]['cur_roc']
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = True
 
-					else:
-						# Both stocks are rising
+						if ( abs(cur_rs) < 20 ):
+							cur_algo['quick_exit'] = True
+
+					# Both stocks are rising
+					elif ( cur_roc > 0 and stocks[t]['cur_roc'] > 0 ):
 						cur_rs = cur_roc / stocks[t]['cur_roc']
+						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
+
+					# Weird
+					else:
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
 
 					if ( cur_algo['etf_min_rs'] != None and abs(cur_rs) < cur_algo['etf_min_rs'] ):
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
+
+					# Do not allow trade if the stacked MA of the rate of change does not agree with the
+					#  direction of entry. This could indicate a choppy market.
+					for etf_ticker in cur_algo['etf_tickers'].split(','):
+						if ( check_stacked_ma(stocks[etf_ticker]['cur_s_ma_primary'], 'bear') == False ):
+							stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
+
 
 			# VWAP signal
 			# This is the most simple/pessimistic approach right now
@@ -3016,7 +3096,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# Calculate stock quantity from investment amount
 				last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
-				stocks[ticker]['stock_qty'] = int( cur_algo['stock_usd'] / float(last_price) )
+				stocks[ticker]['stock_qty'] = int( stocks[ticker]['stock_usd'] / float(last_price) )
 
 				# Short the stock
 				if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == True ):
@@ -3028,11 +3108,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						if ( data == False ):
 							if ( args.shortonly == True ):
 								print('Error: Unable to short "' + str(ticker) + '"', file=sys.stderr)
-								stocks[ticker]['stock_qty'] = 0
+								stocks[ticker]['stock_usd']	= cur_algo['stock_usd']
+								stocks[ticker]['stock_qty']	= 0
 
 								reset_signals(ticker)
-								stocks[ticker]['shortable'] = False
-								stocks[ticker]['isvalid'] = False
+								stocks[ticker]['shortable']	= False
+								stocks[ticker]['isvalid']	= False
 								continue
 
 							else:
@@ -3040,6 +3121,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 								reset_signals(ticker, signal_mode='long')
 								stocks[ticker]['shortable'] = False
+								stocks[ticker]['stock_usd'] = cur_algo['stock_usd']
 								stocks[ticker]['stock_qty'] = 0
 								continue
 
@@ -3051,6 +3133,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				else:
 					print('Stock ' + str(ticker) + ' not shorted because market is closed.')
 
+					stocks[ticker]['stock_usd'] = cur_algo['stock_usd']
 					stocks[ticker]['stock_qty'] = 0
 					reset_signals(ticker)
 					if ( args.shortonly == False ):
@@ -3145,6 +3228,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 								tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 
 					stocks[ticker]['tx_id']			= random.randint(1000, 9999)
+					stocks[ticker]['stock_usd']		= cur_algo['stock_usd']
 					stocks[ticker]['stock_qty']		= 0
 					stocks[ticker]['base_price']		= 0
 					stocks[ticker]['orig_base_price']	= 0
@@ -3263,7 +3347,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			elif ( last_price > stocks[ticker]['base_price'] and stocks[ticker]['exit_percent_signal'] == False ):
 				percent_change = abs( stocks[ticker]['base_price'] / last_price - 1 ) * 100
 				if ( debug == True ):
-					print('Stock "' +  str(ticker) + '" -' + str(round(percent_change, 2)) + '% (' + str(last_price) + ')')
+					print('Stock "' +  str(ticker) + '" +' + str(round(percent_change, 2)) + '% (' + str(last_price) + ')')
 
 				tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], short=True, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
 
@@ -3288,6 +3372,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 					# Change signal to 'long' and generate new tx_id for next iteration
 					stocks[ticker]['tx_id']			= random.randint(1000, 9999)
+					stocks[ticker]['stock_usd']		= cur_algo['stock_usd']
 					stocks[ticker]['stock_qty']		= 0
 					stocks[ticker]['base_price']		= 0
 					stocks[ticker]['orig_base_price']	= 0
@@ -3322,6 +3407,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 					# Once we've hit exit_percent, move the stoploss to break even
 					stocks[ticker]['decr_threshold'] = stocks[ticker]['exit_percent']
+
+					if ( cur_algo['quick_exit'] == True ):
+						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 				# Set the stoploss lower if the candle touches the exit_percent, but closes above it
 				elif ( low_percent_change >= stocks[ticker]['exit_percent'] and total_percent_change < stocks[ticker]['exit_percent'] and
@@ -3425,10 +3513,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 
 				# Change signal to 'long' and generate new tx_id for next iteration
-				stocks[ticker]['tx_id'] = random.randint(1000, 9999)
-				stocks[ticker]['stock_qty'] = 0
-				stocks[ticker]['base_price'] = 0
-				stocks[ticker]['orig_base_price'] = 0
+				stocks[ticker]['tx_id']			= random.randint(1000, 9999)
+				stocks[ticker]['stock_usd']		= cur_algo['stock_usd']
+				stocks[ticker]['stock_qty']		= 0
+				stocks[ticker]['base_price']		= 0
+				stocks[ticker]['orig_base_price']	= 0
 
 				if ( args.shortonly == True ):
 					reset_signals(ticker, signal_mode='short')

@@ -65,6 +65,7 @@ parser.add_argument("--stoploss", help='Sell security if price drops below --dec
 parser.add_argument("--max_failed_txs", help='Maximum number of failed transactions allowed for a given stock before stock is blacklisted', default=2, type=int)
 parser.add_argument("--max_failed_usd", help='Maximum allowed USD for a failed transaction before the stock is blacklisted', default=99999, type=float)
 parser.add_argument("--exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
+parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent strategy was set, do not wait for the next candle', action="store_true")
 parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_threshold and exit_percent based on the price action of the stock over the previous hour',  action="store_true")
 
 parser.add_argument("--use_ha_exit", help='Use Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
@@ -265,6 +266,7 @@ for algo in args.algos:
 
 	# Per-algo entry limit
 	stock_usd			= args.stock_usd
+	quick_exit			= args.quick_exit
 
 	# Indicator modifiers
 	rsi_high_limit			= args.rsi_high_limit
@@ -389,6 +391,7 @@ for algo in args.algos:
 
 		# Entry limit
 		if ( re.match('stock_usd:', a)				!= None ):	stock_usd			= float( a.split(':')[1] )
+		if ( re.match('quick_exit', a)				!= None ):	quick_exit			= True
 
 		# Modifiers
 		if ( re.match('rsi_high_limit:', a)			!= None ):	rsi_high_limit			= float( a.split(':')[1] )
@@ -503,6 +506,7 @@ for algo in args.algos:
 	algo_list = {   'algo_id':				algo_id,
 
 			'stock_usd':				stock_usd,
+			'quick_exit':				quick_exit,
 
 			'primary_stochrsi':			primary_stochrsi,
 			'primary_stochmfi':			primary_stochmfi,
@@ -618,7 +622,7 @@ for algo in args.algos:
 
 # Clean up this mess
 # All the stuff above should be put into a function to avoid this cleanup stuff. I know it. It'll happen eventually.
-del(stock_usd, primary_stochrsi,primary_stochmfi,primary_stacked_ma,stacked_ma,stochrsi_5m,stochmfi,stochmfi_5m)
+del(stock_usd,quick_exit,primary_stochrsi,primary_stochmfi,primary_stacked_ma,stacked_ma,stochrsi_5m,stochmfi,stochmfi_5m)
 del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,vwap,vpt,support_resistance)
 del(rsi_high_limit,rsi_low_limit,rsi_period,stochrsi_period,stochrsi_5m_period,rsi_k_period,rsi_k_5m_period,rsi_d_period,rsi_slow,stochrsi_offset,stochrsi_5m_offset)
 del(mfi_high_limit,mfi_low_limit,mfi_period,stochmfi_period,stochmfi_5m_period,mfi_k_period,mfi_k_5m_period,mfi_d_period,mfi_slow,stochmfi_offset,stochmfi_5m_offset)
@@ -704,6 +708,7 @@ for ticker in stock_list.split(','):
 				   'isvalid':			True,
 				   'tradeable':			True,
 				   'tx_id':			random.randint(1000, 9999),
+				   'stock_usd':			args.stock_usd,
 				   'stock_qty':			int(0),
 				   'num_purchases':		args.num_purchases,
 				   'failed_txs':		args.max_failed_txs,

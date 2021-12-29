@@ -28,6 +28,61 @@ std_opts = ' --algo=stochrsi-new --stoploss --skip_check --incr_threshold=0.5 --
 # Test Scenarios
 scenarios = {
 
+#               'stochrsi_aroonosc_simple_dmi_simple_with_macd_adx_standard_rs_strict':   '--rsi_high_limit=75 --rsi_low_limit=25 --stochrsi_offset=3 \
+#								--with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
+#                                                               --use_natr_resistance --min_intra_natr=0.15 --min_daily_natr=6 --use_combined_exit \
+#                                                               --check_etf_indicators --check_etf_indicators_strict --etf_min_rs=3 ',
+
+#               'stochstackedma_bbands_kchannel_standard_kama_wma_rs_strict':   '--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+#                                                                --stacked_ma_periods_primary=8,13,21 --bbands_kchan_squeeze_count=8 --stacked_ma_type_primary=kama \
+#                                                                --with_stacked_ma --stacked_ma_periods=34,55,89 --stacked_ma_type=wma \
+#                                                                --min_intra_natr=0.65 --min_daily_natr=6 --use_trend --use_bbands_kchannel_xover_exit --bbands_roc_threshold=0 \
+#								--use_combined_exit --check_etf_indicators --check_etf_indicators_strict --etf_min_rs=3 ',
+
+#               'stochrsi_aroonosc_simple_dmi_simple_with_macd_adx_standard_rs_strict_bl':   '--rsi_high_limit=75 --rsi_low_limit=25 --stochrsi_offset=3 \
+#								--with_dmi_simple --with_aroonosc_simple --aroonosc_with_macd_simple --with_adx --adx_threshold=6 \
+#                                                               --use_natr_resistance --min_intra_natr=0.15 --min_daily_natr=6 --use_combined_exit \
+#                                                               --check_etf_indicators --check_etf_indicators_strict --etf_min_rs=3 --skip_blacklist ',
+
+#               'stochstackedma_bbands_kchannel_standard_kama_wma_rs_strict_bl':   '--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+#                                                                --stacked_ma_periods_primary=8,13,21 --bbands_kchan_squeeze_count=8 --stacked_ma_type_primary=kama \
+#                                                                --with_stacked_ma --stacked_ma_periods=34,55,89 --stacked_ma_type=wma \
+#                                                                --min_intra_natr=0.65 --min_daily_natr=6 --use_trend --use_bbands_kchannel_xover_exit --bbands_roc_threshold=0 \
+#								--use_combined_exit --check_etf_indicators --check_etf_indicators_strict --etf_min_rs=3 --skip_blacklist ',
+
+               'stochstackedma_bbands_kchannel_standard_kama_wma_rs_strict_rocstrict_bl':   '--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+                                                                --stacked_ma_periods_primary=8,13,21 --bbands_kchan_squeeze_count=10 --stacked_ma_type_primary=kama \
+                                                                --with_stacked_ma --stacked_ma_periods=34,55,89 --stacked_ma_type=wma \
+                                                                --min_intra_natr=0.65 --min_daily_natr=6 --use_trend --use_bbands_kchannel_xover_exit --bbands_roc_threshold=0 \
+								--bbands_roc_strict --check_etf_indicators --check_etf_indicators_strict --etf_min_rs=3 \
+								--decr_threshold=1.25 --use_combined_exit --skip_blacklist ',
+
+               'stochstackedma_bbands_kchannel_standard_kama_wma_rs_rocstrict_bl':   '--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+                                                                --stacked_ma_periods_primary=8,13,21 --bbands_kchan_squeeze_count=10 --stacked_ma_type_primary=kama \
+                                                                --with_stacked_ma --stacked_ma_periods=34,55,89 --stacked_ma_type=wma \
+                                                                --min_intra_natr=0.65 --min_daily_natr=6 --use_trend --use_bbands_kchannel_xover_exit --bbands_roc_threshold=0 \
+								--bbands_roc_strict --check_etf_indicators --etf_min_rs=3 \
+								--decr_threshold=1.25 --use_combined_exit --skip_blacklist ',
+
+               'stochstackedma_bbands_kchannel_standard_kama_wma_rs_bl':   '--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+                                                                --stacked_ma_periods_primary=8,13,21 --bbands_kchan_squeeze_count=10 --stacked_ma_type_primary=kama \
+                                                                --with_stacked_ma --stacked_ma_periods=34,55,89 --stacked_ma_type=wma \
+                                                                --min_intra_natr=0.65 --min_daily_natr=6 --use_trend --use_bbands_kchannel_xover_exit --bbands_roc_threshold=0 \
+								--check_etf_indicators --etf_min_rs=3 \
+								--decr_threshold=1.25 --use_combined_exit --skip_blacklist ',
+
+#               'stochstackedma_bbands_kchannel_standard_kama_wma_rs_strict_bl_sc10':   '--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+#                                                                --stacked_ma_periods_primary=8,13,21 --bbands_kchan_squeeze_count=10 --stacked_ma_type_primary=kama \
+#                                                                --with_stacked_ma --stacked_ma_periods=34,55,89 --stacked_ma_type=wma \
+#                                                                --min_intra_natr=0.65 --min_daily_natr=6 --use_trend --use_bbands_kchannel_xover_exit --use_combined_exit \
+#                                                                --check_etf_indicators --check_etf_indicators_strict --etf_min_rs=3 --skip_blacklist ',
+
+#               'stochstackedma_bbands_kchannel_standard_kama_wma':   '--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+#                                                                --stacked_ma_periods_primary=8,13,21 --bbands_kchan_squeeze_count=8 --stacked_ma_type_primary=kama \
+#                                                                --with_stacked_ma --stacked_ma_periods=34,55,89 --stacked_ma_type=wma \
+#                                                                --min_intra_natr=0.65 --min_daily_natr=6 --use_trend --use_bbands_kchannel_xover_exit --use_combined_exit ',
+
+
 		# FIXED: KAMA 8,13,21
 #		'stochstackedma_bbands_kchannel_standard_kama':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
 #								 --stacked_ma_periods_primary=8,13,21 --bbands_kchan_squeeze_count=8 --stacked_ma_type_primary=kama \
@@ -38,11 +93,11 @@ scenarios = {
 #								 --with_stacked_ma --stacked_ma_periods=34,55,89 --stacked_ma_type=wma \
 #								 --min_intra_natr=0.65 --min_daily_natr=6 --use_trend --use_bbands_kchannel_xover_exit --use_combined_exit ',
 
-		'stochstackedma_bbands_kchannel_standard_kama_wma_rs':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
-								 --stacked_ma_periods_primary=8,13,21 --bbands_kchan_squeeze_count=8 --stacked_ma_type_primary=kama \
-								 --with_stacked_ma --stacked_ma_periods=34,55,89 --stacked_ma_type=wma \
-								 --min_intra_natr=0.65 --min_daily_natr=6 --use_trend --use_bbands_kchannel_xover_exit --use_combined_exit \
-								 --check_etf_indicators --check_etf_indicators_strict --etf_min_rs=4 ',
+#		'stochstackedma_bbands_kchannel_standard_kama_wma_rs_strict':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.15 \
+#								 --stacked_ma_periods_primary=8,13,21 --bbands_kchan_squeeze_count=8 --stacked_ma_type_primary=kama \
+#								 --with_stacked_ma --stacked_ma_periods=34,55,89 --stacked_ma_type=wma \
+#								 --min_intra_natr=0.65 --min_daily_natr=6 --use_trend --use_bbands_kchannel_xover_exit --use_combined_exit \
+#								 --check_etf_indicators --check_etf_indicators_strict --etf_min_rs=4 ',
 
 #		'stochstackedma_bbands_kchannel_standard_kama_5mP15_off0.45_xover3_sc20':	'--primary_stoch_indicator="stacked_ma" --with_bbands_kchannel --bbands_kchannel_offset=0.45 \
 #								 --stacked_ma_periods_primary=8,13,21 --bbands_kchan_squeeze_count=20 --stacked_ma_type_primary=kama \

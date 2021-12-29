@@ -49,7 +49,8 @@ parser.add_argument("--check_etf_indicators", help='Use the relative strength ag
 parser.add_argument("--check_etf_indicators_strict", help='Do not allow trade unless check_etf_indicators agrees with direction', action="store_true")
 parser.add_argument("--etf_tickers", help='List of tickers to use with --check_etf_indicators (Default: SPY)', default='SPY', type=str)
 parser.add_argument("--etf_roc_period", help='Rate of change lookback period (Default: 50)', default=50, type=int)
-parser.add_argument("--etf_min_rs", help='Rate of change lookback period (Default: None)', default=None, type=float)
+parser.add_argument("--etf_min_rs", help='Minimum relative strength (Default: None)', default=None, type=float)
+parser.add_argument("--etf_min_roc", help='Minimum rate-of-change (Default: None)', default=None, type=float)
 
 # Experimental
 parser.add_argument("--experimental", help='Enable experimental features (Default: False)', action="store_true")
@@ -435,7 +436,7 @@ for algo in args.algo.split(','):
 	etf_tickers = args.etf_tickers.split(',')
 	etf_indicators = {}
 	for t in etf_tickers:
-		etf_indicators[t] = { 'roc': {}, 'roc_close': {}, 'pricehistory': {} }
+		etf_indicators[t] = { 'roc': {}, 'roc_close': {}, 'roc_stacked_ma': {}, 'pricehistory': {} }
 
 	if ( args.check_etf_indicators == True ):
 		if ( args.ifile != None ):
@@ -750,6 +751,7 @@ for algo in args.algo.split(','):
 					'etf_indicators':			etf_indicators,
 					'etf_roc_period':			args.etf_roc_period,
 					'etf_min_rs':				args.etf_min_rs,
+					'etf_min_roc':				args.etf_min_roc,
 			}
 
 			# Call stochrsi_analyze_new() with test_params{} to run the backtest

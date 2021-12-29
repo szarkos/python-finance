@@ -142,6 +142,7 @@ watchlist.txt
 *.gz
 *.bz2
 *-steve*
+*-chris*
 
 # ibrokers monitor
 usa-*.txt

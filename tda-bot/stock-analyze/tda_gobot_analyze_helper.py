@@ -284,6 +284,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	etf_indicators			= {}		if ('etf_indicators' not in params) else params['etf_indicators']
 	etf_roc_period			= 50		if ('etf_roc_period' not in params) else params['etf_roc_period']
 	etf_min_rs			= None		if ('etf_min_rs' not in params) else params['etf_min_rs']
+	etf_min_roc			= None		if ( 'etf_min_roc' not in params) else params['etf_min_roc']
 
 	experimental			= False		if ('experimental' not in params) else params['experimental']
 	# End params{} configuration
@@ -1025,6 +1026,25 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				etf_indicators[t]['roc'].update( { dt: etf_roc[i] } )
 				etf_indicators[t]['roc_close'].update( { dt: etf_indicators[t]['pricehistory']['candles'][i]['close'] } )
 
+			# Calculate the MA for the rate-of-change for the ETF tickers
+			temp_ph		= { 'candles': [] }
+			roc_stacked_ma	= []
+			try:
+				for i in range(len(etf_roc)):
+					etf_roc[i] = etf_roc[i] * 10000
+					temp_ph['candles'].append({ 'open': etf_roc[i], 'high': etf_roc[i], 'low': etf_roc[i], 'close': etf_roc[i] })
+
+				roc_stacked_ma = get_stackedma(pricehistory=temp_ph, stacked_ma_periods=stacked_ma_periods_primary, stacked_ma_type=stacked_ma_type_primary)
+				del(temp_ph)
+
+#				roc_stacked_ma = get_stackedma(pricehistory=etf_indicators[t]['pricehistory'], stacked_ma_periods=stacked_ma_periods, stacked_ma_type=stacked_ma_type)
+#				for i in range( len(etf_indicators[t]['pricehistory']['candles']) ):
+#					dt = etf_indicators[t]['pricehistory']['candles'][i]['datetime']
+#					etf_indicators[t]['roc_stacked_ma'].update( { dt: roc_stacked_ma[i] } )
+#
+			except Exception as e:
+				print('Error, unable to calculate EMA of rate-of-change for ticker ' + str(t) + ': ' + str(e))
+				sys.exit(1)
 
 	# Run through the RSI values and log the results
 	results				= []
@@ -1265,10 +1285,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		if ( affinity == None or len(s_ma) == 0 ):
 			return False
 
-		# Round the moving average values to two decimal places
+		# Round the moving average values to three decimal places
 		s_ma = list(s_ma)
 		for i in range(0, len(s_ma)):
-			s_ma[i] = round( s_ma[i], 2 )
+			s_ma[i] = round( s_ma[i], 3 )
 
 		ma_affinity = False
 		if ( affinity == 'bear' ):
@@ -2308,9 +2328,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# Relative Strength vs. an ETF indicator (i.e. SPY)
 			if ( check_etf_indicators == True ):
-				prev_rs_signal	= rs_signal
-				rs_signal	= False
-				tmp_dt		= pricehistory['candles'][idx]['datetime']
+				prev_rs_signal		= rs_signal
+				rs_signal		= False
+				tmp_dt			= pricehistory['candles'][idx]['datetime']
+
+				stock_usd		= orig_stock_usd
+				decr_threshold		= default_decr_threshold
+				exit_percent_long	= orig_exit_percent
+				quick_exit		= False
 				for t in etf_tickers:
 					cur_rs = 0
 					if ( tmp_dt in etf_indicators[t]['roc'] ):
@@ -2325,7 +2350,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						if ( stock_roc[idx] > 0 and etf_indicators[t]['roc'][tmp_dt] < 0 ):
 							cur_rs		= abs( cur_rs )
 							rs_signal	= True
-							stock_usd	= orig_stock_usd
+
+							if ( cur_rs < 20 ):
+								quick_exit = True
 
 							#pct1		= abs((cur_close - abs(stock_roc[idx]*50)) / cur_close - 1) * 100
 							#pct2		= abs((etf_indicators[t]['roc_close'][tmp_dt] - abs(etf_indicators[t]['roc'][tmp_dt]*50)) / etf_indicators[t]['roc_close'][tmp_dt] - 1) * 100
@@ -2338,21 +2365,40 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 						# Stock is sinking relative to ETF
 						elif ( stock_roc[idx] < 0 and etf_indicators[t]['roc'][tmp_dt] > 0 ):
-							rs_signal	= False
+							rs_signal = False
 
 						# Both stocks are rising
-						else:
-							rs_signal	= False
-							if ( check_etf_indicators_strict == False ):
-								stock_usd = orig_stock_usd / 2
+						elif ( stock_roc[idx] > 0 and etf_indicators[t]['roc'][tmp_dt] > 0 ):
+							rs_signal = False
+							if ( check_etf_indicators_strict == False and cur_rs > 10 ):
+								if ( decr_threshold > 1 ):
+									decr_threshold = 1
+
+								if ( exit_percent_long == orig_exit_percent ):
+									exit_percent_long	= exit_percent_long / 2
+									quick_exit		= True
+
 								rs_signal = True
 
+						# Something wierd is happening
+						else:
+							rs_signal = False
+
 						if ( etf_min_rs != None and abs(cur_rs) < etf_min_rs ):
+							rs_signal = False
+						if ( etf_min_roc != None and abs(etf_indicators[t]['roc'][tmp_dt]) < etf_min_roc ):
 							rs_signal = False
 
 					else:
 						print('Warning: etf_indicators does not include timestamp (' + str(tmp_dt) + ')')
 						rs_signal = prev_rs_signal
+
+					# Do not allow trade if the stacked MA of the rate of change does not agree with the
+					#  direction of entry. This could indicate a choppy market.
+					if ( tmp_dt in etf_indicators[t]['roc_stacked_ma'] ):
+						cur_roc_stacked_ma = etf_indicators[t]['roc_stacked_ma'][tmp_dt]
+						if ( check_stacked_ma(cur_roc_stacked_ma, 'bull') == False ):
+							rs_signal = False
 
 			# Experimental pattern matching - may be removed
 			if ( experimental == True ):
@@ -3434,11 +3480,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# Relative Strength vs. an ETF indicator (i.e. SPY)
 			if ( check_etf_indicators == True ):
-				rs_signal	= False
-				tmp_dt		= pricehistory['candles'][idx]['datetime']
+				prev_rs_signal		= rs_signal
+				rs_signal		= False
+				tmp_dt			= pricehistory['candles'][idx]['datetime']
+
+				stock_usd		= orig_stock_usd
+				decr_threshold		= default_decr_threshold
+				exit_percent_short	= orig_exit_percent
+				quick_exit		= False
 				for t in etf_tickers:
 					cur_rs = 0
 					if ( tmp_dt in etf_indicators[t]['roc'] ):
+
 						try:
 							with np.errstate(divide='ignore'):
 								cur_rs = stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
@@ -3455,25 +3508,50 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						elif ( stock_roc[idx] < 0 and etf_indicators[t]['roc'][tmp_dt] < 0 ):
 							cur_rs		= -cur_rs
 							rs_signal	= False
-							if ( check_etf_indicators_strict == False ):
-								stock_usd = orig_stock_usd / 2
+
+							if ( check_etf_indicators_strict == False and abs(cur_rs) > 10 ):
+								if ( decr_threshold > 1 ):
+									decr_threshold = 1
+
+								if ( exit_percent_short == orig_exit_percent ):
+									exit_percent_short = exit_percent_short / 2
+									quick_exit = True
+
 								rs_signal = True
 
 						# Stock is sinking relative to ETF
 						elif ( stock_roc[idx] < 0 and etf_indicators[t]['roc'][tmp_dt] > 0 ):
-							stock_usd	= orig_stock_usd
-							rs_signal	= True
+							rs_signal = True
+
+							if ( abs(cur_rs) < 20 ):
+								quick_exit = True
 
 						# Both stocks are rising
+						elif ( stock_roc[idx] > 0 and etf_indicators[t]['roc'][tmp_dt] > 0 ):
+							rs_signal = False
+
+						# Something wierd is happening
 						else:
 							rs_signal = False
 
 						if ( etf_min_rs != None and abs(cur_rs) < etf_min_rs ):
 							rs_signal = False
+						if ( etf_min_roc != None and abs(etf_indicators[t]['roc'][tmp_dt]) < etf_min_roc ):
+							rs_signal = False
 
 					else:
 						print('Warning: etf_indicators does not include timestamp (' + str(tmp_dt) + ')')
+						rs_signal = prev_rs_signal
 
+					# Do not allow trade if the stacked MA of the rate of change does not agree with the
+					#  direction of entry. This could indicate a choppy market.
+					if ( tmp_dt in etf_indicators[t]['roc_stacked_ma'] ):
+						cur_roc_stacked_ma = etf_indicators[t]['roc_stacked_ma'][tmp_dt]
+						if ( check_stacked_ma(cur_roc_stacked_ma, 'bear') == False ):
+							rs_signal = False
+
+
+			# Experimental indicators
 			if ( experimental == True ):
 				if ( cur_natr_daily > 6 ):
 					#if ( (diff_signals[idx] == 'short' or anti_diff_signals[idx] == 'short') and fib_signals[idx]['bear_signal'] >= 8 ):

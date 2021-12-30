@@ -847,6 +847,54 @@ def get_pricehistory(ticker=None, p_type=None, f_type=None, freq=None, period=No
 	return data, epochs
 
 
+# Translate 1-minute candles to 2+ minute candles
+# Default translates to 5-minute candles
+def translate_1m(pricehistory=None, candle_type=5):
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	if ( pricehistory == None ):
+		print('Error: translate_heikin_ashi(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False
+
+	new_pricehistory = { 'candles': [], 'ticker': ticker }
+	for idx,key in enumerate(pricehistory['candles']):
+		if ( idx == 0 ):
+			continue
+
+		cndl_num = idx + 1
+		if ( cndl_num % candle_type == 0 ):
+			open_p  = float( pricehistory['candles'][idx - (candle_type-1)]['open'] )
+			close   = float( pricehistory['candles'][idx]['close'] )
+			high    = float( pricehistory['candles'][idx]['high'] )
+			low     = float( pricehistory['candles'][idx]['low'] )
+			volume  = int( pricehistory['candles'][idx]['close'] )
+
+			for i in range((candle_type-1), 0, -1):
+				volume += int( pricehistory['candles'][idx-i]['volume'] )
+
+				if ( high < float(pricehistory['candles'][idx-i]['high']) ):
+					high = float( pricehistory['candles'][idx-i]['high'] )
+
+				if ( low > float(pricehistory['candles'][idx-i]['low']) ):
+					low = float( pricehistory['candles'][idx-i]['low'] )
+
+			newcandle = {	'open':		open_p,
+					'high':		high,
+					'low':		low,
+					'close':	close,
+					'volume':	volume,
+					'datetime':	pricehistory['candles'][idx]['datetime'] }
+
+			new_pricehistory['candles'].append(newcandle)
+
+	return new_pricehistory
+
+
 # Translate candle data to Heikin Ashi
 def translate_heikin_ashi(pricehistory=None):
 

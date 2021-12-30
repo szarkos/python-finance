@@ -284,7 +284,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	etf_indicators			= {}		if ('etf_indicators' not in params) else params['etf_indicators']
 	etf_roc_period			= 50		if ('etf_roc_period' not in params) else params['etf_roc_period']
 	etf_min_rs			= None		if ('etf_min_rs' not in params) else params['etf_min_rs']
-	etf_min_roc			= None		if ( 'etf_min_roc' not in params) else params['etf_min_roc']
+	etf_min_roc			= None		if ('etf_min_roc' not in params) else params['etf_min_roc']
+	etf_min_natr			= None		if ('etf_min_natr' not in params) else params['etf_min_natr']
 
 	experimental			= False		if ('experimental' not in params) else params['experimental']
 	# End params{} configuration
@@ -307,38 +308,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			return False
 
 	# 5-minute candles
-	pricehistory_5m = { 'candles': [], 'ticker': ticker }
-	for idx,key in enumerate(pricehistory['candles']):
-		if ( idx == 0 ):
-			continue
-
-		cndl_num = idx + 1
-		if ( cndl_num % 5 == 0 ):
-			open_p	= float( pricehistory['candles'][idx - 4]['open'] )
-			close	= float( pricehistory['candles'][idx]['close'] )
-			high	= 0
-			low	= 9999
-			volume	= 0
-
-			for i in range(4,0,-1):
-				volume += int( pricehistory['candles'][idx-i]['volume'] )
-
-				if ( high < float(pricehistory['candles'][idx-i]['high']) ):
-					high = float( pricehistory['candles'][idx-i]['high'] )
-
-				if ( low > float(pricehistory['candles'][idx-i]['low']) ):
-					low = float( pricehistory['candles'][idx-i]['low'] )
-
-			newcandle = {	'open':		open_p,
-					'high':		high,
-					'low':		low,
-					'close':	close,
-					'volume':	volume,
-					'datetime':	pricehistory['candles'][idx]['datetime'] }
-
-			pricehistory_5m['candles'].append(newcandle)
-
-	del(open_p, high, low, close, volume, newcandle)
+	pricehistory_5m = tda_gobot_helper.translate_1m(pricehistory=pricehistory, candle_type=5)
 
 	# Daily candles
 	if ( daily_ph == None ):
@@ -1027,21 +997,35 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				etf_indicators[t]['roc_close'].update( { dt: etf_indicators[t]['pricehistory']['candles'][i]['close'] } )
 
 			# Calculate the MA for the rate-of-change for the ETF tickers
-			temp_ph		= { 'candles': [] }
-			roc_stacked_ma	= []
+			temp_ph			= { 'candles': [] }
+			tmp_roc_stacked_ma	= []
+			tmp_stacked_ma		= []
 			try:
 				for i in range(len(etf_roc)):
 					etf_roc[i] = etf_roc[i] * 10000
 					temp_ph['candles'].append({ 'open': etf_roc[i], 'high': etf_roc[i], 'low': etf_roc[i], 'close': etf_roc[i] })
 
-				roc_stacked_ma = get_stackedma(pricehistory=temp_ph, stacked_ma_periods=stacked_ma_periods_primary, stacked_ma_type=stacked_ma_type_primary)
-				del(temp_ph)
+				tmp_roc_stacked_ma	= get_stackedma(pricehistory=temp_ph, stacked_ma_periods=stacked_ma_periods_primary, stacked_ma_type='ema')
+				tmp_stacked_ma		= get_stackedma(pricehistory=etf_indicators[t]['pricehistory'], stacked_ma_periods=stacked_ma_periods_primary, stacked_ma_type=stacked_ma_type_primary)
+				tmp_atr, tmp_natr	= tda_algo_helper.get_atr( pricehistory=etf_indicators[t]['pricehistory_5m'], period=atr_period )
 
-#				roc_stacked_ma = get_stackedma(pricehistory=etf_indicators[t]['pricehistory'], stacked_ma_periods=stacked_ma_periods, stacked_ma_type=stacked_ma_type)
-#				for i in range( len(etf_indicators[t]['pricehistory']['candles']) ):
-#					dt = etf_indicators[t]['pricehistory']['candles'][i]['datetime']
-#					etf_indicators[t]['roc_stacked_ma'].update( { dt: roc_stacked_ma[i] } )
-#
+				# Need to normalize the length of tmp_natr to match etf_indicators[t]['pricehistory']['candles']
+				tmp = []
+				for i in range(0, atr_period - 1):
+					tmp.append(0)
+				tmp_natr = tmp + list(tmp_natr)
+
+				for i in range( len(etf_indicators[t]['pricehistory']['candles']) ):
+					dt = etf_indicators[t]['pricehistory']['candles'][i]['datetime']
+
+					etf_indicators[t]['roc_stacked_ma'].update( { dt: tmp_roc_stacked_ma[i] } )
+					etf_indicators[t]['stacked_ma'].update( { dt: tmp_stacked_ma[i] } )
+
+					if ( int(i/5) <= len(tmp_natr) - 1 ):
+						etf_indicators[t]['natr'].update( { dt: tmp_natr[int(i/5)] } )
+
+				del(temp_ph,tmp_roc_stacked_ma,tmp_stacked_ma,tmp_atr,tmp_natr)
+
 			except Exception as e:
 				print('Error, unable to calculate EMA of rate-of-change for ticker ' + str(t) + ': ' + str(e))
 				sys.exit(1)
@@ -2346,11 +2330,34 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						except ZeroDivisionError:
 							cur_rs = 0
 
+						bbands_roc_strict = False
+						if ( etf_indicators[t]['natr'][tmp_dt] < 0.1 ):
+							bbands_roc_strict = True
+
+						# Avoid trade when ETF indicator is choppy or sideways
+						etf_roc_stacked_ma_bull	= etf_roc_stacked_ma_bear	= False
+						etf_stacked_ma_bull	= etf_stacked_ma_bear		= False
+						if ( tmp_dt in etf_indicators[t]['roc_stacked_ma'] ):
+							cur_roc_stacked_ma	= etf_indicators[t]['roc_stacked_ma'][tmp_dt]
+							cur_stacked_ma		= etf_indicators[t]['stacked_ma'][tmp_dt]
+
+							etf_roc_stacked_ma_bull = check_stacked_ma(cur_roc_stacked_ma, 'bull')
+							etf_roc_stacked_ma_bear = check_stacked_ma(cur_roc_stacked_ma, 'bear')
+
+							etf_stacked_ma_bull	= check_stacked_ma(cur_stacked_ma, 'bull')
+							etf_stacked_ma_bear	= check_stacked_ma(cur_stacked_ma, 'bear')
+
+							if ( etf_roc_stacked_ma_bull == False and etf_roc_stacked_ma_bear == False ):
+								rs_signal = False
+								continue
+
+						else:
+							print('Warning (' + str(t) + '): ' + str(tmp_dt) + ' not in etf_indicators')
+
 						# Stock is rising compared to ETF
 						if ( stock_roc[idx] > 0 and etf_indicators[t]['roc'][tmp_dt] < 0 ):
 							cur_rs		= abs( cur_rs )
 							rs_signal	= True
-
 							if ( cur_rs < 20 ):
 								quick_exit = True
 
@@ -2369,8 +2376,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 						# Both stocks are rising
 						elif ( stock_roc[idx] > 0 and etf_indicators[t]['roc'][tmp_dt] > 0 ):
+
 							rs_signal = False
 							if ( check_etf_indicators_strict == False and cur_rs > 10 ):
+
 								if ( decr_threshold > 1 ):
 									decr_threshold = 1
 
@@ -2388,17 +2397,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							rs_signal = False
 						if ( etf_min_roc != None and abs(etf_indicators[t]['roc'][tmp_dt]) < etf_min_roc ):
 							rs_signal = False
+						if ( etf_min_natr != None and etf_indicators[t]['natr'][tmp_dt] < etf_min_natr ):
+							rs_signal = False
 
 					else:
 						print('Warning: etf_indicators does not include timestamp (' + str(tmp_dt) + ')')
 						rs_signal = prev_rs_signal
 
-					# Do not allow trade if the stacked MA of the rate of change does not agree with the
-					#  direction of entry. This could indicate a choppy market.
-					if ( tmp_dt in etf_indicators[t]['roc_stacked_ma'] ):
-						cur_roc_stacked_ma = etf_indicators[t]['roc_stacked_ma'][tmp_dt]
-						if ( check_stacked_ma(cur_roc_stacked_ma, 'bull') == False ):
-							rs_signal = False
 
 			# Experimental pattern matching - may be removed
 			if ( experimental == True ):
@@ -2526,6 +2531,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# BUY SIGNAL
 			if ( buy_signal == True and final_buy_signal == True ):
+
+				print('Warning: ' + str(etf_indicators[t]['natr'][tmp_dt]) + ' / ' + str(round(cur_rs, 3)))
+
+
+
 
 				purchase_price	= pricehistory['candles'][idx]['close']
 				num_shares	= int( stock_usd / purchase_price )
@@ -3499,6 +3509,30 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						except ZeroDivisionError:
 							cur_rs = 0
 
+						bbands_roc_strict = False
+						if ( etf_indicators[t]['natr'][tmp_dt] < 0.1 ):
+							bbands_roc_strict = True
+
+						# Avoid trade when ETF indicator is choppy or sideways
+						etf_roc_stacked_ma_bull	= etf_roc_stacked_ma_bear	= False
+						etf_stacked_ma_bull	= etf_stacked_ma_bear		= False
+						if ( tmp_dt in etf_indicators[t]['roc_stacked_ma'] ):
+							cur_roc_stacked_ma	= etf_indicators[t]['roc_stacked_ma'][tmp_dt]
+							cur_stacked_ma		= etf_indicators[t]['stacked_ma'][tmp_dt]
+
+							etf_roc_stacked_ma_bull = check_stacked_ma(cur_roc_stacked_ma, 'bull')
+							etf_roc_stacked_ma_bear = check_stacked_ma(cur_roc_stacked_ma, 'bear')
+
+							etf_stacked_ma_bull	= check_stacked_ma(cur_stacked_ma, 'bull')
+							etf_stacked_ma_bear	= check_stacked_ma(cur_stacked_ma, 'bear')
+
+							if ( etf_roc_stacked_ma_bull == False and etf_roc_stacked_ma_bear == False ):
+								rs_signal = False
+								continue
+
+						else:
+							print('Warning (' + str(t) + '): ' + str(tmp_dt) + ' not in etf_indicators')
+
 						# Stock is rising compared to ETF
 						if ( stock_roc[idx] > 0 and etf_indicators[t]['roc'][tmp_dt] < 0 ):
 							cur_rs		= abs( cur_rs )
@@ -3522,7 +3556,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						# Stock is sinking relative to ETF
 						elif ( stock_roc[idx] < 0 and etf_indicators[t]['roc'][tmp_dt] > 0 ):
 							rs_signal = True
-
 							if ( abs(cur_rs) < 20 ):
 								quick_exit = True
 
@@ -3538,17 +3571,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							rs_signal = False
 						if ( etf_min_roc != None and abs(etf_indicators[t]['roc'][tmp_dt]) < etf_min_roc ):
 							rs_signal = False
+						if ( etf_min_natr != None and etf_indicators[t]['natr'][tmp_dt] < etf_min_natr ):
+							rs_signal = False
 
 					else:
 						print('Warning: etf_indicators does not include timestamp (' + str(tmp_dt) + ')')
 						rs_signal = prev_rs_signal
-
-					# Do not allow trade if the stacked MA of the rate of change does not agree with the
-					#  direction of entry. This could indicate a choppy market.
-					if ( tmp_dt in etf_indicators[t]['roc_stacked_ma'] ):
-						cur_roc_stacked_ma = etf_indicators[t]['roc_stacked_ma'][tmp_dt]
-						if ( check_stacked_ma(cur_roc_stacked_ma, 'bear') == False ):
-							rs_signal = False
 
 
 			# Experimental indicators
@@ -3676,6 +3704,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# SHORT SIGNAL
 			if ( short_signal == True and final_short_signal == True ):
+
+
+				print('Warning: ' + str(etf_indicators[t]['natr'][tmp_dt]) + ' / ' + str(round(cur_rs, 3)) + ' SHORT')
+
+
 
 				short_price		= pricehistory['candles'][idx]['close']
 				num_shares		= int( stock_usd / short_price )

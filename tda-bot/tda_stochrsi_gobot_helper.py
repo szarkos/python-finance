@@ -740,6 +740,19 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			stocks[ticker]['cur_roc'] = etf_roc[-1]
 
+			# ETF ATR/NATR
+			etf_atr		= []
+			etf_natr	= []
+			try:
+				etf_atr, etf_natr = tda_algo_helper.get_atr( pricehistory=stocks[ticker]['pricehistory_5m'], period=cur_algo['atr_period'] )
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(): get_atr(' + str(ticker) + '): ' + str(e), file=sys.stderr)
+				continue
+
+			stocks[ticker]['cur_atr']	= etf_atr[-1]
+			stocks[ticker]['cur_natr']	= etf_natr[-1]
+
 			# Calculate the EMA for the rate-of-change for the ETF tickers
 			temp_ph         = { 'candles': [] }
 			roc_stacked_ma  = []
@@ -748,7 +761,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					etf_roc[i] = etf_roc[i] * 10000
 					temp_ph['candles'].append({ 'open': etf_roc[i], 'high': etf_roc[i], 'low': etf_roc[i], 'close': etf_roc[i] })
 
-				roc_stacked_ma = get_stackedma(temp_ph, cur_algo['stacked_ma_periods_primary'], cur_algo['stacked_ma_type_primary'] )
+				roc_stacked_ma = get_stackedma( pricehistory=temp_ph, stacked_ma_periods=cur_algo['stacked_ma_periods_primary'], stacked_ma_type='ema' )
 				del(temp_ph)
 
 			except Exception as e:
@@ -1729,6 +1742,13 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				cur_rs = 0
 				for etf_ticker in cur_algo['etf_tickers'].split(','):
 
+					# Do not allow trade if the rate-of-change of the ETF indicator has no directional affinity.
+					# This is to avoid choppy or sideways movement of the ETF indicator.
+					if ( check_stacked_ma(stocks[etf_ticker]['cur_s_ma_primary'], 'bull') == False and
+							check_stacked_ma(stocks[etf_ticker]['cur_s_ma_primary'], 'bear') == False ):
+						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
+						continue
+
 					# Stock is rising compared to ETF
 					if ( cur_roc > 0 and stocks[etf_ticker]['cur_roc'] < 0 ):
 						cur_rs = abs( cur_roc / stocks[etf_ticker]['cur_roc'] )
@@ -1770,9 +1790,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					if ( cur_algo['etf_min_rs'] != None and abs(cur_rs) < cur_algo['etf_min_rs'] ):
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
 
-					# Do not allow trade if the stacked MA of the rate of change does not agree with the
-					#  direction of entry. This could indicate a choppy market.
-					if ( check_stacked_ma(stocks[etf_ticker]['cur_s_ma_primary'], 'bull') == False ):
+					if ( cur_algo['etf_min_natr'] != None and stocks[etf_ticker]['cur_natr'] < cur_algo['etf_min_natr'] ):
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
 
 
@@ -2752,6 +2770,13 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				cur_rs = 0
 				for etf_ticker in cur_algo['etf_tickers'].split(','):
 
+					# Do not allow trade if the rate-of-change of the ETF indicator has no directional affinity.
+					# This is to avoid choppy or sideways movement of the ETF indicator.
+					if ( check_stacked_ma(stocks[etf_ticker]['cur_s_ma_primary'], 'bull') == False and
+							check_stacked_ma(stocks[etf_ticker]['cur_s_ma_primary'], 'bear') == False ):
+						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
+						continue
+
 					# Stock is rising compared to ETF
 					if ( cur_roc > 0 and stocks[etf_ticker]['cur_roc'] < 0 ):
 						cur_rs = abs( cur_roc / stocks[etf_ticker]['cur_roc'] )
@@ -2793,9 +2818,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					if ( cur_algo['etf_min_rs'] != None and abs(cur_rs) < cur_algo['etf_min_rs'] ):
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
 
-					# Do not allow trade if the stacked MA of the rate of change does not agree with the
-					#  direction of entry. This could indicate a choppy market.
-					if ( check_stacked_ma(stocks[etf_ticker]['cur_s_ma_primary'], 'bear') == False ):
+					if ( cur_algo['etf_min_natr'] != None and stocks[etf_ticker]['cur_natr'] < cur_algo['etf_min_natr'] ):
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = False
 
 

@@ -144,7 +144,8 @@ parser.add_argument("--check_etf_indicators", help='Tailor the stochastic indica
 parser.add_argument("--check_etf_indicators_strict", help='Do not allow trade unless the 5-minute SMA/EMA behavior of key ETFs (i.e. SPY, QQQ, DIA) agree with direction', action="store_true")
 parser.add_argument("--etf_tickers", help='List of tickers to use with --check_etf_indicators (Default: SPY)', default='SPY', type=str)
 parser.add_argument("--etf_roc_period", help='Rate of change lookback period (Default: 50)', default=50, type=int)
-parser.add_argument("--etf_min_rs", help='Rate of change lookback period (Default: None)', default=None, type=float)
+parser.add_argument("--etf_min_rs", help='Minimum relative strength between equity and ETF to allow trade (Default: None)', default=None, type=float)
+parser.add_argument("--etf_min_natr", help='Minimum intraday NATR of ETF to allow trade (Default: None)', default=None, type=float)
 
 # Deprecated - use --algos=... instead
 #parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
@@ -316,6 +317,7 @@ for algo in args.algos:
 	etf_tickers			= args.etf_tickers
 	etf_roc_period			= args.etf_roc_period
 	etf_min_rs			= args.etf_min_rs
+	etf_min_natr			= args.etf_min_natr
 
 	# MFI
 	mfi_high_limit			= args.mfi_high_limit
@@ -438,6 +440,7 @@ for algo in args.algos:
 		if ( re.match('etf_tickers:', a)			!= None ):	etf_tickers			= str( a.split(':')[1] )
 		if ( re.match('etf_roc_period:', a)			!= None ):	etf_roc_period			= int( a.split(':')[1] )
 		if ( re.match('etf_min_rs:', a)				!= None ):	etf_min_rs			= float( a.split(':')[1] )
+		if ( re.match('etf_min_natr:', a)			!= None ):	etf_min_natr			= float( a.split(':')[1] )
 
 		if ( re.match('mfi_high_limit:', a)			!= None ):	mfi_high_limit			= float( a.split(':')[1] )
 		if ( re.match('mfi_low_limit:', a)			!= None ):	mfi_low_limit			= float( a.split(':')[1] )
@@ -563,6 +566,7 @@ for algo in args.algos:
 			'etf_tickers':				etf_tickers,
 			'etf_roc_period':			etf_roc_period,
 			'etf_min_rs':				etf_min_rs,
+			'etf_min_natr':				etf_min_natr,
 
 			'stacked_ma_type_primary':		stacked_ma_type_primary,
 			'stacked_ma_periods_primary':		stacked_ma_periods_primary,
@@ -632,7 +636,7 @@ del(bbands_kchannel_offset,bbands_kchan_squeeze_count,bbands_period,kchannel_per
 del(stacked_ma_type_primary,stacked_ma_periods_primary,stacked_ma_type,stacked_ma_periods,use_natr_resistance,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr)
 del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count)
 del(use_ha_exit,use_ha_candles,use_trend_exit,use_trend,trend_period,trend_type,use_combined_exit)
-del(check_etf_indicators,check_etf_indicators_strict,etf_tickers,etf_roc_period,etf_min_rs)
+del(check_etf_indicators,check_etf_indicators_strict,etf_tickers,etf_roc_period,etf_min_rs,etf_min_natr)
 
 # Set valid tickers for each algo, if configured
 if ( args.algo_valid_tickers != None ):
@@ -1194,36 +1198,7 @@ for ticker in list(stocks.keys()):
 		continue
 
 	# 5-minute candles to calculate things like Average True Range
-	for idx,key in enumerate( stocks[ticker]['pricehistory']['candles'] ):
-		if ( idx == 0 ):
-			continue
-
-		cndl_num = idx + 1
-		if ( cndl_num % 5 == 0 ):
-			open_p	= float( stocks[ticker]['pricehistory']['candles'][idx - 4]['open'] )
-			close	= float( stocks[ticker]['pricehistory']['candles'][idx]['close'] )
-			high	= 0
-			low	= 9999
-			volume	= 0
-
-			for i in range( 4, 0, -1):
-				volume += stocks[ticker]['pricehistory']['candles'][idx-i]['volume']
-
-				if ( high < stocks[ticker]['pricehistory']['candles'][idx-i]['high'] ):
-					high = stocks[ticker]['pricehistory']['candles'][idx-i]['high']
-				if ( low > stocks[ticker]['pricehistory']['candles'][idx-i]['low'] ):
-					low = stocks[ticker]['pricehistory']['candles'][idx-i]['low']
-
-			newcandle = {	'open':		open_p,
-					'high':		high,
-					'low':		low,
-					'close':	close,
-					'volume':	volume,
-					'datetime':	stocks[ticker]['pricehistory']['candles'][idx]['datetime'] }
-
-			stocks[ticker]['pricehistory_5m']['candles'].append(newcandle)
-
-	del(open_p, high, low, close, volume, newcandle)
+	stocks[ticker]['pricehistory_5m'] = tda_gobot_helper.translate_1m( pricehistory=stocks[ticker]['pricehistory'], candle_type=5 )
 
 	# Translate and add Heiken Ashi candles to pricehistory (will add new array called stocks[ticker]['pricehistory']['hacandles'])
 	stocks[ticker]['pricehistory'] = tda_gobot_helper.translate_heikin_ashi(stocks[ticker]['pricehistory'])

@@ -808,8 +808,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 		# Skip this ticker if it conflicts with a per-algo min/max_daily_natr configuration
 		if ( min_daily_natr != None and stocks[ticker]['natr_daily'] < min_daily_natr ):
+			print( '(' + str(ticker) + ') Skipped - Daily NATR: ' + str(stocks[ticker]['natr_daily']) + ', min_daily_natr: ' + str(min_daily_natr) )
+			print()
 			continue
 		if ( max_daily_natr != None and stocks[ticker]['natr_daily'] > max_daily_natr ):
+			print( '(' + str(ticker) + ') Skipped - Daily NATR: ' + str(stocks[ticker]['natr_daily']) + ', max_daily_natr: ' + str(max_daily_natr) )
+			print()
 			continue
 
 

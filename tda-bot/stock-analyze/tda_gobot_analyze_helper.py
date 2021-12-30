@@ -2330,9 +2330,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						except ZeroDivisionError:
 							cur_rs = 0
 
-						bbands_roc_strict = False
-						if ( etf_indicators[t]['natr'][tmp_dt] < 0.1 ):
-							bbands_roc_strict = True
+						#bbands_roc_strict = False
+						#if ( etf_indicators[t]['natr'][tmp_dt] < 0.1 ):
+						#	bbands_roc_strict = True
 
 						# Avoid trade when ETF indicator is choppy or sideways
 						etf_roc_stacked_ma_bull	= etf_roc_stacked_ma_bear	= False
@@ -2531,11 +2531,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# BUY SIGNAL
 			if ( buy_signal == True and final_buy_signal == True ):
-
-				print('Warning: ' + str(etf_indicators[t]['natr'][tmp_dt]) + ' / ' + str(round(cur_rs, 3)))
-
-
-
 
 				purchase_price	= pricehistory['candles'][idx]['close']
 				num_shares	= int( stock_usd / purchase_price )
@@ -3509,9 +3504,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						except ZeroDivisionError:
 							cur_rs = 0
 
-						bbands_roc_strict = False
-						if ( etf_indicators[t]['natr'][tmp_dt] < 0.1 ):
-							bbands_roc_strict = True
+						#bbands_roc_strict = False
+						#if ( etf_indicators[t]['natr'][tmp_dt] < 0.1 ):
+						#	bbands_roc_strict = True
 
 						# Avoid trade when ETF indicator is choppy or sideways
 						etf_roc_stacked_ma_bull	= etf_roc_stacked_ma_bear	= False
@@ -3704,11 +3699,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# SHORT SIGNAL
 			if ( short_signal == True and final_short_signal == True ):
-
-
-				print('Warning: ' + str(etf_indicators[t]['natr'][tmp_dt]) + ' / ' + str(round(cur_rs, 3)) + ' SHORT')
-
-
 
 				short_price		= pricehistory['candles'][idx]['close']
 				num_shares		= int( stock_usd / short_price )

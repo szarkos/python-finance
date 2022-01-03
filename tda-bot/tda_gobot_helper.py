@@ -137,7 +137,6 @@ def ismarketopen_US(date=None, safe_open=False, check_day_only=False):
 			'2021-09-06',
 			'2021-11-25',
 			'2021-12-24',
-			'2021-12-31',
 
 			# 2022
 			'2022-01-17',

@@ -215,6 +215,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	kchannel_period			= 20		if ('kchannel_period' not in params) else params['kchannel_period']
 	kchannel_atr_period		= 20		if ('kchannel_atr_period' not in params) else params['kchannel_atr_period']
 	kchannel_multiplier		= 1.5		if ('kchannel_multiplier' not in params) else params['kchannel_multiplier']
+	kchan_matype			= 'ema'		if ('kchan_matype' not in params) else params['kchan_matype']
 
 	# Indicator parameters and modifiers
 	stochrsi_period			= 128		if ('stochrsi_period' not in params) else params['stochrsi_period']
@@ -634,9 +635,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		kchannel_upper	= []
 		try:
 			if ( use_bbands_kchannel_5m == True ):
-				kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory_5m, period=kchannel_period, atr_period=kchannel_atr_period, atr_multiplier=kchannel_multiplier)
+				kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory_5m, period=kchannel_period, atr_period=kchannel_atr_period, atr_multiplier=kchannel_multiplier, matype=kchan_matype)
 			else:
-				kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory, period=kchannel_period, atr_period=kchannel_atr_period, atr_multiplier=kchannel_multiplier)
+				kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory, period=kchannel_period, atr_period=kchannel_atr_period, atr_multiplier=kchannel_multiplier, matype=kchan_matype)
 
 		except Exception as e:
 			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_kchannel(): ' + str(e))

@@ -111,6 +111,7 @@ parser.add_argument("--bbands_period", help='Period to use when calculating the 
 parser.add_argument("--kchannel_period", help='Period to use when calculating the Keltner channels (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_atr_period", help='Period to use when calculating the ATR for use with the Keltner channels (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_multiplier", help='Multiple to use when calculating upper and lower Keltner channels (Default: 1.5)', default=1.5, type=float)
+parser.add_argument("--kchan_matype", help='MA type to use when calculating the Keltner Channel (Default: ema)', default='ema', type=str)
 
 parser.add_argument("--aroonosc_with_macd_simple", help='When using Aroon Oscillator, use macd_simple as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
 parser.add_argument("--aroonosc_with_vpt", help='When using Aroon Oscillator, use vpt as tertiary indicator if AroonOsc is less than +/- 70 (Default: False)', action="store_true")
@@ -685,6 +686,7 @@ for algo in args.algo.split(','):
 					'kchannel_period':			args.kchannel_period,
 					'kchannel_atr_period':			args.kchannel_atr_period,
 					'kchannel_multiplier':			args.kchannel_multiplier,
+					'kchan_matype':				args.kchan_matype,
 
  					# Indicator parameters and modifiers
 					'stochrsi_period':			args.stochrsi_period,

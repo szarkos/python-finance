@@ -163,7 +163,7 @@ def get_ema(pricehistory=None, period=50, type='close', debug=False):
 #	wma	= Weighted Moving Average
 #	zlema	= Zero-Lag Exponential Moving Average
 #
-def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', debug=False):
+def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_fastlimit=0.5, mama_slowlimit=0.05, debug=False):
 
 	if ( pricehistory == None ):
 		return []
@@ -316,6 +316,21 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', debug=
 		except Exception as e:
 			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.vwma(): ' + str(e), file=sys.stderr)
 			return False
+
+	# MESA Adaptive Moving Average (MAMA)
+	# This option returns a tuple (mama, fama)
+	elif ( ma_type == 'mama' ):
+		mama = []
+		fama = []
+		try:
+			mama, fama = talib.MAMA( prices, fastlimit=mama_fastlimit, slowlimit=mama_slowlimit )
+
+		except Exception as e:
+			print('Caught Exception: get_alt_ma(' + str(ticker) + '): talib.MAMA(): ' + str(e), file=sys.stderr)
+			return False
+
+		# Lengths of mama/fama are already the same as prices[] and pricehistory['candles']
+		return mama, fama
 
 	else:
 		print('Error: unknown ma_type "' + str(ma_type) + '"', file=sys.stderr)
@@ -1333,10 +1348,14 @@ def get_kchannels(pricehistory=None, type='hlc3', period=20, matype='ema', atr_p
 	# Keltner Channel Upper Band	= MA+2∗ATR
 	# Keltner Channel Lower Band	= MA−2∗ATR
 	ma	= []
+	fama	= []
 	atr	= []
 	natr	= []
 	try:
-		ma = get_alt_ma(pricehistory=pricehistory, period=period, ma_type=matype, type=type)
+		if ( matype == 'mama' ):
+			ma, fama = get_alt_ma(pricehistory=pricehistory, period=period, ma_type=matype, type=type)
+		else:
+			ma = get_alt_ma(pricehistory=pricehistory, period=period, ma_type=matype, type=type)
 
 	except Exception as e:
 		print('Error: get_kchannel(' + str(ticker) + '): unable to calculate EMA: ' + str(e))

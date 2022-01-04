@@ -43,6 +43,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal exit_percent_signal_short	; exit_percent_signal_short	= False
 
 		nonlocal stacked_ma_signal		; stacked_ma_signal		= False
+		nonlocal mama_fama_signal		; mama_fama_signal		= False
 
 		nonlocal rs_signal			; rs_signal			= False
 
@@ -169,6 +170,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	daily_ma_type			= 'wma'		if ('daily_ma_type' not in params) else params['daily_ma_type']
 	confirm_daily_ma		= False		if ('confirm_daily_ma' not in params) else params['confirm_daily_ma']
 
+	with_mama_fama			= False		if ('with_mama_fama' not in params) else params['with_mama_fama']
+	mama_require_xover		= False		if ('mama_require_xover' not in params) else params['mama_require_xover']
+
 	with_rsi			= False		if ('with_rsi' not in params) else params['with_rsi']
 	with_rsi_simple			= False		if ('with_rsi_simple' not in params) else params['with_rsi_simple']
 
@@ -215,6 +219,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	kchannel_period			= 20		if ('kchannel_period' not in params) else params['kchannel_period']
 	kchannel_atr_period		= 20		if ('kchannel_atr_period' not in params) else params['kchannel_atr_period']
 	kchannel_multiplier		= 1.5		if ('kchannel_multiplier' not in params) else params['kchannel_multiplier']
+	kchan_matype			= 'ema'		if ('kchan_matype' not in params) else params['kchan_matype']
 
 	# Indicator parameters and modifiers
 	stochrsi_period			= 128		if ('stochrsi_period' not in params) else params['stochrsi_period']
@@ -634,9 +639,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		kchannel_upper	= []
 		try:
 			if ( use_bbands_kchannel_5m == True ):
-				kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory_5m, period=kchannel_period, atr_period=kchannel_atr_period, atr_multiplier=kchannel_multiplier)
+				kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory_5m, period=kchannel_period, atr_period=kchannel_atr_period, atr_multiplier=kchannel_multiplier, matype=kchan_matype)
 			else:
-				kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory, period=kchannel_period, atr_period=kchannel_atr_period, atr_multiplier=kchannel_multiplier)
+				kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory, period=kchannel_period, atr_period=kchannel_atr_period, atr_multiplier=kchannel_multiplier, matype=kchan_matype)
 
 		except Exception as e:
 			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_kchannel(): ' + str(e))
@@ -951,6 +956,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		s_ma_primary = get_stackedma(pricehistory, stacked_ma_periods_primary, stacked_ma_type_primary)
 		s_ma_ha_primary = get_stackedma(pricehistory, stacked_ma_periods_primary, stacked_ma_type_primary, use_ha_candles=True)
 
+	# MAMA/FAMA algorithm
+	mama = []
+	fama = []
+	if ( primary_stoch_indicator == 'mama_fama' or with_mama_fama == True ):
+		try:
+			mama, fama = tda_algo_helper.get_alt_ma(pricehistory=pricehistory, ma_type='mama', type='hlc3', mama_fastlimit=0.5, mama_slowlimit=0.05)
+
+		except Exception as e:
+			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_alt_ma(mama): ' + str(e))
+			return False
+
 	# Daily moving averages
 	ma = []
 	try:
@@ -1118,6 +1134,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	bbands_kchan_signal		= False
 	bbands_roc_threshold_signal	= False
 	stacked_ma_signal		= False
+	mama_fama_signal		= False
 	bbands_natr			= { 'bbands': [], 'natr': 0, 'squeeze_natr': 0 }
 
 	rs_signal			= False
@@ -1729,6 +1746,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		except:
 			pass
 
+		if ( primary_stoch_indicator == 'mama_fama' or with_mama_fama == True ):
+			cur_mama = mama[idx]
+			cur_fama = fama[idx]
+			prev_mama = mama[idx-1]
+			prev_fama = fama[idx-1]
+
 		# Skip all candles until start_date, if it is set
 		if ( start_date != None and date < start_date ):
 			continue
@@ -1880,6 +1903,30 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					reset_signals()
 					continue
 
+			# MESA Adaptive Moving Average primary
+			elif ( primary_stoch_indicator == 'mama_fama' ):
+				buy_signal = False
+
+				# Bullish trending
+				if ( cur_mama > cur_fama ):
+					buy_signal = True
+
+				# Price crossed over from bullish to bearish
+				elif ( cur_mama <= cur_fama or (prev_mama > prev_fama and cur_mama <= cur_fama) ):
+					reset_signals( exclude_bbands_kchan=True )
+					if ( noshort == False ):
+						signal_mode['primary'] = 'short'
+					continue
+
+				else:
+					# This shouldn't happen, but just in case...
+					buy_signal = False
+
+			# Unknown primary indicator
+			else:
+				print('Error: primary_stoch_indicator "' + str(primary_stoch_indicator) + '" unknown, exiting.')
+				return False
+
 
 			# StochRSI with 5-minute candles
 			if ( with_stochrsi_5m == True ):
@@ -1928,12 +1975,32 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Stacked moving averages
 			if ( with_stacked_ma == True ):
 				stacked_ma_bull_affinity	= check_stacked_ma(cur_s_ma, 'bull')
-				stacked_ma_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bull')
+				stacked_ma_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha, 'bull')
 
 				if ( stacked_ma_bull_affinity == True ):
 					stacked_ma_signal = True
 				else:
 					stacked_ma_signal = False
+
+			# MESA Adaptive Moving Average
+			if ( with_mama_fama == True ):
+				if ( mama_require_xover == True ):
+					if ( prev_mama <= prev_fama and cur_mama > cur_fama ):
+						mama_fama_signal = True
+
+					elif ( cur_mama <= cur_fama ):
+						mama_fama_signal = False
+
+				else:
+					mama_fama_signal = False
+
+					# Bullish trending
+					if ( cur_mama > cur_fama ):
+						mama_fama_signal = True
+
+					# Price crossed over from bullish to bearish
+					elif ( cur_mama <= cur_fama ):
+						mama_fama_signal = False
 
 			# RSI signal
 			if ( with_rsi == True ):
@@ -2464,6 +2531,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( with_stacked_ma == True and stacked_ma_signal != True ):
 					final_buy_signal = False
 
+				if ( with_mama_fama == True and mama_fama_signal != True ):
+					final_buy_signal = False
+
 				if ( confirm_daily_ma == True and check_stacked_ma(cur_daily_ma, 'bear') == True ):
 					final_buy_signal = False
 
@@ -2615,7 +2685,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# If stock is sinking over n-periods (bbands_kchannel_xover_exit_count) after entry then just exit
 			#  the position
-			if ( use_bbands_kchannel_xover_exit == True ):
+			if ( use_bbands_kchannel_xover_exit == True and
+					(primary_stoch_indicator == 'stacked_ma' or primary_stoch_indicator == 'mama_fama') ):
+
 				if ( use_bbands_kchannel_5m == True ):
 					cur_bbands_lower	= round( bbands_lower[int((idx - bbands_idx) / 5)], 3 )
 					cur_bbands_upper	= round( bbands_upper[int((idx - bbands_idx) / 5)], 3 )
@@ -2627,11 +2699,24 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					cur_kchannel_lower	= round( kchannel_lower[idx], 3 )
 					cur_kchannel_upper	= round( kchannel_upper[idx], 3 )
 
-				stacked_ma_bear_affinity	= check_stacked_ma(cur_s_ma_primary, 'bear')
-				stacked_ma_bull_affinity	= check_stacked_ma(cur_s_ma_primary, 'bull')
+				if ( primary_stoch_indicator == 'stacked_ma' ):
+					stacked_ma_bear_affinity	= check_stacked_ma(cur_s_ma_primary, 'bear')
+					stacked_ma_bull_affinity	= check_stacked_ma(cur_s_ma_primary, 'bull')
 
-				stacked_ma_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bear')
-				stacked_ma_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bull')
+					stacked_ma_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bear')
+					stacked_ma_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bull')
+
+				elif ( primary_stoch_indicator == 'mama_fama' ):
+					if ( cur_mama > cur_fama ):
+						stacked_ma_bear_affinity	= False
+						stacked_ma_bear_ha_affinity	= False
+						stacked_ma_bull_affinity	= True
+						stacked_ma_bull_ha_affinity	= True
+					else:
+						stacked_ma_bear_affinity	= True
+						stacked_ma_bull_affinity	= True
+						stacked_ma_bear_ha_affinity	= False
+						stacked_ma_bull_ha_affinity	= False
 
 				# Handle adverse conditions before the crossover
 				if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
@@ -3065,6 +3150,24 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					reset_signals()
 					continue
 
+			# MESA Adaptive Moving Average primary
+			elif ( primary_stoch_indicator == 'mama_fama' ):
+				short_signal = False
+
+				# Bearish trending
+				if ( cur_mama < cur_fama ):
+					short_signal = True
+
+				# Price crossed over from bearish to bullish
+				elif ( cur_mama >= cur_fama or (prev_mama < prev_fama and cur_mama >= cur_fama) ):
+					reset_signals( exclude_bbands_kchan=True )
+					if ( shortonly == False ):
+						signal_mode['primary'] = 'long'
+					continue
+
+				else:
+					# This shouldn't happen, but just in case...
+					short_signal = False
 
 			# StochRSI with 5-minute candles
 			if ( with_stochrsi_5m == True ):
@@ -3113,12 +3216,32 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Stacked moving averages
 			if ( with_stacked_ma == True ):
 				stacked_ma_bear_affinity	= check_stacked_ma(cur_s_ma, 'bear')
-				stacked_ma_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bear')
+				stacked_ma_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha, 'bear')
 
 				if ( stacked_ma_bear_affinity == True ):
 					stacked_ma_signal = True
 				else:
 					stacked_ma_signal = False
+
+			# MESA Adaptive Moving Average
+			if ( with_mama_fama == True ):
+				if ( mama_require_xover == True ):
+					if ( prev_mama >= prev_fama and cur_mama < cur_fama ):
+						mama_fama_signal = True
+
+					elif ( cur_mama >= cur_fama ):
+						mama_fama_signal = False
+
+				else:
+					mama_fama_signal = False
+
+					# Bearish trending
+					if ( cur_mama < cur_fama ):
+						mama_fama_signal = True
+
+					# Price crossed over from bearish to bullish
+					elif ( cur_mama >= cur_fama ):
+						mama_fama_signal = False
 
 			# RSI signal
 			if ( with_rsi == True ):
@@ -3633,6 +3756,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( with_stacked_ma == True and stacked_ma_signal != True ):
 					final_short_signal = False
 
+				if ( with_mama_fama == True and mama_fama_signal != True ):
+					final_short_signal = False
+
 				if ( confirm_daily_ma == True and check_stacked_ma(cur_daily_ma, 'bull') == True ):
 					final_short_signal = False
 
@@ -3783,7 +3909,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# If stock is rising over n-periods (bbands_kchannel_xover_exit_count) after entry then just exit
 			#  the position
-			if ( use_bbands_kchannel_xover_exit == True ):
+			if ( use_bbands_kchannel_xover_exit == True and
+					(primary_stoch_indicator == 'stacked_ma' or primary_stoch_indicator == 'mama_fama') ):
 				if ( use_bbands_kchannel_5m == True ):
 					cur_bbands_lower	= round( bbands_lower[int((idx - bbands_idx) / 5)], 3 )
 					cur_bbands_upper	= round( bbands_upper[int((idx - bbands_idx) / 5)], 3 )
@@ -3795,11 +3922,24 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					cur_kchannel_lower	= round( kchannel_lower[idx], 3 )
 					cur_kchannel_upper	= round( kchannel_upper[idx], 3 )
 
-				stacked_ma_bear_affinity	= check_stacked_ma(cur_s_ma_primary, 'bear')
-				stacked_ma_bull_affinity	= check_stacked_ma(cur_s_ma_primary, 'bull')
+				if ( primary_stoch_indicator == 'stacked_ma' ):
+					stacked_ma_bear_affinity	= check_stacked_ma(cur_s_ma_primary, 'bear')
+					stacked_ma_bull_affinity	= check_stacked_ma(cur_s_ma_primary, 'bull')
 
-				stacked_ma_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bear')
-				stacked_ma_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bull')
+					stacked_ma_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bear')
+					stacked_ma_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bull')
+
+				elif ( primary_stoch_indicator == 'mama_fama' ):
+					if ( cur_mama < cur_fama ):
+						stacked_ma_bear_affinity	= True
+						stacked_ma_bear_ha_affinity	= True
+						stacked_ma_bull_affinity	= False
+						stacked_ma_bull_ha_affinity	= False
+					else:
+						stacked_ma_bear_affinity	= False
+						stacked_ma_bull_affinity	= False
+						stacked_ma_bear_ha_affinity	= True
+						stacked_ma_bull_ha_affinity	= True
 
 				# Handle adverse conditions before the crossover
 				if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):

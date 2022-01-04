@@ -137,8 +137,11 @@ parser.add_argument("--use_bbands_kchannel_5m", help='Use 5-minute candles to ca
 parser.add_argument("--use_bbands_kchannel_xover_exit", help='Use price action after a Bollinger bands and Keltner channel crossover to assist with stock exit (Default: False)', action="store_true")
 parser.add_argument("--bbands_kchannel_xover_exit_count", help='Number of periods to wait after a crossover to trigger --use_bbands_kchannel_xover_exit (Default: 10)', default=10, type=int)
 parser.add_argument("--bbands_period", help='Period to use when calculating the Bollinger Bands (Default: 20)', default=20, type=int)
+parser.add_argument("--bbands_use_talib", help='Use talib for Bollinger Bands calculation (Default: False)', action="store_true")
+parser.add_argument("--bbands_matype", help='Moving average type to use with Bollinger Bands calculation, requires --bbands_use_talib (Default: 0)', default=0, type=int)
 parser.add_argument("--kchannel_period", help='Period to use when calculating the Keltner channels (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_atr_period", help='Period to use when calculating the ATR for use with the Keltner channels (Default: 20)', default=20, type=int)
+parser.add_argument("--kchan_matype", help='MA type to use when calculating the Keltner Channel (Default: ema)', default='ema', type=str)
 
 parser.add_argument("--check_etf_indicators", help='Tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior of key ETFs (i.e. SPY, QQQ, DIA)', action="store_true")
 parser.add_argument("--check_etf_indicators_strict", help='Do not allow trade unless the 5-minute SMA/EMA behavior of key ETFs (i.e. SPY, QQQ, DIA) agree with direction', action="store_true")
@@ -260,7 +263,7 @@ for algo in args.algos:
 				break
 
 	# Indicators
-	primary_stochrsi = primary_stochmfi = primary_stacked_ma = stacked_ma = stochrsi_5m = stochmfi = stochmfi_5m = False
+	primary_stochrsi = primary_stochmfi = primary_stacked_ma = primary_mama_fama = stacked_ma = stochrsi_5m = stochmfi = stochmfi_5m = False
 	rsi = mfi = adx = dmi = dmi_simple = macd = macd_simple = aroonosc = False
 	chop_index = chop_simple = supertrend = bbands_kchannel = False
 	vwap = vpt = support_resistance = False
@@ -309,8 +312,11 @@ for algo in args.algos:
 	use_bbands_kchannel_xover_exit	= args.use_bbands_kchannel_xover_exit
 	bbands_kchannel_xover_exit_count= args.bbands_kchannel_xover_exit_count
 	bbands_period			= args.bbands_period
+	bbands_use_talib		= args.bbands_use_talib
+	bbands_matype			= args.bbands_matype
 	kchannel_period			= args.kchannel_period
 	kchannel_atr_period		= args.kchannel_atr_period
+	kchan_matype			= args.kchan_matype
 
 	check_etf_indicators		= args.check_etf_indicators
 	check_etf_indicators_strict	= args.check_etf_indicators_strict
@@ -371,6 +377,7 @@ for algo in args.algos:
 		if ( a == 'primary_stochrsi' ):		primary_stochrsi	= True
 		if ( a == 'primary_stochmfi' ):		primary_stochmfi	= True
 		if ( a == 'primary_stacked_ma' ):	primary_stacked_ma	= True
+		if ( a == 'primary_mama_fama' ):	primary_mama_fama	= True
 		if ( a == 'stacked_ma' ):		stacked_ma		= True
 		if ( a == 'stochrsi_5m' ):		stochrsi_5m		= True
 		if ( a == 'stochmfi' ):			stochmfi		= True
@@ -432,8 +439,11 @@ for algo in args.algos:
 		if ( re.match('bbands_roc_strict:', a)			!= None ):	bbands_roc_strict		= True
 		if ( re.match('bbands_kchannel_xover_exit_count:', a)	!= None ):	bbands_kchannel_xover_exit_count= int( a.split(':')[1] )
 		if ( re.match('bbands_period:', a)			!= None ):	bbands_period			= int( a.split(':')[1] )
+		if ( re.match('bbands_use_talib', a)			!= None ):	bbands_use_talib		= True
+		if ( re.match('bbands_matype:', a)			!= None ):	bbands_matype			= int( a.split(':')[1] )
 		if ( re.match('kchannel_period:', a)			!= None ):	kchannel_period			= int( a.split(':')[1] )
 		if ( re.match('kchannel_atr_period:', a)		!= None ):	kchannel_atr_period		= int( a.split(':')[1] )
+		if ( re.match('kchan_matype:', a)			!= None ):	kchan_matype			= str( a.split(':')[1] )
 
 		if ( re.match('check_etf_indicators', a)		!= None ):	check_etf_indicators		= True
 		if ( re.match('check_etf_indicators_strict', a)		!= None ):	check_etf_indicators_strict	= True
@@ -483,8 +493,8 @@ for algo in args.algos:
 	if ( primary_stochrsi == True and primary_stochmfi == True ):
 		print('Error: you can only use primary_stochrsi or primary_stochmfi, but not both. Exiting.')
 		sys.exit(1)
-	elif ( primary_stochrsi == False and primary_stochmfi == False and primary_stacked_ma == False ):
-		print('Error: you must use one of primary_stochrsi, primary_stochmfi or primary_stacked_ma. Exiting.')
+	elif ( primary_stochrsi == False and primary_stochmfi == False and primary_stacked_ma == False and primary_mama_fama == False ):
+		print('Error: you must use one of primary_stochrsi, primary_stochmfi, primary_stacked_ma or primary_mama_fama. Exiting.')
 		sys.exit(1)
 
 	if ( dmi == True and dmi_simple == True ):
@@ -514,6 +524,7 @@ for algo in args.algos:
 			'primary_stochrsi':			primary_stochrsi,
 			'primary_stochmfi':			primary_stochmfi,
 			'primary_stacked_ma':			primary_stacked_ma,
+			'primary_mama_fama':			primary_mama_fama,
 			'stacked_ma':				stacked_ma,
 			'stochrsi_5m':				stochrsi_5m,
 			'stochmfi':				stochmfi,
@@ -558,8 +569,11 @@ for algo in args.algos:
 			'use_bbands_kchannel_xover_exit':	use_bbands_kchannel_xover_exit,
 			'bbands_kchannel_xover_exit_count': 	bbands_kchannel_xover_exit_count,
 			'bbands_period':			bbands_period,
+			'bbands_use_talib':			bbands_use_talib,
+			'bbands_matype':			bbands_matype,
 			'kchannel_period':			kchannel_period,
 			'kchannel_atr_period':			kchannel_atr_period,
+			'kchan_matype':				kchan_matype,
 
 			'check_etf_indicators':			check_etf_indicators,
 			'check_etf_indicators_strict':		check_etf_indicators_strict,
@@ -626,7 +640,7 @@ for algo in args.algos:
 
 # Clean up this mess
 # All the stuff above should be put into a function to avoid this cleanup stuff. I know it. It'll happen eventually.
-del(stock_usd,quick_exit,primary_stochrsi,primary_stochmfi,primary_stacked_ma,stacked_ma,stochrsi_5m,stochmfi,stochmfi_5m)
+del(stock_usd,quick_exit,primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,stacked_ma,stochrsi_5m,stochmfi,stochmfi_5m)
 del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,vwap,vpt,support_resistance)
 del(rsi_high_limit,rsi_low_limit,rsi_period,stochrsi_period,stochrsi_5m_period,rsi_k_period,rsi_k_5m_period,rsi_d_period,rsi_slow,stochrsi_offset,stochrsi_5m_offset)
 del(mfi_high_limit,mfi_low_limit,mfi_period,stochmfi_period,stochmfi_5m_period,mfi_k_period,mfi_k_5m_period,mfi_d_period,mfi_slow,stochmfi_offset,stochmfi_5m_offset)
@@ -634,7 +648,7 @@ del(adx_threshold,adx_period,macd_long_period,macd_short_period,macd_signal_peri
 del(chop_period,chop_low_limit,chop_high_limit,supertrend_atr_period,supertrend_min_natr)
 del(bbands_kchannel_offset,bbands_kchan_squeeze_count,bbands_period,kchannel_period,kchannel_atr_period,max_squeeze_natr,bbands_roc_threshold,bbands_roc_count,bbands_roc_strict)
 del(stacked_ma_type_primary,stacked_ma_periods_primary,stacked_ma_type,stacked_ma_periods,use_natr_resistance,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr)
-del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count)
+del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count,bbands_use_talib,bbands_matype,kchan_matype)
 del(use_ha_exit,use_ha_candles,use_trend_exit,use_trend,trend_period,trend_type,use_combined_exit)
 del(check_etf_indicators,check_etf_indicators_strict,etf_tickers,etf_roc_period,etf_min_rs,etf_min_natr)
 
@@ -770,6 +784,12 @@ for ticker in stock_list.split(','):
 				   'prev_s_ma_ha':		(0,0,0,0),
 
 				   'cur_daily_ma':		(0,0,0,0),
+
+				   # MAMA/FAMA
+				   'cur_mama':			float(-1),
+				   'prev_mama':			float(-1),
+				   'cur_fama':			float(-1),
+				   'prev_fama':			float(-1),
 
 				   # RSI
 				   'cur_rsi':			float(-1),

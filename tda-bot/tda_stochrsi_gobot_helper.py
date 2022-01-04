@@ -924,6 +924,23 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			stocks[ticker]['cur_s_ma_ha_primary']	= s_ma_ha_primary[-1]
 			stocks[ticker]['prev_s_ma_ha_primary']	= s_ma_ha_primary[-2]
 
+		# MESA Adaptive Moving Average
+		if ( cur_algo['primary_mama_fama'] == True ):
+			mama = []
+			fama = []
+			try:
+				mama, fama = tda_algo_helper.get_alt_ma(pricehistory=stocks[ticker]['pricehistory'], ma_type='mama', type='hlc3', mama_fastlimit=0.5, mama_slowlimit=0.05)
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(): mama_fama(' + str(ticker) + '): ' + str(e), file=sys.stderr)
+				continue
+
+			stocks[ticker]['cur_mama']	= mama[-1]
+			stocks[ticker]['prev_mama']	= mama[-2]
+			stocks[ticker]['cur_fama']	= fama[-1]
+			stocks[ticker]['prev_fama']	= fama[-2]
+
+		# Stacked Moving Averages (non-primary)
 		if ( cur_algo['stacked_ma'] == True ):
 			s_ma	= []
 			s_ma_ha	= []
@@ -1096,9 +1113,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			bbands_upper    = []
 			try:
 				if ( cur_algo['use_bbands_kchannel_5m'] == True ):
-					bbands_lower, bbands_mid, bbands_upper = tda_algo_helper.get_bbands(pricehistory=stocks[ticker]['pricehistory_5m'], period=cur_algo['bbands_period'])
+					bbands_lower, bbands_mid, bbands_upper = tda_algo_helper.get_bbands(pricehistory=stocks[ticker]['pricehistory_5m'], period=cur_algo['bbands_period'], type='hlc3', use_talib=cur_algo['bbands_use_talib'], matype=cur_algo['bbands_matype'])
 				else:
-					bbands_lower, bbands_mid, bbands_upper = tda_algo_helper.get_bbands(pricehistory=stocks[ticker]['pricehistory'], period=cur_algo['bbands_period'])
+					bbands_lower, bbands_mid, bbands_upper = tda_algo_helper.get_bbands(pricehistory=stocks[ticker]['pricehistory'], period=cur_algo['bbands_period'], type='hlc3', use_talib=cur_algo['bbands_use_talib'], matype=cur_algo['bbands_matype'])
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(' + str(ticker) + '): get_bbands(): ' + str(e))
@@ -1125,9 +1142,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			kchannel_upper  = []
 			try:
 				if ( cur_algo['use_bbands_kchannel_5m'] == True ):
-					kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory=stocks[ticker]['pricehistory_5m'], period=cur_algo['kchannel_period'], atr_period=cur_algo['kchannel_atr_period'])
+					kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory=stocks[ticker]['pricehistory_5m'], period=cur_algo['kchannel_period'], atr_period=cur_algo['kchannel_atr_period'], matype=cur_algo['kchan_matype'])
 				else:
-					kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory=stocks[ticker]['pricehistory'], period=cur_algo['kchannel_period'], atr_period=cur_algo['kchannel_atr_period'])
+					kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory=stocks[ticker]['pricehistory'], period=cur_algo['kchannel_period'], atr_period=cur_algo['kchannel_atr_period'], matype=cur_algo['kchan_matype'])
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(' + str(ticker) + '): get_kchannel(): ' + str(e))
@@ -1214,6 +1231,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				for idx in range(0, len(stocks[ticker]['cur_s_ma'])):
 					print( str(round(stocks[ticker]['cur_s_ma'][idx], 2)) + ' ', end='' )
 				print()
+
+			# MESA Adaptive Moving Average
+			if ( cur_algo['primary_mama_fama'] == True ):
+				print('(' + str(ticker) + ') Current MAMA/FAMA: ' + str(round(stocks[ticker]['cur_mama'], 4)) +
+						' / ' + str(round(stocks[ticker]['cur_fama'], 4)) )
 
 			# RSI
 			if ( cur_algo['rsi'] == True ):
@@ -1373,6 +1395,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		prev_s_ma_ha_primary	= stocks[ticker]['prev_s_ma_ha_primary']
 		cur_s_ma_ha		= stocks[ticker]['cur_s_ma_ha']
 		prev_s_ma_ha		= stocks[ticker]['prev_s_ma_ha']
+
+		# MESA Adaptive Moving Average
+		cur_mama		= stocks[ticker]['cur_mama']
+		cur_fama		= stocks[ticker]['cur_fama']
+		prev_mama		= stocks[ticker]['prev_mama']
+		prev_fama		= stocks[ticker]['prev_fama']
 
 		# Additional Indicators
 		cur_rsi			= stocks[ticker]['cur_rsi']
@@ -1572,6 +1600,27 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				else:
 					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = False
+
+			# PRIMARY MESA Adaptive Moving Average
+			elif ( cur_algo['primary_mama_fama'] == True ):
+
+				stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = False
+
+				# Bullish trending
+				if ( cur_mama > cur_fama ):
+					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = True
+
+				# Jump to short mode if the MAMA/FAMA are showing a bearish movement
+				elif ( cur_mama <= cur_fama or (prev_mama > prev_fama and cur_mama <= cur_fama) ):
+					if ( args.short == True and stocks[ticker]['shortable'] == True ):
+						print('(' + str(ticker) + ') MAMA/FAMA values indicate bearish trend ' + str(cur_mama) + '/' + str(cur_fama) + ", switching to short mode.\n" )
+						reset_signals(ticker, id=algo_id, signal_mode='short', exclude_bbands_kchan=True)
+						continue
+
+				# This shouldn't happen, but just in case...
+				else:
+					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = False
+
 
 			# Secondary Stacked Moving Average
 			if ( cur_algo['stacked_ma'] == True ):
@@ -2232,13 +2281,28 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				cur_kchannel_lower	= round( cur_kchannel[0], 3 )
 				cur_kchannel_upper	= round( cur_kchannel[2], 3 )
 
-				# Standard candles
-				stacked_ma_bear_affinity	= check_stacked_ma(cur_s_ma_primary, 'bear')
-				stacked_ma_bull_affinity	= check_stacked_ma(cur_s_ma_primary, 'bull')
+				if ( cur_algo['primary_stacked_ma'] == True ):
 
-				# Heikin Ashi candles
-				stacked_ma_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bear')
-				stacked_ma_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bull')
+					# Standard candles
+					stacked_ma_bear_affinity	= check_stacked_ma(cur_s_ma_primary, 'bear')
+					stacked_ma_bull_affinity	= check_stacked_ma(cur_s_ma_primary, 'bull')
+
+					# Heikin Ashi candles
+					stacked_ma_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bear')
+					stacked_ma_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bull')
+
+				elif ( cur_algo['primary_mama_fama'] == True ):
+					if ( cur_mama > cur_fama ):
+						stacked_ma_bear_affinity	= False
+						stacked_ma_bear_ha_affinity	= False
+						stacked_ma_bull_affinity	= True
+						stacked_ma_bull_ha_affinity	= True
+
+					else:
+						stacked_ma_bear_affinity	= True
+						stacked_ma_bear_ha_affinity	= True
+						stacked_ma_bull_affinity	= False
+						stacked_ma_bull_ha_affinity	= False
 
 				# Handle adverse conditions before the crossover
 				if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):
@@ -2600,6 +2664,27 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				else:
 					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = False
+
+			# PRIMARY MESA Adaptive Moving Average
+			elif ( cur_algo['primary_mama_fama'] == True ):
+
+				stocks[ticker]['algo_signals'][algo_id]['short_signal'] = False
+
+				# Bearish trending
+				if ( cur_mama < cur_fama ):
+					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = True
+
+				# Jump to short mode if the MAMA/FAMA are showing a bearish movement
+				elif ( cur_mama >= cur_fama or (prev_mama < prev_fama and cur_mama >= cur_fama) ):
+					if ( args.shortonly == False ):
+						print('(' + str(ticker) + ') MAMA/FAMA values indicate bullish trend ' + str(cur_mama) + '/' + str(cur_fama) + ", switching to short mode.\n" )
+						reset_signals(ticker, id=algo_id, signal_mode='long', exclude_bbands_kchan=True)
+						continue
+
+				# This shouldn't happen, but just in case...
+				else:
+					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = False
+
 
 			# Secondary Stacked Moving Average
 			if ( cur_algo['stacked_ma'] == True ):
@@ -3287,13 +3372,28 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				cur_kchannel_lower	= round( cur_kchannel[0], 3 )
 				cur_kchannel_upper	= round( cur_kchannel[2], 3 )
 
-				# Standard candles
-				stacked_ma_bear_affinity	= check_stacked_ma(cur_s_ma_primary, 'bear')
-				stacked_ma_bull_affinity	= check_stacked_ma(cur_s_ma_primary, 'bull')
+				if ( cur_algo['primary_stacked_ma'] == True ):
 
-				# Heikin Ashi candles
-				stacked_ma_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bear')
-				stacked_ma_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bull')
+					# Standard candles
+					stacked_ma_bear_affinity	= check_stacked_ma(cur_s_ma_primary, 'bear')
+					stacked_ma_bull_affinity	= check_stacked_ma(cur_s_ma_primary, 'bull')
+
+					# Heikin Ashi candles
+					stacked_ma_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bear')
+					stacked_ma_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha_primary, 'bull')
+
+				elif ( cur_algo['primary_mama_fama'] == True ):
+					if ( cur_mama < cur_fama ):
+						stacked_ma_bear_affinity	= True
+						stacked_ma_bear_ha_affinity	= True
+						stacked_ma_bull_affinity	= False
+						stacked_ma_bull_ha_affinity	= False
+
+					else:
+						stacked_ma_bear_affinity	= False
+						stacked_ma_bear_ha_affinity	= False
+						stacked_ma_bull_affinity	= True
+						stacked_ma_bull_ha_affinity	= True
 
 				# Handle adverse conditions before the crossover
 				if ( cur_kchannel_lower < cur_bbands_lower and cur_kchannel_upper > cur_bbands_upper ):

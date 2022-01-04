@@ -99,6 +99,6 @@ for t in $tickers; do
 done
 
 # Check downloaded .csv files for errors
-sleep 20
+sleep 12
 ./download-history-1min.sh CHECK_TICKERS $interval $months
 

@@ -17,7 +17,7 @@ if [ "$command" != "force" ]; then
 		cur_time=$(TZ="America/New_York" date +%H:%M)
 		echo "Current time is $cur_time"
 
-		if [ "$cur_time" == "09:30" ]; then
+		if [ "$cur_time" == "09:20" ]; then
 			break
 		fi
 		sleep 30
@@ -35,10 +35,14 @@ nohup ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=20000 --stocks=${tickers
 	--algos=algo_id:stackedma_kama_wma_rsstrict_rocstrict,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,bbands_roc_strict,bbands_kchan_squeeze_count:10,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,check_etf_indicators_strict,min_intra_natr:0.65,min_daily_natr:6 \
 	--algos=algo_id:stackedma_kama_wma_rocstrict,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,bbands_roc_strict,bbands_kchan_squeeze_count:10,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,min_intra_natr:0.65,min_daily_natr:6 \
 	--algos=algo_id:stackedma_kama_wma,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,min_intra_natr:0.65,min_daily_natr:6 \
+	--algos=algo_id:mama-fama_wma_rsstrict_rocstrict,primary_mama_fama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,bbands_roc_strict,bbands_kchan_squeeze_count:10,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,check_etf_indicators_strict,min_intra_natr:0.65,min_daily_natr:6 \
+	--algos=algo_id:stackedma_kama_wma_bbands-mama_kchan-hma,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,bbands_use_talib,bbands_matype:7,kchan_matype:hma,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,min_intra_natr:0.65,min_daily_natr:6 \
 	\
 	--algo_exclude_tickers=stackedma_kama_wma_rsstrict_rocstrict:${STACKEDMA_KAMA_WMA_EXCLUDE} \
 	--algo_exclude_tickers=stackedma_kama_wma_rocstrict:${STACKEDMA_KAMA_WMA_EXCLUDE} \
 	--algo_exclude_tickers=stackedma_kama_wma:${STACKEDMA_KAMA_WMA_EXCLUDE} \
+	--algo_exclude_tickers=mama-fama_wma_rsstrict_rocstrict:${MAMAFAMA_WMA_EXCLUDE} \
+	--algo_exclude_tickers=stackedma_kama_wma_bbands-mama_kchan-hma:${STACKEDMA_KAMA_WMA_BBANDS_MAMA_KCHAN_HMA_EXCLUDE} \
 	\
 	--stacked_ma_periods_primary=8,13,21 --stacked_ma_periods=34,55,89 \
 	--check_etf_indicators --etf_min_rs=3 --etf_min_natr=0.1 \

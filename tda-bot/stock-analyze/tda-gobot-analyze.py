@@ -71,6 +71,9 @@ parser.add_argument("--stacked_ma_periods_primary", help='List of MA periods to 
 parser.add_argument("--daily_ma_type", help='Moving average type to use (Default: wma)', default='wma', type=str)
 parser.add_argument("--confirm_daily_ma", help='Confirm that the daily moving average agrees with the direction stock entry', action="store_true")
 
+parser.add_argument("--with_mama_fama", help='Use MESA Adaptive Moving Average as a secondary indicator for trade entries (Default: False)', action="store_true")
+parser.add_argument("--mama_require_xover", help='When using MESA Adaptive Moving Average, require crossover of MAMA and FAMA to initiate signal (Default: False)', action="store_true")
+
 parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
 parser.add_argument("--with_rsi_simple", help='Use just the current RSI value as a secondary indicator', action="store_true")
 parser.add_argument("--with_mfi", help='Use MFI (Money Flow Index) as a secondary indicator', action="store_true")
@@ -640,6 +643,9 @@ for algo in args.algo.split(','):
 					'stacked_ma_periods_primary':		args.stacked_ma_periods_primary,
 					'daily_ma_type':			args.daily_ma_type,
 					'confirm_daily_ma':			args.confirm_daily_ma,
+
+					'with_mama_fama':			args.with_mama_fama,
+					'mama_require_xover':			args.mama_require_xover,
 
 					'with_rsi':				args.with_rsi,
 					'with_rsi_simple':			args.with_rsi_simple,

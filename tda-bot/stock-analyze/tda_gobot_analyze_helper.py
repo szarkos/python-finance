@@ -163,10 +163,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	with_stochmfi_5m		= False		if ('with_stochmfi_5m' not in params) else params['with_stochmfi_5m']
 
 	with_stacked_ma			= False		if ('with_stacked_ma' not in params) else params['with_stacked_ma']
-	stacked_ma_type			= 'vwma'	if ('stacked_ma_type' not in params) else params['stacked_ma_type']
-	stacked_ma_periods		= '3,5,8'	if ('stacked_ma_periods' not in params) else params['stacked_ma_periods']
-	stacked_ma_type_primary		= 'wma'		if ('stacked_ma_type_primary' not in params) else params['stacked_ma_type_primary']
+	stacked_ma_type			= 'kama'	if ('stacked_ma_type' not in params) else params['stacked_ma_type']
+	stacked_ma_periods		= '5,8,13'	if ('stacked_ma_periods' not in params) else params['stacked_ma_periods']
+	with_stacked_ma_secondary	= False		if ('with_stacked_ma_secondary' not in params) else params['with_stacked_ma_secondary']
+	stacked_ma_type_secondary	= 'kama'	if ('stacked_ma_type_secondary' not in params) else params['stacked_ma_type_secondary']
+	stacked_ma_periods_secondary	= '5,8,13'	if ('stacked_ma_periods_secondary' not in params) else params['stacked_ma_periods_secondary']
+	stacked_ma_type_primary		= 'kama'	if ('stacked_ma_type_primary' not in params) else params['stacked_ma_type_primary']
 	stacked_ma_periods_primary	= '5,8,13'	if ('stacked_ma_periods_primary' not in params) else params['stacked_ma_periods_primary']
+
 	daily_ma_type			= 'wma'		if ('daily_ma_type' not in params) else params['daily_ma_type']
 	confirm_daily_ma		= False		if ('confirm_daily_ma' not in params) else params['confirm_daily_ma']
 
@@ -200,7 +204,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	with_bbands_kchannel_simple	= False		if ('with_bbands_kchannel_simple' not in params) else params['with_bbands_kchannel_simple']
 	with_bbands_kchannel		= False		if ('with_bbands_kchannel' not in params) else params['with_bbands_kchannel']
-	bbands_use_talib		= False		if ('bbands_use_talib' not in params) else params['bbands_use_talib']
 	bbands_matype			= 0		if ('bbands_matype' not in params) else params['bbands_matype']
 	use_bbands_kchannel_5m		= False		if ('use_bbands_kchannel_5m' not in params) else params['use_bbands_kchannel_5m']
 	bbands_kchan_crossover_only	= False		if ('bbands_kchan_crossover_only' not in params) else params['bbands_kchan_crossover_only']
@@ -552,57 +555,62 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		with_macd		= False
 		with_macd_simple	= False
 
-	aroonosc	= []
-	aroonosc_alt	= []
-	try:
-		aroonosc	= tda_algo_helper.get_aroon_osc(pricehistory, period=aroonosc_period)
-		aroonosc_alt	= tda_algo_helper.get_aroon_osc(pricehistory, period=aroonosc_alt_period)
+	if ( with_aroonosc == True or with_aroonosc_simple == True ):
+		aroonosc	= []
+		aroonosc_alt	= []
+		try:
+			aroonosc	= tda_algo_helper.get_aroon_osc(pricehistory, period=aroonosc_period)
+			aroonosc_alt	= tda_algo_helper.get_aroon_osc(pricehistory, period=aroonosc_alt_period)
 
-	except Exception as e:
-		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_aroon_osc(): ' + str(e))
-		return False
+		except Exception as e:
+			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_aroon_osc(): ' + str(e))
+			return False
 
 	# MACD - 48, 104, 36
-	if ( with_macd == True and with_macd_simple == True):
+	if ( with_macd == True and with_macd_simple == True ):
 		with_macd_simple = False
 
-	macd		= []
-	macd_signal	= []
-	macd_histogram	= []
-	try:
-		macd, macd_avg, macd_histogram = tda_algo_helper.get_macd(pricehistory, short_period=macd_short_period, long_period=macd_long_period, signal_period=macd_signal_period)
+	if ( with_macd == True or with_macd_simple == True or aroonosc_with_macd_simple == True ):
+		macd		= []
+		macd_signal	= []
+		macd_histogram	= []
+		try:
+			macd, macd_avg, macd_histogram = tda_algo_helper.get_macd(pricehistory, short_period=macd_short_period, long_period=macd_long_period, signal_period=macd_signal_period)
 
-	except Exception as e:
-		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_macd(): ' + str(e))
-		return False
+		except Exception as e:
+			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_macd(): ' + str(e))
+			return False
 
 	# Choppiness Index
-	chop = []
-	try:
-		chop = tda_algo_helper.get_chop_index(pricehistory, period=chop_period)
+	if ( with_chop_index == True or with_chop_simple == True ):
+		chop = []
+		try:
+			chop = tda_algo_helper.get_chop_index(pricehistory, period=chop_period)
 
-	except Exception as e:
-		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_chop_index(): ' + str(e))
-		return False
+		except Exception as e:
+			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_chop_index(): ' + str(e))
+			return False
 
 	# VPT - Volume Price Trend
-	vpt	= []
-	vpt_sma	= []
-	try:
-		vpt, vpt_sma = tda_algo_helper.get_vpt(pricehistory, period=vpt_sma_period)
+	if ( with_vpt == True or aroonosc_with_vpt == True ):
+		vpt	= []
+		vpt_sma	= []
+		try:
+			vpt, vpt_sma = tda_algo_helper.get_vpt(pricehistory, period=vpt_sma_period)
 
-	except Exception as e:
-		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_vpt(): ' + str(e))
-		return False
+		except Exception as e:
+			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_vpt(): ' + str(e))
+			return False
 
 	# Supertrend indicator
-	supertrend = []
-	try:
-		supertrend = tda_algo_helper.get_supertrend(pricehistory=pricehistory, atr_period=supertrend_atr_period)
+	if ( with_supertrend == True ):
+		supertrend = []
+		try:
+			supertrend = tda_algo_helper.get_supertrend(pricehistory=pricehistory, atr_period=supertrend_atr_period)
 
-	except Exception as e:
-		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_supertrend(): ' + str(e))
-		return False
+		except Exception as e:
+			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_supertrend(): ' + str(e))
+			return False
 
 	# Bollinger bands and Keltner channels
 	if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
@@ -613,9 +621,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		bbands_upper	= []
 		try:
 			if ( use_bbands_kchannel_5m == True ):
-				bbands_lower, bbands_mid, bbands_upper = tda_algo_helper.get_bbands(pricehistory_5m, period=bbands_period, type='hlc3', use_talib=bbands_use_talib, matype=bbands_matype)
+				bbands_lower, bbands_mid, bbands_upper = tda_algo_helper.get_bbands(pricehistory_5m, period=bbands_period, type='hlc3', matype=bbands_matype)
 			else:
-				bbands_lower, bbands_mid, bbands_upper = tda_algo_helper.get_bbands(pricehistory, period=bbands_period, type='hlc3', use_talib=bbands_use_talib, matype=bbands_matype)
+				bbands_lower, bbands_mid, bbands_upper = tda_algo_helper.get_bbands(pricehistory, period=bbands_period, type='hlc3', matype=bbands_matype)
 
 		except Exception as e:
 			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_bbands(): ' + str(e))
@@ -950,11 +958,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		return s_ma
 
 	# Intraday moving averages
-	s_ma = get_stackedma(pricehistory, stacked_ma_periods, stacked_ma_type)
-	s_ma_ha = get_stackedma(pricehistory, stacked_ma_periods, stacked_ma_type, use_ha_candles=True)
+	if ( with_stacked_ma == True ):
+		s_ma	= get_stackedma(pricehistory, stacked_ma_periods, stacked_ma_type)
+		s_ma_ha	= get_stackedma(pricehistory, stacked_ma_periods, stacked_ma_type, use_ha_candles=True)
+
+		if ( with_stacked_ma_secondary == True ):
+			s_ma_secondary		= get_stackedma(pricehistory, stacked_ma_periods_secondary, stacked_ma_type_secondary)
+			s_ma_ha_secondary	= get_stackedma(pricehistory, stacked_ma_periods_secondary, stacked_ma_type_secondary, use_ha_candles=True)
+
 	if ( primary_stoch_indicator == 'stacked_ma' ):
-		s_ma_primary = get_stackedma(pricehistory, stacked_ma_periods_primary, stacked_ma_type_primary)
-		s_ma_ha_primary = get_stackedma(pricehistory, stacked_ma_periods_primary, stacked_ma_type_primary, use_ha_candles=True)
+		s_ma_primary	= get_stackedma(pricehistory, stacked_ma_periods_primary, stacked_ma_type_primary)
+		s_ma_ha_primary	= get_stackedma(pricehistory, stacked_ma_periods_primary, stacked_ma_type_primary, use_ha_candles=True)
 
 	# MAMA/FAMA algorithm
 	mama = []
@@ -1055,30 +1069,40 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	stochrsi_idx			= len(pricehistory['candles']) - len(rsi_k)
 	if ( with_stoch_5m == True ):
-		stochrsi_5m_idx		= len(pricehistory['candles']) - len(rsi_k) * 5
+		stochrsi_5m_idx = len(pricehistory['candles']) - len(rsi_k) * 5
+
 	if ( with_stochrsi_5m == True ):
-		stochrsi_5m_idx		= len(pricehistory['candles']) - len(rsi_k_5m) * 5
+		stochrsi_5m_idx = len(pricehistory['candles']) - len(rsi_k_5m) * 5
+
 	if ( with_stochmfi == True ):
-		stochmfi_idx		= len(pricehistory['candles']) - len(mfi_k)
+		stochmfi_idx = len(pricehistory['candles']) - len(mfi_k)
+
 	if ( with_stochmfi_5m == True ):
-		stochmfi_5m_idx		= len(pricehistory['candles']) - len(mfi_k_5m) * 5
+		stochmfi_5m_idx = len(pricehistory['candles']) - len(mfi_k_5m) * 5
 
 	if ( with_rsi == True ):
-		rsi_idx				= len(pricehistory['candles']) - len(rsi)
-	if ( with_mfi == True ):
-		mfi_idx				= len(pricehistory['candles']) - len(mfi)
+		rsi_idx = len(pricehistory['candles']) - len(rsi)
 
-	adx_idx				= len(pricehistory['candles']) - len(adx)
-	di_adx_idx			= len(pricehistory['candles']) - len(di_adx)
-	di_idx				= len(pricehistory['candles']) - len(plus_di)
-	aroonosc_idx			= len(pricehistory['candles']) - len(aroonosc)
-	aroonosc_alt_idx		= len(pricehistory['candles']) - len(aroonosc_alt)
-	macd_idx			= len(pricehistory['candles']) - len(macd)
-	chop_idx			= len(pricehistory['candles']) - len(chop)
+	if ( with_mfi == True ):
+		mfi_idx = len(pricehistory['candles']) - len(mfi)
+
+	if ( with_aroonosc == True or with_aroonosc_simple == True ):
+		aroonosc_idx		= len(pricehistory['candles']) - len(aroonosc)
+		aroonosc_alt_idx	= len(pricehistory['candles']) - len(aroonosc_alt)
+
+	if ( with_macd == True or with_macd_simple == True or aroonosc_with_macd_simple == True ):
+		macd_idx = len(pricehistory['candles']) - len(macd)
+
+	if ( with_chop_index == True or with_chop_simple == True ):
+		chop_idx = len(pricehistory['candles']) - len(chop)
 
 	if ( use_bbands_kchannel_5m == True ):
 		bbands_idx	= len(pricehistory['candles']) - len(bbands_mid) * 5
 		kchannel_idx	= len(pricehistory['candles']) - len(kchannel_mid) * 5
+
+	adx_idx				= len(pricehistory['candles']) - len(adx)
+	di_adx_idx			= len(pricehistory['candles']) - len(di_adx)
+	di_idx				= len(pricehistory['candles']) - len(plus_di)
 
 	buy_signal			= False
 	sell_signal			= False
@@ -1133,8 +1157,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	bbands_kchan_crossover_signal	= False
 	bbands_kchan_signal		= False
 	bbands_roc_threshold_signal	= False
+
 	stacked_ma_signal		= False
 	mama_fama_signal		= False
+
 	bbands_natr			= { 'bbands': [], 'natr': 0, 'squeeze_natr': 0 }
 
 	rs_signal			= False
@@ -1635,50 +1661,76 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			assert idx - adx_idx >= 0
 			assert idx - di_idx >= 1
-			assert idx - macd_idx >= 1
-			assert idx - aroonosc_idx >= 0
+
+			if ( with_macd == True or with_macd_simple == True):
+				assert idx - macd_idx >= 1
+				assert idx - aroonosc_idx >= 0
 
 		except:
 			continue
 
 		# Helper variables from the current pricehistory data
-		date		= datetime.fromtimestamp(int(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone)
-		cur_open	= pricehistory['candles'][idx]['open']
-		cur_high	= pricehistory['candles'][idx]['high']
-		cur_low		= pricehistory['candles'][idx]['low']
-		cur_close	= pricehistory['candles'][idx]['close']
-		cur_volume	= pricehistory['candles'][idx]['volume']
+		date				= datetime.fromtimestamp(int(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone)
+		cur_open			= pricehistory['candles'][idx]['open']
+		cur_high			= pricehistory['candles'][idx]['high']
+		cur_low				= pricehistory['candles'][idx]['low']
+		cur_close			= pricehistory['candles'][idx]['close']
+		cur_volume			= pricehistory['candles'][idx]['volume']
 
 		# Indicators current values
-		cur_rsi_k	= rsi_k[idx - stochrsi_idx]
-		prev_rsi_k	= rsi_k[idx - stochrsi_idx - 1]
-		cur_rsi_d	= rsi_d[idx - stochrsi_idx]
-		prev_rsi_d	= rsi_d[idx - stochrsi_idx - 1]
+		cur_rsi_k			= rsi_k[idx - stochrsi_idx]
+		prev_rsi_k			= rsi_k[idx - stochrsi_idx - 1]
+		cur_rsi_d			= rsi_d[idx - stochrsi_idx]
+		prev_rsi_d			= rsi_d[idx - stochrsi_idx - 1]
 
 		if ( with_stoch_5m == True ):
-			cur_rsi_k	= rsi_k[int((idx - stochrsi_5m_idx) / 5)]
-			prev_rsi_k	= rsi_k[int((idx - stochrsi_5m_idx) / 5) - 1]
-			cur_rsi_d	= rsi_d[int((idx - stochrsi_5m_idx) / 5)]
-			prev_rsi_d	= rsi_d[int((idx - stochrsi_5m_idx) / 5) - 1]
+			cur_rsi_k		= rsi_k[int((idx - stochrsi_5m_idx) / 5)]
+			prev_rsi_k		= rsi_k[int((idx - stochrsi_5m_idx) / 5) - 1]
+			cur_rsi_d		= rsi_d[int((idx - stochrsi_5m_idx) / 5)]
+			prev_rsi_d		= rsi_d[int((idx - stochrsi_5m_idx) / 5) - 1]
 
 		if ( with_stochrsi_5m == True ):
-			cur_rsi_k_5m	= rsi_k_5m[int((idx - stochrsi_5m_idx) / 5)]
-			prev_rsi_k_5m	= rsi_k_5m[int((idx - stochrsi_5m_idx) / 5) - 1]
-			cur_rsi_d_5m	= rsi_d_5m[int((idx - stochrsi_5m_idx) / 5)]
-			prev_rsi_d_5m	= rsi_d_5m[int((idx - stochrsi_5m_idx) / 5) - 1]
+			cur_rsi_k_5m		= rsi_k_5m[int((idx - stochrsi_5m_idx) / 5)]
+			prev_rsi_k_5m		= rsi_k_5m[int((idx - stochrsi_5m_idx) / 5) - 1]
+			cur_rsi_d_5m		= rsi_d_5m[int((idx - stochrsi_5m_idx) / 5)]
+			prev_rsi_d_5m		= rsi_d_5m[int((idx - stochrsi_5m_idx) / 5) - 1]
 
-		cur_mfi_k = cur_mfi_d = 0
+		cur_mfi_k = cur_mfi_d = 0 # Needed for the ledger
 		if ( with_stochmfi == True ):
-			cur_mfi_k	= mfi_k[idx - stochmfi_idx]
-			prev_mfi_k	= mfi_k[idx - stochmfi_idx - 1]
-			cur_mfi_d	= mfi_d[idx - stochmfi_idx]
-			prev_mfi_d	= mfi_d[idx - stochmfi_idx - 1]
+			cur_mfi_k		= mfi_k[idx - stochmfi_idx]
+			prev_mfi_k		= mfi_k[idx - stochmfi_idx - 1]
+			cur_mfi_d		= mfi_d[idx - stochmfi_idx]
+			prev_mfi_d		= mfi_d[idx - stochmfi_idx - 1]
 
 		if ( with_stochmfi_5m == True ):
-			cur_mfi_k_5m	= mfi_k_5m[int((idx - stochmfi_5m_idx) / 5)]
-			prev_mfi_k_5m	= mfi_k_5m[int((idx - stochmfi_5m_idx) / 5) - 1]
-			cur_mfi_d_5m	= mfi_d_5m[int((idx - stochmfi_5m_idx) / 5)]
-			prev_mfi_d_5m	= mfi_d_5m[int((idx - stochmfi_5m_idx) / 5) -1]
+			cur_mfi_k_5m		= mfi_k_5m[int((idx - stochmfi_5m_idx) / 5)]
+			prev_mfi_k_5m		= mfi_k_5m[int((idx - stochmfi_5m_idx) / 5) - 1]
+			cur_mfi_d_5m		= mfi_d_5m[int((idx - stochmfi_5m_idx) / 5)]
+			prev_mfi_d_5m		= mfi_d_5m[int((idx - stochmfi_5m_idx) / 5) -1]
+
+		if ( with_stacked_ma == True ):
+			cur_s_ma		= s_ma[idx]
+			prev_s_ma		= s_ma[idx-1]
+			cur_s_ma_ha		= s_ma_ha[idx]
+			prev_s_ma_ha		= s_ma_ha[idx-1]
+
+			if ( with_stacked_ma_secondary == True ):
+				cur_s_ma_secondary	= s_ma_secondary[idx]
+				prev_s_ma_secondary	= s_ma_secondary[idx-1]
+				cur_s_ma_ha_secondary	= s_ma_ha_secondary[idx]
+				prev_s_ma_ha_secondary	= s_ma_ha_secondary[idx-1]
+
+		if ( primary_stoch_indicator == 'stacked_ma' ):
+			cur_s_ma_primary	= s_ma_primary[idx]
+			prev_s_ma_primary	= s_ma_primary[idx-1]
+			cur_s_ma_ha_primary	= s_ma_ha_primary[idx]
+			prev_s_ma_ha_primary	= s_ma_ha_primary[idx-1]
+
+		if ( primary_stoch_indicator == 'mama_fama' or with_mama_fama == True ):
+			cur_mama		= mama[idx]
+			cur_fama		= fama[idx]
+			prev_mama		= mama[idx-1]
+			prev_fama		= fama[idx-1]
 
 		if ( with_rsi == True ):
 			cur_rsi			= rsi[idx - rsi_idx]
@@ -1688,51 +1740,42 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			cur_mfi			= mfi[idx - mfi_idx]
 			prev_mfi		= mfi[idx - mfi_idx - 1]
 
-		cur_adx			= adx[idx - adx_idx]
-		prev_adx		= adx[idx - adx_idx - 1]
+		if ( with_macd == True or with_macd_simple == True or aroonosc_with_macd_simple == True ):
+			cur_macd		= macd[idx - macd_idx]
+			prev_macd		= macd[idx - macd_idx - 1]
+			cur_macd_avg		= macd_avg[idx - macd_idx]
+			prev_macd_avg		= macd_avg[idx - macd_idx - 1]
 
-		cur_di_adx		= di_adx[idx - di_adx_idx]
-		prev_di_adx		= di_adx[idx - di_adx_idx - 1]
-		cur_plus_di		= plus_di[idx - di_idx]
-		prev_plus_di		= plus_di[idx - di_idx - 1]
-		cur_minus_di		= minus_di[idx - di_idx]
-		prev_minus_di		= minus_di[idx - di_idx - 1]
+		if ( with_aroonosc == True or with_aroonosc_simple == True ):
+			cur_aroonosc		= aroonosc[idx - aroonosc_idx]
+			prev_aroonosc		= aroonosc[idx - aroonosc_idx - 1]
+			cur_aroonosc_alt	= aroonosc_alt[idx - aroonosc_alt_idx]
+			prev_aroonosc_alt	= aroonosc_alt[idx - aroonosc_alt_idx - 1]
 
-		cur_macd		= macd[idx - macd_idx]
-		prev_macd		= macd[idx - macd_idx - 1]
+		if ( with_vpt == True ):
+			cur_vpt			= vpt[idx]
+			prev_vpt		= vpt[idx-1]
+			cur_vpt_sma		= vpt_sma[idx - vpt_sma_period]
+			prev_vpt_sma		= vpt_sma[idx - vpt_sma_period]
 
-		cur_macd_avg		= macd_avg[idx - macd_idx]
-		prev_macd_avg		= macd_avg[idx - macd_idx - 1]
+		if ( with_chop_index == True or with_chop_simple == True ):
+			cur_chop		= chop[idx - chop_idx]
+			prev_chop		= chop[idx - chop_idx - 1]
 
-		cur_aroonosc		= aroonosc[idx - aroonosc_idx]
-		prev_aroonosc		= aroonosc[idx - aroonosc_idx - 1]
-		cur_aroonosc_alt	= aroonosc_alt[idx - aroonosc_alt_idx]
-		prev_aroonosc_alt	= aroonosc_alt[idx - aroonosc_alt_idx - 1]
+		cur_adx				= adx[idx - adx_idx]
+		prev_adx			= adx[idx - adx_idx - 1]
 
-		cur_vpt			= vpt[idx]
-		prev_vpt		= vpt[idx-1]
+		cur_di_adx			= di_adx[idx - di_adx_idx]
+		prev_di_adx			= di_adx[idx - di_adx_idx - 1]
+		cur_plus_di			= plus_di[idx - di_idx]
+		prev_plus_di			= plus_di[idx - di_idx - 1]
+		cur_minus_di			= minus_di[idx - di_idx]
+		prev_minus_di			= minus_di[idx - di_idx - 1]
 
-		cur_vpt_sma		= vpt_sma[idx - vpt_sma_period]
-		prev_vpt_sma		= vpt_sma[idx - vpt_sma_period]
+		cur_atr				= atr[int(idx / 5) - atr_period]
+		cur_natr			= natr[int(idx / 5) - atr_period]
 
-		cur_atr			= atr[int(idx / 5) - atr_period]
-		cur_natr		= natr[int(idx / 5) - atr_period]
-
-		cur_chop		= chop[idx - chop_idx]
-		prev_chop		= chop[idx - chop_idx - 1]
-
-		cur_rs			= -1 # RelStrength
-
-		# Stacked moving average (1min candles)
-		cur_s_ma	= s_ma[idx]
-		prev_s_ma	= s_ma[idx-1]
-		cur_s_ma_ha	= s_ma_ha[idx]
-		prev_s_ma_ha	= s_ma_ha[idx-1]
-		if ( primary_stoch_indicator == 'stacked_ma' ):
-			cur_s_ma_primary	= s_ma_primary[idx]
-			prev_s_ma_primary	= s_ma_primary[idx-1]
-			cur_s_ma_ha_primary	= s_ma_ha_primary[idx]
-			prev_s_ma_ha_primary	= s_ma_ha_primary[idx-1]
+		cur_rs				= -1 # RelStrength
 
 		cur_natr_daily = 0
 		try:
@@ -1745,12 +1788,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			cur_daily_ma = daily_ma[date.strftime('%Y-%m-%d')]
 		except:
 			pass
-
-		if ( primary_stoch_indicator == 'mama_fama' or with_mama_fama == True ):
-			cur_mama = mama[idx]
-			cur_fama = fama[idx]
-			prev_mama = mama[idx-1]
-			prev_fama = fama[idx-1]
 
 		# Skip all candles until start_date, if it is set
 		if ( start_date != None and date < start_date ):
@@ -1905,22 +1942,41 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# MESA Adaptive Moving Average primary
 			elif ( primary_stoch_indicator == 'mama_fama' ):
-				buy_signal = False
+				if ( mama_require_xover == True ):
+					prev_prev_mama = mama[-2]
+					prev_prev_fama = fama[-2]
 
-				# Bullish trending
-				if ( cur_mama > cur_fama ):
-					buy_signal = True
+					# Check if a crossover happened recently, which would have
+					#  switched us from short->long mode
+					if ( prev_prev_mama <= prev_prev_fama and cur_mama > cur_fama ):
+						buy_signal = True
 
-				# Price crossed over from bullish to bearish
-				elif ( cur_mama <= cur_fama or (prev_mama > prev_fama and cur_mama <= cur_fama) ):
-					reset_signals( exclude_bbands_kchan=True )
-					if ( noshort == False ):
-						signal_mode['primary'] = 'short'
-					continue
+					# Price crossed over from bullish to bearish
+					elif ( cur_mama <= cur_fama ):
+						reset_signals( exclude_bbands_kchan=True )
+						if ( noshort == False ):
+							signal_mode['primary'] = 'short'
+						continue
 
 				else:
-					# This shouldn't happen, but just in case...
+					# If crossover is not required then just check the orientation of
+					#  mama and fama
 					buy_signal = False
+
+					# Bullish trending
+					if ( cur_mama > cur_fama ):
+						buy_signal = True
+
+					# Price crossed over from bullish to bearish
+					elif ( cur_mama <= cur_fama or (prev_mama > prev_fama and cur_mama <= cur_fama) ):
+						reset_signals( exclude_bbands_kchan=True )
+						if ( noshort == False ):
+							signal_mode['primary'] = 'short'
+						continue
+
+					else:
+						# This shouldn't happen, but just in case...
+						buy_signal = False
 
 			# Unknown primary indicator
 			else:
@@ -1971,7 +2027,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					stochmfi_5m_final_signal	= False
 
 
+			##
 			# Secondary Indicators
+			##
+
 			# Stacked moving averages
 			if ( with_stacked_ma == True ):
 				stacked_ma_bull_affinity	= check_stacked_ma(cur_s_ma, 'bull')
@@ -1981,6 +2040,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					stacked_ma_signal = True
 				else:
 					stacked_ma_signal = False
+
+				# Secondary stacked MA doesn't have its own signal, but can turn off the stacked_ma_signal
+				# The idea is to allow a secondary set of periods or MA types to confirm the signal
+				if ( with_stacked_ma_secondary == True ):
+					stacked_ma_secondary_bull_affinity	= check_stacked_ma(cur_s_ma_secondary, 'bull')
+					stacked_ma_secondary_bull_ha_affinity	= check_stacked_ma(cur_s_ma_ha_secondary, 'bull')
+
+					if ( stacked_ma_secondary_bull_affinity == False ):
+						stacked_ma_signal = False
 
 			# MESA Adaptive Moving Average
 			if ( with_mama_fama == True ):
@@ -2061,33 +2129,35 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			#
 			# SAZ - 2021-08-29: Higher volatility stocks seem to work better with a longer
 			# Aroon Oscillator period value.
-			if ( cur_natr > aroonosc_alt_threshold and with_aroonosc_simple == True ):
+			if ( with_aroonosc_simple == True and cur_natr > aroonosc_alt_threshold ):
 				cur_aroonosc = cur_aroonosc_alt
 				prev_aroonosc = prev_aroonosc_alt
 
-			if ( cur_aroonosc < 60 ):
-				aroonosc_signal = False
+			if ( with_aroonosc == True or with_aroonosc_simple == True ):
 
-			if ( cur_aroonosc > 60 ):
-				if ( with_aroonosc_simple == True ):
-					aroonosc_signal = True
+				if ( cur_aroonosc < 60 ):
+					aroonosc_signal = False
 
-				else:
-					if ( prev_aroonosc < 0 ):
-						# Crossover has occurred
+				if ( cur_aroonosc > 60 ):
+					if ( with_aroonosc_simple == True ):
 						aroonosc_signal = True
 
-				if ( aroonosc_with_vpt == True ):
-					if ( cur_aroonosc <= aroonosc_secondary_threshold ):
-						with_vpt = True
 					else:
-						with_vpt = False
+						if ( prev_aroonosc < 0 ):
+							# Crossover has occurred
+							aroonosc_signal = True
 
-				# Enable macd_simple if the aroon oscillator is less than aroonosc_secondary_threshold
-				if ( aroonosc_with_macd_simple == True ):
-					with_macd_simple = False
-					if ( cur_aroonosc <= aroonosc_secondary_threshold ):
-						with_macd_simple = True
+					if ( aroonosc_with_vpt == True ):
+						if ( cur_aroonosc <= aroonosc_secondary_threshold ):
+							with_vpt = True
+						else:
+							with_vpt = False
+
+					# Enable macd_simple if the aroon oscillator is less than aroonosc_secondary_threshold
+					if ( aroonosc_with_macd_simple == True ):
+						with_macd_simple = False
+						if ( cur_aroonosc <= aroonosc_secondary_threshold ):
+							with_macd_simple = True
 
 			# MFI signal
 			if ( with_mfi == True ):
@@ -2105,19 +2175,20 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					mfi_signal = False
 
 			# MACD crossover signals
-			if ( prev_macd < prev_macd_avg and cur_macd > cur_macd_avg ):
-				macd_crossover = True
-				macd_avg_crossover = False
-			elif ( prev_macd > prev_macd_avg and cur_macd < cur_macd_avg ):
-				macd_crossover = False
-				macd_avg_crossover = True
+			if ( with_macd == True or with_macd_simple == True or aroonosc_with_macd_simple == True ):
+				if ( prev_macd < prev_macd_avg and cur_macd > cur_macd_avg ):
+					macd_crossover = True
+					macd_avg_crossover = False
+				elif ( prev_macd > prev_macd_avg and cur_macd < cur_macd_avg ):
+					macd_crossover = False
+					macd_avg_crossover = True
 
-			macd_signal = False
-			if ( cur_macd > cur_macd_avg and cur_macd - cur_macd_avg > macd_offset ):
-				if ( with_macd_simple == True ):
-					macd_signal = True
-				elif ( macd_crossover == True ):
-					macd_signal = True
+				macd_signal = False
+				if ( cur_macd > cur_macd_avg and cur_macd - cur_macd_avg > macd_offset ):
+					if ( with_macd_simple == True ):
+						macd_signal = True
+					elif ( macd_crossover == True ):
+						macd_signal = True
 
 			# VWAP
 			# This is the most simple/pessimistic approach right now
@@ -2129,17 +2200,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# VPT
 			# Buy signal - VPT crosses above vpt_sma
-			if ( prev_vpt < prev_vpt_sma and cur_vpt > cur_vpt_sma ):
-				vpt_signal = True
+			if ( with_vpt == True ):
+				if ( prev_vpt < prev_vpt_sma and cur_vpt > cur_vpt_sma ):
+					vpt_signal = True
 
-			# Cancel signal if VPT crosses back over
-			elif ( cur_vpt < cur_vpt_sma ):
-				vpt_signal = False
+				# Cancel signal if VPT crosses back over
+				elif ( cur_vpt < cur_vpt_sma ):
+					vpt_signal = False
 
 			# Choppiness Index
-			chop_init_signal, chop_signal = get_chop_signal( simple=with_chop_simple,
-									 prev_chop=prev_chop, cur_chop=cur_chop,
-									 chop_init_signal=chop_init_signal, chop_signal=chop_signal )
+			if ( with_chop_index == True or with_chop_simple == True ):
+				chop_init_signal, chop_signal = get_chop_signal( simple=with_chop_simple,
+										 prev_chop=prev_chop, cur_chop=cur_chop,
+										 chop_init_signal=chop_init_signal, chop_signal=chop_signal )
 
 			# Supertrend Indicator
 			if ( with_supertrend == True ):
@@ -2585,8 +2658,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				print('(' + str(ticker) + '): DI+/-: ' + str(round(cur_plus_di, 3)) + ' / ' + str(round(cur_minus_di,3)) +
 								', Cur/Prev DI_ADX: ' + str(round(cur_di_adx,3)) + ' / ' + str(round(prev_di_adx,3)) + ' signal: ' + str(dmi_signal))
 				print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
-				print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
-				print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
+
+				if ( with_macd == True or with_macd_simple == True or aroonosc_with_macd_simple == True ):
+					print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
+
+				if ( with_aroonosc == True or with_aroonosc_simple == True ):
+					print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
 
 				if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
 					print('(' + str(ticker) + '): BBands: ' + str(round(cur_bbands[0], 3)) + ' / ' + str(round(cur_bbands[2], 3)) +
@@ -3152,22 +3229,42 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# MESA Adaptive Moving Average primary
 			elif ( primary_stoch_indicator == 'mama_fama' ):
-				short_signal = False
+				if ( mama_require_xover == True ):
+					prev_prev_mama = mama[-2]
+					prev_prev_fama = fama[-2]
 
-				# Bearish trending
-				if ( cur_mama < cur_fama ):
-					short_signal = True
+					# Check if a crossover happened recently, which would have
+					#  switched us from short->long mode
+					if ( prev_prev_mama >= prev_prev_fama and cur_mama < cur_fama ):
+						short_signal = True
 
-				# Price crossed over from bearish to bullish
-				elif ( cur_mama >= cur_fama or (prev_mama < prev_fama and cur_mama >= cur_fama) ):
-					reset_signals( exclude_bbands_kchan=True )
-					if ( shortonly == False ):
-						signal_mode['primary'] = 'long'
-					continue
+					# Price crossed over from bullish to bearish
+					elif ( cur_mama >= cur_fama ):
+						reset_signals( exclude_bbands_kchan=True )
+						if ( shortonly == False ):
+							signal_mode['primary'] = 'long'
+						continue
 
 				else:
-					# This shouldn't happen, but just in case...
+					# If crossover is not required then just check the orientation of
+					#  mama and fama
+
 					short_signal = False
+
+					# Bearish trending
+					if ( cur_mama < cur_fama ):
+						short_signal = True
+
+					# Price crossed over from bearish to bullish
+					elif ( cur_mama >= cur_fama or (prev_mama < prev_fama and cur_mama >= cur_fama) ):
+						reset_signals( exclude_bbands_kchan=True )
+						if ( shortonly == False ):
+							signal_mode['primary'] = 'long'
+						continue
+
+					else:
+						# This shouldn't happen, but just in case...
+						short_signal = False
 
 			# StochRSI with 5-minute candles
 			if ( with_stochrsi_5m == True ):
@@ -3212,7 +3309,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					stochmfi_5m_final_signal	= False
 
 
+			##
 			# Secondary Indicators
+			##
+
 			# Stacked moving averages
 			if ( with_stacked_ma == True ):
 				stacked_ma_bear_affinity	= check_stacked_ma(cur_s_ma, 'bear')
@@ -3222,6 +3322,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					stacked_ma_signal = True
 				else:
 					stacked_ma_signal = False
+
+				# Secondary stacked MA doesn't have its own signal, but can turn off the stacked_ma_signal
+				# The idea is to allow a secondary set of periods or MA types to confirm the signal
+				if ( with_stacked_ma_secondary == True ):
+					stacked_ma_secondary_bear_affinity	= check_stacked_ma(cur_s_ma_secondary, 'bear')
+					stacked_ma_secondary_bear_ha_affinity	= check_stacked_ma(cur_s_ma_ha_secondary, 'bear')
+
+					if ( stacked_ma_secondary_bear_affinity == False ):
+						stacked_ma_signal = False
 
 			# MESA Adaptive Moving Average
 			if ( with_mama_fama == True ):
@@ -3299,27 +3408,28 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# Aroon oscillator signals
 			# Values closer to -100 indicate a downtrend
-			if ( cur_natr > aroonosc_alt_threshold and with_aroonosc_simple == True ):
+			if ( with_aroonosc_simple == True and cur_natr > aroonosc_alt_threshold ):
 				cur_aroonosc = cur_aroonosc_alt
 				prev_aroonosc = prev_aroonosc_alt
 
-			if ( cur_aroonosc > -60 ):
-				aroonosc_signal = False
+			if ( with_aroonosc == True or with_aroonosc_simple == True ):
+				if ( cur_aroonosc > -60 ):
+					aroonosc_signal = False
 
-			elif ( cur_aroonosc < -60 ):
-				if ( with_aroonosc_simple == True ):
-					aroonosc_signal = True
-
-				else:
-					if ( prev_aroonosc > 0 ):
-						# Crossover has occurred
+				elif ( cur_aroonosc < -60 ):
+					if ( with_aroonosc_simple == True ):
 						aroonosc_signal = True
 
-				# Enable macd_simple if the aroon oscillitor is greater than -aroonosc_secondary_threshold
-				if ( aroonosc_with_macd_simple == True ):
-					with_macd_simple = False
-					if ( cur_aroonosc >= -aroonosc_secondary_threshold ):
-						with_macd_simple = True
+					else:
+						if ( prev_aroonosc > 0 ):
+							# Crossover has occurred
+							aroonosc_signal = True
+
+					# Enable macd_simple if the aroon oscillitor is greater than -aroonosc_secondary_threshold
+					if ( aroonosc_with_macd_simple == True ):
+						with_macd_simple = False
+						if ( cur_aroonosc >= -aroonosc_secondary_threshold ):
+							with_macd_simple = True
 
 			# MFI signal
 			if ( with_mfi == True ):
@@ -3337,19 +3447,20 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					mfi_signal = False
 
 			# MACD crossover signals
-			if ( prev_macd < prev_macd_avg and cur_macd > cur_macd_avg ):
-				macd_crossover = True
-				macd_avg_crossover = False
-			elif ( prev_macd > prev_macd_avg and cur_macd < cur_macd_avg ):
-				macd_crossover = False
-				macd_avg_crossover = True
+			if ( with_macd == True or with_macd_simple == True or aroonosc_with_macd_simple == True ):
+				if ( prev_macd < prev_macd_avg and cur_macd > cur_macd_avg ):
+					macd_crossover = True
+					macd_avg_crossover = False
+				elif ( prev_macd > prev_macd_avg and cur_macd < cur_macd_avg ):
+					macd_crossover = False
+					macd_avg_crossover = True
 
-			macd_signal = False
-			if ( cur_macd < cur_macd_avg and cur_macd_avg - cur_macd > macd_offset ):
-				if ( with_macd_simple == True ):
-					macd_signal = True
-				elif ( macd_avg_crossover == True ):
-					macd_signal = True
+				macd_signal = False
+				if ( cur_macd < cur_macd_avg and cur_macd_avg - cur_macd > macd_offset ):
+					if ( with_macd_simple == True ):
+						macd_signal = True
+					elif ( macd_avg_crossover == True ):
+						macd_signal = True
 
 			# VWAP
 			# This is the most simple/pessimistic approach right now
@@ -3360,17 +3471,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# VPT
 			# Short signal - VPT crosses below vpt_sma
-			if ( prev_vpt > prev_vpt_sma and cur_vpt < cur_vpt_sma ):
-				vpt_signal = True
+			if ( with_vpt == True ):
+				if ( prev_vpt > prev_vpt_sma and cur_vpt < cur_vpt_sma ):
+					vpt_signal = True
 
-			# Cancel signal if VPT cross back over
-			elif ( cur_vpt > cur_vpt_sma ):
-				vpt_signal = False
+				# Cancel signal if VPT cross back over
+				elif ( cur_vpt > cur_vpt_sma ):
+					vpt_signal = False
 
 			# Choppiness Index
-			chop_init_signal, chop_signal = get_chop_signal( simple=with_chop_simple,
-									 prev_chop=prev_chop, cur_chop=cur_chop,
-									 chop_init_signal=chop_init_signal, chop_signal=chop_signal )
+			if ( with_chop_index == True or with_chop_simple == True ):
+				chop_init_signal, chop_signal = get_chop_signal( simple=with_chop_simple,
+										 prev_chop=prev_chop, cur_chop=cur_chop,
+										 chop_init_signal=chop_init_signal, chop_signal=chop_signal )
 
 			# Supertrend indicator
 			if ( with_supertrend == True ):
@@ -3810,8 +3923,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				print('(' + str(ticker) + '): DI+/-: ' + str(round(cur_plus_di, 3)) + ' / ' + str(round(cur_minus_di,3)) +
 								', Cur/Prev DI_ADX: ' + str(round(cur_di_adx,3)) + ' / ' + str(round(prev_di_adx,3)) + ' signal: ' + str(dmi_signal))
 				print('(' + str(ticker) + '): ADX: ' + str(round(cur_adx, 3)) + ' signal: ' + str(adx_signal))
-				print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
-				print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
+
+				if ( with_macd == True or with_macd_simple == True or aroonosc_with_macd_simple == True ):
+					print('(' + str(ticker) + '): MACD (cur/avg): ' + str(round(cur_macd, 3)) + ' / ' + str(round(cur_macd_avg,3)) + ' signal: ' + str(macd_signal))
+
+				if ( with_aroonosc == True or with_aroonosc_simple == True ):
+					print('(' + str(ticker) + '): AroonOsc: ' + str(cur_aroonosc) + ' signal: ' + str(aroonosc_signal))
 
 				if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
 					print('(' + str(ticker) + '): BBands: ' + str(round(cur_bbands[0], 3)) + ' / ' + str(round(cur_bbands[2], 3)) +

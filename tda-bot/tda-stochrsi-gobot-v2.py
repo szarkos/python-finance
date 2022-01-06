@@ -137,8 +137,7 @@ parser.add_argument("--use_bbands_kchannel_5m", help='Use 5-minute candles to ca
 parser.add_argument("--use_bbands_kchannel_xover_exit", help='Use price action after a Bollinger bands and Keltner channel crossover to assist with stock exit (Default: False)', action="store_true")
 parser.add_argument("--bbands_kchannel_xover_exit_count", help='Number of periods to wait after a crossover to trigger --use_bbands_kchannel_xover_exit (Default: 10)', default=10, type=int)
 parser.add_argument("--bbands_period", help='Period to use when calculating the Bollinger Bands (Default: 20)', default=20, type=int)
-parser.add_argument("--bbands_use_talib", help='Use talib for Bollinger Bands calculation (Default: False)', action="store_true")
-parser.add_argument("--bbands_matype", help='Moving average type to use with Bollinger Bands calculation, requires --bbands_use_talib (Default: 0)', default=0, type=int)
+parser.add_argument("--bbands_matype", help='Moving average type to use with Bollinger Bands calculation (Default: 0)', default=0, type=int)
 parser.add_argument("--kchannel_period", help='Period to use when calculating the Keltner channels (Default: 20)', default=20, type=int)
 parser.add_argument("--kchannel_atr_period", help='Period to use when calculating the ATR for use with the Keltner channels (Default: 20)', default=20, type=int)
 parser.add_argument("--kchan_matype", help='MA type to use when calculating the Keltner Channel (Default: ema)', default='ema', type=str)
@@ -312,7 +311,6 @@ for algo in args.algos:
 	use_bbands_kchannel_xover_exit	= args.use_bbands_kchannel_xover_exit
 	bbands_kchannel_xover_exit_count= args.bbands_kchannel_xover_exit_count
 	bbands_period			= args.bbands_period
-	bbands_use_talib		= args.bbands_use_talib
 	bbands_matype			= args.bbands_matype
 	kchannel_period			= args.kchannel_period
 	kchannel_atr_period		= args.kchannel_atr_period
@@ -439,7 +437,6 @@ for algo in args.algos:
 		if ( re.match('bbands_roc_strict:', a)			!= None ):	bbands_roc_strict		= True
 		if ( re.match('bbands_kchannel_xover_exit_count:', a)	!= None ):	bbands_kchannel_xover_exit_count= int( a.split(':')[1] )
 		if ( re.match('bbands_period:', a)			!= None ):	bbands_period			= int( a.split(':')[1] )
-		if ( re.match('bbands_use_talib', a)			!= None ):	bbands_use_talib		= True
 		if ( re.match('bbands_matype:', a)			!= None ):	bbands_matype			= int( a.split(':')[1] )
 		if ( re.match('kchannel_period:', a)			!= None ):	kchannel_period			= int( a.split(':')[1] )
 		if ( re.match('kchannel_atr_period:', a)		!= None ):	kchannel_atr_period		= int( a.split(':')[1] )
@@ -569,7 +566,6 @@ for algo in args.algos:
 			'use_bbands_kchannel_xover_exit':	use_bbands_kchannel_xover_exit,
 			'bbands_kchannel_xover_exit_count': 	bbands_kchannel_xover_exit_count,
 			'bbands_period':			bbands_period,
-			'bbands_use_talib':			bbands_use_talib,
 			'bbands_matype':			bbands_matype,
 			'kchannel_period':			kchannel_period,
 			'kchannel_atr_period':			kchannel_atr_period,
@@ -648,7 +644,7 @@ del(adx_threshold,adx_period,macd_long_period,macd_short_period,macd_signal_peri
 del(chop_period,chop_low_limit,chop_high_limit,supertrend_atr_period,supertrend_min_natr)
 del(bbands_kchannel_offset,bbands_kchan_squeeze_count,bbands_period,kchannel_period,kchannel_atr_period,max_squeeze_natr,bbands_roc_threshold,bbands_roc_count,bbands_roc_strict)
 del(stacked_ma_type_primary,stacked_ma_periods_primary,stacked_ma_type,stacked_ma_periods,use_natr_resistance,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr)
-del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count,bbands_use_talib,bbands_matype,kchan_matype)
+del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count,bbands_matype,kchan_matype)
 del(use_ha_exit,use_ha_candles,use_trend_exit,use_trend,trend_period,trend_type,use_combined_exit)
 del(check_etf_indicators,check_etf_indicators_strict,etf_tickers,etf_roc_period,etf_min_rs,etf_min_natr)
 

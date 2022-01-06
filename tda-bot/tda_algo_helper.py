@@ -1238,7 +1238,7 @@ def get_vwap(pricehistory=None, day='today', end_timestamp=None, use_bands=True,
 
 
 # Calculate Bollinger Bands
-def get_bbands(pricehistory=None, type='hlc3', period=20, stddev=2, use_talib=False, matype=0, debug=False):
+def get_bbands(pricehistory=None, type='hlc3', period=20, stddev=2, matype=0, debug=False):
 
 	ticker = ''
 	try:
@@ -1297,33 +1297,29 @@ def get_bbands(pricehistory=None, type='hlc3', period=20, stddev=2, use_talib=Fa
 	bbands_middle	= []
 	bbands_upper	= []
 	try:
-		if ( use_talib == True ):
-			df = pd.DataFrame(data=prices, columns = ['prices'])
-			bbands_upper, bbands_middle, bbands_lower = talib.BBANDS(df['prices'], timeperiod=period, nbdevup=stddev, nbdevdn=stddev, matype=matype)
+		#prices = np.array( prices )
+		#bbands_lower, bbands_middle, bbands_upper = ti.bbands(prices, period, stddev)
 
-		else:
-			prices = np.array( prices )
-			bbands_lower, bbands_middle, bbands_upper = ti.bbands(prices, period, stddev)
+		df = pd.DataFrame(data=prices, columns = ['prices'])
+		bbands_upper, bbands_middle, bbands_lower = talib.BBANDS(df['prices'], timeperiod=period, nbdevup=stddev, nbdevdn=stddev, matype=matype)
 
 	except Exception as e:
 		print( 'Caught Exception: get_bbands(' + str(ticker) + '): ti.bbands(): ' + str(e) + ', len(pricehistory)=' + str(len(pricehistory['candles'])) )
 		return False, [], []
 
-
 	# Normalize the size of bbands_*[] to match the input size
-	if ( use_talib == True ):
-		bbands_lower	= list( bbands_lower.fillna(0).values )
-		bbands_middle	= list( bbands_middle.fillna(0).values )
-		bbands_upper	= list( bbands_upper.fillna(0).values )
+	bbands_lower	= list( bbands_lower.fillna(0).values )
+	bbands_middle	= list( bbands_middle.fillna(0).values )
+	bbands_upper	= list( bbands_upper.fillna(0).values )
 
-	else:
-		tmp = []
-		for i in range(0, period - 1):
-			tmp.append(0)
-
-		bbands_lower	= tmp + list(bbands_lower)
-		bbands_middle	= tmp + list(bbands_middle)
-		bbands_upper	= tmp + list(bbands_upper)
+	# Tulipy:
+	#tmp = []
+	#for i in range(0, period - 1):
+	#	tmp.append(0)
+	#
+	#bbands_lower	= tmp + list(bbands_lower)
+	#bbands_middle	= tmp + list(bbands_middle)
+	#bbands_upper	= tmp + list(bbands_upper)
 
 	return bbands_lower, bbands_middle, bbands_upper
 

@@ -1113,9 +1113,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			bbands_upper    = []
 			try:
 				if ( cur_algo['use_bbands_kchannel_5m'] == True ):
-					bbands_lower, bbands_mid, bbands_upper = tda_algo_helper.get_bbands(pricehistory=stocks[ticker]['pricehistory_5m'], period=cur_algo['bbands_period'], type='hlc3', use_talib=cur_algo['bbands_use_talib'], matype=cur_algo['bbands_matype'])
+					bbands_lower, bbands_mid, bbands_upper = tda_algo_helper.get_bbands(pricehistory=stocks[ticker]['pricehistory_5m'], period=cur_algo['bbands_period'], type='hlc3', matype=cur_algo['bbands_matype'])
 				else:
-					bbands_lower, bbands_mid, bbands_upper = tda_algo_helper.get_bbands(pricehistory=stocks[ticker]['pricehistory'], period=cur_algo['bbands_period'], type='hlc3', use_talib=cur_algo['bbands_use_talib'], matype=cur_algo['bbands_matype'])
+					bbands_lower, bbands_mid, bbands_upper = tda_algo_helper.get_bbands(pricehistory=stocks[ticker]['pricehistory'], period=cur_algo['bbands_period'], type='hlc3', matype=cur_algo['bbands_matype'])
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(' + str(ticker) + '): get_bbands(): ' + str(e))

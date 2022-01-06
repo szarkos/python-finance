@@ -62,12 +62,16 @@ parser.add_argument("--with_stoch_5m", help='Use 5-minute candles with the --pri
 parser.add_argument("--with_stochrsi_5m", help='Use StochRSI with 5-min candles as an additional stochastic indicator (Default: False)', action="store_true")
 parser.add_argument("--with_stochmfi", help='Use StochMFI as an additional stochastic indicator (Default: False)', action="store_true")
 parser.add_argument("--with_stochmfi_5m", help='Use StochMFI with 5-min candles as an additional stochastic indicator (Default: False)', action="store_true")
-parser.add_argument("--with_stacked_ma", help='Use stacked MA as a secondary indicator for trade entries (Default: False)', action="store_true")
 
-parser.add_argument("--stacked_ma_type", help='Moving average type to use (Default: vwma)', default='vwma', type=str)
-parser.add_argument("--stacked_ma_periods", help='List of MA periods to use, comma-delimited (Default: 3,5,8)', default='3,5,8', type=str)
-parser.add_argument("--stacked_ma_type_primary", help='Moving average type to use when stacked_ma is used as primary indicator (Default: wma)', default='wma', type=str)
+parser.add_argument("--with_stacked_ma", help='Use stacked MA as a secondary indicator for trade entries (Default: False)', action="store_true")
+parser.add_argument("--stacked_ma_type", help='Moving average type to use (Default: kama)', default='kama', type=str)
+parser.add_argument("--stacked_ma_periods", help='List of MA periods to use, comma-delimited (Default: 5,8,13)', default='5,8,13', type=str)
+parser.add_argument("--with_stacked_ma_secondary", help='Use stacked MA as a secondary indicator for trade entries (Default: False)', action="store_true")
+parser.add_argument("--stacked_ma_type_secondary", help='Moving average type to use (Default: kama)', default='kama', type=str)
+parser.add_argument("--stacked_ma_periods_secondary", help='List of MA periods to use, comma-delimited (Default: 5,8,13)', default='5,8,13', type=str)
+parser.add_argument("--stacked_ma_type_primary", help='Moving average type to use when stacked_ma is used as primary indicator (Default: kama)', default='kama', type=str)
 parser.add_argument("--stacked_ma_periods_primary", help='List of MA periods to use when stacked_ma is used as primary indicator, comma-delimited (Default: 5,8,13)', default='5,8,13', type=str)
+
 parser.add_argument("--daily_ma_type", help='Moving average type to use (Default: wma)', default='wma', type=str)
 parser.add_argument("--confirm_daily_ma", help='Confirm that the daily moving average agrees with the direction stock entry', action="store_true")
 
@@ -95,8 +99,7 @@ parser.add_argument("--supertrend_min_natr", help='Minimum daily NATR a stock mu
 
 parser.add_argument("--with_bbands_kchannel", help='Use the Bollinger bands and Keltner channel indicators as secondary to advise on trade entries (Default: False)', action="store_true")
 parser.add_argument("--with_bbands_kchannel_simple", help='Use a simple version of the Bollinger bands and Keltner channel indicators as secondary to advise on trade entries (Default: False)', action="store_true")
-parser.add_argument("--bbands_use_talib", help='Use talib for Bollinger Bands calculation (Default: False)', action="store_true")
-parser.add_argument("--bbands_matype", help='Moving average type to use with Bollinger Bands calculation, requires --bbands_use_talib (Default: 0)', default=0, type=int)
+parser.add_argument("--bbands_matype", help='Moving average type to use with Bollinger Bands calculation (Default: 0)', default=0, type=int)
 parser.add_argument("--use_bbands_kchannel_5m", help='Use 5-minute candles to calculate the Bollinger bands and Keltner channel indicators (Default: False)', action="store_true")
 parser.add_argument("--bbands_kchan_crossover_only", help='Only signal on Bollinger bands and Keltner channel crossover (Default: False)', action="store_true")
 parser.add_argument("--use_bbands_kchannel_xover_exit", help='Use price action after a Bollinger bands and Keltner channel crossover to assist with stock exit (Default: False)', action="store_true")
@@ -639,8 +642,12 @@ for algo in args.algo.split(','):
 					'with_stacked_ma':			args.with_stacked_ma,
 					'stacked_ma_type':			args.stacked_ma_type,
 					'stacked_ma_periods':			args.stacked_ma_periods,
+					'with_stacked_ma_secondary':		args.with_stacked_ma_secondary,
+					'stacked_ma_type_secondary':		args.stacked_ma_type_secondary,
+					'stacked_ma_periods_secondary':		args.stacked_ma_periods_secondary,
 					'stacked_ma_type_primary':		args.stacked_ma_type_primary,
 					'stacked_ma_periods_primary':		args.stacked_ma_periods_primary,
+
 					'daily_ma_type':			args.daily_ma_type,
 					'confirm_daily_ma':			args.confirm_daily_ma,
 
@@ -674,7 +681,6 @@ for algo in args.algo.split(','):
 
 					'with_bbands_kchannel':			args.with_bbands_kchannel,
 					'with_bbands_kchannel_simple':		args.with_bbands_kchannel_simple,
-					'bbands_use_talib':			args.bbands_use_talib,
 					'bbands_matype':			args.bbands_matype,
 					'use_bbands_kchannel_5m':		args.use_bbands_kchannel_5m,
 					'bbands_kchan_crossover_only':		args.bbands_kchan_crossover_only,

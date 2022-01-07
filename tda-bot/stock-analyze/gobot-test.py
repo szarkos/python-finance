@@ -22,7 +22,7 @@ args = parser.parse_args()
 mytimezone = pytz.timezone("US/Eastern")
 
 # Standard options for all scenarios
-std_opts = ' --algo=stochrsi-new --stoploss --skip_check --incr_threshold=0.5 --decr_threshold=1.6 --exit_percent=0.5 --verbose --stock_usd=25000 ' + \
+std_opts = ' --algo=stochrsi-new --stoploss --skip_check --incr_threshold=0.5 --decr_threshold=1.25 --exit_percent=0.5 --verbose --stock_usd=25000 ' + \
 		' --variable_exit --lod_hod_check --check_volume --daily_atr_period=3 ' #--use_natr_resistance
 
 # Test Scenarios
@@ -83,7 +83,7 @@ scenarios = {
 								--with_stacked_ma --stacked_ma_periods=34,55,89 --stacked_ma_type=wma \
 								--min_intra_natr=0.65 --min_daily_natr=6 --use_trend --use_bbands_kchannel_xover_exit --bbands_roc_threshold=0 \
 								--check_etf_indicators --etf_min_rs=3 --etf_min_natr=0.1 \
-								--bbands_use_talib --bbands_matype=7 --kchan_matype=hma \
+								--bbands_matype=7 --kchan_matype=hma \
 								--decr_threshold=1.25 --use_combined_exit --skip_blacklist ',
 
 

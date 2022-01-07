@@ -521,7 +521,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			#  the Keltner channel. This often indicates a sudden rise in volatility and likely breakout.
 			if ( bbands_kchan_crossover_signal == False and cur_offset < prev_offset ):
 				if ( cur_bbands_upper > prev_bbands_upper and cur_bbands_roc > prev_bbands_roc ):
-					roc_pct = (abs(cur_bbands_roc - prev_bbands_roc) / prev_bbands_roc) * 100
+					roc_pct = abs(((cur_bbands_roc - prev_bbands_roc) / prev_bbands_roc) * 100)
 
 					# Counter for use with bbands_roc_strict
 					if ( roc_pct >= 15 ):
@@ -1303,6 +1303,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 								str(round(stocks[ticker]['cur_kchannel'][0], 3)) + ',' +
 								str(round(stocks[ticker]['cur_kchannel'][1], 3)) + ',' +
 								str(round(stocks[ticker]['cur_kchannel'][2], 3)) +
+							' / ROC Counter: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_roc_counter']) +
 							' / Squeeze Count: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter']) +
 							' / BBands_Kchannel Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal']) +
 							' / BBands_Threshold Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_roc_threshold_signal']) +

@@ -1497,7 +1497,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Monitor the rate-of-change of the bbands to detect a breakout before the crossover happens
 			if ( bbands_kchan_crossover_only == False and bbands_kchan_crossover_signal == False and cur_offset < prev_offset ):
 				if ( bbands_roc != None and cur_bbands_upper > prev_bbands_upper and bbands_roc[idx] > bbands_roc[idx-1] ):
-					roc_pct = (abs(bbands_roc[idx] - bbands_roc[idx-1]) / bbands_roc[idx-1]) * 100
+					roc_pct = abs(((bbands_roc[idx] - bbands_roc[idx-1]) / bbands_roc[idx-1]) * 100)
 
 					# Counter for use with bbands_roc_strict
 					if ( roc_pct >= 15 ):
@@ -1900,7 +1900,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( use_trend == True ):
 					period		= trend_period
 					cndl_slice	= []
-					for i in range(period+1, 0, -1):
+
+					# Note (period, -1, -1) makes sense here because we want idx-0 (the most recent candle) to be
+					#  counted as well. This is different from the live bot which reads range(period+1, 0, -1),
+					#  because live we will reference ph['candles'][-i] (where -1 is the latest candle).
+					for i in range(period, -1, -1):
 						cndl_slice.append( pricehistory['candles'][idx-i] )
 
 					price_trend_bear_affinity = price_trend(cndl_slice, type=trend_type, period=period, affinity='bear')
@@ -2668,6 +2672,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
 					print('(' + str(ticker) + '): BBands: ' + str(round(cur_bbands[0], 3)) + ' / ' + str(round(cur_bbands[2], 3)) +
 									', KChannel: ' + str(round(cur_kchannel[0], 3)) + ' / ' + str(round(cur_kchannel[1], 3)) + ' / ' + str(round(cur_kchannel[2], 3)) +
+									', ROC Count: ' + str(bbands_roc_counter) +
 									', Squeeze Count: ' + str(bbands_kchan_signal_counter) )
 
 				print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
@@ -3187,7 +3192,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( use_trend == True ):
 					period		= trend_period
 					cndl_slice	= []
-					for i in range(period+1, 0, -1):
+					for i in range(period, -1, -1):
 						cndl_slice.append( pricehistory['candles'][idx-i] )
 
 					price_trend_bear_affinity = price_trend(cndl_slice, type=trend_type, period=period, affinity='bear')
@@ -3932,8 +3937,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				if ( with_bbands_kchannel == True or with_bbands_kchannel_simple == True ):
 					print('(' + str(ticker) + '): BBands: ' + str(round(cur_bbands[0], 3)) + ' / ' + str(round(cur_bbands[2], 3)) +
-								  ', KChannel: ' + str(round(cur_kchannel[0], 3)) + ' / ' + str(round(cur_kchannel[1], 3)) + ' / ' + str(round(cur_kchannel[2], 3)) +
-								  ', Squeeze Count: ' + str(bbands_kchan_signal_counter) )
+									', KChannel: ' + str(round(cur_kchannel[0], 3)) + ' / ' + str(round(cur_kchannel[1], 3)) + ' / ' + str(round(cur_kchannel[2], 3)) +
+									', ROC Count: ' + str(bbands_roc_counter) +
+									', Squeeze Count: ' + str(bbands_kchan_signal_counter) )
+
 				print('(' + str(ticker) + '): ATR/NATR: ' + str(cur_atr) + ' / ' + str(cur_natr))
 				print('(' + str(ticker) + '): SHORT signal: ' + str(short_signal) + ', Final SHORT signal: ' + str(final_short_signal))
 				print()

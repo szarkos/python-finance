@@ -444,7 +444,14 @@ for algo in args.algo.split(','):
 	etf_tickers = args.etf_tickers.split(',')
 	etf_indicators = {}
 	for t in etf_tickers:
-		etf_indicators[t] = { 'roc': {}, 'roc_close': {}, 'stacked_ma': {}, 'roc_stacked_ma': {}, 'natr': {}, 'pricehistory': {}, 'pricehistory_5m': {} }
+		etf_indicators[t] = {	'pricehistory': {}, 'pricehistory_5m': {},
+					'roc': {},
+					'roc_close': {},
+					'stacked_ma': {},
+					'roc_stacked_ma': {},
+					'mama_fama': {},
+					'natr': {}
+		}
 
 	if ( args.check_etf_indicators == True ):
 		if ( args.ifile != None ):

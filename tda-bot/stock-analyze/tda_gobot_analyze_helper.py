@@ -1038,6 +1038,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				tmp_roc_stacked_ma	= get_stackedma(pricehistory=temp_ph, stacked_ma_periods=stacked_ma_periods_primary, stacked_ma_type='ema')
 				tmp_stacked_ma		= get_stackedma(pricehistory=etf_indicators[t]['pricehistory'], stacked_ma_periods=stacked_ma_periods_primary, stacked_ma_type=stacked_ma_type_primary)
 				tmp_atr, tmp_natr	= tda_algo_helper.get_atr( pricehistory=etf_indicators[t]['pricehistory_5m'], period=atr_period )
+				tmp_mama,tmp_fama	= tda_algo_helper.get_alt_ma(pricehistory=etf_indicators[t]['pricehistory'], ma_type='mama', type='hlc3', mama_fastlimit=0.5, mama_slowlimit=0.05)
 
 				# Need to normalize the length of tmp_natr to match etf_indicators[t]['pricehistory']['candles']
 				tmp = []
@@ -1050,11 +1051,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 					etf_indicators[t]['roc_stacked_ma'].update( { dt: tmp_roc_stacked_ma[i] } )
 					etf_indicators[t]['stacked_ma'].update( { dt: tmp_stacked_ma[i] } )
+					etf_indicators[t]['mama_fama'].update( { dt: (tmp_mama[i],tmp_fama[i]) } )
 
 					if ( int(i/5) <= len(tmp_natr) - 1 ):
 						etf_indicators[t]['natr'].update( { dt: tmp_natr[int(i/5)] } )
 
-				del(temp_ph,tmp_roc_stacked_ma,tmp_stacked_ma,tmp_atr,tmp_natr)
+				del(temp_ph,tmp_roc_stacked_ma,tmp_stacked_ma,tmp_atr,tmp_natr,tmp_mama,tmp_fama)
 
 			except Exception as e:
 				print('Error, unable to calculate EMA of rate-of-change for ticker ' + str(t) + ': ' + str(e))
@@ -2474,10 +2476,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						except ZeroDivisionError:
 							cur_rs = 0
 
-						#bbands_roc_strict = False
-						#if ( etf_indicators[t]['natr'][tmp_dt] < 0.1 ):
-						#	bbands_roc_strict = True
-
 						# Avoid trade when ETF indicator is choppy or sideways
 						etf_roc_stacked_ma_bull	= etf_roc_stacked_ma_bear	= False
 						etf_stacked_ma_bull	= etf_stacked_ma_bear		= False
@@ -2520,18 +2518,26 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 						# Both stocks are rising
 						elif ( stock_roc[idx] > 0 and etf_indicators[t]['roc'][tmp_dt] > 0 ):
-
 							rs_signal = False
-							if ( check_etf_indicators_strict == False and cur_rs > 10 ):
 
-								if ( decr_threshold > 1 ):
-									decr_threshold = 1
-
-								if ( exit_percent_long == orig_exit_percent ):
-									exit_percent_long	= exit_percent_long / 2
-									quick_exit		= True
+							if ( tmp_dt in etf_indicators[t]['roc_stacked_ma'] ):
+								cur_etf_mama	= etf_indicators[t]['mama_fama'][tmp_dt][0]
+								cur_etf_fama	= etf_indicators[t]['mama_fama'][tmp_dt][1]
 
 								rs_signal = True
+								if ( cur_etf_mama <= cur_etf_fama ):
+									rs_signal = False
+
+#							if ( check_etf_indicators_strict == False and cur_rs > 10 ):
+#
+#								if ( decr_threshold > 1 ):
+#									decr_threshold = 1
+#
+#								if ( exit_percent_long == orig_exit_percent ):
+#									exit_percent_long	= exit_percent_long / 2
+#									quick_exit		= True
+#
+#								rs_signal = True
 
 						# Something wierd is happening
 						else:
@@ -3762,6 +3768,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							etf_stacked_ma_bull	= check_stacked_ma(cur_stacked_ma, 'bull')
 							etf_stacked_ma_bear	= check_stacked_ma(cur_stacked_ma, 'bear')
 
+							cur_etf_mama		= etf_indicators[t]['mama_fama'][tmp_dt][0]
+							cur_etf_fama		= etf_indicators[t]['mama_fama'][tmp_dt][1]
+
 							if ( etf_roc_stacked_ma_bull == False and etf_roc_stacked_ma_bear == False ):
 								rs_signal = False
 								continue
@@ -3779,15 +3788,23 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							cur_rs		= -cur_rs
 							rs_signal	= False
 
-							if ( check_etf_indicators_strict == False and abs(cur_rs) > 10 ):
-								if ( decr_threshold > 1 ):
-									decr_threshold = 1
-
-								if ( exit_percent_short == orig_exit_percent ):
-									exit_percent_short = exit_percent_short / 2
-									quick_exit = True
+							if ( tmp_dt in etf_indicators[t]['roc_stacked_ma'] ):
+								cur_etf_mama	= etf_indicators[t]['mama_fama'][tmp_dt][0]
+								cur_etf_fama	= etf_indicators[t]['mama_fama'][tmp_dt][1]
 
 								rs_signal = True
+								if ( cur_etf_mama >= cur_etf_fama ):
+									rs_signal = False
+
+#							if ( check_etf_indicators_strict == False and abs(cur_rs) > 10 ):
+#								if ( decr_threshold > 1 ):
+#									decr_threshold = 1
+#
+#								if ( exit_percent_short == orig_exit_percent ):
+#									exit_percent_short = exit_percent_short / 2
+#									quick_exit = True
+#
+#								rs_signal = True
 
 						# Stock is sinking relative to ETF
 						elif ( stock_roc[idx] < 0 and etf_indicators[t]['roc'][tmp_dt] > 0 ):

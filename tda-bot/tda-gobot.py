@@ -62,7 +62,16 @@ if ( load_dotenv() != True ):
 	print('Error: unable to load .env file')
 	sys.exit(1)
 
-tda_account_number			= int( os.environ["tda_account_number"] )
+try:
+	if ( args.account_number != None ):
+		tda_account_number = args.account_number
+	else:
+		tda_account_number = int( os.environ["tda_account_number"] )
+
+except:
+	print('Error: account number not found, exiting.')
+	sys.exit(1)
+
 passcode				= os.environ["tda_encryption_passcode"]
 tda_gobot_helper.tda			= tda
 tda_gobot_helper.tda_account_number	= tda_account_number
@@ -120,7 +129,7 @@ if ( tda_gobot_helper.ismarketopen_US() == True ):
 		print('SHORTING ' + str(stock_qty) + ' shares of ' + str(stock))
 
 		if ( args.fake == False ):
-			data = tda_gobot_helper.short_stock_marketprice(stock, stock_qty, fillwait=True, account_number=args.account_number, debug=True)
+			data = tda_gobot_helper.short_stock_marketprice(stock, stock_qty, fillwait=True, account_number=tda_account_number, debug=True)
 			if ( data == False ):
 				print('Error: Unable to short "' + str(stock) + '"', file=sys.stderr)
 				sys.exit(1)
@@ -128,7 +137,7 @@ if ( tda_gobot_helper.ismarketopen_US() == True ):
 	else:
 		print('PURCHASING ' + str(stock_qty) + ' shares of ' + str(stock))
 		if ( args.fake == False ):
-			data = tda_gobot_helper.buy_stock_marketprice(stock, stock_qty, fillwait=True, account_number=args.account_number, debug=True)
+			data = tda_gobot_helper.buy_stock_marketprice(stock, stock_qty, fillwait=True, account_number=tda_account_number, debug=True)
 			if ( data == False ):
 				print('Error: Unable to buy stock "' + str(ticker) + '"', file=sys.stderr)
 				sys.exit(1)
@@ -179,7 +188,7 @@ while True:
 				print('BUY_TO_COVER stock ' + str(stock) + '" - the last_price (' + str(last_price) + ') crossed the exit_price(' + str(args.exit_price) + ')')
 
 				if ( args.fake == False ):
-					data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, account_number=args.account_number, debug=True)
+					data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, account_number=tda_account_number, debug=True)
 
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short, sold=True)
@@ -191,7 +200,7 @@ while True:
 				print('SELLING stock ' + str(stock) + '" - the last_price (' + str(last_price) + ') crossed the exit_price(' + str(args.exit_price) + ')')
 
 				if ( args.fake == False ):
-					data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, account_number=args.account_number, debug=True)
+					data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, account_number=tda_account_number, debug=True)
 
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, sold=True)
@@ -203,7 +212,7 @@ while True:
 		print('Market closing, selling stock ' + str(stock))
 
 		if ( args.fake == False ):
-			data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, account_number=args.account_number, debug=True)
+			data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, account_number=tda_account_number, debug=True)
 
 		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short, sold=True)
 		print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
@@ -231,7 +240,7 @@ while True:
 			print('SELLING stock ' + str(stock) + '" - the security moved below the decr_percent_threshold (' + str(decr_percent_threshold) + '%)')
 
 			if ( args.fake == False ):
-				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, account_number=args.account_number, debug=True)
+				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, account_number=tda_account_number, debug=True)
 
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, sold=True)
 			print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')
@@ -251,7 +260,7 @@ while True:
 				print('BUY_TO_COVER stock ' + str(stock) + '" - the security moved above the decr_percent_threshold (' + str(decr_percent_threshold) + '%)')
 
 				if ( args.fake == False ):
-					data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, account_number=args.account_number, debug=True)
+					data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, account_number=tda_account_number, debug=True)
 
 				tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short, sold=True)
 				print('Net change (' + str(stock) + '): ' + str(net_change) + ' USD')

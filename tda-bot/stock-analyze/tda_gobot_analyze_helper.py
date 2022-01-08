@@ -1030,6 +1030,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			temp_ph			= { 'candles': [] }
 			tmp_roc_stacked_ma	= []
 			tmp_stacked_ma		= []
+			tmp_mama		= []
+			tmp_fama		= []
 			try:
 				for i in range(len(etf_roc)):
 					etf_roc[i] = etf_roc[i] * 10000
@@ -1038,7 +1040,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				tmp_roc_stacked_ma	= get_stackedma(pricehistory=temp_ph, stacked_ma_periods=stacked_ma_periods_primary, stacked_ma_type='ema')
 				tmp_stacked_ma		= get_stackedma(pricehistory=etf_indicators[t]['pricehistory'], stacked_ma_periods=stacked_ma_periods_primary, stacked_ma_type=stacked_ma_type_primary)
 				tmp_atr, tmp_natr	= tda_algo_helper.get_atr( pricehistory=etf_indicators[t]['pricehistory_5m'], period=atr_period )
-				tmp_mama,tmp_fama	= tda_algo_helper.get_alt_ma(pricehistory=etf_indicators[t]['pricehistory'], ma_type='mama', type='hlc3', mama_fastlimit=0.5, mama_slowlimit=0.05)
+				#tmp_mama,tmp_fama	= tda_algo_helper.get_alt_ma(pricehistory=etf_indicators[t]['pricehistory'], ma_type='mama', type='close', mama_fastlimit=0.5, mama_slowlimit=0.05)
 
 				# Need to normalize the length of tmp_natr to match etf_indicators[t]['pricehistory']['candles']
 				tmp = []
@@ -1051,7 +1053,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 					etf_indicators[t]['roc_stacked_ma'].update( { dt: tmp_roc_stacked_ma[i] } )
 					etf_indicators[t]['stacked_ma'].update( { dt: tmp_stacked_ma[i] } )
-					etf_indicators[t]['mama_fama'].update( { dt: (tmp_mama[i],tmp_fama[i]) } )
+					#etf_indicators[t]['mama_fama'].update( { dt: (tmp_mama[i],tmp_fama[i]) } )
 
 					if ( int(i/5) <= len(tmp_natr) - 1 ):
 						etf_indicators[t]['natr'].update( { dt: tmp_natr[int(i/5)] } )
@@ -1570,7 +1572,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# If max_squeeze_natr is set, make sure the recent NATR is not too high to disqualify
 			#  this stock movement as a good consolidation.
-			if ( max_squeeze_natr != None and bbands_kchan_signal == True and pricehistory != None ):
+			if ( bbands_kchan_signal == True and pricehistory != None ):
 
 				cndl_slice = { 'candles': [] }
 				for i in range(bbands_kchan_signal_counter+2, 0, -1):
@@ -2500,6 +2502,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						if ( stock_roc[idx] > 0 and etf_indicators[t]['roc'][tmp_dt] < 0 ):
 							cur_rs		= abs( cur_rs )
 							rs_signal	= True
+
 							if ( cur_rs < 20 ):
 								quick_exit = True
 
@@ -2520,24 +2523,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						elif ( stock_roc[idx] > 0 and etf_indicators[t]['roc'][tmp_dt] > 0 ):
 							rs_signal = False
 
-							if ( tmp_dt in etf_indicators[t]['roc_stacked_ma'] ):
-								cur_etf_mama	= etf_indicators[t]['mama_fama'][tmp_dt][0]
-								cur_etf_fama	= etf_indicators[t]['mama_fama'][tmp_dt][1]
-
+							if ( check_etf_indicators_strict == False and cur_rs > 10 ):
 								rs_signal = True
-								if ( cur_etf_mama <= cur_etf_fama ):
-									rs_signal = False
+								if ( decr_threshold > 1 ):
+									decr_threshold = 1
 
-#							if ( check_etf_indicators_strict == False and cur_rs > 10 ):
-#
-#								if ( decr_threshold > 1 ):
-#									decr_threshold = 1
-#
-#								if ( exit_percent_long == orig_exit_percent ):
-#									exit_percent_long	= exit_percent_long / 2
-#									quick_exit		= True
-#
-#								rs_signal = True
+								if ( exit_percent_long == orig_exit_percent ):
+									exit_percent_long	= exit_percent_long / 2
+									quick_exit		= True
 
 						# Something wierd is happening
 						else:
@@ -2695,12 +2688,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				base_price_long	= purchase_price
 				purchase_time	= datetime.fromtimestamp(pricehistory['candles'][idx]['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
+				# Log rate-of-change for stock and ETF indicators
+				tmp_roc = str(round(stock_roc[idx], 5))
+				for t in etf_tickers:
+					if ( pricehistory['candles'][idx]['datetime'] in etf_indicators[t]['roc'] ):
+						tmp_roc += '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
+
 				results.append( str(purchase_price) + ',' + str(num_shares) + ',' + 'False' + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
 						str(cur_mfi_k) + '/' + str(cur_mfi_d) + ',' +
 						str(round(cur_natr,3)) + ',' + str(round(cur_natr_daily,2)) + ',' +
 						str(round(bbands_natr['natr'], 3)) + ',' + str(round(bbands_natr['squeeze_natr'], 3)) + ',' +
-						str(round(cur_rs, 3)) + ',' + str(round(cur_adx,2)) + ',' + str(purchase_time) )
+						str(tmp_roc) + ',' + str(round(cur_rs, 3)) + ',' +
+						str(round(cur_adx,2)) + ',' + str(purchase_time) )
 
 				reset_signals( exclude_bbands_kchan=True )
 				signal_mode['primary']		= 'sell'
@@ -2861,12 +2861,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 									base_price_short	= short_price
 									short_time		= datetime.fromtimestamp(pricehistory['candles'][idx]['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
+									# Log rate-of-change for stock and ETF indicators
+									tmp_roc = str(round(stock_roc[idx], 5))
+									for t in etf_tickers:
+										if ( pricehistory['candles'][idx]['datetime'] in etf_indicators[t]['roc'] ):
+											tmp_roc += '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
+
 									straddle_results.append( str(short_price) + ',' + str(num_shares) + ',' + 'True' + ',' +
 												 str(-1) + '/' + str(-1) + ',' +
 												 str(-1) + '/' + str(-1) + ',' +
 												 str(round(cur_natr, 3)) + ',' + str(round(cur_natr_daily, 3)) + ',' +
 												 str(round(bbands_natr['natr'], 3)) + ',' + str(round(bbands_natr['squeeze_natr'], 3)) + ',' +
-												 str(round(cur_rs, 3)) + ',' + str(round(cur_adx, 2)) + ',' + str(short_time) )
+												 str(tmp_roc) + ',' + str(round(cur_rs, 3)) + ',' +
+												 str(round(cur_adx, 2)) + ',' + str(short_time) )
 
 									signal_mode['secondary']	= 'buy_to_cover'
 									signal_mode['straddle']		= True
@@ -3751,10 +3758,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						except ZeroDivisionError:
 							cur_rs = 0
 
-						#bbands_roc_strict = False
-						#if ( etf_indicators[t]['natr'][tmp_dt] < 0.1 ):
-						#	bbands_roc_strict = True
-
 						# Avoid trade when ETF indicator is choppy or sideways
 						etf_roc_stacked_ma_bull	= etf_roc_stacked_ma_bear	= False
 						etf_stacked_ma_bull	= etf_stacked_ma_bear		= False
@@ -3767,9 +3770,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 							etf_stacked_ma_bull	= check_stacked_ma(cur_stacked_ma, 'bull')
 							etf_stacked_ma_bear	= check_stacked_ma(cur_stacked_ma, 'bear')
-
-							cur_etf_mama		= etf_indicators[t]['mama_fama'][tmp_dt][0]
-							cur_etf_fama		= etf_indicators[t]['mama_fama'][tmp_dt][1]
 
 							if ( etf_roc_stacked_ma_bull == False and etf_roc_stacked_ma_bear == False ):
 								rs_signal = False
@@ -3788,23 +3788,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							cur_rs		= -cur_rs
 							rs_signal	= False
 
-							if ( tmp_dt in etf_indicators[t]['roc_stacked_ma'] ):
-								cur_etf_mama	= etf_indicators[t]['mama_fama'][tmp_dt][0]
-								cur_etf_fama	= etf_indicators[t]['mama_fama'][tmp_dt][1]
-
+							if ( check_etf_indicators_strict == False and cur_rs > 10 ):
 								rs_signal = True
-								if ( cur_etf_mama >= cur_etf_fama ):
-									rs_signal = False
+								if ( decr_threshold > 1 ):
+									decr_threshold = 1
 
-#							if ( check_etf_indicators_strict == False and abs(cur_rs) > 10 ):
-#								if ( decr_threshold > 1 ):
-#									decr_threshold = 1
-#
-#								if ( exit_percent_short == orig_exit_percent ):
-#									exit_percent_short = exit_percent_short / 2
-#									quick_exit = True
-#
-#								rs_signal = True
+								if ( exit_percent_long == orig_exit_percent ):
+									exit_percent_long	= exit_percent_long / 2
+									quick_exit		= True
 
 						# Stock is sinking relative to ETF
 						elif ( stock_roc[idx] < 0 and etf_indicators[t]['roc'][tmp_dt] > 0 ):
@@ -3972,12 +3963,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				base_price_short	= short_price
 				short_time		= datetime.fromtimestamp(pricehistory['candles'][idx]['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
+				# Log rate-of-change for stock and ETF indicators
+				tmp_roc = str(round(stock_roc[idx], 5))
+				for t in etf_tickers:
+					if ( pricehistory['candles'][idx]['datetime'] in etf_indicators[t]['roc'] ):
+						tmp_roc += '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
+
 				results.append( str(short_price) + ',' + str(num_shares) + ',' + 'True' + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
 						str(cur_mfi_k) + '/' + str(cur_mfi_d) + ',' +
 						str(round(cur_natr, 3)) + ',' + str(round(cur_natr_daily, 3)) + ',' +
 						str(round(bbands_natr['natr'], 3)) + ',' + str(round(bbands_natr['squeeze_natr'], 3)) + ',' +
-						str(round(cur_rs, 3)) + ',' + str(round(cur_adx, 2)) + ',' + str(short_time) )
+						str(tmp_roc) + ',' + str(round(cur_rs, 3)) + ',' +
+						str(round(cur_adx, 2)) + ',' + str(short_time) )
 
 				reset_signals( exclude_bbands_kchan=True )
 				signal_mode['primary']		= 'buy_to_cover'
@@ -4137,12 +4135,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 									base_price_long		= purchase_price
 									purchase_time		= datetime.fromtimestamp(pricehistory['candles'][idx]['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
+									# Log rate-of-change for stock and ETF indicators
+									tmp_roc = str(round(stock_roc[idx], 5))
+									for t in etf_tickers:
+										if ( pricehistory['candles'][idx]['datetime'] in etf_indicators[t]['roc'] ):
+											tmp_roc += '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
+
 									straddle_results.append( str(purchase_price) + ',' + str(num_shares) + ',' + 'False' + ',' +
 												 str(-1) + '/' + str(-1) + ',' +
 												 str(-1) + '/' + str(-1) + ',' +
 												 str(round(cur_natr, 3)) + ',' + str(round(cur_natr_daily, 3)) + ',' +
 												 str(round(bbands_natr['natr'], 3)) + ',' + str(round(bbands_natr['squeeze_natr'], 3)) + ',' +
-												 str(round(cur_rs, 3)) + ',' + str(round(cur_adx, 2)) + ',' + str(purchase_time) )
+												 str(tmp_roc) + ',' + str(round(cur_rs, 3)) + ',' +
+												 str(round(cur_adx, 2)) + ',' + str(purchase_time) )
 
 									signal_mode['secondary']	= 'sell'
 									signal_mode['straddle']		= True

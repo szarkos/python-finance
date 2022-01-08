@@ -795,7 +795,7 @@ for algo in args.algo.split(','):
 		elif ( (algo == 'stochrsi' or algo == 'stochrsi-new') and args.verbose ):
 			print()
 			print('### Trade Ledger ###')
-			print('{0:18} {1:12} {2:12} {3:12} {4:15} {5:12} {6:12} {7:15} {8:20} {9:10} {10:10} {11:10}'.format('Buy/Sell Price', 'Num Shares', 'Net Change', 'RSI_K/RSI_D', 'MFI_K/MFI_D', 'NATR', 'Daily_NATR', 'BBands_NATR', 'BBands_Squeeze_NATR', 'RS', 'ADX', 'Time'))
+			print('{0:18} {1:12} {2:12} {3:12} {4:15} {5:12} {6:12} {7:15} {8:20} {9:20} {10:10} {11:10} {12:10}'.format('Buy/Sell Price', 'Num Shares', 'Net Change', 'RSI_K/RSI_D', 'MFI_K/MFI_D', 'NATR', 'Daily_NATR', 'BBands_NATR', 'BBands_Squeeze_NATR', 'RoC', 'RS', 'ADX', 'Time'))
 
 		rating = 0
 		success = fail = 0
@@ -805,7 +805,7 @@ for algo in args.algo.split(','):
 		counter = 0
 		while ( counter < len(results) - 1 ):
 
-			price_tx, num_shares, short, rsi_tx, mfi_tx, natr_tx, dnatr_tx, bbands_natr, bbands_squeeze_natr, rs, adx_tx, time_tx = results[counter].split( ',', 12 )
+			price_tx, num_shares, short, rsi_tx, mfi_tx, natr_tx, dnatr_tx, bbands_natr, bbands_squeeze_natr, roc, rs, adx_tx, time_tx = results[counter].split( ',', 13 )
 			price_rx, short, rsi_rx, mfi_rx, natr_rx, dnatr_rx, adx_rx, time_rx = results[counter+1].split( ',', 8 )
 
 			vwap_tx = vwap_rx = 0
@@ -891,13 +891,13 @@ for algo in args.algo.split(','):
 				mfi_rx = str(mfi_k_rx) + '/' + str(mfi_d_rx)
 
 				print(text_color, end='')
-				print('{0:18} {1:12} {2:12} {3:12} {4:15} {5:12} {6:12} {7:15} {8:20} {9:10} {10:10} {11:10}'.format(str(price_tx), str(num_shares), '-', str(rsi_tx), str(mfi_tx), str(natr_tx), str(dnatr_tx), str(bbands_natr), str(bbands_squeeze_natr), str(rs), str(adx_tx), time_tx), end='')
+				print('{0:18} {1:12} {2:12} {3:12} {4:15} {5:12} {6:12} {7:15} {8:20} {9:20} {10:10} {11:10} {12:10}'.format(str(price_tx), str(num_shares), '-', str(rsi_tx), str(mfi_tx), str(natr_tx), str(dnatr_tx), str(bbands_natr), str(bbands_squeeze_natr), str(roc), str(rs), str(adx_tx), time_tx), end='')
 				print(reset_color, end='')
 
 				print()
 
 				print(text_color, end='')
-				print('{0:18} {1:12} {2:12} {3:12} {4:15} {5:12} {6:12} {7:15} {8:20} {9:10} {10:10} {11:10}'.format(str(price_rx), '-', str(net_change), str(rsi_rx), str(mfi_rx), '-', '-', '-', '-', '-', str(adx_tx), time_rx), end='')
+				print('{0:18} {1:12} {2:12} {3:12} {4:15} {5:12} {6:12} {7:15} {8:20} {9:20} {10:10} {11:10} {12:10}'.format(str(price_rx), '-', str(net_change), str(rsi_rx), str(mfi_rx), '-', '-', '-', '-', '-', '-', str(adx_tx), time_rx), end='')
 				print(reset_color, end='')
 
 				print()

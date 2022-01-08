@@ -1305,6 +1305,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 								str(round(stocks[ticker]['cur_kchannel'][2], 3)) +
 							' / ROC Counter: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_roc_counter']) +
 							' / Squeeze Count: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter']) +
+							' / BBands_Kchannel_Init Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_init_signal']) +
 							' / BBands_Kchannel Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal']) +
 							' / BBands_Threshold Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_roc_threshold_signal']) +
 							' / BBands_Kchannel Crossover Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal']) )

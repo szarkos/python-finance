@@ -2689,10 +2689,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				purchase_time	= datetime.fromtimestamp(pricehistory['candles'][idx]['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 				# Log rate-of-change for stock and ETF indicators
-				tmp_roc = str(round(stock_roc[idx], 5))
-				for t in etf_tickers:
-					if ( pricehistory['candles'][idx]['datetime'] in etf_indicators[t]['roc'] ):
-						tmp_roc += '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
+				tmp_roc = 0
+				if ( check_etf_indicators == True ):
+					tmp_roc = str(round(stock_roc[idx], 5))
+					for t in etf_tickers:
+						if ( pricehistory['candles'][idx]['datetime'] in etf_indicators[t]['roc'] ):
+							tmp_roc += '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
 
 				results.append( str(purchase_price) + ',' + str(num_shares) + ',' + 'False' + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
@@ -2862,10 +2864,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 									short_time		= datetime.fromtimestamp(pricehistory['candles'][idx]['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 									# Log rate-of-change for stock and ETF indicators
-									tmp_roc = str(round(stock_roc[idx], 5))
-									for t in etf_tickers:
-										if ( pricehistory['candles'][idx]['datetime'] in etf_indicators[t]['roc'] ):
-											tmp_roc += '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
+									tmp_roc = 0
+									if ( check_etf_indicators == True ):
+										tmp_roc = str(round(stock_roc[idx], 5))
+										for t in etf_tickers:
+											if ( pricehistory['candles'][idx]['datetime'] in etf_indicators[t]['roc'] ):
+												tmp_roc += '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
 
 									straddle_results.append( str(short_price) + ',' + str(num_shares) + ',' + 'True' + ',' +
 												 str(-1) + '/' + str(-1) + ',' +
@@ -3962,10 +3966,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				short_time		= datetime.fromtimestamp(pricehistory['candles'][idx]['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 				# Log rate-of-change for stock and ETF indicators
-				tmp_roc = str(round(stock_roc[idx], 5))
-				for t in etf_tickers:
-					if ( pricehistory['candles'][idx]['datetime'] in etf_indicators[t]['roc'] ):
-						tmp_roc += '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
+				tmp_roc = 0
+				if ( check_etf_indicators == True ):
+					tmp_roc = str(round(stock_roc[idx], 5))
+					for t in etf_tickers:
+						if ( pricehistory['candles'][idx]['datetime'] in etf_indicators[t]['roc'] ):
+							tmp_roc += '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
 
 				results.append( str(short_price) + ',' + str(num_shares) + ',' + 'True' + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
@@ -4134,10 +4140,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 									purchase_time		= datetime.fromtimestamp(pricehistory['candles'][idx]['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
 									# Log rate-of-change for stock and ETF indicators
-									tmp_roc = str(round(stock_roc[idx], 5))
-									for t in etf_tickers:
-										if ( pricehistory['candles'][idx]['datetime'] in etf_indicators[t]['roc'] ):
-											tmp_roc += '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
+									tmp_roc = 0
+									if ( check_etf_indicators == True ):
+										tmp_roc = str(round(stock_roc[idx], 5))
+										for t in etf_tickers:
+											if ( pricehistory['candles'][idx]['datetime'] in etf_indicators[t]['roc'] ):
+												tmp_roc += '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
 
 									straddle_results.append( str(purchase_price) + ',' + str(num_shares) + ',' + 'False' + ',' +
 												 str(-1) + '/' + str(-1) + ',' +

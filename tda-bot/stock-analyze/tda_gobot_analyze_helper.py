@@ -2530,7 +2530,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 								if ( exit_percent_long == orig_exit_percent ):
 									exit_percent_long	= exit_percent_long / 2
-									quick_exit		= True
+									#quick_exit		= True
 
 						# Something wierd is happening
 						else:
@@ -2982,8 +2982,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				# Set the stoploss to the entry price if the candle touches the exit_percent, but closes below it
 				elif ( high_percent_change >= exit_percent_long and total_percent_change < exit_percent_long and exit_percent_signal_long == False ):
-#					if ( decr_threshold_long > 1 ):
-#						decr_threshold_long = 1
 					if ( decr_threshold_long > total_percent_change ):
 						decr_threshold_long = total_percent_change
 
@@ -3795,7 +3793,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 								if ( exit_percent_long == orig_exit_percent ):
 									exit_percent_long	= exit_percent_long / 2
-									quick_exit		= True
+									#quick_exit		= True
 
 						# Stock is sinking relative to ETF
 						elif ( stock_roc[idx] < 0 and etf_indicators[t]['roc'][tmp_dt] > 0 ):

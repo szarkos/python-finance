@@ -77,6 +77,9 @@ parser.add_argument("--confirm_daily_ma", help='Confirm that the daily moving av
 
 parser.add_argument("--with_mama_fama", help='Use MESA Adaptive Moving Average as a secondary indicator for trade entries (Default: False)', action="store_true")
 parser.add_argument("--mama_require_xover", help='When using MESA Adaptive Moving Average, require crossover of MAMA and FAMA to initiate signal (Default: False)', action="store_true")
+parser.add_argument("--with_mesa_sine", help='Use MESA Sine Wave as a secondary indicator for trade entries (Default: False)', action="store_true")
+parser.add_argument("--mesa_sine_period", help='Lookback period to use with MESA Sine Wave (Default: 25)', default=25, type=int)
+parser.add_argument("--mesa_sine_type", help='Input type to use with MESA Sine Wave (Default: hl2)', default='hl2', type=str)
 
 parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
 parser.add_argument("--with_rsi_simple", help='Use just the current RSI value as a secondary indicator', action="store_true")
@@ -137,6 +140,8 @@ parser.add_argument("--cost_basis_exit", help='Set stoploss to cost-basis if pri
 parser.add_argument("--use_ha_exit", help='Use Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
 parser.add_argument("--use_ha_candles", help='Use Heikin Ashi candles with entry strategy', action="store_true")
 parser.add_argument("--use_trend_exit", help='Use ttm_trend algorithm with exit_percent-based exit strategy', action="store_true")
+parser.add_argument("--use_rsi_exit", help='Use stochastic RSI indicator as exit signal', action="store_true")
+parser.add_argument("--use_mesa_sine_exit", help='Use MESA Sine wave indicator as exit signal', action="store_true")
 parser.add_argument("--use_trend", help='Use ttm_trend algorithm with entry strategy', action="store_true")
 parser.add_argument("--trend_type", help='Type to use with ttm_trend algorithm (Default: hl2)', default='hl2', type=str)
 parser.add_argument("--trend_period", help='Period to use with ttm_trend algorithm (Default: 5)', default=5, type=int)
@@ -616,6 +621,8 @@ for algo in args.algo.split(','):
 					'use_ha_exit':				args.use_ha_exit,
 					'use_ha_candles':			args.use_ha_candles,
 					'use_trend_exit':			args.use_trend_exit,
+					'use_rsi_exit':				args.use_rsi_exit,
+					'use_mesa_sine_exit':			args.use_mesa_sine_exit,
 					'use_trend':				args.use_trend,
 					'trend_type':				args.trend_type,
 					'trend_period':				args.trend_period,
@@ -660,6 +667,9 @@ for algo in args.algo.split(','):
 
 					'with_mama_fama':			args.with_mama_fama,
 					'mama_require_xover':			args.mama_require_xover,
+					'with_mesa_sine':			args.with_mesa_sine,
+					'mesa_sine_period':			args.mesa_sine_period,
+					'mesa_sine_type':			args.mesa_sine_type,
 
 					'with_rsi':				args.with_rsi,
 					'with_rsi_simple':			args.with_rsi_simple,

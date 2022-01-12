@@ -1792,7 +1792,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				stocks[ticker]['decr_threshold']			= args.decr_threshold
 				stocks[ticker]['orig_decr_threshold']			= args.decr_threshold
 				stocks[ticker]['exit_percent']				= args.exit_percent
-				cur_algo['quick_exit']					= False
+				stocks[ticker]['quick_exit']				= cur_algo['quick_exit']
 
 				cur_rs = 0
 				for etf_ticker in cur_algo['etf_tickers'].split(','):
@@ -1810,7 +1810,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = True
 
 						if ( cur_rs < 20 ):
-							cur_algo['quick_exit'] = True
+							stocks[ticker]['quick_exit'] = True
 
 					# Both stocks are sinking
 					elif ( cur_roc < 0 and stocks[etf_ticker]['cur_roc'] < 0 ):
@@ -1835,8 +1835,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 								stocks[ticker]['decr_threshold']	= 1
 
 							if ( stocks[ticker]['exit_percent'] != None ):
-								stocks[ticker]['exit_percent']	= stocks[ticker]['exit_percent'] / 2
-								cur_algo['quick_exit']		= True
+								stocks[ticker]['exit_percent'] = stocks[ticker]['exit_percent'] / 2
+								if ( cur_natr < 1 ):
+									stocks[ticker]['quick_exit'] = True
 
 					# Weird
 					else:
@@ -2258,6 +2259,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 					stocks[ticker]['tx_id']			= random.randint(1000, 9999)
 					stocks[ticker]['stock_usd']		= cur_algo['stock_usd']
+					stocks[ticker]['quick_exit']		= cur_algo['quick_exit']
 					stocks[ticker]['stock_qty']		= 0
 					stocks[ticker]['base_price']		= 0
 					stocks[ticker]['orig_base_price']	= 0
@@ -2381,6 +2383,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					# Change signal to 'long' and generate new tx_id for next iteration
 					stocks[ticker]['tx_id']			= random.randint(1000, 9999)
 					stocks[ticker]['stock_usd']		= cur_algo['stock_usd']
+					stocks[ticker]['quick_exit']		= cur_algo['quick_exit']
 					stocks[ticker]['stock_qty']		= 0
 					stocks[ticker]['base_price']		= 0
 					stocks[ticker]['orig_base_price']	= 0
@@ -2440,7 +2443,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					# Once we've hit exit_percent, move the stoploss to break even
 					stocks[ticker]['decr_threshold'] = stocks[ticker]['exit_percent']
 
-					if ( cur_algo['quick_exit'] == True ):
+					if ( cur_algo['quick_exit'] == True or stocks[ticker]['quick_exit'] == True ):
 						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 				# Set the stoploss lower if the candle touches the exit_percent, but closes below it
@@ -2554,6 +2557,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				# Change signal to 'long' or 'short' and generate new tx_id for next iteration
 				stocks[ticker]['tx_id']			= random.randint(1000, 9999)
 				stocks[ticker]['stock_usd']		= cur_algo['stock_usd']
+				stocks[ticker]['quick_exit']		= cur_algo['quick_exit']
 				stocks[ticker]['stock_qty']		= 0
 				stocks[ticker]['base_price']		= 0
 				stocks[ticker]['orig_base_price']	= 0
@@ -2856,7 +2860,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				stocks[ticker]['decr_threshold']			= args.decr_threshold
 				stocks[ticker]['orig_decr_threshold']			= args.decr_threshold
 				stocks[ticker]['exit_percent']				= args.exit_percent
-				cur_algo['quick_exit']					= False
+				stocks[ticker]['quick_exit']				= cur_algo['quick_exit']
 
 				cur_rs = 0
 				for etf_ticker in cur_algo['etf_tickers'].split(','):
@@ -2886,8 +2890,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 								stocks[ticker]['decr_threshold']	= 1
 
 							if ( stocks[ticker]['exit_percent'] != None ):
-								stocks[ticker]['exit_percent']	= stocks[ticker]['exit_percent'] / 2
-								cur_algo['quick_exit']		= True
+								stocks[ticker]['exit_percent'] = stocks[ticker]['exit_percent'] / 2
+								if ( cur_natr < 1 ):
+									stocks[ticker]['quick_exit'] = True
 
 					# Stock is sinking relative to ETF
 					elif ( cur_roc < 0 and stocks[etf_ticker]['cur_roc'] > 0 ):
@@ -2895,7 +2900,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						stocks[ticker]['algo_signals'][algo_id]['rs_signal'] = True
 
 						if ( abs(cur_rs) < 20 ):
-							cur_algo['quick_exit'] = True
+							stocks[ticker]['quick_exit'] = True
 
 					# Both stocks are rising
 					elif ( cur_roc > 0 and stocks[etf_ticker]['cur_roc'] > 0 ):
@@ -3340,6 +3345,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 					stocks[ticker]['tx_id']			= random.randint(1000, 9999)
 					stocks[ticker]['stock_usd']		= cur_algo['stock_usd']
+					stocks[ticker]['quick_exit']		= cur_algo['quick_exit']
 					stocks[ticker]['stock_qty']		= 0
 					stocks[ticker]['base_price']		= 0
 					stocks[ticker]['orig_base_price']	= 0
@@ -3499,6 +3505,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					# Change signal to 'long' and generate new tx_id for next iteration
 					stocks[ticker]['tx_id']			= random.randint(1000, 9999)
 					stocks[ticker]['stock_usd']		= cur_algo['stock_usd']
+					stocks[ticker]['quick_exit']		= cur_algo['quick_exit']
 					stocks[ticker]['stock_qty']		= 0
 					stocks[ticker]['base_price']		= 0
 					stocks[ticker]['orig_base_price']	= 0
@@ -3534,7 +3541,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					# Once we've hit exit_percent, move the stoploss to break even
 					stocks[ticker]['decr_threshold'] = stocks[ticker]['exit_percent']
 
-					if ( cur_algo['quick_exit'] == True ):
+					if ( cur_algo['quick_exit'] == True or stocks[ticker]['quick_exit'] == True ):
 						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 				# Set the stoploss lower if the candle touches the exit_percent, but closes above it
@@ -3641,6 +3648,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				# Change signal to 'long' and generate new tx_id for next iteration
 				stocks[ticker]['tx_id']			= random.randint(1000, 9999)
 				stocks[ticker]['stock_usd']		= cur_algo['stock_usd']
+				stocks[ticker]['quick_exit']		= cur_algo['quick_exit']
 				stocks[ticker]['stock_qty']		= 0
 				stocks[ticker]['base_price']		= 0
 				stocks[ticker]['orig_base_price']	= 0

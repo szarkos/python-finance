@@ -724,6 +724,7 @@ for ticker in stock_list.split(','):
 				   'tx_id':			random.randint(1000, 9999),
 				   'stock_usd':			args.stock_usd,
 				   'stock_qty':			int(0),
+				   'quick_exit':		args.quick_exit,
 				   'num_purchases':		args.num_purchases,
 				   'failed_txs':		args.max_failed_txs,
 				   'failed_usd':		args.max_failed_usd,

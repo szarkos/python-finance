@@ -15,6 +15,7 @@ import robin_stocks.tda as tda
 
 import tda_gobot_helper
 import tda_algo_helper
+import av_gobot_helper
 
 
 # Parse and check variables
@@ -34,6 +35,7 @@ parser.add_argument("--history", help="Get price history", action="store_true")
 parser.add_argument("--vwap", help="Get VWAP values", action="store_true")
 parser.add_argument("--volatility", help="Get the historical volatility for a stock", action="store_true")
 parser.add_argument("--get_instrument", help="Stock ticker to obtain instrument data", action="store_true")
+parser.add_argument("--get_earnings_calendar", help="Get the upcoming earnings calendar for a stock", action="store_true")
 
 parser.add_argument("--is_market_open", help="Check if US market is open. Use --market_time to specify day/time, or current day/time will be used", action="store_true")
 parser.add_argument("--market_datetime", help='Day to check if market is open. Must be in US/Eastern timezone, and in the format "HH-MM-DD hh:mm:ss"', default=None, type=str)
@@ -140,7 +142,23 @@ if ( args.get_instrument == True ):
 	else:
 		print(data, end='')
 
-	exit(0)
+	sys.exit(0)
+
+
+elif ( args.get_earnings_calendar == True ):
+
+	output = []
+	try:
+		output = av_gobot_helper.av_get_earnings_calendar( ticker=stock )
+
+	except Exception as e:
+		print('Exception caught: ' + str(e))
+		sys.exit(1)
+
+	else:
+		print(output)
+
+	sys.exit(0)
 
 
 elif ( args.quote == True ):

@@ -1977,3 +1977,184 @@ def get_mesa_sine(pricehistory=None, type='hl2', period=25, debug=False):
 	return sine_out, lead_out
 
 
+# John Ehlers's Empirical Mode Decomposition (EMD)
+# https://mesasoftware.com/papers/EmpiricalModeDecomposition.pdf
+# "If the trend is above the upper threshold the market is in an uptrend. If the trend is
+# below the lower threshold the market is in a downtrend. When the trend falls between
+# the two threshold levels the market is in a cycle mode."
+#
+# "The setting of the fraction of the averaged peaks and valleys to be used to
+# establish the thresholds is somewhat subjective and can be adjusted to fit your
+# trading style. Personally, we prefer to trade in the cycle mode and therefore
+# tend to set the thresholds relatively far apart. In this way one can stop swing
+# trading when the market is clearly in a trend."
+def get_mesa_emd(pricehistory=None, type='hl2', period=20, delta=0.5, fraction=0.25, plot=False, debug=False):
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	if ( pricehistory == None ):
+		print('Error: get_mesa_sine(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False
+
+	prices = []
+	if ( type == 'close' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['close']))
+
+	elif ( type == 'high' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['high']))
+
+	elif ( type == 'low' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['low']))
+
+	elif ( type == 'open' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['open']))
+
+	elif ( type == 'volume' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['volume']))
+
+	elif ( type == 'hl2' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+
+	elif ( type == 'hlc3' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+
+	elif ( type == 'ohlc4' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+
+	else:
+		# Undefined type
+		print('Error: get_mesa_sine(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
+		return False
+
+	if ( len(prices) < period ):
+		# Something is wrong with the data we got back from tda.get_price_history()
+		print('Warning: get_mesa_sine(' + str(ticker) + '): len(pricehistory) is less than period - is this a new stock ticker?', file=sys.stderr)
+
+
+	# MESA sine wave calculations
+	import math
+
+	def average( data=None, period=0 ):
+		mean = 0
+		for i in range( -period, 0 ):
+			mean += data[i]
+		return mean / period
+
+	alpha		= float(0)
+	beta		= float(0)
+	gamma		= float(0)
+	bp		= float(0)
+	bp_hist		= []
+	mean		= []
+
+	peak		= float(0)
+	valley		= float(0)
+	avg_peak	= []
+	avg_valley	= []
+	peak_hist	= []
+	valley_hist	= []
+
+	beta		= math.cos(360 / period)
+	gamma		= 1 / math.cos( 720 * delta / period )
+	alpha		= gamma - math.sqrt(gamma * gamma - 1 )
+
+	# https://www.quantconnect.com/forum/discussion/941/john-ehlers-empirical-mode-decomposition/p1
+	# The code from the link above uses math.pi for some reason, which is different from Ehlers's paper
+	#beta   = math.cos(2 * math.pi / period)
+	#gamma  = 1 / math.cos(4 * math.pi * delta / period)
+	#alpha  = gamma - math.sqrt(math.pow(gamma, 2) - 1)
+
+	for idx in range( len(prices) ):
+		try:
+			assert idx > 1
+		except:
+			continue
+
+		if ( len(bp_hist) > 1 ):
+			bp = 0.5 * (1 - alpha) * (prices[idx] - prices[idx-2]) + beta * (1 + alpha) * bp_hist[-1] - alpha * bp_hist[-2]
+		else:
+			bp = 0.5 * (1 - alpha) * (prices[idx] - prices[idx-2])
+
+		bp_hist.append(bp)
+
+		if ( len(bp_hist) > period*2-1 ):
+			mean.append( average(bp_hist, period*2) )
+
+	# Normalize mean
+	tmp = []
+	for i in range(0, len(prices) - len(mean)):
+		tmp.append(0)
+	mean = tmp + list(mean)
+
+	# Calculate the peaks and valleys, and then average them to produce a moving average
+	for idx in range( len(bp_hist) ):
+		try:
+			assert idx > 2
+		except:
+			continue
+
+		peak = valley = 0
+		if ( len(peak_hist) > 1 ):
+			peak = peak_hist[-1]
+			valley = valley_hist[-1]
+
+		if ( bp_hist[idx-1] > bp_hist[idx] and bp_hist[idx-1] > bp_hist[idx-2] ):
+			peak = bp_hist[idx-1]
+		elif ( bp_hist[idx-1] < bp_hist[idx] and bp_hist[idx-1] < bp_hist[idx-2] ):
+			valley = bp_hist[idx-1]
+
+		peak_hist.append(peak)
+		valley_hist.append(valley)
+
+		if ( len(peak_hist) > 50 ):
+			avg_peak.append( fraction * average(peak_hist, 50) )
+			avg_valley.append( fraction * average(valley_hist, 50) )
+
+	# Normalize avg_peak and avg_valley
+	tmp = []
+	for i in range(0, len(prices) - len(avg_peak)):
+		tmp.append(0)
+	avg_peak	= tmp + list(avg_peak)
+	avg_valley	= tmp + list(avg_valley)
+
+	# Plot
+	if ( plot == True ):
+		import matplotlib.pyplot as plt
+
+		plt.title('Empirical Mode Decomposition (' + str(ticker) + ')')
+		plt.plot(mean, label='Trend')
+		plt.plot(avg_peak, label='Avg_Peak')
+		plt.plot(avg_valley, label='Avg_Valley')
+		plt.legend(['Trend', 'Avg_Peak', 'Avg_Valley'], loc = 'upper left')
+		plt.show()
+
+	# Print comma-delimited data for debugging
+	if ( debug == True ):
+		try:
+			assert mytimezone
+		except:
+			mytimezone = timezone("US/Eastern")
+
+		dt = []
+		for key in pricehistory['candles']:
+			tmp = datetime.fromtimestamp(int(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S')
+			dt.append(tmp)
+
+		for i in range(len(dt)):
+			print(str(dt[i]) + ',' + str(mean[i])  + ',' + str(avg_peak[i])  + ',' + str(avg_valley[i]))
+
+
+	return mean, avg_peak, avg_valley
+

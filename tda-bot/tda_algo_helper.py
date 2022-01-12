@@ -1863,7 +1863,117 @@ def get_roc(pricehistory=None, type='hlc3', period=50, debug=False):
 		tmp.append(0)
 	roc = tmp + list(roc)
 
-
 	return roc
+
+
+# John Ehlers' MESA sine wave
+def get_mesa_sine(pricehistory=None, type='hl2', period=25, debug=False):
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	if ( pricehistory == None ):
+		print('Error: get_mesa_sine(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False
+
+	prices = []
+	if ( type == 'close' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['close']))
+
+	elif ( type == 'high' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['high']))
+
+	elif ( type == 'low' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['low']))
+
+	elif ( type == 'open' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['open']))
+
+	elif ( type == 'volume' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['volume']))
+
+	elif ( type == 'hl2' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+
+	elif ( type == 'hlc3' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+
+	elif ( type == 'ohlc4' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+
+	else:
+		# Undefined type
+		print('Error: get_mesa_sine(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
+		return False
+
+	if ( len(prices) < period ):
+		# Something is wrong with the data we got back from tda.get_price_history()
+		print('Warning: get_mesa_sine(' + str(ticker) + '): len(pricehistory) is less than period - is this a new stock ticker?', file=sys.stderr)
+
+
+	# MESA sine wave calculations
+	import math
+	sign = lambda x: math.copysign(1, x)
+
+	sine_out = []
+	lead_out = []
+	for idx,key in enumerate(pricehistory['candles']):
+		try:
+			assert idx > period
+		except:
+			continue
+
+		price		= float(0)
+		sine		= float(0)
+		lead		= float(0)
+
+		real_part	= 0
+		imag_part	= 0
+		for i in range(period):
+			real_part	= real_part + prices[idx-i] * math.cos( 2 * math.pi * (i+1) / period )
+			imag_part	= imag_part + prices[idx-i] * math.sin( 2 * math.pi * (i+1) / period )
+
+		phase1 = 0
+		if ( abs(real_part) > 0.001 ):
+			phase1 = math.atan( imag_part / real_part )
+		else:
+			phase1 = ( math.pi / 2 * sign(imag_part) )
+
+		phase2 = phase1
+		if ( real_part < 0 ):
+			phase2 = phase1 + math.pi
+
+		phase = phase2
+		if ( phase2 < 0 ):
+			phase = phase2 + 2 * math.pi
+
+		elif ( phase2 > 2 * math.pi ):
+			phase = phase2 - 2 * math.pi
+
+		sine	= math.cos( phase )
+		lead	= math.cos( phase + math.pi / 4 )
+
+		sine_out.append(sine)
+		lead_out.append(lead)
+
+	# Normalize the size of sine_out[] and lead_out[] to match the input size
+	tmp = []
+	for i in range(0, len(pricehistory['candles']) - len(sine_out) ):
+		tmp.append(0)
+	sine_out = tmp + list(sine_out)
+	lead_out = tmp + list(lead_out)
+
+	return sine_out, lead_out
 
 

@@ -44,6 +44,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 		nonlocal stacked_ma_signal		; stacked_ma_signal		= False
 		nonlocal mama_fama_signal		; mama_fama_signal		= False
+		nonlocal mesa_sine_signal		; mesa_sine_signal		= False
 
 		nonlocal rs_signal			; rs_signal			= False
 
@@ -132,6 +133,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	use_ha_exit			= False		if ('use_ha_exit' not in params) else params['use_ha_exit']
 	use_ha_candles			= False		if ('use_ha_candles' not in params) else params['use_ha_candles']
 	use_trend_exit			= False		if ('use_trend_exit' not in params) else params['use_trend_exit']
+	use_rsi_exit			= False		if ('use_rsi_exit' not in params) else params['use_rsi_exit']
+	use_mesa_sine_exit		= False		if ('use_mesa_sine_exit' not in params) else params['use_mesa_sine_exit']
 	use_trend			= False		if ('use_trend' not in params) else params['use_trend']
 	trend_type			= 'hl2'		if ('trend_type' not in params) else params['trend_type']
 	trend_period			= 5		if ('trend_period' not in params) else params['trend_period']
@@ -223,6 +226,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	kchannel_atr_period		= 20		if ('kchannel_atr_period' not in params) else params['kchannel_atr_period']
 	kchannel_multiplier		= 1.5		if ('kchannel_multiplier' not in params) else params['kchannel_multiplier']
 	kchan_matype			= 'ema'		if ('kchan_matype' not in params) else params['kchan_matype']
+
+	with_mesa_sine			= False		if ('with_mesa_sine' not in params) else params['with_mesa_sine']
+	mesa_sine_period		= 25		if ('mesa_sine_period' not in params) else params['mesa_sine_period']
+	mesa_sine_type			= 'hl2'		if ('mesa_sine_type' not in params) else params['mesa_sine_type']
 
 	# Indicator parameters and modifiers
 	stochrsi_period			= 128		if ('stochrsi_period' not in params) else params['stochrsi_period']
@@ -653,6 +660,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 		except Exception as e:
 			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_kchannel(): ' + str(e))
+			return False
+
+	# MESA sine wave
+	if ( with_mesa_sine == True ):
+		sine = []
+		lead = []
+		try:
+			sine, lead = tda_algo_helper.get_mesa_sine(pricehistory=pricehistory, type=mesa_sine_type, period=mesa_sine_period)
+
+		except Exception as e:
+			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_mesa_sine(): ' + str(e))
 			return False
 
 	# Calculate daily volume from the 1-minute candles that we have
@@ -1164,6 +1182,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	stacked_ma_signal		= False
 	mama_fama_signal		= False
+	mesa_sine_signal		= False
 
 	bbands_natr			= { 'bbands': [], 'natr': 0, 'squeeze_natr': 0 }
 
@@ -1613,6 +1632,92 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				bbands_roc_counter		= 0
 
 		return bbands_kchan_init_signal, bbands_roc_threshold_signal, bbands_kchan_crossover_signal, bbands_kchan_signal
+
+
+	# MESA Sine Wave
+	def mesa_sine(sine=[], lead=[], direction=None, mesa_exit=False, mesa_sine_signal=False):
+
+		nonlocal idx
+		nonlocal use_mesa_sine_exit
+
+		cur_sine	= sine[idx]
+		prev_sine	= sine[idx-1]
+		cur_lead	= lead[idx]
+		prev_lead	= lead[idx-1]
+
+		midline		= 0
+		min_high_limit	= 0.9
+		min_low_limit	= -0.9
+
+		# Long signal
+		if ( direction == 'long' and cur_sine < midline ):
+			return False
+
+		elif ( direction == 'long' and (prev_sine < prev_lead and cur_sine > cur_lead) ):
+			if ( mesa_exit == True ):
+				mesa_sine_signal = True
+			else:
+				if ( cur_sine > min_high_limit ):
+					mesa_sine_signal = True
+
+		# Short signal
+		elif ( direction == 'short' and cur_sine > midline ):
+			return False
+
+		elif ( direction == 'short' and (prev_sine > prev_lead and cur_sine < cur_lead) ):
+			if ( mesa_exit == True ):
+				mesa_sine_signal = True
+
+			else:
+				if ( cur_sine < min_low_limit ):
+					mesa_sine_signal = True
+
+		# No need to check history if signal is already False
+		if ( mesa_sine_signal == False ):
+			return mesa_sine_signal
+
+		# Analyze trendiness
+		# Check for crossovers
+		xover_count	= 0
+		xover		= []
+		for i in range( idx-1, -1, -1 ):
+
+			# Find the last few idx points that crossed over the midline
+			if ( (sine[i+1] > midline and sine[i] < midline) or
+					(sine[i+1] < midline and sine[i] > midline) ):
+				xover.append(i)
+
+			if ( len(xover) >= 4 ):
+				break
+
+		if ( len(xover) >= 2 ):
+
+			# Check the last two entries in xover[] and see if there was a crossover
+			#  between sine and lead. If not then the stock is probably trending.
+			for i in range( xover[-1]-1, xover[-2]+2, 1 ):
+				cur_sine	= sine[i]
+				prev_sine	= sine[i-1]
+				cur_lead	= lead[i]
+				prev_lead	= lead[i-1]
+
+				if ( (prev_sine < prev_lead and cur_sine > cur_lead) or
+					(prev_sine > prev_lead and cur_sine < cur_lead) ):
+					xover_count += 1
+
+			if ( xover_count == 0 ):
+				mesa_sine_signal = False
+
+		# Find the rate of change for the last few candles
+		# Flatter sine/lead waves indicate trending
+		sine_ph = { 'candles': [] }
+		for i in range( 10 ):
+			sine_ph['candles'].append( { 'close': sine[idx-i] } )
+		sine_roc = tda_algo_helper.get_roc( sine_ph, period=9, type='close' )
+
+		if ( abs(sine_roc[-1]) * 100 < 170 ):
+			mesa_sine_signal = False
+
+		return mesa_sine_signal
 
 
 	# Return a bull/bear signal based on the ttm_trend algorithm
@@ -2078,6 +2183,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					elif ( cur_mama <= cur_fama ):
 						mama_fama_signal = False
 
+			# MESA Sine Wave
+			if ( with_mesa_sine == True ):
+				mesa_sine_signal = mesa_sine( sine=sine, lead=lead, direction='long', mesa_sine_signal=mesa_sine_signal )
+
 			# RSI signal
 			if ( with_rsi == True ):
 				if ( cur_rsi >= rsi_signal_cancel_high_limit ):
@@ -2530,7 +2639,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 								if ( exit_percent_long == orig_exit_percent ):
 									exit_percent_long	= exit_percent_long / 2
-									#quick_exit		= True
+									quick_exit		= True
 
 						# Something wierd is happening
 						else:
@@ -2610,6 +2719,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( with_mama_fama == True and mama_fama_signal != True ):
 					final_buy_signal = False
 
+				if ( with_mesa_sine == True and mesa_sine_signal != True ):
+					final_buy_signal = False
+
 				if ( confirm_daily_ma == True and check_stacked_ma(cur_daily_ma, 'bear') == True ):
 					final_buy_signal = False
 
@@ -2651,6 +2763,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					', bbands_kchan_crossover_signal: ' + str(bbands_kchan_crossover_signal) +
 					', bbands_kchan_init_signal: '	+ str(bbands_kchan_init_signal) +
 					', stacked_ma_signal: '		+ str(stacked_ma_signal) +
+					', mesa_sine_signal: '		+ str(mesa_sine_signal) +
 					', vwap_signal: '		+ str(vwap_signal) +
 					', vpt_signal: '		+ str(vpt_signal) +
 					', resistance_signal: '		+ str(resistance_signal) +
@@ -3060,7 +3173,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Do not use stochrsi as an exit signal if strict_exit_percent is set to True
 			# Also, if exit_percent_signal is triggered that means we've surpassed the exit_percent threshold and
 			#   should wait for either a red candle or for decr_threshold to be hit.
-			if ( variable_exit == False and strict_exit_percent == False and exit_percent_signal_long == False ):
+			if ( use_rsi_exit == True and strict_exit_percent == False and exit_percent_signal_long == False ):
 				if ( cur_rsi_k > stochrsi_default_high_limit and cur_rsi_d > stochrsi_default_high_limit ):
 					stochrsi_signal = True
 
@@ -3072,6 +3185,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( stochrsi_signal == True ):
 					if ( prev_rsi_k > stochrsi_default_high_limit and cur_rsi_k <= stochrsi_default_high_limit ):
 						sell_signal = True
+
+			# Check the mesa sign indicator for exit signal
+			if ( use_mesa_sine_exit == True and strict_exit_percent == False and exit_percent_signal_long == False ):
+				mesa_sine_signal = mesa_sine( sine=sine, lead=lead, direction='short', mesa_exit=True )
+				if ( mesa_sine_signal == True ):
+					 sell_signal = True
+
 
 			if ( sell_signal == True ):
 
@@ -3371,6 +3491,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					# Price crossed over from bearish to bullish
 					elif ( cur_mama >= cur_fama ):
 						mama_fama_signal = False
+
+			# MESA Sine Wave
+			if ( with_mesa_sine == True ):
+				mesa_sine_signal = mesa_sine(sine=sine, lead=lead, direction='short', mesa_sine_signal=mesa_sine_signal)
 
 			# RSI signal
 			if ( with_rsi == True ):
@@ -3797,7 +3921,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 								if ( exit_percent_long == orig_exit_percent ):
 									exit_percent_long	= exit_percent_long / 2
-									#quick_exit		= True
+									quick_exit		= True
 
 						# Stock is sinking relative to ETF
 						elif ( stock_roc[idx] < 0 and etf_indicators[t]['roc'][tmp_dt] > 0 ):
@@ -3887,6 +4011,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( with_mama_fama == True and mama_fama_signal != True ):
 					final_short_signal = False
 
+				if ( with_mesa_sine == True and mesa_sine_signal != True ):
+					final_short_signal = False
+
 				if ( confirm_daily_ma == True and check_stacked_ma(cur_daily_ma, 'bull') == True ):
 					final_short_signal = False
 
@@ -3927,7 +4054,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					', bbands_roc_threshold_signal: ' + str(bbands_roc_threshold_signal) +
 					', bbands_kchan_crossover_signal: ' + str(bbands_kchan_crossover_signal) +
 					', bbands_kchan_init_signal: '  + str(bbands_kchan_init_signal) +
-					', stacked_ma_signal: '		+ str(stacked_ma_signal)+
+					', stacked_ma_signal: '		+ str(stacked_ma_signal) +
+					', mesa_sine_signal: '		+ str(mesa_sine_signal) +
 					', vwap_signal: '		+ str(vwap_signal) +
 					', vpt_signal: '		+ str(vpt_signal) +
 					', resistance_signal: '		+ str(resistance_signal) +
@@ -4346,7 +4474,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Do not use stochrsi as an exit signal if strict_exit_percent is set to True
 			# Also, if exit_percent_signal is triggered that means we've surpassed the exit_percent threshold and
 			#   should wait for either a red candle or for decr_threshold to be hit.
-			if ( variable_exit == False and strict_exit_percent == False and exit_percent_signal_short == False ):
+			if ( use_rsi_exit == True and strict_exit_percent == False and exit_percent_signal_short == False ):
 				if ( cur_rsi_k < stochrsi_default_low_limit and cur_rsi_d < stochrsi_default_low_limit ):
 					stochrsi_signal = True
 
@@ -4359,6 +4487,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					if ( prev_rsi_k < stochrsi_default_low_limit and cur_rsi_k >= stochrsi_default_low_limit ):
 						buy_to_cover_signal = True
 
+			# Check the mesa sign indicator for exit signal
+			if ( use_mesa_sine_exit == True and strict_exit_percent == False and exit_percent_signal_short == False ):
+				mesa_sine_signal = mesa_sine( sine=sine, lead=lead, direction='long', mesa_exit=True )
+				if ( mesa_sine_signal == True ):
+					 buy_to_cover_signal = True
 
 			# BUY-TO-COVER
 			if ( buy_to_cover_signal == True ):

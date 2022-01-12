@@ -2637,9 +2637,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 								if ( decr_threshold > 1 ):
 									decr_threshold = 1
 
-								if ( exit_percent_long == orig_exit_percent ):
-									exit_percent_long	= exit_percent_long / 2
-									quick_exit		= True
+								if ( cur_natr < 1 ):
+									quick_exit = True
+									if ( exit_percent_long == orig_exit_percent ):
+										exit_percent_long = exit_percent_long / 2
 
 						# Something wierd is happening
 						else:
@@ -3919,9 +3920,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 								if ( decr_threshold > 1 ):
 									decr_threshold = 1
 
-								if ( exit_percent_long == orig_exit_percent ):
-									exit_percent_long	= exit_percent_long / 2
-									quick_exit		= True
+								if ( cur_natr < 1 ):
+									quick_exit = True
+									if ( exit_percent_long == orig_exit_percent ):
+										exit_percent_long = exit_percent_long / 2
 
 						# Stock is sinking relative to ETF
 						elif ( stock_roc[idx] < 0 and etf_indicators[t]['roc'][tmp_dt] > 0 ):

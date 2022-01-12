@@ -17,6 +17,7 @@ parser.add_argument("--scenarios", help='List of scenarios to test, comma-delimi
 parser.add_argument("--ofile", help='File to output results', type=str, default=None)
 parser.add_argument("--opts", help='Add any additional options for tda-gobot-analyze', default=None, type=str)
 parser.add_argument("--debug", help='Enable debug output', action="store_true")
+parser.add_argument("--debug_only", help='Print the command to run but do not actually run the command', action="store_true")
 args = parser.parse_args()
 
 mytimezone = pytz.timezone("US/Eastern")
@@ -309,11 +310,15 @@ for key in scenarios:
 	command = './tda-gobot-analyze.py ' + str(ticker) + ' ' + str(std_opts) + ' --ifile=' + str(args.ifile) + ' ' + str(scenarios[key] + ' ' + str(opts))
 	outfile = str(args.ofile) + '-' + str(key)
 
-	if ( args.debug == True ):
+	if ( args.debug == True or args.debug_only == True ):
 		command = re.sub( '\t', ' ', command )
 		command = re.sub( '\s{2,}', ' ', command )
 		print('Command: ' + str(command))
 
+	if ( args.debug_only == True ):
+		continue
+
+	# Run the test
 	try:
 		process = Popen( command, stdin=None, stdout=PIPE, stderr=STDOUT, shell=True )
 		output, err = process.communicate()

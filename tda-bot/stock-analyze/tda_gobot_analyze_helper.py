@@ -301,6 +301,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	etf_min_rs			= None		if ('etf_min_rs' not in params) else params['etf_min_rs']
 	etf_min_roc			= None		if ('etf_min_roc' not in params) else params['etf_min_roc']
 	etf_min_natr			= None		if ('etf_min_natr' not in params) else params['etf_min_natr']
+	etf_use_emd			= False		if ('etf_use_emd' not in params) else params['etf_use_emd']
+
+	etf_emd_fraction		= 0.1		if ('mesa_emd_fraction' not in params) else params['mesa_emd_fraction']
+	etf_emd_period			= 20		if ('mesa_emd_period' not in params) else params['mesa_emd_period']
+	etf_emd_type			= 'hl2'		if ('mesa_emd_type' not in params) else params['mesa_emd_type']
+
+	mesa_emd_fraction		= 0.1		if ('mesa_emd_fraction' not in params) else params['mesa_emd_fraction']
+	mesa_emd_period			= 20		if ('mesa_emd_period' not in params) else params['mesa_emd_period']
+	mesa_emd_type			= 'hl2'		if ('mesa_emd_type' not in params) else params['mesa_emd_type']
 
 	experimental			= False		if ('experimental' not in params) else params['experimental']
 	# End params{} configuration
@@ -673,6 +682,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_mesa_sine(): ' + str(e))
 			return False
 
+	# Empirical Mode Decomposition (EMD)
+	emd_trend	= []
+	emd_peak	= []
+	emd_valley	= []
+	try:
+		emd_trend, emd_peak, emd_valley = tda_algo_helper.get_mesa_emd(pricehistory=pricehistory, type=mesa_emd_type, period=mesa_emd_period, fraction=mesa_emd_fraction)
+
+	except Exception as e:
+		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_mesa_emd(): ' + str(e))
+		return False
+
 	# Calculate daily volume from the 1-minute candles that we have
 	if ( check_volume == True ):
 		daily_volume = OrderedDict()
@@ -989,9 +1009,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		s_ma_ha_primary	= get_stackedma(pricehistory, stacked_ma_periods_primary, stacked_ma_type_primary, use_ha_candles=True)
 
 	# MAMA/FAMA algorithm
-	mama = []
-	fama = []
 	if ( primary_stoch_indicator == 'mama_fama' or with_mama_fama == True ):
+		mama = []
+		fama = []
 		try:
 			mama, fama = tda_algo_helper.get_alt_ma(pricehistory=pricehistory, ma_type='mama', type='hlc3', mama_fastlimit=0.5, mama_slowlimit=0.05)
 
@@ -1055,10 +1075,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					etf_roc[i] = etf_roc[i] * 10000
 					temp_ph['candles'].append({ 'open': etf_roc[i], 'high': etf_roc[i], 'low': etf_roc[i], 'close': etf_roc[i] })
 
-				tmp_roc_stacked_ma	= get_stackedma(pricehistory=temp_ph, stacked_ma_periods=stacked_ma_periods_primary, stacked_ma_type='ema')
-				tmp_stacked_ma		= get_stackedma(pricehistory=etf_indicators[t]['pricehistory'], stacked_ma_periods=stacked_ma_periods_primary, stacked_ma_type=stacked_ma_type_primary)
-				tmp_atr, tmp_natr	= tda_algo_helper.get_atr( pricehistory=etf_indicators[t]['pricehistory_5m'], period=atr_period )
-				#tmp_mama,tmp_fama	= tda_algo_helper.get_alt_ma(pricehistory=etf_indicators[t]['pricehistory'], ma_type='mama', type='close', mama_fastlimit=0.5, mama_slowlimit=0.05)
+				tmp_roc_stacked_ma		= get_stackedma(pricehistory=temp_ph, stacked_ma_periods=stacked_ma_periods_primary, stacked_ma_type='ema')
+				tmp_stacked_ma			= get_stackedma(pricehistory=etf_indicators[t]['pricehistory'], stacked_ma_periods=stacked_ma_periods_primary, stacked_ma_type=stacked_ma_type_primary)
+
+				tmp_atr, tmp_natr		= tda_algo_helper.get_atr(pricehistory=etf_indicators[t]['pricehistory_5m'], period=atr_period)
+				tmp_trend, tmp_peak, tmp_valley	= tda_algo_helper.get_mesa_emd(pricehistory=etf_indicators[t]['pricehistory'], type=etf_emd_type, period=etf_emd_period, fraction=etf_emd_fraction)
+				#tmp_mama,tmp_fama		= tda_algo_helper.get_alt_ma(pricehistory=etf_indicators[t]['pricehistory'], ma_type='mama', type='close', mama_fastlimit=0.5, mama_slowlimit=0.05)
 
 				# Need to normalize the length of tmp_natr to match etf_indicators[t]['pricehistory']['candles']
 				tmp = []
@@ -1071,12 +1093,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 					etf_indicators[t]['roc_stacked_ma'].update( { dt: tmp_roc_stacked_ma[i] } )
 					etf_indicators[t]['stacked_ma'].update( { dt: tmp_stacked_ma[i] } )
+					etf_indicators[t]['mesa_emd'].update( { dt: (tmp_trend[i],tmp_peak[i],tmp_valley[i]) } )
 					#etf_indicators[t]['mama_fama'].update( { dt: (tmp_mama[i],tmp_fama[i]) } )
 
 					if ( int(i/5) <= len(tmp_natr) - 1 ):
 						etf_indicators[t]['natr'].update( { dt: tmp_natr[int(i/5)] } )
 
-				del(temp_ph,tmp_roc_stacked_ma,tmp_stacked_ma,tmp_atr,tmp_natr,tmp_mama,tmp_fama)
+				del(temp_ph,tmp_roc_stacked_ma,tmp_stacked_ma,tmp_atr,tmp_natr,tmp_mama,tmp_fama,tmp_trend,tmp_peak,tmp_valley)
 
 			except Exception as e:
 				print('Error, unable to calculate EMA of rate-of-change for ticker ' + str(t) + ': ' + str(e))
@@ -1718,6 +1741,33 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			mesa_sine_signal = False
 
 		return mesa_sine_signal
+
+
+	# Return trend/cycle affinity based on EMD values
+	#  cur_emd = ( cur_trend, cur_peak, cur_valley)
+	def get_mesa_emd(cur_emd=(0,0,0), prev_emd=(0,0,0)):
+
+		cur_trend	= cur_emd[0]
+		prev_trend	= prev_emd[0]
+
+		cur_peak	= cur_emd[1]
+		prev_peak	= prev_emd[1]
+
+		cur_valley	= cur_emd[2]
+		prev_valley	= prev_emd[2]
+
+		# If the trend is above the upper threshold the market is in an uptrend.
+		# If the trend is below the lower threshold the market is in a downtrend.
+		# When the trend falls between the two threshold levels the market is in a cycle mode.
+		if ( cur_trend > cur_peak ):
+			return 1
+		elif ( cur_trend < cur_valley ):
+			return -1
+		elif ( cur_trend < cur_peak and cur_trend > cur_valley ):
+			return 0
+		else:
+			print('Warning: get_mesa_emd(): Bad trendline: ' + str(cur_trend) + ' / ' + str(cur_peak) + ' / ' + str(cur_valley) )
+			return -99
 
 
 	# Return a bull/bear signal based on the ttm_trend algorithm
@@ -2606,6 +2656,43 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 						else:
 							print('Warning (' + str(t) + '): ' + str(tmp_dt) + ' not in etf_indicators')
+
+						# Check MESA EMD to determine if ETF is cycling or trending
+						if ( etf_use_emd == True ):
+							etf_cur_emd = ( etf_indicators[t]['mesa_emd'][tmp_dt][0],
+									etf_indicators[t]['mesa_emd'][tmp_dt][1],
+									etf_indicators[t]['mesa_emd'][tmp_dt][2] )
+
+							etf_emd_affinity = get_mesa_emd( cur_emd=etf_cur_emd )
+							if ( etf_emd_affinity == 0 ):
+								# ETF is in a cycle mode. This typically means the stock is transitioning,
+								#  flat, or trading in a channel. This is bad when we use the ETF as an
+								#  indicator because we want to ensure the ETF is moving in a particular
+								#  direction and not just flopping around.
+								rs_signal = False
+								continue
+
+#							tmp_dt_prev = pricehistory['candles'][idx-1]['datetime']
+#							if ( tmp_dt_prev in etf_indicators[t]['mesa_emd'] ):
+#								etf_prev_emd = ( etf_indicators[t]['mesa_emd'][tmp_dt_prev][0],
+#										etf_indicators[t]['mesa_emd'][tmp_dt_prev][1],
+#										etf_indicators[t]['mesa_emd'][tmp_dt_prev][2] )
+
+#								if ( etf_indicators[t]['roc'][tmp_dt] < 0 ):
+									# ETF rate-of-change is below zero
+									# Make sure the etf_emd_affinity is trending downward, and
+									# and moving downward
+#									if ( etf_emd_affinity == 1 or etf_prev_emd[0] < etf_cur_emd[0] ):
+#										rs_signal = False
+#										continue
+
+								# ETF rate-of-change is above zero
+								# Make sure the etf_emd_affinity is trending upward, and
+								# and moving upward
+#								elif ( etf_indicators[t]['roc'][tmp_dt] > 0 ):
+#									if ( etf_emd_affinity == -1 or etf_prev_emd[0] > etf_cur_emd[0] ):
+#										rs_signal = False
+#										continue
 
 						# Stock is rising compared to ETF
 						if ( stock_roc[idx] > 0 and etf_indicators[t]['roc'][tmp_dt] < 0 ):
@@ -3904,6 +3991,43 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 						else:
 							print('Warning (' + str(t) + '): ' + str(tmp_dt) + ' not in etf_indicators')
+
+						# Check MESA EMD to determine if ETF is cycling or trending
+						if ( etf_use_emd == True ):
+							etf_cur_emd = ( etf_indicators[t]['mesa_emd'][tmp_dt][0],
+									etf_indicators[t]['mesa_emd'][tmp_dt][1],
+									etf_indicators[t]['mesa_emd'][tmp_dt][2] )
+
+							etf_emd_affinity = get_mesa_emd( cur_emd=etf_cur_emd )
+							if ( etf_emd_affinity == 0 ):
+								# ETF is in a cycle mode. This typically means the stock is transitioning,
+								#  flat, or trading in a channel. This is bad when we use the ETF as an
+								#  indicator because we want to ensure the ETF is moving in a particular
+								#  direction and not just flopping around.
+								rs_signal = False
+								continue
+
+#							tmp_dt_prev = pricehistory['candles'][idx-1]['datetime']
+#							if ( tmp_dt_prev in etf_indicators[t]['mesa_emd'] ):
+#								etf_prev_emd = ( etf_indicators[t]['mesa_emd'][tmp_dt_prev][0],
+#										etf_indicators[t]['mesa_emd'][tmp_dt_prev][1],
+#										etf_indicators[t]['mesa_emd'][tmp_dt_prev][2] )
+
+#								if ( etf_indicators[t]['roc'][tmp_dt] < 0 ):
+									# ETF rate-of-change is below zero
+									# Make sure the etf_emd_affinity is trending downward, and
+									# and moving downward
+#									if ( etf_emd_affinity == 1 or etf_prev_emd[0] < etf_cur_emd[0] ):
+#										rs_signal = False
+#										continue
+
+								# ETF rate-of-change is above zero
+								# Make sure the etf_emd_affinity is trending upward, and
+								# and moving upward
+#								elif ( etf_indicators[t]['roc'][tmp_dt] > 0 ):
+#									if ( etf_emd_affinity == -1 or etf_prev_emd[0] > etf_cur_emd[0] ):
+#										rs_signal = False
+#										continue
 
 						# Stock is rising compared to ETF
 						if ( stock_roc[idx] > 0 and etf_indicators[t]['roc'][tmp_dt] < 0 ):

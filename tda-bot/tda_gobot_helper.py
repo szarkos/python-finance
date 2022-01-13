@@ -465,7 +465,8 @@ def write_blacklist(ticker=None, stock_qty=-1, orig_base_price=-1, last_price=-1
 
 # Check stock blacklist to avoid wash sales
 # Returns True if ticker is in the file and time_stamp is < 32 days ago
-def check_blacklist(ticker=None, debug=False):
+# Or if permaban_only=True, then only returns True for permanently blacklisted stocks
+def check_blacklist(ticker=None, permaban_only=False, debug=False):
 	if ( ticker == None ):
 		print('Error: check_blacklist(' + str(ticker) + '): ticker is empty', file=sys.stderr)
 		return False
@@ -506,6 +507,14 @@ def check_blacklist(ticker=None, debug=False):
 			continue
 
 		if ( str(stock) == str(ticker) ):
+
+			# Return True of the stock was permanently banned
+			if ( time_stamp == '9999999999' ):
+				return True
+
+			if ( permaban_only == True ):
+				return False
+
 			time_stamp = datetime.fromtimestamp(float(time_stamp), tz=mytimezone)
 			if ( time_stamp + timedelta(days=32) > time_now ):
 

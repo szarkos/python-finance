@@ -1988,7 +1988,7 @@ def get_mesa_sine(pricehistory=None, type='hl2', period=25, debug=False):
 # trading style. Personally, we prefer to trade in the cycle mode and therefore
 # tend to set the thresholds relatively far apart. In this way one can stop swing
 # trading when the market is clearly in a trend."
-def get_mesa_emd(pricehistory=None, type='hl2', period=20, delta=0.5, fraction=0.25, plot=False, debug=False):
+def get_mesa_emd(pricehistory=None, type='hl2', period=20, delta=0.5, fraction=0.1, plot=False, debug=False):
 
 	ticker = ''
 	try:
@@ -2042,8 +2042,7 @@ def get_mesa_emd(pricehistory=None, type='hl2', period=20, delta=0.5, fraction=0
 		# Something is wrong with the data we got back from tda.get_price_history()
 		print('Warning: get_mesa_sine(' + str(ticker) + '): len(pricehistory) is less than period - is this a new stock ticker?', file=sys.stderr)
 
-
-	# MESA sine wave calculations
+	# EMD calculations
 	import math
 
 	def average( data=None, period=0 ):

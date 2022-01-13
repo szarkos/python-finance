@@ -29,9 +29,10 @@ parser.add_argument("--augment_ifile", help='Pull additional history data and ap
 parser.add_argument("--weekly_ifile", help='Use pickle file for weekly pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--daily_ifile", help='Use pickle file for daily pricehistory data rather than accessing the API', default=None, type=str)
 
-parser.add_argument("--start_date", help='The day to start trading (i.e. 2021-05-12). Typically useful for verifying history logs.', default=None, type=str)
+parser.add_argument("--start_date", help='The day to start trading (i.e. 2021-05-12). Typically useful for verifying history logs', default=None, type=str)
 parser.add_argument("--stop_date", help='The day to stop trading (i.e. 2021-05-12)', default=None, type=str)
-parser.add_argument("--skip_blacklist", help='Do not process blacklisted tickers.', action="store_true")
+parser.add_argument("--skip_blacklist", help='Do not process blacklisted tickers', action="store_true")
+parser.add_argument("--skip_perma_blacklist", help='Do not process permanently blacklisted tickers, but allow others that are less than 30-days old', action="store_true")
 parser.add_argument("--skip_check", help="Skip fixup and check of stock ticker", action="store_true")
 parser.add_argument("--unsafe", help='Allow trading between 9:30-10:15AM where volatility is high', action="store_true")
 parser.add_argument("--hold_overnight", help='Allow algorithm to hold stocks across multiple days', action="store_true")
@@ -45,13 +46,18 @@ parser.add_argument("--use_natr_resistance", help='Enable the daily NATR resista
 parser.add_argument("--use_pivot_resistance", help='Enable the use of pivot points and PDH/PDL resistance check', action="store_true")
 parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
 
-parser.add_argument("--check_etf_indicators", help='Use the relative strength against one or more ETF indicators to assist with trade entrycheck_etf_indicators', action="store_true")
+parser.add_argument("--check_etf_indicators", help='Use the relative strength against one or more ETF indicators to assist with trade entry', action="store_true")
 parser.add_argument("--check_etf_indicators_strict", help='Do not allow trade unless check_etf_indicators agrees with direction', action="store_true")
 parser.add_argument("--etf_tickers", help='List of tickers to use with --check_etf_indicators (Default: SPY)', default='SPY', type=str)
 parser.add_argument("--etf_roc_period", help='Rate of change lookback period (Default: 50)', default=50, type=int)
 parser.add_argument("--etf_min_rs", help='ETF minimum relative strength (Default: None)', default=None, type=float)
 parser.add_argument("--etf_min_roc", help='ETF minimum rate-of-change (Default: None)', default=None, type=float)
 parser.add_argument("--etf_min_natr", help='ETF minimum NATR (Default: None)', default=None, type=float)
+
+parser.add_argument("--etf_use_emd", help='Use MESA EMD to check cycle vs. trend mode of the ETF', action="store_true")
+parser.add_argument("--etf_emd_fraction", help='MESA EMD fraction to use with ETF', default=0.1, type=float)
+parser.add_argument("--etf_emd_period", help='MESA EMD period to use with ETF', default=20, type=int)
+parser.add_argument("--etf_emd_type", help='MESA EMD type to use with ETF', default='hl2', type=str)
 
 # Experimental
 parser.add_argument("--experimental", help='Enable experimental features (Default: False)', action="store_true")
@@ -249,15 +255,21 @@ if ( args.skip_check == False ):
 	ret = tda_gobot_helper.check_stock_symbol(stock)
 	if ( isinstance(ret, bool) and ret == False ):
 		print('Error: check_stock_symbol(' + str(stock) + ') returned False, exiting.')
-		exit(1)
+		sys.exit(1)
 
 # Check if stock is in the blacklist
 if ( tda_gobot_helper.check_blacklist(stock) == True ):
 	if ( args.skip_blacklist == True ):
 		print('(' + str(stock) + ') WARNING: skipping ' + str(stock) + ' because it is currently blacklisted and --skip_blacklist is set.', file=sys.stderr)
-		exit(1)
+		sys.exit(1)
 	else:
 		print('(' + str(stock) + ') WARNING: stock ' + str(stock) + ' is currently blacklisted')
+
+if ( args.skip_perma_blacklist == True ):
+	if ( tda_gobot_helper.check_blacklist(ticker=stock, permaban_only=True) == True ):
+		print('(' + str(stock) + ') WARNING: skipping ' + str(stock) + ' because it is permanently blacklisted and --skip_perma_blacklist is set.', file=sys.stderr)
+		sys.exit(1)
+
 
 # Confirm that we can short this stock
 if ( args.ifile == None ):
@@ -449,13 +461,15 @@ for algo in args.algo.split(','):
 	etf_tickers = args.etf_tickers.split(',')
 	etf_indicators = {}
 	for t in etf_tickers:
-		etf_indicators[t] = {	'pricehistory': {}, 'pricehistory_5m': {},
-					'roc': {},
-					'roc_close': {},
-					'stacked_ma': {},
-					'roc_stacked_ma': {},
-					'mama_fama': {},
-					'natr': {}
+		etf_indicators[t] = {	'pricehistory':		{},
+					'pricehistory_5m':	{},
+					'roc':			{},
+					'roc_close':		{},
+					'stacked_ma':		{},
+					'roc_stacked_ma':	{},
+					'mama_fama':		{},
+					'mesa_emd':		{},
+					'natr':			{}
 		}
 
 	if ( args.check_etf_indicators == True ):
@@ -788,6 +802,11 @@ for algo in args.algo.split(','):
 					'etf_min_rs':				args.etf_min_rs,
 					'etf_min_roc':				args.etf_min_roc,
 					'etf_min_natr':				args.etf_min_natr,
+
+					'etf_use_emd':				args.etf_use_emd,
+					'etf_emd_fraction':			args.etf_emd_fraction,
+					'etf_emd_period':			args.etf_emd_period,
+					'etf_emd_type':				args.etf_emd_type,
 			}
 
 			# Call stochrsi_analyze_new() with test_params{} to run the backtest

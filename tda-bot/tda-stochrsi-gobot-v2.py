@@ -89,10 +89,13 @@ parser.add_argument("--rsi_slow", help='Slowing period to use in StochRSI algori
 parser.add_argument("--rsi_type", help='Price to use for RSI calculation (high/low/open/close/volume/hl2/hlc3/ohlc4)', default='hlc3', type=str)
 parser.add_argument("--stochrsi_offset", help='Offset between K and D to determine strength of trend', default=8, type=int)
 
-parser.add_argument("--stacked_ma_type", help='Moving average type to use (Default: sma)', default='kama', type=str)
+parser.add_argument("--stacked_ma_type", help='Moving average type to use (Default: kama)', default='kama', type=str)
 parser.add_argument("--stacked_ma_periods", help='List of MA periods to use, comma-delimited (Default: 8,13,21)', default='8,13,21', type=str)
 parser.add_argument("--stacked_ma_type_primary", help='Moving average type to use when stacked_ma is used as primary indicator (Default: kama)', default='kama', type=str)
 parser.add_argument("--stacked_ma_periods_primary", help='List of MA periods to use when stacked_ma is used as primary indicator, comma-delimited (Default: 8,13,21)', default='8,13,21', type=str)
+parser.add_argument("--stacked_ma_secondary", help='Use stacked MA as a secondary indicator for trade entries (Default: False)', action="store_true")
+parser.add_argument("--stacked_ma_type_secondary", help='Moving average type to use (Default: kama)', default='kama', type=str)
+parser.add_argument("--stacked_ma_periods_secondary", help='List of MA periods to use, comma-delimited (Default: 8,13,21)', default='8,13,21', type=str)
 
 parser.add_argument("--mfi_high_limit", help='MFI high limit', default=80, type=int)
 parser.add_argument("--mfi_low_limit", help='MFI low limit', default=20, type=int)
@@ -262,7 +265,7 @@ for algo in args.algos:
 				break
 
 	# Indicators
-	primary_stochrsi = primary_stochmfi = primary_stacked_ma = primary_mama_fama = stacked_ma = stochrsi_5m = stochmfi = stochmfi_5m = False
+	primary_stochrsi = primary_stochmfi = primary_stacked_ma = primary_mama_fama = stacked_ma = stacked_ma_secondary = stochrsi_5m = stochmfi = stochmfi_5m = False
 	rsi = mfi = adx = dmi = dmi_simple = macd = macd_simple = aroonosc = False
 	chop_index = chop_simple = supertrend = bbands_kchannel = False
 	vwap = vpt = support_resistance = False
@@ -290,6 +293,8 @@ for algo in args.algos:
 	stacked_ma_periods_primary	= args.stacked_ma_periods_primary
 	stacked_ma_type			= args.stacked_ma_type
 	stacked_ma_periods		= args.stacked_ma_periods
+	stacked_ma_type_secondary	= args.stacked_ma_type_secondary
+	stacked_ma_periods_secondary	= args.stacked_ma_periods_secondary
 
 	# Heikin Ashi and TTM_Trend
 	use_ha_exit			= args.use_ha_exit
@@ -377,6 +382,7 @@ for algo in args.algos:
 		if ( a == 'primary_stacked_ma' ):	primary_stacked_ma	= True
 		if ( a == 'primary_mama_fama' ):	primary_mama_fama	= True
 		if ( a == 'stacked_ma' ):		stacked_ma		= True
+		if ( a == 'stacked_ma_secondary' ):	stacked_ma_secondary	= True
 		if ( a == 'stochrsi_5m' ):		stochrsi_5m		= True
 		if ( a == 'stochmfi' ):			stochmfi		= True
 		if ( a == 'stochmfi_5m' ):		stochmfi_5m		= True
@@ -418,6 +424,8 @@ for algo in args.algos:
 		if ( re.match('stacked_ma_periods_primary:', a)		!= None ):	stacked_ma_periods_primary	= str( a.split(':')[1] )
 		if ( re.match('stacked_ma_type:', a)			!= None ):	stacked_ma_type			= str( a.split(':')[1] )
 		if ( re.match('stacked_ma_periods:', a)			!= None ):	stacked_ma_periods		= str( a.split(':')[1] )
+		if ( re.match('stacked_ma_type_secondary:', a)		!= None ):	stacked_ma_type_secondary	= str( a.split(':')[1] )
+		if ( re.match('stacked_ma_periods_secondary:', a)	!= None ):	stacked_ma_periods_secondary	= str( a.split(':')[1] )
 
 		if ( re.match('use_ha_exit', a)				!= None ):	use_ha_exit			= True
 		if ( re.match('use_ha_candles', a)			!= None ):	use_ha_candles			= True
@@ -523,6 +531,7 @@ for algo in args.algos:
 			'primary_stacked_ma':			primary_stacked_ma,
 			'primary_mama_fama':			primary_mama_fama,
 			'stacked_ma':				stacked_ma,
+			'stacked_ma_secondary':			stacked_ma_secondary,
 			'stochrsi_5m':				stochrsi_5m,
 			'stochmfi':				stochmfi,
 			'stochmfi_5m':				stochmfi_5m,
@@ -582,6 +591,8 @@ for algo in args.algos:
 			'stacked_ma_periods_primary':		stacked_ma_periods_primary,
 			'stacked_ma_type':			stacked_ma_type,
 			'stacked_ma_periods':			stacked_ma_periods,
+			'stacked_ma_type_secondary':		stacked_ma_type_secondary,
+			'stacked_ma_periods_secondary':		stacked_ma_periods_secondary,
 
 			'use_ha_exit':				use_ha_exit,
 			'use_ha_candles':			use_ha_candles,
@@ -636,14 +647,15 @@ for algo in args.algos:
 
 # Clean up this mess
 # All the stuff above should be put into a function to avoid this cleanup stuff. I know it. It'll happen eventually.
-del(stock_usd,quick_exit,primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,stacked_ma,stochrsi_5m,stochmfi,stochmfi_5m)
+del(stock_usd,quick_exit,primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,stacked_ma,stacked_ma_secondary,stochrsi_5m,stochmfi,stochmfi_5m)
 del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,vwap,vpt,support_resistance)
 del(rsi_high_limit,rsi_low_limit,rsi_period,stochrsi_period,stochrsi_5m_period,rsi_k_period,rsi_k_5m_period,rsi_d_period,rsi_slow,stochrsi_offset,stochrsi_5m_offset)
 del(mfi_high_limit,mfi_low_limit,mfi_period,stochmfi_period,stochmfi_5m_period,mfi_k_period,mfi_k_5m_period,mfi_d_period,mfi_slow,stochmfi_offset,stochmfi_5m_offset)
 del(adx_threshold,adx_period,macd_long_period,macd_short_period,macd_signal_period,macd_offset,aroonosc_period,di_period,atr_period,vpt_sma_period)
 del(chop_period,chop_low_limit,chop_high_limit,supertrend_atr_period,supertrend_min_natr)
 del(bbands_kchannel_offset,bbands_kchan_squeeze_count,bbands_period,kchannel_period,kchannel_atr_period,max_squeeze_natr,bbands_roc_threshold,bbands_roc_count,bbands_roc_strict)
-del(stacked_ma_type_primary,stacked_ma_periods_primary,stacked_ma_type,stacked_ma_periods,use_natr_resistance,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr)
+del(stacked_ma_type_primary,stacked_ma_periods_primary,stacked_ma_type,stacked_ma_periods,stacked_ma_type_secondary,stacked_ma_periods_secondary)
+del(use_natr_resistance,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr)
 del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count,bbands_matype,kchan_matype)
 del(use_ha_exit,use_ha_candles,use_trend_exit,use_trend,trend_period,trend_type,use_combined_exit)
 del(check_etf_indicators,check_etf_indicators_strict,etf_tickers,etf_roc_period,etf_min_rs,etf_min_natr)
@@ -774,11 +786,15 @@ for ticker in stock_list.split(','):
 				   'prev_s_ma_primary':		(0,0,0,0),
 				   'cur_s_ma':			(0,0,0,0),
 				   'prev_s_ma':			(0,0,0,0),
+				   'cur_s_ma_secondary':	(0,0,0,0),
+				   'prev_s_ma_secondary':	(0,0,0,0),
 
 				   'cur_s_ma_ha_primary':	(0,0,0,0),
 				   'prev_s_ma_ha_primary':	(0,0,0,0),
 				   'cur_s_ma_ha':		(0,0,0,0),
 				   'prev_s_ma_ha':		(0,0,0,0),
+				   'cur_s_ma_ha_secondary':	(0,0,0,0),
+				   'prev_s_ma_ha_secondary':	(0,0,0,0),
 
 				   'cur_daily_ma':		(0,0,0,0),
 

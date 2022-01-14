@@ -942,11 +942,17 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 		# Stacked Moving Averages (non-primary)
 		if ( cur_algo['stacked_ma'] == True ):
-			s_ma	= []
-			s_ma_ha	= []
+			s_ma			= []
+			s_ma_ha			= []
+			s_ma_secondary		= []
+			s_ma_ha_secondary	= []
 			try:
 				s_ma	= get_stackedma( stocks[ticker]['pricehistory'], cur_algo['stacked_ma_periods'], cur_algo['stacked_ma_type'] )
 				s_ma_ha	= get_stackedma( stocks[ticker]['pricehistory'], cur_algo['stacked_ma_periods'], cur_algo['stacked_ma_type'], use_ha_candles=True )
+
+				if ( cur_algo['stacked_ma_secondary'] == True ):
+					s_ma_secondary		= get_stackedma( stocks[ticker]['pricehistory'], cur_algo['stacked_ma_periods_secondary'], cur_algo['stacked_ma_type_secondary'] )
+					s_ma_ha_secondary	= get_stackedma( stocks[ticker]['pricehistory'], cur_algo['stacked_ma_periods_secondary'], cur_algo['stacked_ma_type_secondary'], use_ha_candles=True )
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(): get_stackedma(' + str(ticker) + '): ' + str(e), file=sys.stderr)
@@ -956,6 +962,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			stocks[ticker]['prev_s_ma']	= s_ma[-2]
 			stocks[ticker]['cur_s_ma_ha']	= s_ma_ha[-1]
 			stocks[ticker]['prev_s_ma_ha']	= s_ma_ha[-2]
+
+			if ( cur_algo['stacked_ma_secondary'] == True ):
+				stocks[ticker]['cur_s_ma_secondary']		= s_ma_secondary[-1]
+				stocks[ticker]['prev_s_ma_secondary']		= s_ma_secondary[-2]
+				stocks[ticker]['cur_s_ma_ha_secondary']		= s_ma_ha_secondary[-1]
+				stocks[ticker]['prev_s_ma_ha_secondary']	= s_ma_ha_secondary[-2]
 
 		# RSI
 		if ( cur_algo['rsi'] == True ):
@@ -1392,11 +1404,15 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		prev_s_ma_primary	= stocks[ticker]['prev_s_ma_primary']
 		cur_s_ma		= stocks[ticker]['cur_s_ma']
 		prev_s_ma		= stocks[ticker]['prev_s_ma']
+		cur_s_ma_secondary	= stocks[ticker]['cur_s_ma_secondary']
+		prev_s_ma_secondary	= stocks[ticker]['prev_s_ma_secondary']
 
 		cur_s_ma_ha_primary	= stocks[ticker]['cur_s_ma_ha_primary']
 		prev_s_ma_ha_primary	= stocks[ticker]['prev_s_ma_ha_primary']
 		cur_s_ma_ha		= stocks[ticker]['cur_s_ma_ha']
 		prev_s_ma_ha		= stocks[ticker]['prev_s_ma_ha']
+		cur_s_ma_ha_secondary	= stocks[ticker]['cur_s_ma_ha_secondary']
+		prev_s_ma_ha_secondary	= stocks[ticker]['prev_s_ma_ha_secondary']
 
 		# MESA Adaptive Moving Average
 		cur_mama		= stocks[ticker]['cur_mama']
@@ -1624,12 +1640,19 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = False
 
 
-			# Secondary Stacked Moving Average
+			# Secondary Stacked Moving Average(s)
 			if ( cur_algo['stacked_ma'] == True ):
 				if ( check_stacked_ma(cur_s_ma, 'bull') == True ):
 					stocks[ticker]['algo_signals'][algo_id]['stacked_ma_signal'] = True
 				else:
 					stocks[ticker]['algo_signals'][algo_id]['stacked_ma_signal'] = False
+
+				# Secondary (really 'tertiary') stacked MA doesn't have its own signal, but can turn off
+				#  the stacked_ma_signal. The idea is to allow a secondary set of periods or MA types to
+				#  confirm the signal
+				if ( cur_algo['stacked_ma_secondary'] == True ):
+					if ( check_stacked_ma(cur_s_ma_secondary, 'bull') == False ):
+						stocks[ticker]['algo_signals'][algo_id]['stacked_ma_signal'] = False
 
 			# STOCHRSI with 5-minute candles
 			if ( cur_algo['stochrsi_5m'] == True ):
@@ -2692,12 +2715,19 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = False
 
 
-			# Secondary Stacked Moving Average
+			# Secondary Stacked Moving Average(s)
 			if ( cur_algo['stacked_ma'] == True ):
 				if ( check_stacked_ma(cur_s_ma, 'bear') == True ):
 					stocks[ticker]['algo_signals'][algo_id]['stacked_ma_signal'] = True
 				else:
 					stocks[ticker]['algo_signals'][algo_id]['stacked_ma_signal'] = False
+
+				# Secondary (really 'tertiary') stacked MA doesn't have its own signal, but can turn off
+				#  the stacked_ma_signal. The idea is to allow a secondary set of periods or MA types to
+				#  confirm the signal
+				if ( cur_algo['stacked_ma_secondary'] == True ):
+					if ( check_stacked_ma(cur_s_ma_secondary, 'bear') == False ):
+						stocks[ticker]['algo_signals'][algo_id]['stacked_ma_signal'] = False
 
 			# STOCHRSI with 5-minute candles
 			if ( cur_algo['stochrsi_5m'] == True ):

@@ -48,8 +48,10 @@ parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high 
 
 parser.add_argument("--check_etf_indicators", help='Use the relative strength against one or more ETF indicators to assist with trade entry', action="store_true")
 parser.add_argument("--check_etf_indicators_strict", help='Do not allow trade unless check_etf_indicators agrees with direction', action="store_true")
+parser.add_argument("--etf_use_ha", help='Use Heikin Ashi candles for any algorithms on the ETF pricehistory', action="store_true")
 parser.add_argument("--etf_tickers", help='List of tickers to use with --check_etf_indicators (Default: SPY)', default='SPY', type=str)
 parser.add_argument("--etf_roc_period", help='Rate of change lookback period (Default: 50)', default=50, type=int)
+parser.add_argument("--etf_roc_type", help='Rate of change candles type to use with algorithm (Default: hlc3)', default='hlc3', type=str)
 parser.add_argument("--etf_min_rs", help='ETF minimum relative strength (Default: None)', default=None, type=float)
 parser.add_argument("--etf_min_roc", help='ETF minimum rate-of-change (Default: None)', default=None, type=float)
 parser.add_argument("--etf_min_natr", help='ETF minimum NATR (Default: None)', default=None, type=float)
@@ -489,7 +491,8 @@ for algo in args.algo.split(','):
 					sys.exit(1)
 
 				etf_indicators[t]['pricehistory']	= etf_data
-				etf_indicators[t]['pricehistory_5m']	= tda_gobot_helper.translate_1m(pricehistory=etf_indicators[t]['pricehistory'], candle_type=5)
+				etf_indicators[t]['pricehistory_5m']	= tda_gobot_helper.translate_1m( pricehistory=etf_indicators[t]['pricehistory'], candle_type=5 )
+				etf_indicators[t]['pricehistory']	= tda_gobot_helper.translate_heikin_ashi( pricehistory=etf_indicators[t]['pricehistory'] )
 
 		else:
 			days = 5
@@ -796,9 +799,11 @@ for algo in args.algo.split(','):
 					'experimental':				args.experimental,
 					'check_etf_indicators':			args.check_etf_indicators,
 					'check_etf_indicators_strict':		args.check_etf_indicators_strict,
+					'etf_use_ha':				args.etf_use_ha,
 					'etf_tickers':				etf_tickers,
 					'etf_indicators':			etf_indicators,
 					'etf_roc_period':			args.etf_roc_period,
+					'etf_roc_type':				args.etf_roc_type,
 					'etf_min_rs':				args.etf_min_rs,
 					'etf_min_roc':				args.etf_min_roc,
 					'etf_min_natr':				args.etf_min_natr,

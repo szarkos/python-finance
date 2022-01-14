@@ -295,9 +295,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	check_etf_indicators		= False		if ('check_etf_indicators' not in params) else params['check_etf_indicators']
 	check_etf_indicators_strict	= False		if ('check_etf_indicators_strict' not in params) else params ['check_etf_indicators_strict']
+	etf_use_ha			= False		if ('etf_use_ha' not in params) else params['etf_use_ha']
 	etf_tickers			= ['SPY']	if ('etf_tickers' not in params) else params['etf_tickers']
 	etf_indicators			= {}		if ('etf_indicators' not in params) else params['etf_indicators']
 	etf_roc_period			= 50		if ('etf_roc_period' not in params) else params['etf_roc_period']
+	etf_roc_type			= 'hlc3'	if ('etf_roc_type' not in params) else params['etf_roc_type']
 	etf_min_rs			= None		if ('etf_min_rs' not in params) else params['etf_min_rs']
 	etf_min_roc			= None		if ('etf_min_roc' not in params) else params['etf_min_roc']
 	etf_min_natr			= None		if ('etf_min_natr' not in params) else params['etf_min_natr']
@@ -1049,11 +1051,17 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			sys.exit(1)
 
 		for t in etf_tickers:
-			stock_roc		= []
-			etf_roc			= []
+			stock_roc	= []
+			etf_roc		= []
 			try:
-				etf_roc		= tda_algo_helper.get_roc( etf_indicators[t]['pricehistory'], period=etf_roc_period, type='hlc3' )
-				stock_roc	= tda_algo_helper.get_roc( pricehistory, period=etf_roc_period, type='hlc3' )
+				stock_roc = tda_algo_helper.get_roc( pricehistory, period=etf_roc_period, type=etf_roc_type )
+
+				if ( etf_use_ha == True ):
+					tmp_ph			= etf_indicators[t]['pricehistory']
+					tmp_ph['candles']	= tmp_ph['hacandles']
+					etf_roc			= tda_algo_helper.get_roc( tmp_ph, period=etf_roc_period, type=etf_roc_type )
+				else:
+					etf_roc			= tda_algo_helper.get_roc( etf_indicators[t]['pricehistory'], period=etf_roc_period, type=etf_roc_type )
 
 			except Exception as e:
 				print('Error, unable to calculate rate-of-change for ticker ' + str(t) + ': ' + str(e))

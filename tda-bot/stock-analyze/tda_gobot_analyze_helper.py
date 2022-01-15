@@ -309,6 +309,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	etf_emd_period			= 20		if ('mesa_emd_period' not in params) else params['mesa_emd_period']
 	etf_emd_type			= 'hl2'		if ('mesa_emd_type' not in params) else params['mesa_emd_type']
 
+	with_emd_affinity		= False		if ('with_emd_affinity' not in params) else params['with_emd_affinity']
 	mesa_emd_fraction		= 0.1		if ('mesa_emd_fraction' not in params) else params['mesa_emd_fraction']
 	mesa_emd_period			= 20		if ('mesa_emd_period' not in params) else params['mesa_emd_period']
 	mesa_emd_type			= 'hl2'		if ('mesa_emd_type' not in params) else params['mesa_emd_type']
@@ -2632,7 +2633,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				tmp_dt			= pricehistory['candles'][idx]['datetime']
 
 				stock_usd		= orig_stock_usd
-				decr_threshold		= default_decr_threshold
+				decr_threshold_long	= default_decr_threshold
 				exit_percent_long	= orig_exit_percent
 				quick_exit		= False
 				for t in etf_tickers:
@@ -2729,8 +2730,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 							if ( check_etf_indicators_strict == False and cur_rs > 10 ):
 								rs_signal = True
-								if ( decr_threshold > 1 ):
-									decr_threshold = 1
+								if ( decr_threshold_long > 1 ):
+									decr_threshold_long = 1
 
 								if ( cur_natr < 1 ):
 									quick_exit = True
@@ -2751,7 +2752,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					else:
 						print('Warning: etf_indicators does not include timestamp (' + str(tmp_dt) + ')')
 						rs_signal = prev_rs_signal
-
 
 			# Experimental pattern matching - may be removed
 			if ( experimental == True ):
@@ -2841,6 +2841,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# Experimental indicators here
 				if ( experimental == True and experimental_signal != True ):
 					final_buy_signal = False
+
+				# Required EMD affinity for stock
+				if ( with_emd_affinity != None ):
+					cur_emd		= ( emd_trend[idx],emd_peak[idx], emd_valley[idx] )
+					emd_affinity	= get_mesa_emd( cur_emd=cur_emd )
+					if ( emd_affinity != with_emd_affinity ):
+						final_buy_signal = False
 
 			# DEBUG
 			if ( debug_all == True ):
@@ -3966,7 +3973,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				tmp_dt			= pricehistory['candles'][idx]['datetime']
 
 				stock_usd		= orig_stock_usd
-				decr_threshold		= default_decr_threshold
+				decr_threshold_short	= default_decr_threshold
 				exit_percent_short	= orig_exit_percent
 				quick_exit		= False
 				for t in etf_tickers:
@@ -4049,13 +4056,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 							if ( check_etf_indicators_strict == False and cur_rs > 10 ):
 								rs_signal = True
-								if ( decr_threshold > 1 ):
-									decr_threshold = 1
+								if ( decr_threshold_short > 1 ):
+									decr_threshold_short = 1
 
 								if ( cur_natr < 1 ):
 									quick_exit = True
-									if ( exit_percent_long == orig_exit_percent ):
-										exit_percent_long = exit_percent_long / 2
+									if ( exit_percent_short == orig_exit_percent ):
+										exit_percent_short = exit_percent_short / 2
 
 						# Stock is sinking relative to ETF
 						elif ( stock_roc[idx] < 0 and etf_indicators[t]['roc'][tmp_dt] > 0 ):
@@ -4171,6 +4178,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# Experimental
 				if ( experimental == True and experimental_signal != True ):
 					final_short_signal = False
+
+				# Required EMD affinity for stock
+				if ( with_emd_affinity != None ):
+					cur_emd		= ( emd_trend[idx],emd_peak[idx], emd_valley[idx] )
+					emd_affinity	= get_mesa_emd( cur_emd=cur_emd )
+					if ( emd_affinity != with_emd_affinity ):
+						final_short_signal = False
 
 			# DEBUG
 			if ( debug_all == True ):
@@ -4298,6 +4312,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		# BUY-TO-COVER mode
 		if ( signal_mode['primary'] == 'buy_to_cover' or (signal_mode['straddle'] == True and signal_mode['secondary'] == 'buy_to_cover') ):
 
+			print(str(check_stacked_ma(cur_s_ma_primary, 'bear')) + ' / ' + str(check_stacked_ma(cur_s_ma_primary, 'bull')) + ' / ' + str(cur_s_ma_primary))
+
 			# hold_overnight=False - drop the stock before market close
 			if ( hold_overnight == False and tda_gobot_helper.isendofday(5, date) ):
 				buy_to_cover_signal	= True
@@ -4377,8 +4393,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( (cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper) or bbands_kchan_crossover_signal == True ):
 
 					if ( bbands_kchan_crossover_signal == True and cur_close > short_price ):
-						if ( decr_threshold_long > 1 ):
-							decr_threshold_long = 1
+						if ( decr_threshold_short > 1 ):
+							decr_threshold_short = 1
 
 					bbands_kchan_crossover_signal = True
 					bbands_kchan_xover_counter += 1
@@ -4542,10 +4558,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				# Cost-basis exit may be a bit lower than exit_percent, but if closing prices surpass this limit
 				#  then set the stoploss to the cost-basis
-				elif ( cost_basis_exit != None and exit_percent_signal_long == False ):
-					if ( total_percent_change >= cost_basis_exit and total_percent_change < exit_percent_long ):
-						if ( decr_threshold_long > total_percent_change ):
-							decr_threshold_long = total_percent_change
+				elif ( cost_basis_exit != None and exit_percent_signal_short == False ):
+					if ( total_percent_change >= cost_basis_exit and total_percent_change < exit_percent_short ):
+						if ( decr_threshold_short > total_percent_change ):
+							decr_threshold_short = total_percent_change
 
 				# If the exit_percent has been surpased, then this section will handle the stock exit
 				if ( exit_percent_signal_short == True and buy_to_cover_signal == False ):

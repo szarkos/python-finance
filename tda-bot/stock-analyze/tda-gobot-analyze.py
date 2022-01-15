@@ -61,6 +61,11 @@ parser.add_argument("--etf_emd_fraction", help='MESA EMD fraction to use with ET
 parser.add_argument("--etf_emd_period", help='MESA EMD period to use with ETF', default=20, type=int)
 parser.add_argument("--etf_emd_type", help='MESA EMD type to use with ETF', default='hl2', type=str)
 
+parser.add_argument("--with_emd_affinity", help='Require EMD affinity to allow trade (Default: None)', default=None, type=int)
+parser.add_argument("--mesa_emd_fraction", help='MESA EMD fraction to use with --with_emd_affinity', default=0.1, type=float)
+parser.add_argument("--mesa_emd_period", help='MESA EMD period to use with --with_emd_affinity', default=20, type=int)
+parser.add_argument("--mesa_emd_type", help='MESA EMD type to use with --with_emd_affinity', default='hl2', type=str)
+
 # Experimental
 parser.add_argument("--experimental", help='Enable experimental features (Default: False)', action="store_true")
 # Experimental
@@ -812,6 +817,11 @@ for algo in args.algo.split(','):
 					'etf_emd_fraction':			args.etf_emd_fraction,
 					'etf_emd_period':			args.etf_emd_period,
 					'etf_emd_type':				args.etf_emd_type,
+
+					'with_emd_affinity':			args.with_emd_affinity,
+					'mesa_emd_fraction':			args.mesa_emd_fraction,
+					'mesa_emd_period':			args.mesa_emd_period,
+					'mesa_emd_type':			args.mesa_emd_type,
 			}
 
 			# Call stochrsi_analyze_new() with test_params{} to run the backtest

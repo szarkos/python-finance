@@ -4312,8 +4312,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		# BUY-TO-COVER mode
 		if ( signal_mode['primary'] == 'buy_to_cover' or (signal_mode['straddle'] == True and signal_mode['secondary'] == 'buy_to_cover') ):
 
-			print(str(check_stacked_ma(cur_s_ma_primary, 'bear')) + ' / ' + str(check_stacked_ma(cur_s_ma_primary, 'bull')) + ' / ' + str(cur_s_ma_primary))
-
 			# hold_overnight=False - drop the stock before market close
 			if ( hold_overnight == False and tda_gobot_helper.isendofday(5, date) ):
 				buy_to_cover_signal	= True

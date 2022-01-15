@@ -167,6 +167,7 @@ def reset_signals(ticker=None, id=None, signal_mode=None, exclude_bbands_kchan=F
 		stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal']		= False
 
 		stocks[ticker]['algo_signals'][algo_id]['stacked_ma_signal']		= False
+		stocks[ticker]['algo_signals'][algo_id]['mama_fama_signal']		= False
 
 		stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal']		= False
 		stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal']	= False
@@ -925,7 +926,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			stocks[ticker]['prev_s_ma_ha_primary']	= s_ma_ha_primary[-2]
 
 		# MESA Adaptive Moving Average
-		if ( cur_algo['primary_mama_fama'] == True ):
+		if ( cur_algo['primary_mama_fama'] == True or cur_algo['mama_fama'] == True ):
 			mama = []
 			fama = []
 			try:
@@ -1245,7 +1246,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				print()
 
 			# MESA Adaptive Moving Average
-			if ( cur_algo['primary_mama_fama'] == True ):
+			if ( cur_algo['primary_mama_fama'] == True or cur_algo['mama_fama'] == True ):
 				print('(' + str(ticker) + ') Current MAMA/FAMA: ' + str(round(stocks[ticker]['cur_mama'], 4)) +
 						' / ' + str(round(stocks[ticker]['cur_fama'], 4)) )
 
@@ -1639,6 +1640,18 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				else:
 					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = False
 
+			# MESA Adaptive Moving Average
+			if ( cur_algo['mama_fama'] == True ):
+
+				stocks[ticker]['algo_signals'][algo_id]['mama_fama_signal'] = False
+
+				# Bullish trending
+				if ( cur_mama > cur_fama ):
+					stocks[ticker]['algo_signals'][algo_id]['mama_fama_signal'] = True
+
+				# Price crossed over from bullish to bearish
+				elif ( cur_mama <= cur_fama ):
+					stocks[ticker]['algo_signals'][algo_id]['mama_fama_signal'] = False
 
 			# Secondary Stacked Moving Average(s)
 			if ( cur_algo['stacked_ma'] == True ):
@@ -2085,6 +2098,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			if ( stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
 
 				stacked_ma_signal		= stocks[ticker]['algo_signals'][algo_id]['stacked_ma_signal']
+				mama_fama_signal		= stocks[ticker]['algo_signals'][algo_id]['mama_fama_signal']
 				stochrsi_5m_signal		= stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_final_signal']
 				stochmfi_signal			= stocks[ticker]['algo_signals'][algo_id]['stochmfi_final_signal']
 				stochmfi_5m_signal		= stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_final_signal']
@@ -2106,6 +2120,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				stocks[ticker]['final_buy_signal'] = True
 
 				if ( cur_algo['stacked_ma'] == True and stacked_ma_signal != True ):
+					stocks[ticker]['final_buy_signal'] = False
+
+				if ( cur_algo['mama_fama'] == True and mama_fama_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
 				if ( cur_algo['stochrsi_5m'] == True and stochrsi_5m_signal != True ):
@@ -2361,9 +2378,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				elif ( (cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper) or
 						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] == True ):
 
-					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] == True and last_price < stocks[ticker]['orig_base_price'] ):
-						if ( stocks[ticker]['decr_threshold'] > 1 ):
-							stocks[ticker]['decr_threshold'] = 1
+#					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] == True and last_price < stocks[ticker]['orig_base_price'] ):
+#						if ( stocks[ticker]['decr_threshold'] > 1 ):
+#							stocks[ticker]['decr_threshold'] = 1
 
 					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] = True
 					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1
@@ -2714,6 +2731,18 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				else:
 					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = False
 
+			# MESA Adaptive Moving Average
+			if ( cur_algo['mama_fama'] == True ):
+
+				stocks[ticker]['algo_signals'][algo_id]['mama_fama_signal'] = False
+
+				# Bearish trending
+				if ( cur_mama < cur_fama ):
+					stocks[ticker]['algo_signals'][algo_id]['mama_fama_signal'] = True
+
+				# Price crossed over from bearish to bullish
+				elif ( cur_mama >= cur_fama ):
+					stocks[ticker]['algo_signals'][algo_id]['mama_fama_signal'] = False
 
 			# Secondary Stacked Moving Average(s)
 			if ( cur_algo['stacked_ma'] == True ):
@@ -3160,6 +3189,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True ):
 
 				stacked_ma_signal		= stocks[ticker]['algo_signals'][algo_id]['stacked_ma_signal']
+				mama_fama_signal		= stocks[ticker]['algo_signals'][algo_id]['mama_fama_signal']
 				stochrsi_5m_signal		= stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_final_signal']
 				stochmfi_signal			= stocks[ticker]['algo_signals'][algo_id]['stochmfi_final_signal']
 				stochmfi_5m_signal		= stocks[ticker]['algo_signals'][algo_id]['stochmfi_5m_final_signal']
@@ -3181,6 +3211,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				stocks[ticker]['final_short_signal'] = True
 
 				if ( cur_algo['stacked_ma'] == True and stacked_ma_signal != True ):
+					stocks[ticker]['final_short_signal'] = False
+
+				if ( cur_algo['mama_fama'] == True and mama_fama_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
 
 				if ( cur_algo['stochrsi_5m'] == True and stochrsi_5m_signal != True ):
@@ -3463,9 +3496,9 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				elif ( (cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper) or
 						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] == True ):
 
-					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] == True and last_price > stocks[ticker]['orig_base_price'] ):
-						if ( stocks[ticker]['decr_threshold'] > 1 ):
-							stocks[ticker]['decr_threshold'] = 1
+#					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] == True and last_price > stocks[ticker]['orig_base_price'] ):
+#						if ( stocks[ticker]['decr_threshold'] > 1 ):
+#							stocks[ticker]['decr_threshold'] = 1
 
 					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] = True
 					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1

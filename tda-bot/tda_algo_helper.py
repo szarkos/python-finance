@@ -1997,7 +1997,7 @@ def get_mesa_emd(pricehistory=None, type='hl2', period=20, delta=0.5, fraction=0
 		pass
 
 	if ( pricehistory == None ):
-		print('Error: get_mesa_sine(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		print('Error: get_mesa_emd(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
 		return False
 
 	prices = []
@@ -2035,12 +2035,12 @@ def get_mesa_emd(pricehistory=None, type='hl2', period=20, delta=0.5, fraction=0
 
 	else:
 		# Undefined type
-		print('Error: get_mesa_sine(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
+		print('Error: get_mesa_emd(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
 		return False
 
 	if ( len(prices) < period ):
 		# Something is wrong with the data we got back from tda.get_price_history()
-		print('Warning: get_mesa_sine(' + str(ticker) + '): len(pricehistory) is less than period - is this a new stock ticker?', file=sys.stderr)
+		print('Warning: get_mesa_emd(' + str(ticker) + '): len(pricehistory) is less than period - is this a new stock ticker?', file=sys.stderr)
 
 	# EMD calculations
 	import math
@@ -2156,4 +2156,137 @@ def get_mesa_emd(pricehistory=None, type='hl2', period=20, delta=0.5, fraction=0
 
 
 	return mean, avg_peak, avg_valley
+
+
+# Fisher Transform
+def get_fisher_transform(pricehistory=None, period=20, debug=False):
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	if ( pricehistory == None ):
+		print('Error: get_fisher_transform(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False, []
+
+	# Fisher transform takes two arrays that contain the high and low prices
+	high_p	= []
+	low_p	= []
+	for key in pricehistory['candles']:
+		high_p.append( float(key['high']) )
+		low_p.append( float(key['low']) )
+
+	if ( len(high_p) < period ):
+		# Something is wrong with the data we got back from tda.get_price_history()
+		print('Warning: get_fisher_transform(' + str(ticker) + '): len(pricehistory[candles]) is less than period - is this a new stock ticker?', file=sys.stderr)
+		return [], []
+
+	# Calculate the Fisher transform
+	fisher		= []
+	fisher_signal	= []
+	try:
+		high_p	= np.array( high_p )
+		low_p	= np.array( low_p )
+
+		fisher, fisher_signal = ti.fisher(high_p, low_p, period)
+
+	except Exception as e:
+		print('Error: get_fisher_transform(' + str(ticker) + '): unable to calculate fisher transform: ' + str(e))
+		return False, []
+
+	# Normalize the size of returned arrays[] to match the input size
+	tmp = []
+	for i in range(0, len(pricehistory['candles']) - len(fisher)):
+		tmp.append(0)
+	fisher		= tmp + list(fisher)
+	fisher_signal	= tmp + list(fisher_signal)
+
+	return fisher, fisher_signal
+
+
+# Fisher transform based on John Ehlers's EasyLanguage code
+#  https://www.mesasoftware.com/papers/UsingTheFisherTransform.pdf
+#
+# MaxH = Highest(Price, Len);
+# MinL = Lowest(Price, Len);
+# Value1 = .33*2*((Price - MinL)/(MaxH - MinL) - .5) + .67*Value1[1];
+# If Value1 > .99 then Value1 = .999;
+# If Value1 < -.99 then Value1 = -.999;
+# Fish = .5*Log((1 + Value1)/(1 - Value1)) + .5*Fish[1];
+#
+# Hey, it turns out this code produces the exact same output as the function
+#  above, get_fisher_transform(). I didn't know that, I thought Ehlers was
+#  doing something a bit different so wasted some time rewriting it based on
+#  his paper, lol.
+def get_mesa_fisher_transform(pricehistory=None, period=20, debug=False):
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	if ( pricehistory == None ):
+		print('Error: get_fisher_transform(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False, []
+
+	# Calculate the Fisher transform
+	import math
+
+	n_val		= []
+	fisher		= []
+	fisher_signal	= []
+	for idx,key in enumerate(pricehistory['candles']):
+		try:
+			assert idx > period - 1
+		except:
+			continue
+
+		if ( len(fisher) == 0 ):
+			n_val.append(1)
+			fisher.append(1)
+			continue
+
+		high_p	= 0
+		low_p	= 0
+		hl2	= []
+		for i in range(idx, idx-period, -1):
+			hl2.append( (pricehistory['candles'][i]['high'] + pricehistory['candles'][i]['low']) / 2 )
+
+		high_p	= max(hl2)
+		low_p	= min(hl2)
+		cur_hl2	= ( pricehistory['candles'][idx]['high'] + pricehistory['candles'][idx]['low'] ) / 2
+
+		n_val.append( 0.33 * 2 * ( (cur_hl2 - low_p)/(high_p - low_p) - 0.5 ) + 0.67 * n_val[-1] )
+
+		if ( n_val[-1] > 0.99 ):
+			n_val[-1] = 0.999
+		elif ( n_val[-1] < -0.99 ):
+			n_val[-1] = -0.999
+
+		fisher.append( 0.5 * math.log( (1 + n_val[-1])/(1 - n_val[-1]) ) + 0.5 * fisher[-1] )
+
+	for i in range(len(fisher)):
+		if ( i == 0 ):
+			continue
+
+		fisher_signal.append(fisher[i-1])
+
+
+	# Normalize the size of returned arrays[] to match the input size
+	tmp = []
+	for i in range(0, len(pricehistory['candles']) - len(fisher)):
+		tmp.append(0)
+	fisher = tmp + list(fisher)
+
+	tmp = []
+	for i in range(0, len(pricehistory['candles']) - len(fisher_signal)):
+		tmp.append(0)
+	fisher_signal = tmp + list(fisher_signal)
+
+
+	return fisher, fisher_signal
+
 

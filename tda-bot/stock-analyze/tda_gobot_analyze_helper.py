@@ -3054,14 +3054,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# Handle adverse conditions after the crossover
 				elif ( (cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper) or bbands_kchan_crossover_signal == True ):
 
-					if ( bbands_kchan_crossover_signal == True and cur_close < purchase_price ):
-						if ( decr_threshold_long > 1 ):
-							decr_threshold_long = 1
-
 					bbands_kchan_crossover_signal = True
 					bbands_kchan_xover_counter += 1
 					if ( bbands_kchan_xover_counter <= 0 ):
 						bbands_kchan_xover_counter = 1
+
+					if ( bbands_kchan_crossover_signal == True and bbands_kchan_xover_counter >= 10 and cur_close < purchase_price ):
+						if ( decr_threshold_long > 1 ):
+							decr_threshold_long = 1
 
 					if ( primary_stoch_indicator == 'stacked_ma' ):
 						if ( stacked_ma_bear_affinity == True or stacked_ma_bear_ha_affinity == True ):
@@ -4390,14 +4390,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# Handle adverse conditions after the crossover
 				if ( (cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper) or bbands_kchan_crossover_signal == True ):
 
-					if ( bbands_kchan_crossover_signal == True and cur_close > short_price ):
-						if ( decr_threshold_short > 1 ):
-							decr_threshold_short = 1
-
 					bbands_kchan_crossover_signal = True
 					bbands_kchan_xover_counter += 1
 					if ( bbands_kchan_xover_counter <= 0 ):
 						bbands_kchan_xover_counter = 1
+
+					if ( bbands_kchan_crossover_signal == True and bbands_kchan_xover_counter >= 10 and cur_close > short_price ):
+						if ( decr_threshold_short > 1 ):
+							decr_threshold_short = 1
 
 					if ( primary_stoch_indicator == 'stacked_ma' ):
 						if ( stacked_ma_bull_affinity == True or stacked_ma_bull_ha_affinity == True ):

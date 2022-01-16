@@ -2378,14 +2378,14 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				elif ( (cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper) or
 						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] == True ):
 
-#					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] == True and last_price < stocks[ticker]['orig_base_price'] ):
-#						if ( stocks[ticker]['decr_threshold'] > 1 ):
-#							stocks[ticker]['decr_threshold'] = 1
-
 					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] = True
 					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1
 					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= 0 ):
 						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 1
+
+					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] >= 10 and last_price < stocks[ticker]['orig_base_price'] ):
+						if ( stocks[ticker]['decr_threshold'] > 1 ):
+							stocks[ticker]['decr_threshold'] = 1
 
 					if ( cur_algo['primary_stacked_ma'] == True ):
 						if ( stacked_ma_bear_affinity == True or stacked_ma_bear_ha_affinity == True ):
@@ -3496,14 +3496,14 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				elif ( (cur_kchannel_lower > cur_bbands_lower or cur_kchannel_upper < cur_bbands_upper) or
 						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] == True ):
 
-#					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] == True and last_price > stocks[ticker]['orig_base_price'] ):
-#						if ( stocks[ticker]['decr_threshold'] > 1 ):
-#							stocks[ticker]['decr_threshold'] = 1
-
 					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'] = True
 					stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] += 1
 					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= 0 ):
 						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 1
+
+					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] >= 10 and last_price > stocks[ticker]['orig_base_price'] ):
+						if ( stocks[ticker]['decr_threshold'] > 1 ):
+							stocks[ticker]['decr_threshold'] = 1
 
 					if ( cur_algo['primary_stacked_ma'] == True ):
 						if ( stacked_ma_bull_affinity == True or stacked_ma_bull_ha_affinity == True ):

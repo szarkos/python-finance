@@ -135,7 +135,7 @@ parser.add_argument("--bbands_kchan_squeeze_count", help='Number of squeeze peri
 parser.add_argument("--max_squeeze_natr", help='Maximum NATR allowed during consolidation (squeeze) phase (Default: None)', default=None, type=float)
 parser.add_argument("--bbands_roc_threshold", help='BBands rate of change threshold to trigger bbands signal (Default: 90)', default=90, type=float)
 parser.add_argument("--bbands_roc_count", help='Number of times the BBands rate of change threshold must be met to trigger bbands signal (Default: 2)', default=2, type=int)
-parser.add_argument("--bbands_roc_strict", help='Require a change in Bollinger Bands rate-of-change equivalent to --bbands_roc_threshold (Default: False) to signal',  action="store_true")
+parser.add_argument("--bbands_roc_strict", help='Require a change in Bollinger Bands rate-of-change equivalent to --bbands_roc_count (Default: False) to signal',  action="store_true")
 parser.add_argument("--use_bbands_kchannel_5m", help='Use 5-minute candles to calculate the Bollinger bands and Keltner channel indicators (Default: False)', action="store_true")
 parser.add_argument("--use_bbands_kchannel_xover_exit", help='Use price action after a Bollinger bands and Keltner channel crossover to assist with stock exit (Default: False)', action="store_true")
 parser.add_argument("--bbands_kchannel_xover_exit_count", help='Number of periods to wait after a crossover to trigger --use_bbands_kchannel_xover_exit (Default: 10)', default=10, type=int)
@@ -201,8 +201,11 @@ tda_stochrsi_gobot_helper.safe_open = safe_open
 
 # Early exit criteria goes here
 if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False and args.multiday == False and args.singleday == False ):
-	print('Market is closed and --multiday or --singleday was not set, exiting')
-	sys.exit(1)
+	print('Market is closed and --multiday or --singleday was not set, exiting.')
+	sys.exit(0)
+if ( args.singleday == True and tda_gobot_helper.ismarketopen_US(check_day_only=True) == False ):
+	print('Market is closed today (' + str(datetime.datetime.now(mytimezone).strftime('%Y-%m-%d')) + '), exiting.')
+	sys.exit(0)
 
 # Initialize and log into TD Ameritrade
 from dotenv import load_dotenv
@@ -444,7 +447,7 @@ for algo in args.algos:
 		if ( re.match('max_squeeze_natr:', a)			!= None ):	max_squeeze_natr		= float( a.split(':')[1] )
 		if ( re.match('bbands_roc_threshold:', a)		!= None ):	bbands_roc_threshold		= float( a.split(':')[1] )
 		if ( re.match('bbands_roc_count:', a)			!= None ):	bbands_roc_count		= int( a.split(':')[1] )
-		if ( re.match('bbands_roc_strict:', a)			!= None ):	bbands_roc_strict		= True
+		if ( re.match('bbands_roc_strict', a)			!= None ):	bbands_roc_strict		= True
 		if ( re.match('bbands_kchannel_xover_exit_count:', a)	!= None ):	bbands_kchannel_xover_exit_count= int( a.split(':')[1] )
 		if ( re.match('bbands_period:', a)			!= None ):	bbands_period			= int( a.split(':')[1] )
 		if ( re.match('bbands_matype:', a)			!= None ):	bbands_matype			= int( a.split(':')[1] )

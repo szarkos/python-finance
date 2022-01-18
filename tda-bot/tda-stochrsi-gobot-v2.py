@@ -265,7 +265,8 @@ for algo in args.algos:
 				break
 
 	# Indicators
-	primary_stochrsi = primary_stochmfi = primary_stacked_ma = primary_mama_fama = stacked_ma = stacked_ma_secondary = stochrsi_5m = stochmfi = stochmfi_5m = False
+	primary_stochrsi = primary_stochmfi = primary_stacked_ma = primary_mama_fama = False
+	stacked_ma = stacked_ma_secondary = mama_fama = stochrsi_5m = stochmfi = stochmfi_5m = False
 	rsi = mfi = adx = dmi = dmi_simple = macd = macd_simple = aroonosc = False
 	chop_index = chop_simple = supertrend = bbands_kchannel = False
 	vwap = vpt = support_resistance = False
@@ -383,6 +384,7 @@ for algo in args.algos:
 		if ( a == 'primary_mama_fama' ):	primary_mama_fama	= True
 		if ( a == 'stacked_ma' ):		stacked_ma		= True
 		if ( a == 'stacked_ma_secondary' ):	stacked_ma_secondary	= True
+		if ( a == 'mama_fama' ):		mama_fama		= True
 		if ( a == 'stochrsi_5m' ):		stochrsi_5m		= True
 		if ( a == 'stochmfi' ):			stochmfi		= True
 		if ( a == 'stochmfi_5m' ):		stochmfi_5m		= True
@@ -502,6 +504,13 @@ for algo in args.algos:
 		print('Error: you must use one of primary_stochrsi, primary_stochmfi, primary_stacked_ma or primary_mama_fama. Exiting.')
 		sys.exit(1)
 
+	# Stacked MA periods expect to be comma-delimited, but the --algos line is already comma-delimited. So MA
+	#  periods may be specified on the algos line using a period delimiter, which we convert back to comma here.
+	if ( stacked_ma_periods_primary != args.stacked_ma_periods_primary ):		stacked_ma_periods_primary	= re.sub('\.', ',', stacked_ma_periods_primary)
+	if ( stacked_ma_periods !=  args.stacked_ma_periods ):				stacked_ma_periods		= re.sub('\.', ',', stacked_ma_periods)
+	if ( stacked_ma_periods_secondary != args.stacked_ma_periods_secondary ):	stacked_ma_periods_secondary	= re.sub('\.', ',', stacked_ma_periods_secondary)
+
+
 	if ( dmi == True and dmi_simple == True ):
 		dmi_simple = False
 	if ( macd == True and macd_simple == True ):
@@ -532,6 +541,7 @@ for algo in args.algos:
 			'primary_mama_fama':			primary_mama_fama,
 			'stacked_ma':				stacked_ma,
 			'stacked_ma_secondary':			stacked_ma_secondary,
+			'mama_fama':				mama_fama,
 			'stochrsi_5m':				stochrsi_5m,
 			'stochmfi':				stochmfi,
 			'stochmfi_5m':				stochmfi_5m,
@@ -647,7 +657,7 @@ for algo in args.algos:
 
 # Clean up this mess
 # All the stuff above should be put into a function to avoid this cleanup stuff. I know it. It'll happen eventually.
-del(stock_usd,quick_exit,primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,stacked_ma,stacked_ma_secondary,stochrsi_5m,stochmfi,stochmfi_5m)
+del(stock_usd,quick_exit,primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,stacked_ma,stacked_ma_secondary,mama_fama,stochrsi_5m,stochmfi,stochmfi_5m)
 del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,vwap,vpt,support_resistance)
 del(rsi_high_limit,rsi_low_limit,rsi_period,stochrsi_period,stochrsi_5m_period,rsi_k_period,rsi_k_5m_period,rsi_d_period,rsi_slow,stochrsi_offset,stochrsi_5m_offset)
 del(mfi_high_limit,mfi_low_limit,mfi_period,stochmfi_period,stochmfi_5m_period,mfi_k_period,mfi_k_5m_period,mfi_d_period,mfi_slow,stochmfi_offset,stochmfi_5m_offset)
@@ -945,6 +955,7 @@ for ticker in stock_list.split(','):
 						'resistance_signal':			False,
 
 						'stacked_ma_signal':			False,
+						'mama_fama_signal':			False,
 						'bbands_kchan_init_signal':		False,
 						'bbands_roc_threshold_signal':		False,
 						'bbands_kchan_crossover_signal':	False,
@@ -1196,7 +1207,7 @@ time_now = datetime.datetime.now( mytimezone )
 time_prev = time_now - datetime.timedelta( days=8 )
 
 # Make sure start and end dates don't land on a weekend or outside market hours
-#time_now = tda_gobot_helper.fix_timestamp(time_now)	# SAZ - This needs to be commented for now
+#time_now = tda_gobot_helper.fix_timestamp(time_now)	# SAZ - This needs to be commented for regular hours, uncomment when testing during the weekend
 time_prev = tda_gobot_helper.fix_timestamp(time_prev)
 
 time_now_epoch = int( time_now.timestamp() * 1000 )

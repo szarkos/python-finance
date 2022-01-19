@@ -34,9 +34,9 @@ nohup ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=20000 --stocks=${tickers
 	\
 	--algos=algo_id:stackedma_kama_wma_rsstrict_rocstrict,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,bbands_roc_strict,bbands_kchan_squeeze_count:10,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,check_etf_indicators_strict,min_intra_natr:0.65,min_daily_natr:6 \
 	--algos=algo_id:stackedma_kama_wma_rocstrict,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,bbands_roc_strict,bbands_kchan_squeeze_count:10,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,min_intra_natr:0.65,min_daily_natr:6 \
-	--algos=algo_id:stackedma_kama_wma,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,min_intra_natr:0.65,min_daily_natr:6 \
 	--algos=algo_id:mama-fama_wma_rsstrict_rocstrict,primary_mama_fama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,bbands_roc_strict,bbands_kchan_squeeze_count:10,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,check_etf_indicators_strict,min_intra_natr:0.65,min_daily_natr:6 \
 	--algos=algo_id:stackedma_kama_trima_mamafama,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma_periods_primary:5.8.13,stacked_ma,stacked_ma_type:trima,mama_fama,bbands_kchannel,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,min_intra_natr:0.65,min_daily_natr:6 \
+	--algos=algo_id:stackedma_kama_wma,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,min_intra_natr:0.65,min_daily_natr:6 \
 	\
 	--algo_exclude_tickers=stackedma_kama_wma_rsstrict_rocstrict:${STACKEDMA_KAMA_WMA_EXCLUDE} \
 	--algo_exclude_tickers=stackedma_kama_wma_rocstrict:${STACKEDMA_KAMA_WMA_EXCLUDE} \
@@ -44,7 +44,7 @@ nohup ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=20000 --stocks=${tickers
 	--algo_exclude_tickers=mama-fama_wma_rsstrict_rocstrict:${MAMAFAMA_WMA_EXCLUDE} \
 	\
 	--stacked_ma_periods_primary=8,13,21 --stacked_ma_periods=34,55,89 \
-	--check_etf_indicators --etf_min_rs=3 --etf_min_natr=0.1 \
+	--check_etf_indicators --etf_min_rs=4 --etf_min_natr=0.1 \
 	--bbands_kchannel_offset=0.15 --bbands_kchan_squeeze_count=10 --bbands_roc_threshold=0 \
 	--daily_atr_period=3 --variable_exit --lod_hod_check --use_combined_exit \
 	--weekly_ifile=stock-analyze/weekly-csv/TICKER-weekly-2019-2021.pickle \

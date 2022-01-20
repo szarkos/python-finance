@@ -369,6 +369,137 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hl2', mama_fa
 	return ma
 
 
+# John Ehlers's Fractal Adaptive Moving Average (FRAMA)
+#  https://mesasoftware.com/papers/papers/FRAMA.pdf
+#
+# Note: This implements frama, but you may be better off using
+#  get_alt_ma with matype='mama', wich will return both mama and fama (frama)
+def get_frama(pricehistory=None, type='hl2', period=20, fastma=1, slowma=198, plot=False, debug=False):
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	if ( pricehistory == None ):
+		print('Error: get_frama(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False
+
+	prices = []
+	if ( type == 'close' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['close']))
+
+	elif ( type == 'high' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['high']))
+
+	elif ( type == 'low' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['low']))
+
+	elif ( type == 'open' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['open']))
+
+	elif ( type == 'volume' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['volume']))
+
+	elif ( type == 'hl2' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+
+	elif ( type == 'hlc3' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+
+	elif ( type == 'ohlc4' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+
+	else:
+		# Undefined type
+		print('Error: get_frama(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
+		return False
+
+	if ( len(prices) < period ):
+		# Something is wrong with the data we got back from tda.get_price_history()
+		print('Warning: get_frama(' + str(ticker) + '): len(pricehistory) is less than period - is this a new stock ticker?', file=sys.stderr)
+
+
+	# Calculate the Fractal Adaptive MA
+	prices		= np.array( prices )
+	period		= int(period / 2) * 2
+	prev_dimen	= 0
+	frama		= []
+	for i in range( 0, len(prices) ):
+
+		# Use prices[i] for the first few iterations
+		if ( i < period * 2 ):
+			frama.append( prices[i] )
+			continue
+
+		# Split the input into two arrays
+		b1 = prices[i - (2 * period):1 - period]
+		b2 = prices[i - period:i]
+
+		# N1
+		H1 = np.max(b1)
+		L1 = np.min(b1)
+		N1 = (H1 - L1) / period
+
+		# N2
+		H2 = np.max(b2)
+		L2 = np.min(b2)
+		N2 = (H2 - L2) / period
+
+		# N3
+		H  = np.max([H1, H2])
+		L  = np.min([L1, L2])
+		N3 = (H - L) / (period * 2)
+
+		# Calculate fractal dimension
+		dimen = prev_dimen
+		if ( N1 > 0 and N2 > 0 and N3 > 0 ):
+			dimen		= ( np.log(N1 + N2) - np.log(N3) ) / np.log(2)
+			prev_dimen	= dimen
+
+		# Calculate lowpass filter factor
+		# Modified FRAMA so we can specify fastma and slowma
+		#  http://etfhq.com/blog/2010/09/30/fractal-adaptive-moving-average-frama/
+		alpha = np.exp( np.log(2 / (slowma + 1)) * (dimen - 1) )
+		if ( alpha < 0.01 ):
+			alpha = 0.01
+		elif ( alpha > 1 ):
+			alpha = 1
+
+		N = (2 - alpha) / alpha
+		N = ((slowma - fastma) * ((N - 1) / (slowma - 1))) + fastma
+
+		alpha = 2 / (N + 1)
+		if ( alpha < 2 / (slowma + 1) ):
+			alpha = 2 / (slowma + 1)
+		elif ( alpha > 1 ):
+			alpha = 1
+
+		# Finally, filter the input data
+		frama.append( alpha * prices[i] + (1 - alpha) * frama[i-1] )
+
+	# Plot
+	if ( plot == True ):
+		import matplotlib.pyplot as plt
+
+		plt.title('Fractal Adaptive Moving Average (' + str(ticker) + ')')
+		plt.plot(prices, color='k', label='Prices')
+		plt.plot(frama, color='y', Label='FRAMA')
+		plt.legend(['Prices', 'FRAMA'], loc = 'upper left')
+		plt.show()
+
+	return frama
+
+
 # Use Tulipy to calculate the N-day historic volatility (default: 30-days)
 def get_historic_volatility_ti(ticker=None, period=21, type='close', debug=False):
 
@@ -2172,120 +2303,6 @@ def get_mesa_emd(pricehistory=None, type='hl2', period=20, delta=0.5, fraction=0
 
 
 	return mean, avg_peak, avg_valley
-
-
-# John Ehlers's Fractal Adaptive Moving Average (FRAMA)
-#  https://mesasoftware.com/papers/papers/FRAMA.pdf
-def get_frama(pricehistory=None, type='hl2', period=20, plot=False, debug=False):
-
-	ticker = ''
-	try:
-		ticker = pricehistory['symbol']
-	except:
-		pass
-
-	if ( pricehistory == None ):
-		print('Error: get_frama(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
-		return False
-
-	prices = []
-	if ( type == 'close' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['close']))
-
-	elif ( type == 'high' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['high']))
-
-	elif ( type == 'low' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['low']))
-
-	elif ( type == 'open' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['open']))
-
-	elif ( type == 'volume' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['volume']))
-
-	elif ( type == 'hl2' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['high']) + float(key['low'])) / 2 )
-
-	elif ( type == 'hlc3' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
-
-	elif ( type == 'ohlc4' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
-
-	else:
-		# Undefined type
-		print('Error: get_frama(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
-		return False
-
-	if ( len(prices) < period ):
-		# Something is wrong with the data we got back from tda.get_price_history()
-		print('Warning: get_frama(' + str(ticker) + '): len(pricehistory) is less than period - is this a new stock ticker?', file=sys.stderr)
-
-
-	# Calculate the Fractal Adaptive MA
-	prices = np.array( prices )
-	frama = []
-	for i in range( 0, len(prices) ):
-
-		# Use prices[i] for the first few iterations
-		if ( i < period * 2 ):
-			frama.append( prices[i] )
-			continue
-
-		# Split the input into two arrays
-		b1 = prices[i - (2 * period):1 - period]
-		b2 = prices[i - period:i]
-
-		# N1
-		H1 = np.max(b1)
-		L1 = np.min(b1)
-		N1 = (H1 - L1) / period
-
-		# N2
-		H2 = np.max(b2)
-		L2 = np.min(b2)
-		N2 = (H2 - L2) / period
-
-		# N3
-		H  = np.max([H1, H2])
-		L  = np.min([L1, L2])
-		N3 = (H - L) / (2 * period)
-
-		# Calculate fractal dimension
-		dimen = 0
-		if ( N1 > 0 and N2 > 0 and N3 > 0 ):
-			dimen = ( np.log(N1 + N2) - np.log(N3) ) / np.log(2)
-
-		# Calculate lowpass filter factor
-		alpha = np.exp( -4.6 * (dimen - 1) )
-		if ( alpha < 0.01 ):
-			alpha = 0.01
-		elif ( alpha > 1 ):
-			alpha = 1
-
-		# Finally, filter the input data
-		frama.append( alpha * prices[i] + (1 - alpha) * frama[-1] )
-
-	# Plot
-	if ( plot == True ):
-		import matplotlib.pyplot as plt
-
-		plt.title('Fractal Adaptive Moving Average (' + str(ticker) + ')')
-		plt.plot(prices, color='k', label='Prices')
-		plt.plot(frama, color='y', alpha=0.5, Label='FRAMA')
-		plt.legend(['Prices', 'FRAMA'], loc = 'upper left')
-		plt.show()
-
-	return frama
 
 
 # Fisher Transform

@@ -158,12 +158,14 @@ def get_ema(pricehistory=None, period=50, type='close', debug=False):
 #	dema	= Double Exponential Moving Average
 # 	hma	= Hull Moving Average
 #	tema	= Triple Exponential Moving Average
+#	mama	= Mesa adaptive moving average
+#	frama	= Fractal moving average
 #	trima	= Triangular Moving Average
 #	vwma	= Volume Weighted Moving Average
 #	wma	= Weighted Moving Average
 #	zlema	= Zero-Lag Exponential Moving Average
 #
-def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_fastlimit=0.5, mama_slowlimit=0.05, debug=False):
+def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hl2', mama_fastlimit=0.5, mama_slowlimit=0.05, debug=False):
 
 	if ( pricehistory == None ):
 		return []
@@ -331,6 +333,20 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_f
 
 		# Lengths of mama/fama are already the same as prices[] and pricehistory['candles']
 		return mama, fama
+
+	# Fractal moving average
+	elif ( ma_type == 'frama' ):
+		frama = []
+		try:
+			#mama, fama = talib.MAMA( prices, fastlimit=mama_fastlimit, slowlimit=mama_slowlimit )
+			frama = get_frama( pricehistory=pricehistory, type=type, period=period )
+
+		except Exception as e:
+			print('Caught Exception: get_alt_ma(' + str(ticker) + '): talib.MAMA(): ' + str(e), file=sys.stderr)
+			return False
+
+		# Lengths of mama/fama are already the same as prices[] and pricehistory['candles']
+		return frama
 
 	else:
 		print('Error: unknown ma_type "' + str(ma_type) + '"', file=sys.stderr)

@@ -476,7 +476,8 @@ for algo in args.algo.split(','):
 					'roc_stacked_ma':	{},
 					'mama_fama':		{},
 					'mesa_emd':		{},
-					'natr':			{}
+					'natr':			{},
+					'last_dt':		0
 		}
 
 	if ( args.check_etf_indicators == True ):
@@ -545,14 +546,14 @@ for algo in args.algo.split(','):
 
 		elif ( days != '-1' ):
 			try:
-				int(days)
+				days = int(days)
 			except:
 				print('Error, days (' + str(days) + ') is not an integer - exiting.')
 				exit(1)
 
-			if ( int(days) > 10 ):
+			if ( days > 10 ):
 				days = 10 # TDA API only allows 10-days of 1-minute daily data
-			elif ( int(days) < 3 ):
+			elif ( days < 3 ):
 				days += 2
 
 			try:

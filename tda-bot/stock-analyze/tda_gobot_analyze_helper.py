@@ -2638,7 +2638,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				quick_exit		= False
 				for t in etf_tickers:
 					cur_rs = 0
+					if ( tmp_dt not in etf_indicators[t]['roc'] ):
+						print('Warning: etf_indicators does not include timestamp (' + str(tmp_dt) + ')')
+						tmp_dt = etf_indicators[t]['last_dt']
+
 					if ( tmp_dt in etf_indicators[t]['roc'] ):
+						etf_indicators[t]['last_dt'] = tmp_dt
+
 						try:
 							with np.errstate(divide='ignore'):
 								cur_rs = stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
@@ -2749,9 +2755,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						if ( etf_min_natr != None and etf_indicators[t]['natr'][tmp_dt] < etf_min_natr ):
 							rs_signal = False
 
-					else:
-						print('Warning: etf_indicators does not include timestamp (' + str(tmp_dt) + ')')
-						rs_signal = prev_rs_signal
 
 			# Experimental pattern matching - may be removed
 			if ( experimental == True ):
@@ -3978,7 +3981,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				quick_exit		= False
 				for t in etf_tickers:
 					cur_rs = 0
+					if ( tmp_dt not in etf_indicators[t]['roc'] ):
+						print('Warning: etf_indicators does not include timestamp (' + str(tmp_dt) + ')')
+						tmp_dt = etf_indicators[t]['last_dt']
+
 					if ( tmp_dt in etf_indicators[t]['roc'] ):
+						etf_indicators[t]['last_dt'] = tmp_dt
 
 						try:
 							with np.errstate(divide='ignore'):

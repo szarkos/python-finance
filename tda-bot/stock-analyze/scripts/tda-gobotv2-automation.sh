@@ -32,18 +32,19 @@ tickers=$CUR_SET
 nohup ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=20000 --stocks=${tickers} --short --singleday \
 	--decr_threshold=1.25 --incr_threshold=0.5 --max_failed_txs=2 --exit_percent=0.5 \
 	\
-	--algos=algo_id:stackedma_kama_wma_rsstrict_rocstrict,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,bbands_roc_strict,bbands_kchan_squeeze_count:10,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,check_etf_indicators_strict,min_intra_natr:0.65,min_daily_natr:6 \
+	--algos=algo_id:mama-fama_kama-trima_bbands5_kchan-sma,primary_mama_fama,stacked_ma,stacked_ma_periods:5.8.13,stacked_ma_type:kama,stacked_ma_secondary,stacked_ma_type_secondary:trima,bbands_kchannel,bbands_kchan_squeeze_count:8,use_bbands_kchannel_xover_exit,bbands_matype:5,kchan_matype:sma,check_etf_indicators,support_resistance,use_trend,use_combined_exit,min_intra_natr:0.65,min_daily_natr:6 \
 	--algos=algo_id:stackedma_kama_wma_rocstrict,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,bbands_roc_strict,bbands_kchan_squeeze_count:10,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,min_intra_natr:0.65,min_daily_natr:6 \
-	--algos=algo_id:mama-fama_wma_rsstrict_rocstrict,primary_mama_fama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,bbands_roc_strict,bbands_kchan_squeeze_count:10,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,check_etf_indicators_strict,min_intra_natr:0.65,min_daily_natr:6 \
+	--algos=algo_id:stackedma_kama_wma_rsstrict_rocstrict,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,bbands_roc_strict,bbands_kchan_squeeze_count:10,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,check_etf_indicators_strict,min_intra_natr:0.65,min_daily_natr:6 \
 	--algos=algo_id:stackedma_kama_trima_mamafama,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma_periods_primary:5.8.13,stacked_ma,stacked_ma_type:trima,mama_fama,bbands_kchannel,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,min_intra_natr:0.65,min_daily_natr:6 \
 	--algos=algo_id:stackedma_kama_wma,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,min_intra_natr:0.65,min_daily_natr:6 \
 	\
 	--algo_exclude_tickers=stackedma_kama_wma_rsstrict_rocstrict:${STACKEDMA_KAMA_WMA_EXCLUDE} \
 	--algo_exclude_tickers=stackedma_kama_wma_rocstrict:${STACKEDMA_KAMA_WMA_EXCLUDE} \
 	--algo_exclude_tickers=stackedma_kama_wma:${STACKEDMA_KAMA_WMA_EXCLUDE} \
-	--algo_exclude_tickers=mama-fama_wma_rsstrict_rocstrict:${MAMAFAMA_WMA_EXCLUDE} \
+	--algo_exclude_tickers=stackedma_kama_trima_mamafama:${STACKEDMA_KAMA_TRIMA_EXCLUDE} \
+	--algo_exclude_tickers=mama-fama_kama-trima_bbands5_kchan-sma:${MAMAFAMA_KAMA_TRIMA_EXCLUDE} \
 	\
-	--stacked_ma_periods_primary=8,13,21 --stacked_ma_periods=34,55,89 \
+	--stacked_ma_periods_primary=8,13,21 --stacked_ma_periods=34,55,89 --stacked_ma_periods_secondary=34,55,89 \
 	--check_etf_indicators --etf_min_rs=4 --etf_min_natr=0.1 \
 	--bbands_kchannel_offset=0.15 --bbands_kchan_squeeze_count=10 --bbands_roc_threshold=0 \
 	--daily_atr_period=3 --variable_exit --lod_hod_check --use_combined_exit \
@@ -52,6 +53,7 @@ nohup ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=20000 --stocks=${tickers
 
 disown
 
+#	--algos=algo_id:mama-fama_wma_rsstrict_rocstrict,primary_mama_fama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,bbands_roc_strict,bbands_kchan_squeeze_count:10,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,check_etf_indicators_strict,min_intra_natr:0.65,min_daily_natr:6 \
 #	--algos=algo_id:stackedma_kama_wma_bbands-mama_kchan-hma,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,bbands_matype:7,kchan_matype:hma,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,min_intra_natr:0.65,min_daily_natr:6 \
 #	--algos=algo_id:stochrsi,primary_stochrsi,stochrsi_offset:3,dmi_simple,aroonosc,adx,support_resistance,use_natr_resistance,adx_threshold:6,min_intra_natr:0.15,min_daily_natr:6 \
 #	--algos=algo_id:stackedma_kama_5m,primary_stacked_ma,use_bbands_kchannel_5m,stacked_ma_type_primary:kama,bbands_kchannel,bbands_period:15,kchannel_period:15,kchannel_atr_period:15,bbands_kchan_squeeze_count:20,bbands_kchannel_offset:0.45,support_resistance,min_intra_natr:0.65,min_daily_natr:6 \

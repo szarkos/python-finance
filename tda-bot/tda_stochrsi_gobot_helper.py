@@ -2383,11 +2383,18 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= 0 ):
 						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 1
 
-					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] >= 10 and last_price < stocks[ticker]['orig_base_price'] ):
-						if ( stocks[ticker]['decr_threshold'] > 1 ):
-							stocks[ticker]['decr_threshold'] = 1
+					if ( last_price < stocks[ticker]['orig_base_price'] ):
+						if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] >= 10 ):
+							# We've lingered for 10+ bars and price is below entry, let's try to cut our losses
+							if ( stocks[ticker]['decr_threshold'] > 1 ):
+								stocks[ticker]['decr_threshold'] = 1
 
-					if ( cur_algo['primary_stacked_ma'] == True ):
+						if ( cur_algo['primary_mama_fama'] == True ):
+							# It's likely that the bbands/kchan squeeze has failed at this point
+							if ( stacked_ma_bear_affinity == True ):
+								stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
+
+					if ( cur_algo['primary_stacked_ma'] == True or cur_algo['primary_mama_fama'] == True ):
 						if ( stacked_ma_bear_affinity == True or stacked_ma_bear_ha_affinity == True ):
 							if ( stocks[ticker]['decr_threshold'] > 1 ):
 								stocks[ticker]['decr_threshold'] = 1
@@ -3501,11 +3508,18 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] <= 0 ):
 						stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] = 1
 
-					if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] >= 10 and last_price > stocks[ticker]['orig_base_price'] ):
-						if ( stocks[ticker]['decr_threshold'] > 1 ):
-							stocks[ticker]['decr_threshold'] = 1
+					if ( last_price > stocks[ticker]['orig_base_price'] ):
+						if ( stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter'] >= 10 ):
+							# We've lingered for 10+ bars and price is above entry, let's try to cut our losses
+							if ( stocks[ticker]['decr_threshold'] > 1 ):
+								stocks[ticker]['decr_threshold'] = 1
 
-					if ( cur_algo['primary_stacked_ma'] == True ):
+						if ( cur_algo['primary_mama_fama'] == True ):
+							# It's likely that the bbands/kchan squeeze has failed at this point
+							if ( stacked_ma_bull_affinity == True ):
+								stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
+
+					if ( cur_algo['primary_stacked_ma'] == True or cur_algo['primary_mama_fama'] == True ):
 						if ( stacked_ma_bull_affinity == True or stacked_ma_bull_ha_affinity == True ):
 							if ( stocks[ticker]['decr_threshold'] > 1 ):
 								stocks[ticker]['decr_threshold'] = 1

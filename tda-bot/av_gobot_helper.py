@@ -237,13 +237,18 @@ def av_get_earnings(ticker=None, type='reported', debug=False):
 
 	elif ( type == 'reported' ):
 		reported_dates = []
-		for entry in data['quarterlyEarnings']:
 
-			# Skip dates from before 2020
-			# If for some reason anyone ever needs all the dates back to the 90s,
-			#  then they can just request the raw data.
-			if ( re.match('202[0-9]\-', entry['reportedDate']) != None ):
-				reported_dates.append(entry['reportedDate'])
+		# quarterlyEarnings may not be present for new stocks
+		try:
+			for entry in data['quarterlyEarnings']:
+
+				# Skip dates from before 2020
+				# If for some reason anyone ever needs all the dates back to the 90s,
+				#  then they can just request the raw data.
+				if ( re.match('202[0-9]\-', entry['reportedDate']) != None ):
+					reported_dates.append(entry['reportedDate'])
+		except:
+			pass
 
 		return reported_dates
 

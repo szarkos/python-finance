@@ -148,15 +148,19 @@ if ( args.get_instrument == True ):
 elif ( args.get_earnings_calendar == True ):
 
 	output = []
-	try:
-		output = av_gobot_helper.av_get_earnings_calendar( ticker=stock )
+	for ticker in stock.split(','):
+		try:
+			output = av_gobot_helper.av_get_earnings_calendar( ticker=ticker )
 
-	except Exception as e:
-		print('Exception caught: ' + str(e))
-		sys.exit(1)
+		except Exception as e:
+			print('Exception caught: ' + str(e))
+			sys.exit(1)
 
-	else:
-		print(output)
+		else:
+			if ( isinstance(output, dict) == True ):
+				print(str(ticker) + ': ' + ','.join(output[ticker]))
+			else:
+				print(output)
 
 	sys.exit(0)
 

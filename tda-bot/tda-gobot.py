@@ -28,6 +28,7 @@ parser.add_argument("--entry_price", help="The price to enter a trade", default=
 parser.add_argument("--exit_price", help="The price to exit a trade", default=None, type=float)
 
 parser.add_argument("--exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
+parser.add_argument("--exit_percent_loopt", help='Amount of time to sleep between queries after exit_percent_signal is triggered', default=12, type=int)
 parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent strategy was set, do not wait for the next candle', action="store_true")
 parser.add_argument("--use_combined_exit", help='Use both the ttm_trend algorithm and Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
 
@@ -61,6 +62,11 @@ exit_signal			= False
 mytimezone			= pytz.timezone("US/Eastern")
 tda_gobot_helper.mytimezone	= mytimezone
 
+# Text color options
+red				= '\033[0;31m'
+green				= '\033[0;32m'
+reset_color			= '\033[0m'
+text_color			= ''
 
 # Do not proceed if market is closed and args.notmarketclosed is set
 # Currently this won't matter much as TDA requires limit orders for all extended hours trading
@@ -252,11 +258,7 @@ while True:
 	percent_change		= abs( last_price / base_price - 1 ) * 100
 
 	if ( debug == True ):
-		red		= '\033[0;31m'
-		green		= '\033[0;32m'
-		reset_color	= '\033[0m'
-
-		text_color	= green
+		text_color = green
 		if ( args.short == False and last_price < orig_base_price or
 			args.short == True and last_price > orig_base_price ):
 				text_color		= red
@@ -371,7 +373,7 @@ while True:
 		#  price movement.
 		elif ( exit_percent_signal == True and exit_signal == False ):
 
-			loopt		= 30
+			loopt		= args.exit_percent_loopt
 
 			pricehistory	= {}
 			pricehistory	= get_ph(stock)
@@ -380,12 +382,14 @@ while True:
 				time.sleep(5)
 				continue
 
-			# Integrate the very last_price from get_quote() into the latest candle
+			# Integrate the latest last_price from get_quote() into the latest candle from pricehistory
 			if ( last_price >= pricehistory['candles'][-1]['high'] ):
 				pricehistory['candles'][-1]['high'] = last_price
+				pricehistory['candles'][-1]['close'] = last_price
 
 			elif ( last_price <= pricehistory['candles'][-1]['low'] ):
 				pricehistory['candles'][-1]['low'] = last_price
+				pricehistory['candles'][-1]['close'] = last_price
 
 			else:
 				pricehistory['candles'][-1]['close'] = last_price
@@ -401,7 +405,7 @@ while True:
 			# If exit_percent has been hit, we will sell at the first RED candle
 			# Combined exit uses Heikin Ashi candles and ttm_trend algorithm to determine
 			#  when a trend movement has ended and it's time to exit the trade.
-			if ( use_combined_exit == True ):
+			if ( args.use_combined_exit == True ):
 				trend_exit	= False
 				ha_exit		= False
 
@@ -445,14 +449,25 @@ while True:
 
 	# Sell/buy_to_cover the security
 	if ( exit_signal == True ):
+		text_color = green
 
 		if ( args.short == False ):
-			print('SELLING: net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+			if ( net_change < 0 ):
+				text_color = red
+
+			print('SELLING: net change (' + str(stock) + '): ' + str(text_color) + str(net_change) + ' USD' + str(reset_color))
 			if ( args.fake == False ):
 				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, account_number=tda_account_number, debug=debug)
 
 		else:
-			print('BUY_TO_COVER: net change (' + str(stock) + '): ' + str(net_change) + ' USD')
+			if ( net_change > 0 ):
+				text_color = red
+			else:
+				# Shorts usually have a negative net_change when trades are successful,
+				#  but make it a positive number for readability
+				net_change = abs(net_change)
+
+			print('BUY_TO_COVER: net change (' + str(stock) + '): ' + str(text_color) + str(net_change) + ' USD' + str(reset_color))
 			if ( args.fake == False ):
 				data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, account_number=tda_account_number, debug=debug)
 

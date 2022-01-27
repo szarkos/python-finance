@@ -2277,6 +2277,39 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			net_change = round( (last_price - stocks[ticker]['orig_base_price']) * stocks[ticker]['stock_qty'], 3 )
 
+			# Integrate last_price from get_lastprice() into the latest candle from pricehistory.
+			#
+			# This helps ensure we have the latest data to use with our exit strategies.
+			# The downside is this may make reproducing trades via backtesting more difficult,
+			#  but that is already difficult sometimes as the streaming API can provide
+			#  slightly different candles than the historical data.
+			if ( last_price >= stocks[ticker]['pricehistory']['candles'][-1]['high'] ):
+				stocks[ticker]['pricehistory']['candles'][-1]['high']	= last_price
+				stocks[ticker]['pricehistory']['candles'][-1]['close']	= last_price
+
+			elif ( last_price <= stocks[ticker]['pricehistory']['candles'][-1]['low'] ):
+				stocks[ticker]['pricehistory']['candles'][-1]['low']	= last_price
+				stocks[ticker]['pricehistory']['candles'][-1]['close']	= last_price
+
+			else:
+				stocks[ticker]['pricehistory']['candles'][-1]['close'] = last_price
+
+			# Recalculate the latest Heikin Ashi candle
+			ha_open		= ( stocks[ticker]['pricehistory']['hacandles'][-2]['open'] + stocks[ticker]['pricehistory']['hacandles'][-2]['close'] ) / 2
+			ha_close	= ( stocks[ticker]['pricehistory']['candles'][-1]['open'] +
+						stocks[ticker]['pricehistory']['candles'][-1]['high'] +
+						stocks[ticker]['pricehistory']['candles'][-1]['low'] +
+						stocks[ticker]['pricehistory']['candles'][-1]['close'] ) / 4
+
+			ha_high		= max( stocks[ticker]['pricehistory']['candles'][-1]['high'], ha_open, ha_close )
+			ha_low		= min( stocks[ticker]['pricehistory']['candles'][-1]['low'], ha_open, ha_close )
+
+			stocks[ticker]['pricehistory']['hacandles'][-1]['open']		= ha_open
+			stocks[ticker]['pricehistory']['hacandles'][-1]['close']	= ha_close
+			stocks[ticker]['pricehistory']['hacandles'][-1]['high']		= ha_high
+			stocks[ticker]['pricehistory']['hacandles'][-1]['low']		= ha_low
+
+
 			# End of trading day - dump the stock and exit unless --multiday was set
 			#  or if args.hold_overnight=False and args.multiday=True
 			if ( tda_gobot_helper.isendofday(4) == True ):
@@ -3392,6 +3425,39 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
 
 			net_change = round( (last_price - stocks[ticker]['orig_base_price']) * stocks[ticker]['stock_qty'], 3 )
+
+			# Integrate last_price from get_lastprice() into the latest candle from pricehistory.
+			#
+			# This helps ensure we have the latest data to use with our exit strategies.
+			# The downside is this may make reproducing trades via backtesting more difficult,
+			#  but that is already difficult sometimes as the streaming API can provide
+			#  slightly different candles than the historical data.
+			if ( last_price >= stocks[ticker]['pricehistory']['candles'][-1]['high'] ):
+				stocks[ticker]['pricehistory']['candles'][-1]['high']	= last_price
+				stocks[ticker]['pricehistory']['candles'][-1]['close']	= last_price
+
+			elif ( last_price <= stocks[ticker]['pricehistory']['candles'][-1]['low'] ):
+				stocks[ticker]['pricehistory']['candles'][-1]['low']	= last_price
+				stocks[ticker]['pricehistory']['candles'][-1]['close']	= last_price
+
+			else:
+				stocks[ticker]['pricehistory']['candles'][-1]['close'] = last_price
+
+			# Recalculate the latest Heikin Ashi candle
+			ha_open		= ( stocks[ticker]['pricehistory']['hacandles'][-2]['open'] + stocks[ticker]['pricehistory']['hacandles'][-2]['close'] ) / 2
+			ha_close	= ( stocks[ticker]['pricehistory']['candles'][-1]['open'] +
+						stocks[ticker]['pricehistory']['candles'][-1]['high'] +
+						stocks[ticker]['pricehistory']['candles'][-1]['low'] +
+						stocks[ticker]['pricehistory']['candles'][-1]['close'] ) / 4
+
+			ha_high		= max( stocks[ticker]['pricehistory']['candles'][-1]['high'], ha_open, ha_close )
+			ha_low		= min( stocks[ticker]['pricehistory']['candles'][-1]['low'], ha_open, ha_close )
+
+			stocks[ticker]['pricehistory']['hacandles'][-1]['open']		= ha_open
+			stocks[ticker]['pricehistory']['hacandles'][-1]['close']	= ha_close
+			stocks[ticker]['pricehistory']['hacandles'][-1]['high']		= ha_high
+			stocks[ticker]['pricehistory']['hacandles'][-1]['low']		= ha_low
+
 
 			# End of trading day - dump the stock and exit unless --multiday was set
 			#  or if args.hold_overnight=False and args.multiday=True

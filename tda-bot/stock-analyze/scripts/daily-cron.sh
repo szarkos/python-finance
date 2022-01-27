@@ -33,6 +33,16 @@ done
 
 cur_time=$(TZ="America/Los_Angeles" date)
 test_data=$(./summarize-results.sh results)
-echo "${test_data}" | mail -s "Gobot Backtest (${cur_time})" stonks@sentry.net
 
+
+# Inform on which tickers are not functioning properly with each algo
+scenarios=$(./gobot-test.py --print_scenarios)
+bad_tickers=''
+for i in $scenarios; do
+	bad=$( egrep '(Success|Total)' results/*-${i} | grep 31m | sed 's/results\///' | sed 's/\-.*//' | sort | uniq | tr '\n' ',' | sed 's/,$//' )
+	bad_tickers="${bad_tickers}\n${i}\n${bad}\n"
+done
+
+# Email the data
+echo -e "${bad_tickers}\n\n\n${test_data}" | mail -s "Gobot Backtest (${cur_time})" stonks@sentry.net
 

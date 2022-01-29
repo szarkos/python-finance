@@ -432,13 +432,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	##################################################################################################################
 	# Experimental
-	if ( experimental == True ):
-		sys.path.append(parent_path + '/../candle_patterns/')
-		import pattern_helper
-
-		diff_signals = pattern_helper.pattern_differential(pricehistory)
-		anti_diff_signals = pattern_helper.pattern_anti_differential(pricehistory)
-		fib_signals = pattern_helper.pattern_fibonacci_timing(pricehistory)
+	#if ( experimental == True ):
+	#	sys.path.append(parent_path + '/../candle_patterns/')
+	#	import pattern_helper
+	#
+	#	diff_signals = pattern_helper.pattern_differential(pricehistory)
+	#	anti_diff_signals = pattern_helper.pattern_anti_differential(pricehistory)
+	#	fib_signals = pattern_helper.pattern_fibonacci_timing(pricehistory)
 	##################################################################################################################
 
 
@@ -2757,13 +2757,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 
 			# Experimental pattern matching - may be removed
-			if ( experimental == True ):
-				if ( cur_natr_daily > 6 ):
-					#if ( (diff_signals[idx] == 'buy' or anti_diff_signals[idx] == 'buy') and fib_signals[idx]['bull_signal'] <= -8 ):
-					if ( fib_signals[idx]['bull_signal'] <= -8 ):
-						experimental_signal = True
-				else:
-					experimental_signal = True
+			#if ( experimental == True ):
+			#	if ( cur_natr_daily > 6 ):
+			#		#if ( (diff_signals[idx] == 'buy' or anti_diff_signals[idx] == 'buy') and fib_signals[idx]['bull_signal'] <= -8 ):
+			#		if ( fib_signals[idx]['bull_signal'] <= -8 ):
+			#			experimental_signal = True
+			#	else:
+			#		experimental_signal = True
 
 
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
@@ -2842,8 +2842,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					final_buy_signal = False
 
 				# Experimental indicators here
-				if ( experimental == True and experimental_signal != True ):
-					final_buy_signal = False
+				#if ( experimental == True and experimental_signal != True ):
+				#	final_buy_signal = False
 
 				# Required EMD affinity for stock
 				if ( with_emd_affinity != None ):
@@ -4099,13 +4099,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 
 			# Experimental indicators
-			if ( experimental == True ):
-				if ( cur_natr_daily > 6 ):
-					#if ( (diff_signals[idx] == 'short' or anti_diff_signals[idx] == 'short') and fib_signals[idx]['bear_signal'] >= 8 ):
-					if ( fib_signals[idx]['bear_signal'] >= 8 ):
-						experimental_signal = True
-				else:
-					experimental_signal = True
+			#if ( experimental == True ):
+			#	if ( cur_natr_daily > 6 ):
+			#		#if ( (diff_signals[idx] == 'short' or anti_diff_signals[idx] == 'short') and fib_signals[idx]['bear_signal'] >= 8 ):
+			#		if ( fib_signals[idx]['bear_signal'] >= 8 ):
+			#			experimental_signal = True
+			#	else:
+			#		experimental_signal = True
 
 
 			# Resolve the primary stochrsi short_signal with the secondary indicators
@@ -4184,8 +4184,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					final_short_signal = False
 
 				# Experimental
-				if ( experimental == True and experimental_signal != True ):
-					final_short_signal = False
+				#if ( experimental == True and experimental_signal != True ):
+				#	final_short_signal = False
 
 				# Required EMD affinity for stock
 				if ( with_emd_affinity != None ):

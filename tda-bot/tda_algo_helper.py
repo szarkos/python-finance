@@ -1747,7 +1747,7 @@ def get_supertrend(pricehistory=None, multiplier=3, atr_period=128):
 # If filter=True, we use ATR to help filter the data and remove key levels that are
 #   within one ATR from eachother
 # If plot=True we will attempt to plot the keylevels as candles
-def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, debug=False):
+def get_keylevels(pricehistory=None, atr_period=14, filter=True, strict=False, plot=False, debug=False):
 
 	if ( pricehistory == None ):
 		return False, []
@@ -1762,10 +1762,18 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, deb
 	def is_support(df, i):
 		support = False
 		try:
-			support =	df['low'][i] <= df['low'][i-1] and \
-					df['low'][i] <= df['low'][i+1] and \
-					df['low'][i+1] <= df['low'][i+2] and \
-					df['low'][i-1] <= df['low'][i-2]
+			if ( strict == True ):
+				# Use four-candle fractal
+				support =	df['low'][i] <= df['low'][i-1] and \
+						df['low'][i] <= df['low'][i+1] and \
+						df['low'][i+1] <= df['low'][i+2]
+
+			else:
+				# Use five-candle fractal
+				support =	df['low'][i] <= df['low'][i-1] and \
+						df['low'][i] <= df['low'][i+1] and \
+						df['low'][i+1] <= df['low'][i+2] and \
+						df['low'][i-1] <= df['low'][i-2]
 
 		except Exception as e:
 			print('Exception caught: get_keylevels(' + str(ticker) + '): is_support(): ' + str(e) + '. Ignoring level (' + str(df['low'][i]) + ').' )
@@ -1777,10 +1785,19 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, deb
 	def is_resistance(df, i):
 		resistance = False
 		try:
-			resistance =	df['high'][i] >= df['high'][i-1] and \
-					df['high'][i] >= df['high'][i+1] and \
-					df['high'][i+1] >= df['high'][i+2] and \
-					df['high'][i-1] >= df['high'][i-2]
+			if ( strict == True ):
+				# Use four-candle fractal
+				resistance =	df['high'][i] >= df['high'][i-1] and \
+						df['high'][i] >= df['high'][i+1] and \
+						df['high'][i+1] >= df['high'][i+2]
+
+			else:
+				# Use five-candle fractal
+				resistance =	df['high'][i] >= df['high'][i-1] and \
+						df['high'][i] >= df['high'][i+1] and \
+						df['high'][i+1] >= df['high'][i+2] and \
+						df['high'][i-1] >= df['high'][i-2]
+
 		except Exception as e:
 			print('Exception caught: get_keylevels(' + str(ticker) + '): is_resistance(): ' + str(e) + '. Ignoring level (' + str(df['high'][i]) + ').' )
 			return False, []

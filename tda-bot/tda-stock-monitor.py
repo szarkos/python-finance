@@ -32,6 +32,7 @@ import tda_algo_helper
 parser = argparse.ArgumentParser()
 parser.add_argument("--stocks", help='Stock ticker(s) to purchase (comma delimited)', required=True, type=str)
 parser.add_argument("--stock_usd", help='Amount of money (USD) to invest per trade', default=1000, type=float)
+parser.add_argument("--account_number", help='Account number to use (default: None)', default=None, type=int)
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("--skip_history", help='Skip retrieving price history. Speeds startup but disables calculating average volume and VWAP', action="store_true")
 
@@ -68,9 +69,16 @@ if ( load_dotenv() != True ):
         print('Error: unable to load .env file', file=sys.stderr)
         sys.exit(1)
 
-tda_account_number			= int( os.environ["tda_account_number"] )
-passcode				= os.environ["tda_encryption_passcode"]
+try:
+	if ( args.account_number != None ):
+		tda_account_number = args.account_number
+	else:
+		tda_account_number = int( os.environ["tda_account_number"] )
+except:
+	print('Error: account number not found, exiting.')
+	sys.exit(1)
 
+passcode				= os.environ["tda_encryption_passcode"]
 tda_gobot_helper.tda			= tda
 tda_gobot_helper.tda_account_number	= tda_account_number
 tda_gobot_helper.passcode		= passcode
@@ -86,12 +94,12 @@ watchlist_template = {  "name": "",
 				{ "instrument": { "symbol": "GME", "assetType": "EQUITY" } }
 			] }
 
-prev_timestamp = 0
-gap_up_list = []
-gap_down_list = []
-vol_gap_up_list = []
-vwap_list = []
-ib_out = ib_err = None
+prev_timestamp	= 0
+gap_up_list	= []
+gap_down_list	= []
+vol_gap_up_list	= []
+vwap_list	= []
+ib_out = ib_err	= None
 
 # Initialize stocks{}
 print( 'Initializing stock tickers: ' + str(args.stocks.split(',')) )
@@ -101,7 +109,7 @@ args.stocks = tda_gobot_helper.fix_stock_symbol(args.stocks)
 args.stocks = tda_gobot_helper.check_stock_symbol(args.stocks)
 if ( isinstance(args.stocks, bool) and args.stocks == False ):
 	print('Error: check_stock_symbol(' + str(args.stocks) + ') returned False, exiting.')
-	exit(1)
+	sys.exit(1)
 time.sleep(2)
 
 stocks = OrderedDict()
@@ -127,21 +135,21 @@ if ( len(stocks) == 0 ):
 	sys.exit(1)
 
 # Initialize additional stocks{} values
-time_now = datetime.datetime.now( mytimezone )
-time_prev = time_now - datetime.timedelta( days=10 )
+time_now	= datetime.datetime.now( mytimezone )
+time_prev	= time_now - datetime.timedelta( days=10 )
 
 # Make sure start and end dates don't land on a weekend or outside market hours
-time_now = tda_gobot_helper.fix_timestamp(time_now)
-time_prev = tda_gobot_helper.fix_timestamp(time_prev)
+time_now	= tda_gobot_helper.fix_timestamp(time_now)
+time_prev	= tda_gobot_helper.fix_timestamp(time_prev)
 
-time_now_epoch = int( time_now.timestamp() * 1000 )
-time_prev_epoch = int( time_prev.timestamp() * 1000 )
+time_now_epoch	= int( time_now.timestamp() * 1000 )
+time_prev_epoch	= int( time_prev.timestamp() * 1000 )
 
 # tda.get_pricehistory() variables
-p_type = 'day'
-period = None
-f_type = 'minute'
-freq = '1'
+p_type	= 'day'
+period	= None
+f_type	= 'minute'
+freq	= '1'
 
 # Get stock_data info about the stock that we can use later (i.e. shortable)
 try:
@@ -186,8 +194,8 @@ for ticker in list(stocks.keys()):
 	# Calculate average volume
 	# Find PDC
 	if ( args.skip_history == False ):
-		avg_vol = 0
-		data = False
+		avg_vol	= 0
+		data	= False
 		while ( data == False ):
 			data, epochs = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, needExtendedHoursData=False)
 			if ( data == False ):
@@ -384,8 +392,8 @@ def stock_monitor(stream=None, debug=False):
 
 	global prev_timestamp, gap_up_list, gap_down_list, vol_gap_up_list, vwap_list
 
-	time_now = datetime.datetime.now(mytimezone)
-	strtime_now = time_now.strftime('%Y-%m-%d %H:%M:%S.%f')
+	time_now	= datetime.datetime.now(mytimezone)
+	strtime_now	= time_now.strftime('%Y-%m-%d %H:%M:%S.%f')
 
 	# Example stream:
 	#
@@ -443,11 +451,11 @@ def stock_monitor(stream=None, debug=False):
 			continue
 
 		# Get the latest candle open/close prices and volume
-		cur_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
-		prev_price = float( stocks[ticker]['pricehistory']['candles'][-args.gap_candles]['close'] )
+		cur_price	= float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+		prev_price	= float( stocks[ticker]['pricehistory']['candles'][-args.gap_candles]['close'] )
 
-		cur_vol = int( stocks[ticker]['pricehistory']['candles'][-1]['volume'] )
-		prev_vol = int( stocks[ticker]['pricehistory']['candles'][-2]['volume'] )
+		cur_vol		= int( stocks[ticker]['pricehistory']['candles'][-1]['volume'] )
+		prev_vol	= int( stocks[ticker]['pricehistory']['candles'][-2]['volume'] )
 
 		# Skip if price hasn't changed
 		if ( cur_price == prev_price ):

@@ -2309,6 +2309,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			stocks[ticker]['pricehistory']['hacandles'][-1]['high']		= ha_high
 			stocks[ticker]['pricehistory']['hacandles'][-1]['low']		= ha_low
 
+			# Finally, reset last_* vars
+			last_open	= stocks[ticker]['pricehistory']['candles'][-1]['open']
+			last_high	= stocks[ticker]['pricehistory']['candles'][-1]['high']
+			last_low	= stocks[ticker]['pricehistory']['candles'][-1]['low']
+			last_close	= stocks[ticker]['pricehistory']['candles'][-1]['close']
 
 			# End of trading day - dump the stock and exit unless --multiday was set
 			#  or if args.hold_overnight=False and args.multiday=True
@@ -3458,6 +3463,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			stocks[ticker]['pricehistory']['hacandles'][-1]['high']		= ha_high
 			stocks[ticker]['pricehistory']['hacandles'][-1]['low']		= ha_low
 
+			# Finally, reset last_* vars
+			last_open	= stocks[ticker]['pricehistory']['candles'][-1]['open']
+			last_high	= stocks[ticker]['pricehistory']['candles'][-1]['high']
+			last_low	= stocks[ticker]['pricehistory']['candles'][-1]['low']
+			last_close	= stocks[ticker]['pricehistory']['candles'][-1]['close']
 
 			# End of trading day - dump the stock and exit unless --multiday was set
 			#  or if args.hold_overnight=False and args.multiday=True

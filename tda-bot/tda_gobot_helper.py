@@ -101,7 +101,11 @@ def isnewday():
 
 # Returns True the US markets are open
 # Nasdaq and NYSE open at 9:30AM and close at 4:00PM, Monday-Friday
-def ismarketopen_US(date=None, safe_open=False, check_day_only=False):
+#  The safe_open option does not return True until 45-minutes after standard market hours open
+#  to avoid volatility.
+# Extended hours for TDA are 2.5 hours before and after standard market hours
+#  Note: safe_open does not apply to extended hours
+def ismarketopen_US(date=None, safe_open=False, check_day_only=False, extended_hours=False ):
 	eastern = timezone('US/Eastern') # Observes EST and EDT
 
 	if ( date == None ):
@@ -198,35 +202,47 @@ def ismarketopen_US(date=None, safe_open=False, check_day_only=False):
 		return True
 
 	if ( int(est_time.strftime('%w')) != 0 and int(est_time.strftime('%w')) != 6 ): # 0=Sunday, 6=Saturday
-		if ( int(est_time.strftime('%-H')) >= 9 ):
-			if ( int(est_time.strftime('%-H')) == 9 ):
 
-				# Do not return True until after 10AM EST to avoid some of the volatility of the open
-				if ( isinstance(safe_open, bool) and safe_open == True ):
-					return False
-
-				if ( int(est_time.strftime('%-M')) >= 30 ):
+		# Extended market hours (07:00-18:30 Eastern)
+		if ( extended_hours == True ):
+			if ( int(est_time.strftime('%-H')) >= 7 ):
+				if ( int(est_time.strftime('%-H')) < 18 ):
 					return True
-				else:
-					return False
 
-			elif ( int(est_time.strftime('%-H')) == 10 ):
+				elif ( int(est_time.strftime('%-H')) == 18 and int(est_time.strftime('%-M')) <= 30 ):
+					return True
 
-				# Do not return True until after 10:15AM to void some of the volatility of the open
-				if ( isinstance(safe_open, bool) and safe_open == True ):
-					if ( int(est_time.strftime('%-M')) >= 15 ):
+		# Standard market hours (09:30-16:00 Eastern)
+		else:
+			if ( int(est_time.strftime('%-H')) >= 9 ):
+				if ( int(est_time.strftime('%-H')) == 9 ):
+
+					# Do not return True until after 10AM EST to avoid some of the volatility of the open
+					if ( isinstance(safe_open, bool) and safe_open == True ):
+						return False
+
+					if ( int(est_time.strftime('%-M')) >= 30 ):
 						return True
 					else:
 						return False
 
-			# Check early close holidays (1:00PM Eastern)
-			if ( est_time.strftime('%Y-%m-%d') ) in early_close:
-				if ( int(est_time.strftime('%-H')) <= 12 and int(est_time.strftime('%-M')) <= 59 ):
-					return True
+				elif ( int(est_time.strftime('%-H')) == 10 ):
 
-			# Otherwise consider 3:59 Eastern to be closing time
-			elif ( int(est_time.strftime('%-H')) <= 15 and int(est_time.strftime('%-M')) <= 59 ):
-				return True
+					# Do not return True until after 10:15AM to void some of the volatility of the open
+					if ( isinstance(safe_open, bool) and safe_open == True ):
+						if ( int(est_time.strftime('%-M')) >= 15 ):
+							return True
+						else:
+							return False
+
+				# Check early close holidays (1:00PM Eastern)
+				if ( est_time.strftime('%Y-%m-%d') ) in early_close:
+					if ( int(est_time.strftime('%-H')) <= 12 and int(est_time.strftime('%-M')) <= 59 ):
+						return True
+
+				# Otherwise consider 3:59 Eastern to be closing time
+				elif ( int(est_time.strftime('%-H')) <= 15 and int(est_time.strftime('%-M')) <= 59 ):
+					return True
 
 	return False
 

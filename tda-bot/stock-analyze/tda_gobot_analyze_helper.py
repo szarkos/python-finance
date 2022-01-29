@@ -303,13 +303,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	etf_min_rs			= None		if ('etf_min_rs' not in params) else params['etf_min_rs']
 	etf_min_roc			= None		if ('etf_min_roc' not in params) else params['etf_min_roc']
 	etf_min_natr			= None		if ('etf_min_natr' not in params) else params['etf_min_natr']
-	etf_use_emd			= False		if ('etf_use_emd' not in params) else params['etf_use_emd']
 
+	etf_use_emd			= False		if ('etf_use_emd' not in params) else params['etf_use_emd']
 	etf_emd_fraction		= 0.1		if ('mesa_emd_fraction' not in params) else params['mesa_emd_fraction']
 	etf_emd_period			= 20		if ('mesa_emd_period' not in params) else params['mesa_emd_period']
 	etf_emd_type			= 'hl2'		if ('mesa_emd_type' not in params) else params['mesa_emd_type']
 
-	with_emd_affinity		= False		if ('with_emd_affinity' not in params) else params['with_emd_affinity']
+	emd_affinity_long		= False		if ('emd_affinity_long' not in params) else params['emd_affinity_long']
+	emd_affinity_short		= False		if ('emd_affinity_short' not in params) else params['emd_affinity_short']
 	mesa_emd_fraction		= 0.1		if ('mesa_emd_fraction' not in params) else params['mesa_emd_fraction']
 	mesa_emd_period			= 20		if ('mesa_emd_period' not in params) else params['mesa_emd_period']
 	mesa_emd_type			= 'hl2'		if ('mesa_emd_type' not in params) else params['mesa_emd_type']
@@ -686,15 +687,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			return False
 
 	# Empirical Mode Decomposition (EMD)
-	emd_trend	= []
-	emd_peak	= []
-	emd_valley	= []
-	try:
-		emd_trend, emd_peak, emd_valley = tda_algo_helper.get_mesa_emd(pricehistory=pricehistory, type=mesa_emd_type, period=mesa_emd_period, fraction=mesa_emd_fraction)
+	if ( emd_affinity_long != None or emd_affinity_short != None ):
+		emd_trend	= []
+		emd_peak	= []
+		emd_valley	= []
+		try:
+			emd_trend, emd_peak, emd_valley = tda_algo_helper.get_mesa_emd(pricehistory=pricehistory, type=mesa_emd_type, period=mesa_emd_period, fraction=mesa_emd_fraction)
 
-	except Exception as e:
-		print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_mesa_emd(): ' + str(e))
-		return False
+		except Exception as e:
+			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_mesa_emd(): ' + str(e))
+			return False
 
 	# Calculate daily volume from the 1-minute candles that we have
 	if ( check_volume == True ):
@@ -937,7 +939,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 		# Key levels
 		klfilter = False
-		long_support, long_resistance = tda_algo_helper.get_keylevels(weekly_ph, filter=klfilter)
+		long_support, long_resistance = tda_algo_helper.get_keylevels(weekly_ph, filter=klfilter, strict=True)
 
 		# Three/Twenty week high/low
 #		three_week_high = three_week_low = three_week_avg = -1
@@ -2846,10 +2848,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				#	final_buy_signal = False
 
 				# Required EMD affinity for stock
-				if ( with_emd_affinity != None ):
-					cur_emd		= ( emd_trend[idx],emd_peak[idx], emd_valley[idx] )
+				if ( emd_affinity_long != None ):
+					cur_emd		= ( emd_trend[idx], emd_peak[idx], emd_valley[idx] )
 					emd_affinity	= get_mesa_emd( cur_emd=cur_emd )
-					if ( emd_affinity != with_emd_affinity ):
+					if ( emd_affinity != emd_affinity_long ):
 						final_buy_signal = False
 
 			# DEBUG
@@ -2931,7 +2933,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				#  incr_threshold, decr_threshold and exit_percent if needed.
 				if ( variable_exit == True ):
 					if ( cur_natr < incr_threshold_long ):
-
 						# The normalized ATR is below incr_threshold. This means the stock is less
 						#  likely to get to incr_threshold from our purchase price, and is probably
 						#  even farther away from exit_percent (if it is set). So we adjust these parameters
@@ -3062,11 +3063,21 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					if ( bbands_kchan_xover_counter <= 0 ):
 						bbands_kchan_xover_counter = 1
 
-					if ( bbands_kchan_crossover_signal == True and bbands_kchan_xover_counter >= 10 and cur_close < purchase_price ):
-						if ( decr_threshold_long > 1 ):
-							decr_threshold_long = 1
+					if ( cur_close < purchase_price ):
+						if ( bbands_kchan_xover_counter >= 10 ):
+							# We've lingered for 10+ bars and price is below entry, let's try to cut our losses
+							if ( decr_threshold_long > 1 ):
+								decr_threshold_long = 1
 
-					if ( primary_stoch_indicator == 'stacked_ma' ):
+						if ( primary_stoch_indicator == 'mama_fama' ):
+							# It's likely that the bbands/kchan squeeze has failed in these cases
+							if ( stacked_ma_bear_affinity == True ):
+								sell_signal = True
+
+#							elif ( bbands_kchan_xover_counter >= 4 and cur_close < cur_open ):
+#								sell_signal = True
+
+					if ( primary_stoch_indicator == 'stacked_ma' or primary_stoch_indicator == 'mama_fama' ):
 						if ( stacked_ma_bear_affinity == True or stacked_ma_bear_ha_affinity == True ):
 							if ( decr_threshold_long > 1 ):
 								decr_threshold_long = 1
@@ -4188,10 +4199,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				#	final_short_signal = False
 
 				# Required EMD affinity for stock
-				if ( with_emd_affinity != None ):
+				if ( emd_affinity_short != None ):
 					cur_emd		= ( emd_trend[idx],emd_peak[idx], emd_valley[idx] )
 					emd_affinity	= get_mesa_emd( cur_emd=cur_emd )
-					if ( emd_affinity != with_emd_affinity ):
+					if ( emd_affinity != emd_affinity_short ):
 						final_short_signal = False
 
 			# DEBUG
@@ -4403,11 +4414,21 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					if ( bbands_kchan_xover_counter <= 0 ):
 						bbands_kchan_xover_counter = 1
 
-					if ( bbands_kchan_crossover_signal == True and bbands_kchan_xover_counter >= 10 and cur_close > short_price ):
-						if ( decr_threshold_short > 1 ):
-							decr_threshold_short = 1
+					if ( cur_close > short_price ):
+						if ( bbands_kchan_xover_counter >= 10 ):
+							# We've lingered for 10+ bars and price is above short entry, let's try to cut out losses
+							if ( decr_threshold_short > 1 ):
+								decr_threshold_short = 1
 
-					if ( primary_stoch_indicator == 'stacked_ma' ):
+						if ( primary_stoch_indicator == 'mama_fama' ):
+							# It's likely that the bbands/kchan squeeze has failed in these cases
+							if ( stacked_ma_bull_affinity == True ):
+								buy_to_cover_signal = True
+
+#							elif ( bbands_kchan_xover_counter >= 4 and cur_close > cur_open ):
+#								buy_to_cover_signal = True
+
+					if ( primary_stoch_indicator == 'stacked_ma' or primary_stoch_indicator == 'mama_fama' ):
 						if ( stacked_ma_bull_affinity == True or stacked_ma_bull_ha_affinity == True ):
 							if ( decr_threshold_short > 1 ):
 								decr_threshold_short = 1

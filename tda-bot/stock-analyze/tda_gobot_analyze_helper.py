@@ -938,8 +938,20 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 								'pdc':		-1 }
 
 		# Key levels
-		klfilter = False
-		long_support, long_resistance = tda_algo_helper.get_keylevels(weekly_ph, filter=klfilter, strict=True)
+		# Pull the main keylevels, filtered to reduce redundant keylevels
+		long_support, long_resistance = tda_algo_helper.get_keylevels( weekly_ph, filter=True )
+
+		# Also pull the full keylevels, and include those that have been hit more than once
+		long_support_full, long_resistance_full = tda_algo_helper.get_keylevels( weekly_ph, filter=False )
+
+		kl = dt = count = 0
+		for kl,dt,count in long_support_full:
+			if ( count > 1 and (kl, dt, count) not in long_support ):
+				long_support.append( (kl, dt, count) )
+
+		for kl,dt,count in long_resistance_full:
+			if ( count > 1 and (kl, dt, count) not in long_resistance ):
+				long_resistance.append( (kl, dt, count) )
 
 		# Three/Twenty week high/low
 #		three_week_high = three_week_low = three_week_avg = -1
@@ -2477,9 +2489,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				# Key Levels
 				# Check if price is near historic key level
-				near_keylevel = False
 				if ( resistance_signal == True ):
-					for lvl,dt in long_support + long_resistance:
+					near_keylevel	 = False
+					lvl = dt = count = 0
+					for lvl,dt,count in long_support + long_resistance:
 						if ( abs((lvl / cur_close - 1) * 100) <= price_support_pct ):
 
 							# Since we are parsing historical data on key levels,
@@ -3833,8 +3846,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# Key Levels
 				# Check if price is near historic key level
 				if ( resistance_signal == True ):
-					near_keylevel = False
-					for lvl,dt in long_support + long_resistance:
+					near_keylevel	 = False
+					lvl = dt = count = 0
+					for lvl,dt,count in long_support + long_resistance:
 						if ( abs((lvl / cur_close - 1) * 100) <= price_resistance_pct ):
 
 							# Since we are parsing historical data on key levels,

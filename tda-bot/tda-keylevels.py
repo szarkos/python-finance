@@ -65,14 +65,15 @@ except Exception as e:
 
 # Call get_keylevels() and print the result
 # If plot==True then a plot will appear before key levels are printed on the screen
-long_support = []
-long_resistance = []
-#try:
-long_support,long_resistance = tda_algo_helper.get_keylevels(pricehistory=pricehistory, atr_period=args.atr_period, filter=filter, plot=args.plot)
+long_support	= []
+long_resistance	= []
+kl = dt = count = 0
+try:
+	long_support, long_resistance = tda_algo_helper.get_keylevels(pricehistory=pricehistory, atr_period=args.atr_period, filter=filter, plot=args.plot)
 
-#except Exception as e:
-#	print('Caught exception: get_keylevels(' + str(args.stock) + '): ' + str(e))
-#	sys.exit(1)
+except Exception as e:
+	print('Caught exception: get_keylevels(' + str(args.stock) + '): ' + str(e))
+	sys.exit(1)
 
 if ( isinstance(long_support, bool) and long_support == False ):
 	print('Error: get_keylevels(' + str(args.stock) + '): returned False')
@@ -81,14 +82,14 @@ if ( isinstance(long_support, bool) and long_support == False ):
 print('Key levels for stock ' + str(args.stock))
 
 print('Long support:')
-for kl,dt in long_support:
+for kl,dt,count in long_support:
 	dt = datetime.datetime.fromtimestamp(int(dt)/1000, tz=mytimezone).strftime('%Y-%m-%d')
-	print(str(dt) + ': ' + str(kl))
+	print(str(dt) + ': ' + str(kl) + ' (' + str(count) + ')')
 
 print('Long resistance:')
-for kl,dt in long_resistance:
+for kl,dt,count in long_resistance:
 	dt = datetime.datetime.fromtimestamp(int(dt)/1000, tz=mytimezone).strftime('%Y-%m-%d')
-	print(str(dt) + ': ' + str(kl))
+	print(str(dt) + ': ' + str(kl) + ' (' + str(count) + ')')
 
 sys.exit(0)
 

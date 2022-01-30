@@ -1747,7 +1747,7 @@ def get_supertrend(pricehistory=None, multiplier=3, atr_period=128):
 # If filter=True, we use ATR to help filter the data and remove key levels that are
 #   within one ATR from eachother
 # If plot=True we will attempt to plot the keylevels as candles
-def get_keylevels(pricehistory=None, atr_period=14, filter=True, strict=False, plot=False, debug=False):
+def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, debug=False):
 
 	if ( pricehistory == None ):
 		return False, []
@@ -1759,50 +1759,64 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, strict=False, p
 		pass
 
 	# Determine if level is a support pivot based on five-candle fractal
-	def is_support(df, i):
+	def is_support(df, i, filter=True):
 		support = False
 		try:
-			if ( strict == True ):
-				# Use four-candle fractal
-				support =	df['low'][i] <= df['low'][i-1] and \
-						df['low'][i] <= df['low'][i+1] and \
-						df['low'][i+1] <= df['low'][i+2]
 
-			else:
-				# Use five-candle fractal
-				support =	df['low'][i] <= df['low'][i-1] and \
-						df['low'][i] <= df['low'][i+1] and \
-						df['low'][i+1] <= df['low'][i+2] and \
-						df['low'][i-1] <= df['low'][i-2]
+			# Use five-candle fractal
+			support_1 =	df['low'][i] <= df['low'][i-1] and \
+					df['low'][i] <= df['low'][i+1] and \
+					df['low'][i+1] <= df['low'][i+2] and \
+					df['low'][i-1] <= df['low'][i-2]
+
+
+			# Test four-candle fractals
+			support_2 =	df['low'][i] <= df['low'][i-1] and \
+					df['low'][i] <= df['low'][i+1] and \
+					df['low'][i+1] <= df['low'][i+2]
+
+			support_3 =	df['low'][i] <= df['low'][i-1] and \
+					df['low'][i] <= df['low'][i+1] and \
+					df['low'][i-1] <= df['low'][i-2]
 
 		except Exception as e:
 			print('Exception caught: get_keylevels(' + str(ticker) + '): is_support(): ' + str(e) + '. Ignoring level (' + str(df['low'][i]) + ').' )
 			return False, []
 
-		return support
+		if ( support_1 == True or support_2 == True or support_3 == True ):
+			return True
+
+		return False
 
 	# Determine if level is a resistance pivot based on five-candle fractal
-	def is_resistance(df, i):
+	def is_resistance(df, i, filter=True):
 		resistance = False
 		try:
-			if ( strict == True ):
-				# Use four-candle fractal
-				resistance =	df['high'][i] >= df['high'][i-1] and \
-						df['high'][i] >= df['high'][i+1] and \
-						df['high'][i+1] >= df['high'][i+2]
 
-			else:
-				# Use five-candle fractal
-				resistance =	df['high'][i] >= df['high'][i-1] and \
-						df['high'][i] >= df['high'][i+1] and \
-						df['high'][i+1] >= df['high'][i+2] and \
-						df['high'][i-1] >= df['high'][i-2]
+			# Use five-candle fractal
+			resistance_1 =	df['high'][i] >= df['high'][i-1] and \
+					df['high'][i] >= df['high'][i+1] and \
+					df['high'][i+1] >= df['high'][i+2] and \
+					df['high'][i-1] >= df['high'][i-2]
+
+
+			# Test four-candle fractals
+			resistance_2 =	df['high'][i] >= df['high'][i-1] and \
+					df['high'][i] >= df['high'][i+1] and \
+					df['high'][i+1] >= df['high'][i+2]
+
+			resistance_3 =	df['high'][i] >= df['high'][i-1] and \
+					df['high'][i] >= df['high'][i+1] and \
+					df['high'][i-1] >= df['high'][i-2]
 
 		except Exception as e:
 			print('Exception caught: get_keylevels(' + str(ticker) + '): is_resistance(): ' + str(e) + '. Ignoring level (' + str(df['high'][i]) + ').' )
 			return False, []
 
-		return resistance
+		if ( resistance_1 == True or resistance_2 == True or resistance_3 == True ):
+			return True
+
+		return False
 
 	# Reduce noise by eliminating levels that are close to levels that
 	#   have already been discovered
@@ -1849,7 +1863,7 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, strict=False, p
 	for i in range( 2, df.shape[0]-2 ):
 
 		# SUPPORT
-		if ( is_support(df, i) ):
+		if ( is_support(df, i, filter) ):
 			lvl	= float( df['low'][i] )
 			dt	= int( df['datetime'][i] )
 			if ( filter == False ):
@@ -1889,7 +1903,7 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, strict=False, p
 					plot_support_levels.append( (i, lvl) )
 
 		# RESISTANCE
-		elif ( is_resistance(df, i) ):
+		elif ( is_resistance(df, i, filter) ):
 			lvl	= float( df['high'][i] )
 			dt	= int( df['datetime'][i] )
 			if ( filter == False ):
@@ -1927,6 +1941,42 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, strict=False, p
 				if ( plot == True ):
 					plot_resistance_levels.append( (i, lvl) )
 
+
+	# Iterate through long_support and long_resistance and count how many times
+	#  a keylevel has been hit (within 1.5%). We can use the later to help
+	#  gauge importance.
+	long_support_new	= []
+	for idx in range( len(long_support) ):
+		lvl	= long_support[idx][0]
+		dt	= long_support[idx][1]
+		count	= 1
+		for idx2 in range( idx, len(long_support) ):
+			if ( idx == idx2 ):
+				continue
+
+			lvl2 = long_support[idx2][0]
+			if ( abs(lvl / lvl2 - 1) * 100 < 1.5 ):
+				count += 1
+
+		long_support_new.append( (lvl, dt, count) )
+
+	long_resistance_new	= []
+	for idx in range( len(long_resistance) ):
+		lvl	= long_resistance[idx][0]
+		dt	= long_resistance[idx][1]
+		count	= 1
+		for idx2 in range( idx, len(long_resistance) ):
+			if ( idx == idx2 ):
+				continue
+
+			lvl2 = long_resistance[idx2][0]
+			if ( abs(lvl / lvl2 - 1) * 100 < 1.5 ):
+				count += 1
+
+		long_resistance_new.append( (lvl, dt, count) )
+
+
+	# Plot the result if requested
 	if ( plot == True ):
 		from mplfinance.original_flavor import candlestick_ohlc
 		import matplotlib.dates as mpl_dates
@@ -1954,7 +2004,7 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, strict=False, p
 		plt.show()
 
 
-	return long_support, long_resistance
+	return long_support_new, long_resistance_new
 
 
 # Calculate the rate of change

@@ -531,7 +531,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				return False
 
 	# RSI
-	if ( with_rsi == True ):
+	if ( with_rsi == True or with_rsi_simple == True ):
 		rsi = []
 		try:
 			rsi = tda_algo_helper.get_rsi(pricehistory, rsi_period, rsi_type, debug=False)
@@ -676,7 +676,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			return False
 
 	# MESA sine wave
-	if ( with_mesa_sine == True ):
+	if ( with_mesa_sine == True or primary_stoch_indicator == 'mesa_sine' ):
 		sine = []
 		lead = []
 		try:
@@ -1148,7 +1148,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	if ( with_stochmfi_5m == True ):
 		stochmfi_5m_idx = len(pricehistory['candles']) - len(mfi_k_5m) * 5
 
-	if ( with_rsi == True ):
+	if ( with_rsi == True or with_rsi_simple == True ):
 		rsi_idx = len(pricehistory['candles']) - len(rsi)
 
 	if ( with_mfi == True ):
@@ -1699,7 +1699,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		if ( direction == 'long' and cur_sine < midline ):
 			return False
 
-		elif ( direction == 'long' and (prev_sine < prev_lead and cur_sine > cur_lead) ):
+		elif ( direction == 'long' and (prev_sine <= prev_lead and cur_sine > cur_lead) ):
 			if ( mesa_exit == True ):
 				mesa_sine_signal = True
 			else:
@@ -1710,7 +1710,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		elif ( direction == 'short' and cur_sine > midline ):
 			return False
 
-		elif ( direction == 'short' and (prev_sine > prev_lead and cur_sine < cur_lead) ):
+		elif ( direction == 'short' and (prev_sine >= prev_lead and cur_sine < cur_lead) ):
 			if ( mesa_exit == True ):
 				mesa_sine_signal = True
 
@@ -1719,8 +1719,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					mesa_sine_signal = True
 
 		# No need to check history if signal is already False
-		if ( mesa_sine_signal == False ):
-			return mesa_sine_signal
+#		if ( mesa_sine_signal == False ):
+		return mesa_sine_signal
 
 		# Analyze trendiness
 		# Check for crossovers
@@ -1914,7 +1914,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			prev_mama		= mama[idx-1]
 			prev_fama		= fama[idx-1]
 
-		if ( with_rsi == True ):
+		if ( with_rsi == True or with_rsi_simple == True ):
 			cur_rsi			= rsi[idx - rsi_idx]
 			prev_rsi		= rsi[idx - rsi_idx - 1]
 
@@ -2163,6 +2163,20 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					else:
 						# This shouldn't happen, but just in case...
 						buy_signal = False
+
+			# MESA Sine Wave
+			elif ( primary_stoch_indicator == 'mesa_sine' ):
+				cur_sine = sine[idx]
+				midline	 = 0
+
+				if ( cur_sine < midline ):
+					reset_signals( exclude_bbands_kchan=True )
+					if ( noshort == False ):
+						signal_mode['primary'] = 'short'
+					continue
+
+				buy_signal = mesa_sine( sine=sine, lead=lead, direction='long', mesa_sine_signal=buy_signal )
+
 
 			# Unknown primary indicator
 			else:
@@ -2756,7 +2770,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 								if ( cur_natr < 1 ):
 									quick_exit = True
-									if ( exit_percent_long == orig_exit_percent ):
+									if ( exit_percent_long != None and exit_percent_long == orig_exit_percent ):
 										exit_percent_long = exit_percent_long / 2
 
 						# Something wierd is happening
@@ -3536,6 +3550,27 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						# This shouldn't happen, but just in case...
 						short_signal = False
 
+			# MESA Sine Wave
+			elif ( primary_stoch_indicator == 'mesa_sine' ):
+				cur_sine = sine[idx]
+				midline	 = 0
+
+				if ( cur_sine > midline ):
+					reset_signals( exclude_bbands_kchan=True )
+					if ( shortonly == False ):
+						signal_mode['primary'] = 'long'
+					continue
+
+				short_signal = mesa_sine( sine=sine, lead=lead, direction='short', mesa_sine_signal=short_signal )
+
+
+			# Unknown primary indicator
+			else:
+				print('Error: primary_stoch_indicator "' + str(primary_stoch_indicator) + '" unknown, exiting.')
+				return False
+
+
+
 			# StochRSI with 5-minute candles
 			if ( with_stochrsi_5m == True ):
 				( stochrsi_5m_signal,
@@ -4094,7 +4129,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 								if ( cur_natr < 1 ):
 									quick_exit = True
-									if ( exit_percent_short == orig_exit_percent ):
+									if ( exit_percent_short != None and exit_percent_short == orig_exit_percent ):
 										exit_percent_short = exit_percent_short / 2
 
 						# Stock is sinking relative to ETF

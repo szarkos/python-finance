@@ -129,6 +129,7 @@ log.txt
 stocks.txt
 monthly-*min-csv
 monthly-*min-csv/*
+weekly-csv
 weekly-csv/*
 daily-csv
 daily-csv/*

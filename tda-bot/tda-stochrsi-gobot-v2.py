@@ -1292,8 +1292,23 @@ for ticker in list(stocks.keys()):
 		continue
 
 	# Calculate the keylevels
+	kl_long_support_full	= []
+	kl_long_resistance_full	= []
 	try:
-		stocks[ticker]['kl_long_support'], stocks[ticker]['kl_long_resistance'] = tda_algo_helper.get_keylevels(stocks[ticker]['pricehistory_weekly'], filter=False)
+		# Pull the main keylevels, filtered to reduce redundant keylevels
+		stocks[ticker]['kl_long_support'], stocks[ticker]['kl_long_resistance'] = tda_algo_helper.get_keylevels(stocks[ticker]['pricehistory_weekly'], filter=True)
+
+		# Also pull the full keylevels, and include those that have been hit more than once
+		kl_long_support_full, kl_long_resistance_full = tda_algo_helper.get_keylevels(stocks[ticker]['pricehistory_weekly'], filter=False)
+
+		kl = dt = count = 0
+		for kl,dt,count in kl_long_support_full:
+			if ( count > 1 and (kl, dt, count) not in stocks[ticker]['kl_long_support'] ):
+				stocks[ticker]['kl_long_support'].append( (kl, dt, count) )
+
+		for kl,dt,count in kl_long_resistance_full:
+			if ( count > 1 and (kl, dt, count) not in stocks[ticker]['kl_long_resistance'] ):
+				stocks[ticker]['kl_long_resistance'].append( (kl, dt, count) )
 
 	except Exception as e:
 		print('Exception caught: get_keylevels(' + str(ticker) + '): ' + str(e) + '. Keylevels will not be used.')

@@ -2059,7 +2059,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				# Check if price is near historic key level
 				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True ):
 					near_keylevel = False
-					for lvl,dt in stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']:
+					for lvl,dt,count in stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']:
 						if ( abs((lvl / last_close - 1) * 100) <= price_support_pct ):
 							near_keylevel = True
 
@@ -3195,7 +3195,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				# Check if price is near historic key level
 				if ( stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True ):
 					near_keylevel = False
-					for lvl,dt in stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']:
+					for lvl,dt,count in stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']:
 						if ( abs((lvl / last_close - 1) * 100) <= price_resistance_pct ):
 							near_keylevel = True
 

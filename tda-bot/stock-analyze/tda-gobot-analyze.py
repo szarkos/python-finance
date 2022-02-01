@@ -86,6 +86,10 @@ parser.add_argument("--stacked_ma_periods_secondary", help='List of MA periods t
 parser.add_argument("--stacked_ma_type_primary", help='Moving average type to use when stacked_ma is used as primary indicator (Default: kama)', default='kama', type=str)
 parser.add_argument("--stacked_ma_periods_primary", help='List of MA periods to use when stacked_ma is used as primary indicator, comma-delimited (Default: 5,8,13)', default='5,8,13', type=str)
 
+parser.add_argument("--with_momentum", help='Use Momentum indicator as a secondary indicator for trade entries (Default: False)', action="store_true")
+parser.add_argument("--momentum_type", help='OHLC type to use with Momentum indicator (Default: hl2)', default='hl2', type=str)
+parser.add_argument("--momentum_period", help='Period to use with Momentum indicator (Default: 12)', default=12, type=int)
+
 parser.add_argument("--daily_ma_type", help='Moving average type to use (Default: wma)', default='wma', type=str)
 parser.add_argument("--confirm_daily_ma", help='Confirm that the daily moving average agrees with the direction stock entry', action="store_true")
 
@@ -685,6 +689,10 @@ for algo in args.algo.split(','):
 					'stacked_ma_periods_secondary':		args.stacked_ma_periods_secondary,
 					'stacked_ma_type_primary':		args.stacked_ma_type_primary,
 					'stacked_ma_periods_primary':		args.stacked_ma_periods_primary,
+
+					'with_momentum':			args.with_momentum,
+					'momentum_period':			args.momentum_period,
+					'momentum_type':			args.momentum_type,
 
 					'daily_ma_type':			args.daily_ma_type,
 					'confirm_daily_ma':			args.confirm_daily_ma,

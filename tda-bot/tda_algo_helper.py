@@ -2071,6 +2071,9 @@ def get_roc(pricehistory=None, type='hlc3', period=50, debug=False):
 		print('Error: get_roc(' + str(ticker) + '): unable to calculate rate of change: ' + str(e))
 		return False
 
+	# Handle inf/-inf data points
+	roc = np.nan_to_num(roc)
+
 	# Normalize the size of roc[] to match the input size
 	tmp = []
 	for i in range(0, period):
@@ -2078,6 +2081,98 @@ def get_roc(pricehistory=None, type='hlc3', period=50, debug=False):
 	roc = tmp + list(roc)
 
 	return roc
+
+
+# Momentum indicator
+def get_momentum(pricehistory=None, type='hlc2', period=12, debug=False):
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	if ( pricehistory == None ):
+		print('Error: get_momentum(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False
+
+	prices = []
+	if ( type == 'close' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['close']))
+
+	elif ( type == 'high' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['high']))
+
+	elif ( type == 'low' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['low']))
+
+	elif ( type == 'open' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['open']))
+
+	elif ( type == 'volume' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['volume']))
+
+	elif ( type == 'hl2' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+
+	elif ( type == 'hlc3' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+
+	elif ( type == 'ohlc4' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+
+	else:
+		# Undefined type
+		print('Error: get_momentum(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
+		return False
+
+	if ( len(prices) < period ):
+		# Something is wrong with the data we got back from tda.get_price_history()
+		print('Warning: get_momentum(' + str(ticker) + '): len(pricehistory) is less than period - is this a new stock ticker?', file=sys.stderr)
+
+	mom	= []
+	trix	= []
+	try:
+		prices	= np.array( prices )
+		mom	= ti.mom( prices, period=period )
+		trix	= ti.trix( prices, period=period )
+
+		mom	= np.nan_to_num(mom)
+		trix	= np.nan_to_num(trix)
+
+	except Exception as e:
+		print('Error: get_momentum(' + str(ticker) + '): unable to calculate rate of change: ' + str(e))
+		return False
+
+	for i in range(len(trix)):
+		if ( i == 0 ):
+			continue
+
+		try:
+			trix[i] = trix[i] * 100
+		except:
+			pass
+
+	# Normalize the size of mom[] to match the input size
+	tmp = []
+	for i in range(0, len(pricehistory['candles']) - len(mom)):
+		tmp.append(0)
+	mom = tmp + list(mom)
+
+	tmp = []
+	for i in range(0, len(pricehistory['candles']) - len(trix)):
+		tmp.append(0)
+	trix = tmp + list(trix)
+
+	return mom, trix
 
 
 # John Ehlers' MESA sine wave

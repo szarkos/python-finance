@@ -48,6 +48,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 		nonlocal rs_signal			; rs_signal			= False
 
+		nonlocal momentum_signal		; momentum_signal		= False
+
 		nonlocal stochrsi_signal		; stochrsi_signal		= False
 		nonlocal stochrsi_crossover_signal	; stochrsi_crossover_signal	= False
 		nonlocal stochrsi_threshold_signal	; stochrsi_threshold_signal	= False
@@ -173,6 +175,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	stacked_ma_periods_secondary	= '5,8,13'	if ('stacked_ma_periods_secondary' not in params) else params['stacked_ma_periods_secondary']
 	stacked_ma_type_primary		= 'kama'	if ('stacked_ma_type_primary' not in params) else params['stacked_ma_type_primary']
 	stacked_ma_periods_primary	= '5,8,13'	if ('stacked_ma_periods_primary' not in params) else params['stacked_ma_periods_primary']
+
+	with_momentum			= False		if ('with_momentum' not in params) else params['with_momentum']
+	momentum_period			= 12		if ('momentum_period' not in params) else params['momentum_period']
+	momentum_type			= 'hl2'		if ('momentum_type' not in params) else params['momentum_type']
 
 	daily_ma_type			= 'wma'		if ('daily_ma_type' not in params) else params['daily_ma_type']
 	confirm_daily_ma		= False		if ('confirm_daily_ma' not in params) else params['confirm_daily_ma']
@@ -697,6 +703,31 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		except Exception as e:
 			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_mesa_emd(): ' + str(e))
 			return False
+
+	# Momentum indicator
+	if ( with_momentum == True ):
+		mom	= []
+		trix	= []
+		try:
+			mom, trix = tda_algo_helper.get_momentum(pricehistory=pricehistory, period=momentum_period, type=momentum_type)
+
+		except Exception as e:
+			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_momentum(): ' + str(e))
+			return False
+
+		mom_ph	= { 'candles': [], 'symbol': ticker }
+		mom_roc	= []
+		for i in range( len(mom) ):
+			mom_ph['candles'].append( { 'close': mom[i] } )
+
+		try:
+			mom_roc = tda_algo_helper.get_roc( pricehistory=mom_ph, period=3, type='close' )
+
+		except Exception as e:
+			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_roc(momentum): ' + str(e))
+			return False
+
+		del(mom_ph)
 
 	# Calculate daily volume from the 1-minute candles that we have
 	if ( check_volume == True ):
@@ -1233,6 +1264,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	bbands_natr			= { 'bbands': [], 'natr': 0, 'squeeze_natr': 0 }
 
 	rs_signal			= False
+
+	momentum_signal			= False
 
 	plus_di_crossover		= False
 	minus_di_crossover		= False
@@ -1914,6 +1947,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			prev_mama		= mama[idx-1]
 			prev_fama		= fama[idx-1]
 
+		if ( with_momentum == True ):
+			cur_mom			= mom[idx]
+			prev_mom		= mom[idx-1]
+			cur_mom_roc		= mom_roc[idx]
+
 		if ( with_rsi == True or with_rsi_simple == True ):
 			cur_rsi			= rsi[idx - rsi_idx]
 			prev_rsi		= rsi[idx - rsi_idx - 1]
@@ -2273,6 +2311,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# MESA Sine Wave
 			if ( with_mesa_sine == True ):
 				mesa_sine_signal = mesa_sine( sine=sine, lead=lead, direction='long', mesa_sine_signal=mesa_sine_signal )
+
+			# Momentum Indicator
+			if ( with_momentum == True ):
+				momentum_signal = False
+				if ( cur_mom > 0.1 and cur_mom > prev_mom ):
+					if ( cur_mom_roc > 0 ):
+						momentum_signal = True
 
 			# RSI signal
 			if ( with_rsi == True ):
@@ -2848,6 +2893,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					final_buy_signal = False
 
 				if ( with_mesa_sine == True and mesa_sine_signal != True ):
+					final_buy_signal = False
+
+				if ( with_momentum == True and momentum_signal != True ):
 					final_buy_signal = False
 
 				if ( confirm_daily_ma == True and check_stacked_ma(cur_daily_ma, 'bear') == True ):
@@ -3661,6 +3709,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			if ( with_mesa_sine == True ):
 				mesa_sine_signal = mesa_sine(sine=sine, lead=lead, direction='short', mesa_sine_signal=mesa_sine_signal)
 
+			# Momentum Indicator
+			if ( with_momentum == True ):
+				momentum_signal = False
+				if ( cur_mom < -0.1 and cur_mom < prev_mom ):
+					if ( cur_mom_roc < 0 ):
+						momentum_signal = True
+
 			# RSI signal
 			if ( with_rsi == True ):
 				if ( cur_rsi <= rsi_signal_cancel_low_limit ):
@@ -4221,6 +4276,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					final_short_signal = False
 
 				if ( with_mesa_sine == True and mesa_sine_signal != True ):
+					final_short_signal = False
+
+				if ( with_momentum == True and momentum_signal != True ):
 					final_short_signal = False
 
 				if ( confirm_daily_ma == True and check_stacked_ma(cur_daily_ma, 'bull') == True ):

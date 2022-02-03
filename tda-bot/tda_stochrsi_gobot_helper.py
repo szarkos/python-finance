@@ -1245,7 +1245,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			print( '(' + str(ticker) + ') Bid/Ask: ' + str(stocks[ticker]['bid_price']) + ' (' + str(stocks[ticker]['bid_size']) + ')' +
 							' / ' + str(stocks[ticker]['ask_price']) + ' (' + str(stocks[ticker]['ask_size']) + ')' +
-							' / ' + str(stocks[ticker]['bid_ask_pct']) + '%' )
+							' / ' + str(round(stocks[ticker]['bid_ask_pct'], 2)) + '%' )
 			print( '(' + str(ticker) + ') Last Price: ' + str(stocks[ticker]['last_price']) )
 
 

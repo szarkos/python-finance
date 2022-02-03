@@ -720,7 +720,7 @@ def get_quotes(stock=None):
 
 				query = ','.join(query)
 				try:
-					data,err = func_timeout(10, tda.stocks.get_quotes, args=(str(query), True))
+					data,err = func_timeout(5, tda.stocks.get_quotes, args=(str(query), True))
 
 				except FunctionTimedOut:
 					print('Caught Exception: get_quotes(' + str(query) + '): tda.stocks.get_quotes(): timed out after 10 seconds', file=sys.stderr)
@@ -742,7 +742,7 @@ def get_quotes(stock=None):
 
 		else:
 			try:
-				data,err = func_timeout(10, tda.stocks.get_quotes, args=(str(stock), True))
+				data,err = func_timeout(5, tda.stocks.get_quotes, args=(str(stock), True))
 
 			except FunctionTimedOut:
 				print('Caught Exception: get_quotes(' + str(stock) + '): tda.stocks.get_quotes(): timed out after 10 seconds', file=sys.stderr)

@@ -114,6 +114,31 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 
 			stocks[ticker]['pricehistory_5m']['candles'].append(newcandle)
 
+	# Get the latest quote information for all tickers (last price, bid/ask, etc.)
+	stock_data = False
+	try:
+		stock_data = tda_gobot_helper.get_quotes( ','.join(stocks.keys()) )
+
+	except Exception as e:
+		print('Caught exception: stochrsi_gobot_run(): tda_gobot_helper.get_quotes(): ' + str(e), file=sys.stderr)
+		stock_data = False
+
+	if ( isinstance(stock_data, bool) and stock_data == False ):
+		print('Error: stochrsi_gobot_run(): tda_gobot_helper.get_quotes() returnd False, skipping', file=sys.stderr)
+
+	else:
+		for tickers in stock_data.keys():
+			try:
+				stocks[ticker]['ask_price']	= stock_data[ticker]['askPrice']
+				stocks[ticker]['ask_size']	= stock_data[ticker]['askSize']
+				stocks[ticker]['bid_price']	= stock_data[ticker]['bidPrice']
+				stocks[ticker]['bid_size']	= stock_data[ticker]['bidSize']
+				stocks[ticker]['last_price']	= stock_data[ticker]['lastPrice']
+
+				stocks[ticker]['bid_ask_pct']	= abs(stocks[ticker]['bid_price'] / stocks[ticker]['ask_price'] - 1 ) * 100
+
+			except:
+				pass
 
 	# Call stochrsi_gobot() for each set of specific algorithms
 	for algo_list in algos:
@@ -1213,10 +1238,16 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			time_now = datetime.datetime.now( mytimezone )
 			print( '(' + str(ticker) + ') Algo ID: ' + str(cur_algo['algo_id']) )
 			print( '(' + str(ticker) + ') OHLCV: ' + str(stocks[ticker]['pricehistory']['candles'][-1]['open']) +
-							  ' / ' + str(stocks[ticker]['pricehistory']['candles'][-1]['high']) +
-							  ' / ' + str(stocks[ticker]['pricehistory']['candles'][-1]['low']) +
-							  ' / ' + str(stocks[ticker]['pricehistory']['candles'][-1]['close']) +
-							  ' / ' + str(stocks[ticker]['pricehistory']['candles'][-1]['volume']) )
+							' / ' + str(stocks[ticker]['pricehistory']['candles'][-1]['high']) +
+							' / ' + str(stocks[ticker]['pricehistory']['candles'][-1]['low']) +
+							' / ' + str(stocks[ticker]['pricehistory']['candles'][-1]['close']) +
+							' / ' + str(stocks[ticker]['pricehistory']['candles'][-1]['volume']) )
+
+			print( '(' + str(ticker) + ') Bid/Ask: ' + str(stocks[ticker]['bid_price']) + ' (' + str(stocks[ticker]['bid_size']) + ')' +
+							' / ' + str(stocks[ticker]['ask_price']) + ' (' + str(stocks[ticker]['ask_size']) + ')' +
+							' / ' + str(stocks[ticker]['bid_ask_pct']) + '%' )
+			print( '(' + str(ticker) + ') Last Price: ' + str(stocks[ticker]['last_price']) )
+
 
 			# StochRSI
 			print( '(' + str(ticker) + ') StochRSI Period: ' + str(cur_algo['stochrsi_period']) + ' / Type: ' + str(rsi_type) +

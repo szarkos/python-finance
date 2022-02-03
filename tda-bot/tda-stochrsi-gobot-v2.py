@@ -757,6 +757,13 @@ for ticker in stock_list.split(','):
 				   'base_price':		float(0),
 				   'primary_algo':		None,
 
+				   'ask_price':			float(0),
+				   'ask_size':			float(0),
+				   'bid_price':			float(0),
+				   'bid_size':			float(0),
+				   'bid_ask_pct':		float(0),
+				   'last_price':		float(0),
+
 				   'incr_threshold':		args.incr_threshold,
 				   'orig_incr_threshold':	args.incr_threshold,
 				   'decr_threshold':		args.decr_threshold,

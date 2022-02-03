@@ -165,7 +165,7 @@ def get_ema(pricehistory=None, period=50, type='close', debug=False):
 #	wma	= Weighted Moving Average
 #	zlema	= Zero-Lag Exponential Moving Average
 #
-def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hl2', mama_fastlimit=0.5, mama_slowlimit=0.05, debug=False):
+def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_fastlimit=0.5, mama_slowlimit=0.05, debug=False):
 
 	if ( pricehistory == None ):
 		return []
@@ -2084,7 +2084,7 @@ def get_roc(pricehistory=None, type='hlc3', period=50, debug=False):
 
 
 # Momentum indicator
-def get_momentum(pricehistory=None, type='hlc2', period=12, debug=False):
+def get_momentum(pricehistory=None, type='hl2', period=12, debug=False):
 
 	ticker = ''
 	try:
@@ -2094,7 +2094,7 @@ def get_momentum(pricehistory=None, type='hlc2', period=12, debug=False):
 
 	if ( pricehistory == None ):
 		print('Error: get_momentum(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
-		return False
+		return False, [], []
 
 	prices = []
 	if ( type == 'close' ):
@@ -2132,36 +2132,30 @@ def get_momentum(pricehistory=None, type='hlc2', period=12, debug=False):
 	else:
 		# Undefined type
 		print('Error: get_momentum(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
-		return False
+		return False, [], []
 
 	if ( len(prices) < period ):
 		# Something is wrong with the data we got back from tda.get_price_history()
 		print('Warning: get_momentum(' + str(ticker) + '): len(pricehistory) is less than period - is this a new stock ticker?', file=sys.stderr)
 
-	mom	= []
-	trix	= []
+	mom		= []
+	trix		= []
+	trix_signal	= []
 	try:
-		prices	= np.array( prices )
-		mom	= ti.mom( prices, period=period )
-		trix	= ti.trix( prices, period=period )
+		prices		= np.array( prices )
+		mom		= ti.mom( prices, period=period )
+		trix		= ti.trix( prices, period=period )
 
-		mom	= np.nan_to_num(mom)
-		trix	= np.nan_to_num(trix)
+		mom		= np.nan_to_num(mom)
+		trix		= np.nan_to_num(trix)
+
+		trix_signal	= ti.ema(trix, period=3)
 
 	except Exception as e:
 		print('Error: get_momentum(' + str(ticker) + '): unable to calculate rate of change: ' + str(e))
-		return False
+		return False, [], []
 
-	for i in range(len(trix)):
-		if ( i == 0 ):
-			continue
-
-		try:
-			trix[i] = trix[i] * 100
-		except:
-			pass
-
-	# Normalize the size of mom[] to match the input size
+	# Normalize the size of the arrays to match the input size
 	tmp = []
 	for i in range(0, len(pricehistory['candles']) - len(mom)):
 		tmp.append(0)
@@ -2172,7 +2166,126 @@ def get_momentum(pricehistory=None, type='hlc2', period=12, debug=False):
 		tmp.append(0)
 	trix = tmp + list(trix)
 
-	return mom, trix
+	tmp = []
+	for i in range(0, len(pricehistory['candles']) - len(trix_signal)):
+		tmp.append(0)
+	trix_signal = tmp + list(trix_signal)
+
+	return mom, trix, trix_signal
+
+
+# Momentum indicator
+def get_trix_altma(pricehistory=None, ma_type='kama', type='hl2', period=24, signal_ma='ema', signal_period=3, debug=False):
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	if ( pricehistory == None ):
+		print('Error: get_trix_altma(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		return False, []
+
+	prices = []
+	if ( type == 'close' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['close']))
+
+	elif ( type == 'high' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['high']))
+
+	elif ( type == 'low' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['low']))
+
+	elif ( type == 'open' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['open']))
+
+	elif ( type == 'volume' ):
+		for key in pricehistory['candles']:
+			prices.append(float(key['volume']))
+
+	elif ( type == 'hl2' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+
+	elif ( type == 'hlc3' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+
+	elif ( type == 'ohlc4' ):
+		for key in pricehistory['candles']:
+			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+
+	else:
+		# Undefined type
+		print('Error: get_trix_altma(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
+		return False, []
+
+	if ( len(prices) < period ):
+		# Something is wrong with the data we got back from tda.get_price_history()
+		print('Warning: get_momentum(' + str(ticker) + '): len(pricehistory) is less than period - is this a new stock ticker?', file=sys.stderr)
+
+	trix		= []
+	trix_signal	= []
+	try:
+		prices	= np.array( prices )
+		prices	= np.log( prices )
+
+		# Step 1 - get the moving average of the log() of the prices
+		ph = { 'candles': [] }
+		for i in range( len(prices) ):
+			ph['candles'].append( { 'close': prices[i] } )
+
+		trix = get_alt_ma( ph, ma_type=ma_type, period=period, type='close' )
+
+		# Step 2 - get the moving average of the results
+		ph = { 'candles': [] }
+		for i in range( len(trix) ):
+			ph['candles'].append( { 'close': trix[i] } )
+
+		trix = get_alt_ma( ph, ma_type=ma_type, period=period, type='close' )
+
+		# Step 3 - One more time
+		ph = { 'candles': [] }
+		for i in range(len(trix)):
+			ph['candles'].append( { 'close': trix[i] } )
+
+		trix = get_alt_ma( ph, ma_type=ma_type, period=period, type='close' )
+		trix = np.nan_to_num( trix )
+
+		# Step 4 - The indicator should oscillate across a zero line
+		for i in range( len(trix) ):
+			try:
+				trix[i] = (trix[i] - tr[i-1]) * 100
+			except:
+				pass
+
+		# Step 5 - Generate the signal line
+		ph = { 'candles': [] }
+		for i in range( len(trix) ):
+			ph['candles'].append( { 'close': trix[i] } )
+
+		trix_signal = get_alt_ma( ph, ma_type=signal_ma, period=signal_period, type='close' )
+
+	except Exception as e:
+		print('Error: get_momentum(' + str(ticker) + '): unable to calculate rate of change: ' + str(e))
+		return False, []
+
+	tmp = []
+	for i in range(0, len(pricehistory['candles']) - len(trix)):
+		tmp.append(0)
+	trix = tmp + list(trix)
+
+	tmp = []
+	for i in range(0, len(pricehistory['candles']) - len(trix_signal)):
+		tmp.append(0)
+	trix_signal = tmp + list(trix_signal)
+
+	return trix, trix_signal
 
 
 # John Ehlers' MESA sine wave

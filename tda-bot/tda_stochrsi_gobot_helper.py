@@ -461,7 +461,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 	# Bollinger Bands and Keltner Channel crossover
 	def bbands_kchannels(pricehistory=None, cur_bbands=(0,0,0), prev_bbands=(0,0,0), cur_kchannel=(0,0,0), prev_kchannel=(0,0,0), bbands_roc=None,
-				bbands_kchan_signal_counter=0, bbands_kchan_xover_counter=0, bbands_roc_counter=0,
+				bbands_kchan_signal_counter=0, bbands_kchan_xover_counter=0, bbands_roc_counter=0, bbands_kchan_ma=[],
 				bbands_kchan_init_signal=False, bbands_roc_threshold_signal=False, bbands_kchan_crossover_signal=False, bbands_kchan_signal=False, debug=False ):
 
 		nonlocal cur_algo
@@ -606,6 +606,35 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					bbands_kchan_signal = False
 					if ( debug == True ):
 						print('NOTICE: bbands_kchan_signal canceled due to high NATR above max_squeeze_natr: ' + str(natr_t[-1]) + ' / ' + str(max_squeeze_natr) )
+
+
+			# Check the closing candles in relation to the EMA 21
+			# On a long signal, count the number of times the closing price has dipped below
+			#  the EMA 21 value. On a short signal, count the number of times the closing price has gone above
+			#  the EMA 21 value. If this happens multiple times over the course of a squeeze it indicates
+			#  that this is less likely to succeed, so we cancel the bbands_kchan_signal.
+			if ( bbands_kchan_signal == True and cur_algo['bbands_kchan_ma_check'] == True and pricehistory != None ):
+
+				ema_count = 0
+				try:
+					for i in range(bbands_kchan_signal_counter, 0, -1):
+						if ( signal_mode == 'long' and pricehistory['candles'][-i]['close'] < bbands_kchan_ma[-i] ):
+							ema_count += 1
+
+						elif ( signal_mode == 'short' and pricehistory['candles'][-i]['close'] > bbands_kchan_ma[-i] ):
+							ema_count += 1
+
+						if ( ema_count > 2 ):
+							bbands_kchan_init_signal        = False
+							bbands_kchan_signal             = False
+							if ( debug == True ):
+								print('NOTICE: bbands_kchan_signal canceled due to too many closing candles traversing the EMA21 level.')
+
+							break
+
+				except Exception as e:
+					print('Caught exception: bbands_kchannels(): ' + str(e))
+					pass
 
 			# Cancel the bbands_kchan_signal if the bollinger bands popped back inside the keltner channel,
 			#  or if the bbands_kchan_signal_counter has lingered for too long
@@ -1191,6 +1220,15 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			stocks[ticker]['cur_kchannel']	= ( kchannel_lower[-1], kchannel_mid[-1], kchannel_upper[-1] )
 			stocks[ticker]['prev_kchannel']	= ( kchannel_lower[-2], kchannel_mid[-2], kchannel_upper[-2] )
 
+			# 21 EMA to use with bbands_kchan algo
+			bbands_kchan_ma = []
+			if ( cur_algo['bbands_kchan_ma_check'] == True ):
+				try:
+					bbands_kchan_ma = tda_algo_helper.get_alt_ma( pricehistory=stocks[ticker]['pricehistory'], ma_type=cur_algo['bbands_kchan_ma_type'], type=cur_algo['bbands_kchan_ma_ptype'], period=cur_algo['bbands_kchan_ma_period'] )
+
+				except Exception as e:
+					print('Error: stochrsi_gobot(' + str(ticker) + '): get_alt_ma(ema,21): ' + str(e))
+					bbands_kchan_ma = []
 
 		# VWAP
 		# Calculate vwap to use as entry or exit algorithm
@@ -1577,7 +1615,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 															bbands_roc_threshold_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_roc_threshold_signal'],
 															bbands_kchan_crossover_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
 															bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
-															bbands_roc=bbands_roc, debug=True )
+															bbands_roc=bbands_roc, bbands_kchan_ma=bbands_kchan_ma, debug=True )
 
 			# PRIMARY STOCHRSI MONITOR
 			if ( cur_algo['primary_stochrsi'] == True or cur_algo['primary_stochmfi'] == True ):
@@ -2714,7 +2752,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 															bbands_roc_threshold_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_roc_threshold_signal'],
 															bbands_kchan_crossover_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_crossover_signal'],
 															bbands_kchan_signal=stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal'],
-															bbands_roc=bbands_roc, debug=True )
+															bbands_roc=bbands_roc, bbands_kchan_ma=bbands_kchan_ma, debug=True )
 
 			# PRIMARY STOCHRSI MONITOR
 			if ( cur_algo['primary_stochrsi'] == True or cur_algo['primary_stochmfi'] == True ):

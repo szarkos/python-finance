@@ -132,6 +132,10 @@ parser.add_argument("--supertrend_min_natr", help='Minimum daily NATR a stock mu
 
 parser.add_argument("--bbands_kchannel_offset", help='Percentage offset between the Bollinger bands and Keltner channel indicators to trigger an initial trade entry (Default: 0.15)', default=0.15, type=float)
 parser.add_argument("--bbands_kchan_squeeze_count", help='Number of squeeze periods needed before triggering bbands_kchannel signal (Default: 4)', default=4, type=int)
+parser.add_argument("--bbands_kchan_ma_check", help='Check price action in relation to a moving average during a squeeze to ensure price stays above or below a moving average (Default: False)', action="store_true")
+parser.add_argument("--bbands_kchan_ma_type", help='Moving average type to use with bbands_kchan_ma_check (Default: ema)', default='ema', type=str)
+parser.add_argument("--bbands_kchan_ma_ptype", help='Candle type to use when calculating moving average for use with bbands_kchan_ma_check (Default: close)', default='close', type=str)
+parser.add_argument("--bbands_kchan_ma_period", help='Period to use when calculating moving average for use with bbands_kchan_ma_check (Default: close)', default=21, type=int)
 parser.add_argument("--max_squeeze_natr", help='Maximum NATR allowed during consolidation (squeeze) phase (Default: None)', default=None, type=float)
 parser.add_argument("--bbands_roc_threshold", help='BBands rate of change threshold to trigger bbands signal (Default: 90)', default=90, type=float)
 parser.add_argument("--bbands_roc_count", help='Number of times the BBands rate of change threshold must be met to trigger bbands signal (Default: 2)', default=2, type=int)
@@ -312,6 +316,10 @@ for algo in args.algos:
 	# Bollinger Bands and Keltner Channel
 	bbands_kchannel_offset		= args.bbands_kchannel_offset
 	bbands_kchan_squeeze_count	= args.bbands_kchan_squeeze_count
+	bbands_kchan_ma_check		= args.bbands_kchan_ma_check
+	bbands_kchan_ma_type		= args.bbands_kchan_ma_type
+	bbands_kchan_ma_ptype		= args.bbands_kchan_ma_ptype
+	bbands_kchan_ma_period		= args.bbands_kchan_ma_period
 	max_squeeze_natr		= args.max_squeeze_natr
 	bbands_roc_threshold		= args.bbands_roc_threshold
 	bbands_roc_count		= args.bbands_roc_count
@@ -444,6 +452,11 @@ for algo in args.algos:
 		if ( re.match('use_bbands_kchannel_xover_exit', a)	!= None ):	use_bbands_kchannel_xover_exit	= True
 		if ( re.match('bbands_kchannel_offset:', a)		!= None ):	bbands_kchannel_offset		= float( a.split(':')[1] )
 		if ( re.match('bbands_kchan_squeeze_count:', a)		!= None ):	bbands_kchan_squeeze_count	= int( a.split(':')[1] )
+
+		if ( re.match('bbands_kchan_ma_check', a)		!= None ):	bbands_kchan_ma_check		= True
+		if ( re.match('bbands_kchan_ma_type:', a)		!= None ):	bbands_kchan_ma_type		= str( a.split(':')[1] )
+		if ( re.match('bbands_kchan_ma_ptype:', a)		!= None ):	bbands_kchan_ma_ptype		= str( a.split(':')[1] )
+		if ( re.match('bbands_kchan_ma_period:', a)		!= None ):	bbands_kchan_ma_period		= int( a.split(':')[1] )
 		if ( re.match('max_squeeze_natr:', a)			!= None ):	max_squeeze_natr		= float( a.split(':')[1] )
 		if ( re.match('bbands_roc_threshold:', a)		!= None ):	bbands_roc_threshold		= float( a.split(':')[1] )
 		if ( re.match('bbands_roc_count:', a)			!= None ):	bbands_roc_count		= int( a.split(':')[1] )
@@ -580,6 +593,10 @@ for algo in args.algos:
 			'bbands_kchannel':			bbands_kchannel,
 			'bbands_kchannel_offset':		bbands_kchannel_offset,
 			'bbands_kchan_squeeze_count':		bbands_kchan_squeeze_count,
+			'bbands_kchan_ma_check':		bbands_kchan_ma_check,
+			'bbands_kchan_ma_type':			bbands_kchan_ma_type,
+			'bbands_kchan_ma_ptype':		bbands_kchan_ma_ptype,
+			'bbands_kchan_ma_period':		bbands_kchan_ma_period,
 			'max_squeeze_natr':			max_squeeze_natr,
 			'bbands_roc_threshold':			bbands_roc_threshold,
 			'bbands_roc_count':			bbands_roc_count,
@@ -667,6 +684,7 @@ del(mfi_high_limit,mfi_low_limit,mfi_period,stochmfi_period,stochmfi_5m_period,m
 del(adx_threshold,adx_period,macd_long_period,macd_short_period,macd_signal_period,macd_offset,aroonosc_period,di_period,atr_period,vpt_sma_period)
 del(chop_period,chop_low_limit,chop_high_limit,supertrend_atr_period,supertrend_min_natr)
 del(bbands_kchannel_offset,bbands_kchan_squeeze_count,bbands_period,kchannel_period,kchannel_atr_period,max_squeeze_natr,bbands_roc_threshold,bbands_roc_count,bbands_roc_strict)
+del(bbands_kchan_ma_check,bbands_kchan_ma_type,bbands_kchan_ma_ptype,bbands_kchan_ma_period)
 del(stacked_ma_type_primary,stacked_ma_periods_primary,stacked_ma_type,stacked_ma_periods,stacked_ma_type_secondary,stacked_ma_periods_secondary)
 del(use_natr_resistance,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr)
 del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count,bbands_matype,kchan_matype)

@@ -179,6 +179,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	with_momentum			= False		if ('with_momentum' not in params) else params['with_momentum']
 	momentum_period			= 12		if ('momentum_period' not in params) else params['momentum_period']
 	momentum_type			= 'hl2'		if ('momentum_type' not in params) else params['momentum_type']
+	momentum_use_trix		= False		if ('momentum_use_trix' not in params) else params['momentum_use_trix']
 
 	daily_ma_type			= 'wma'		if ('daily_ma_type' not in params) else params['daily_ma_type']
 	confirm_daily_ma		= False		if ('confirm_daily_ma' not in params) else params['confirm_daily_ma']
@@ -221,6 +222,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	bbands_kchannel_xover_exit_count= 10		if ('bbands_kchannel_xover_exit_count' not in params) else params['bbands_kchannel_xover_exit_count']
 	bbands_kchannel_offset		= 0.15		if ('bbands_kchannel_offset' not in params) else params['bbands_kchannel_offset']
 	bbands_kchan_squeeze_count	= 8		if ('bbands_kchan_squeeze_count' not in params) else params['bbands_kchan_squeeze_count']
+	bbands_kchan_x1_xover		= False		if ('bbands_kchan_x1_xover' not in params) else params['bbands_kchan_x1_xover']
 	bbands_kchan_ma_check		= False		if ('bbands_kchan_ma_check' not in params) else params['bbands_kchan_ma_check']
 	bbands_kchan_ma_type		= 'ema'		if ('bbands_kchan_ma_type' not in params) else params['bbands_kchan_ma_type']
 	bbands_kchan_ma_ptype		= 'close'	if ('bbands_kchan_ma_ptype' not in params) else params['bbands_kchan_ma_ptype']
@@ -305,7 +307,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	check_etf_indicators		= False		if ('check_etf_indicators' not in params) else params['check_etf_indicators']
 	check_etf_indicators_strict	= False		if ('check_etf_indicators_strict' not in params) else params ['check_etf_indicators_strict']
-	etf_use_ha			= False		if ('etf_use_ha' not in params) else params['etf_use_ha']
 	etf_tickers			= ['SPY']	if ('etf_tickers' not in params) else params['etf_tickers']
 	etf_indicators			= {}		if ('etf_indicators' not in params) else params['etf_indicators']
 	etf_roc_period			= 50		if ('etf_roc_period' not in params) else params['etf_roc_period']
@@ -672,14 +673,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		bbands_roc = tda_algo_helper.get_roc( bbands_ph, period=bbands_kchan_squeeze_count, type='close' )
 
 		# Keltner Channel
-		kchannel_lower	= []
-		kchannel_mid	= []
-		kchannel_upper	= []
+		kchannel_lower		= []
+		kchannel_mid		= []
+		kchannel_upper		= []
+		kchannel_lower_x1	= []
+		kchannel_mid_x1		= []
+		kchannel_upper_x1	= []
 		try:
 			if ( use_bbands_kchannel_5m == True ):
 				kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory_5m, period=kchannel_period, atr_period=kchannel_atr_period, atr_multiplier=kchannel_multiplier, matype=kchan_matype)
+				kchannel_lower_x1, kchannel_mid_x1, kchannel_upper_x1 = tda_algo_helper.get_kchannels(pricehistory_5m, period=kchannel_period, atr_period=kchannel_atr_period, atr_multiplier=1, matype=kchan_matype)
 			else:
 				kchannel_lower, kchannel_mid, kchannel_upper = tda_algo_helper.get_kchannels(pricehistory, period=kchannel_period, atr_period=kchannel_atr_period, atr_multiplier=kchannel_multiplier, matype=kchan_matype)
+				kchannel_lower_x1, kchannel_mid_x1, kchannel_upper_x1 = tda_algo_helper.get_kchannels(pricehistory, period=kchannel_period, atr_period=kchannel_atr_period, atr_multiplier=1, matype=kchan_matype)
 
 		except Exception as e:
 			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_kchannel(): ' + str(e))
@@ -720,10 +726,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	# Momentum indicator
 	if ( with_momentum == True ):
-		mom	= []
-		trix	= []
+		mom		= []
+		trix		= []
+		trix_signal	= []
 		try:
-			mom, trix = tda_algo_helper.get_momentum(pricehistory=pricehistory, period=momentum_period, type=momentum_type)
+			mom, trix, trix_signal = tda_algo_helper.get_momentum(pricehistory=pricehistory, period=momentum_period, type=momentum_type)
+
+####### TESTING #######################
+			trix, trix_signal = tda_algo_helper.get_trix_altma(pricehistory=pricehistory, ma_type='kama', type='hl2', period=24, signal_ma='ema', signal_period=3, debug=False)
+#######################################
 
 		except Exception as e:
 			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_momentum(): ' + str(e))
@@ -1115,13 +1126,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			etf_roc		= []
 			try:
 				stock_roc = tda_algo_helper.get_roc( pricehistory, period=etf_roc_period, type=etf_roc_type )
-
-				if ( etf_use_ha == True ):
-					tmp_ph			= etf_indicators[t]['pricehistory']
-					tmp_ph['candles']	= tmp_ph['hacandles']
-					etf_roc			= tda_algo_helper.get_roc( tmp_ph, period=etf_roc_period, type=etf_roc_type )
-				else:
-					etf_roc			= tda_algo_helper.get_roc( etf_indicators[t]['pricehistory'], period=etf_roc_period, type=etf_roc_type )
+				etf_roc			= tda_algo_helper.get_roc( etf_indicators[t]['pricehistory'], period=etf_roc_period, type=etf_roc_type )
 
 			except Exception as e:
 				print('Error, unable to calculate rate-of-change for ticker ' + str(t) + ': ' + str(e))
@@ -1507,6 +1512,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal bbands_kchan_signal_counter
 		nonlocal bbands_kchan_xover_counter
 		nonlocal bbands_kchan_crossover_only
+		nonlocal bbands_kchan_x1_xover
 
 		nonlocal bbands_roc_threshold
 		nonlocal bbands_roc_strict
@@ -1599,7 +1605,22 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			prev_offset	= abs((prev_kchannel_lower / prev_bbands_lower) - 1) * 100
 			cur_offset	= abs((cur_kchannel_lower / cur_bbands_lower) - 1) * 100
 			if ( bbands_kchan_signal_counter >= bbands_kchan_squeeze_count and cur_offset >= bbands_kchannel_offset ):
-				bbands_kchan_init_signal = True
+
+				if ( bbands_kchan_x1_xover == True ):
+					# Require bbands crossover into the kchannel with ATR multiplier == 1
+					nonlocal kchannel_lower_x1
+					nonlocal kchannel_mid_x1
+					nonlocal kchannel_upper_x1
+
+					cur_kchannel_lower_x1	= round( kchannel_lower_x1[idx], 3 )
+					cur_kchannel_mid_x1	= round( kchannel_mid_x1[idx], 3 )
+					cur_kchannel_upper_x1	= round( kchannel_upper_x1[idx], 3 )
+
+					if ( cur_kchannel_lower_x1 < cur_bbands_lower or cur_kchannel_upper_x1 > cur_bbands_upper ):
+						bbands_kchan_init_signal = True
+
+				else:
+					bbands_kchan_init_signal = True
 
 				if ( debug == True ):
 					bbands_kchannel_offset_debug['cur_squeeze'].append(cur_offset)
@@ -1724,6 +1745,22 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						bbands_kchan_init_signal	= False
 						bbands_kchan_signal		= False
 						break
+
+###########################################################################
+				# TEST TEST TEST
+#				if ( signal_mode['primary'] == 'long' ):
+#
+#					close_cndls = []
+#					for i in range(len(cndl_slice['candles'])):
+#						close_cndls.append(cndl_slice['candles'][i]['close'])
+#
+#					if ( min(close_cndls) < cndl_slice['candles'][-1]['close'] ):
+#						pct = abs(min(close_cndls) / cndl_slice['candles'][-1]['close'] - 1) * 100
+#						if ( pct > 1 ):
+#							print('POOOOP: ', end='')
+#							print(datetime.fromtimestamp(int(cndl_slice['candles'][-1]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S'), end='')
+#							print(': ' + str(pct))
+#							bbands_kchan_signal = False
 
 			# Cancel the bbands_kchan_signal if the bollinger bands popped back inside the keltner channel,
 			#  or if the bbands_kchan_signal_counter has lingered for too long
@@ -1987,6 +2024,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			cur_mom			= mom[idx]
 			prev_mom		= mom[idx-1]
 			cur_mom_roc		= mom_roc[idx]
+
+			cur_trix		= trix[idx]
+			prev_trix		= trix[idx-1]
+			cur_trix_signal		= trix_signal[idx]
 
 		if ( with_rsi == True or with_rsi_simple == True ):
 			cur_rsi			= rsi[idx - rsi_idx]
@@ -2351,9 +2392,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Momentum Indicator
 			if ( with_momentum == True ):
 				momentum_signal = False
-				if ( cur_mom > 0.1 and cur_mom > prev_mom ):
-					if ( cur_mom_roc > 0 ):
+				if ( momentum_use_trix == True ):
+					if ( cur_trix > prev_trix and cur_trix > cur_trix_signal ):
 						momentum_signal = True
+				else:
+					if ( cur_mom > prev_mom ):
+						if ( cur_mom_roc > 0 ):
+							momentum_signal = True
 
 			# RSI signal
 			if ( with_rsi == True ):
@@ -3748,9 +3793,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Momentum Indicator
 			if ( with_momentum == True ):
 				momentum_signal = False
-				if ( cur_mom < -0.1 and cur_mom < prev_mom ):
-					if ( cur_mom_roc < 0 ):
+				if ( momentum_use_trix == True ):
+					if ( cur_trix < prev_trix and cur_trix < cur_trix_signal ):
 						momentum_signal = True
+
+				else:
+					if ( cur_mom < prev_mom ):
+						if ( cur_mom_roc < 0 ):
+							momentum_signal = True
 
 			# RSI signal
 			if ( with_rsi == True ):

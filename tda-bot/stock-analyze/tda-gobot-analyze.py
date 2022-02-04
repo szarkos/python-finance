@@ -48,7 +48,6 @@ parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high 
 
 parser.add_argument("--check_etf_indicators", help='Use the relative strength against one or more ETF indicators to assist with trade entry', action="store_true")
 parser.add_argument("--check_etf_indicators_strict", help='Do not allow trade unless check_etf_indicators agrees with direction', action="store_true")
-parser.add_argument("--etf_use_ha", help='Use Heikin Ashi candles for any algorithms on the ETF pricehistory', action="store_true")
 parser.add_argument("--etf_tickers", help='List of tickers to use with --check_etf_indicators (Default: SPY)', default='SPY', type=str)
 parser.add_argument("--etf_roc_period", help='Rate of change lookback period (Default: 50)', default=50, type=int)
 parser.add_argument("--etf_roc_type", help='Rate of change candles type to use with algorithm (Default: hlc3)', default='hlc3', type=str)
@@ -89,6 +88,7 @@ parser.add_argument("--stacked_ma_periods_primary", help='List of MA periods to 
 parser.add_argument("--with_momentum", help='Use Momentum indicator as a secondary indicator for trade entries (Default: False)', action="store_true")
 parser.add_argument("--momentum_type", help='OHLC type to use with Momentum indicator (Default: hl2)', default='hl2', type=str)
 parser.add_argument("--momentum_period", help='Period to use with Momentum indicator (Default: 12)', default=12, type=int)
+parser.add_argument("--momentum_use_trix", help='Use TRIX as Momentum indicator (Default: False)', action="store_true")
 
 parser.add_argument("--daily_ma_type", help='Moving average type to use (Default: wma)', default='wma', type=str)
 parser.add_argument("--confirm_daily_ma", help='Confirm that the daily moving average agrees with the direction stock entry', action="store_true")
@@ -127,6 +127,7 @@ parser.add_argument("--use_bbands_kchannel_xover_exit", help='Use price action a
 parser.add_argument("--bbands_kchannel_straddle", help='Attempt straddle trade if primary trade is not working (Default: False)', action="store_true")
 parser.add_argument("--bbands_kchannel_xover_exit_count", help='Number of periods to wait after a crossover to trigger --use_bbands_kchannel_xover_exit (Default: 10)', default=10, type=int)
 parser.add_argument("--bbands_kchannel_offset", help='Percentage offset between the Bollinger bands and Keltner channel indicators to trigger an initial trade entry (Default: 0.15)', default=0.15, type=float)
+parser.add_argument("--bbands_kchan_x1_xover", help='Require that the Bollinger bands cross between the Keltner channel with ATR multiplier == 1 (Default: False)', action="store_true")
 parser.add_argument("--bbands_kchan_squeeze_count", help='Number of squeeze periods needed before triggering bbands_kchannel signal (Default: 8)', default=8, type=int)
 parser.add_argument("--bbands_kchan_ma_check", help='Check price action in relation to a moving average during a squeeze to ensure price stays above or below a moving average (Default: False)', action="store_true")
 parser.add_argument("--bbands_kchan_ma_type", help='Moving average type to use with bbands_kchan_ma_check (Default: ema)', default='ema', type=str)
@@ -697,6 +698,7 @@ for algo in args.algo.split(','):
 					'with_momentum':			args.with_momentum,
 					'momentum_period':			args.momentum_period,
 					'momentum_type':			args.momentum_type,
+					'momentum_use_trix':			args.momentum_use_trix,
 
 					'daily_ma_type':			args.daily_ma_type,
 					'confirm_daily_ma':			args.confirm_daily_ma,
@@ -741,6 +743,7 @@ for algo in args.algo.split(','):
 					'bbands_kchannel_straddle':		args.bbands_kchannel_straddle,
 					'bbands_kchannel_xover_exit_count':	args.bbands_kchannel_xover_exit_count,
 					'bbands_kchannel_offset':		args.bbands_kchannel_offset,
+					'bbands_kchan_x1_xover':		args.bbands_kchan_x1_xover,
 					'bbands_kchan_squeeze_count':		args.bbands_kchan_squeeze_count,
 					'bbands_kchan_ma_check':		args.bbands_kchan_ma_check,
 					'bbands_kchan_ma_type':			args.bbands_kchan_ma_type,
@@ -822,7 +825,6 @@ for algo in args.algo.split(','):
 					'experimental':				args.experimental,
 					'check_etf_indicators':			args.check_etf_indicators,
 					'check_etf_indicators_strict':		args.check_etf_indicators_strict,
-					'etf_use_ha':				args.etf_use_ha,
 					'etf_tickers':				etf_tickers,
 					'etf_indicators':			etf_indicators,
 					'etf_roc_period':			args.etf_roc_period,

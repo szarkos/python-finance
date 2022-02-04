@@ -132,7 +132,7 @@ parser.add_argument("--bbands_kchan_squeeze_count", help='Number of squeeze peri
 parser.add_argument("--bbands_kchan_ma_check", help='Check price action in relation to a moving average during a squeeze to ensure price stays above or below a moving average (Default: False)', action="store_true")
 parser.add_argument("--bbands_kchan_ma_type", help='Moving average type to use with bbands_kchan_ma_check (Default: ema)', default='ema', type=str)
 parser.add_argument("--bbands_kchan_ma_ptype", help='Candle type to use when calculating moving average for use with bbands_kchan_ma_check (Default: close)', default='close', type=str)
-parser.add_argument("--bbands_kchan_ma_period", help='Period to use when calculating moving average for use with bbands_kchan_ma_check (Default: close)', default=21, type=int)
+parser.add_argument("--bbands_kchan_ma_period", help='Period to use when calculating moving average for use with bbands_kchan_ma_check (Default: 21)', default=21, type=int)
 parser.add_argument("--max_squeeze_natr", help='Maximum NATR allowed during consolidation (squeeze) phase (Default: None)', default=None, type=float)
 parser.add_argument("--max_bbands_natr", help='Maximum NATR between upper and lower Bolinger Bands allowed during consolidation (squeeze) phase (Default: None)', default=None, type=float)
 parser.add_argument("--min_bbands_natr", help='Minimum NATR between upper and lower Bolinger Bands allowed during consolidation (squeeze) phase (Default: None)', default=None, type=float)

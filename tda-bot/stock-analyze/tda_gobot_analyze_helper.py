@@ -221,6 +221,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	bbands_kchannel_xover_exit_count= 10		if ('bbands_kchannel_xover_exit_count' not in params) else params['bbands_kchannel_xover_exit_count']
 	bbands_kchannel_offset		= 0.15		if ('bbands_kchannel_offset' not in params) else params['bbands_kchannel_offset']
 	bbands_kchan_squeeze_count	= 8		if ('bbands_kchan_squeeze_count' not in params) else params['bbands_kchan_squeeze_count']
+	bbands_kchan_ma_check		= False		if ('bbands_kchan_ma_check' not in params) else params['bbands_kchan_ma_check']
+	bbands_kchan_ma_type		= 'ema'		if ('bbands_kchan_ma_type' not in params) else params['bbands_kchan_ma_type']
+	bbands_kchan_ma_ptype		= 'close'	if ('bbands_kchan_ma_ptype' not in params) else params['bbands_kchan_ma_ptype']
+	bbands_kchan_ma_period		= 21		if ('bbands_kchan_ma_period' not in params) else params['bbands_kchan_ma_period']
 	max_squeeze_natr		= None		if ('max_squeeze_natr' not in params) else params['max_squeeze_natr']
 	max_bbands_natr			= None		if ('max_bbands_natr' not in params) else params['max_bbands_natr']
 	min_bbands_natr			= None		if ('min_bbands_natr' not in params) else params['min_bbands_natr']
@@ -680,6 +684,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		except Exception as e:
 			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_kchannel(): ' + str(e))
 			return False
+
+		# 21 EMA to use with bbands_kchan algo
+		if ( bbands_kchan_ma_check == True ):
+			bbands_kchan_ma = []
+			try:
+				bbands_kchan_ma = tda_algo_helper.get_alt_ma( pricehistory, ma_type=bbands_kchan_ma_type, type=bbands_kchan_ma_ptype, period=bbands_kchan_ma_period )
+
+			except Exception as e:
+				print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_alt_ma(ema,21): ' + str(e))
+				return False
 
 	# MESA sine wave
 	if ( with_mesa_sine == True or primary_stoch_indicator == 'mesa_sine' ):
@@ -1507,6 +1521,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal max_bbands_natr
 		nonlocal min_bbands_natr
 
+		nonlocal bbands_kchan_ma
+
 		# bbands/kchannel (0,0,0) = lower, middle, upper
 		cur_bbands_lower	= round( cur_bbands[0], 3 )
 		cur_bbands_mid		= round( cur_bbands[1], 3 )
@@ -1582,7 +1598,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			#  So this appears to produce just slighly better trades.
 			prev_offset	= abs((prev_kchannel_lower / prev_bbands_lower) - 1) * 100
 			cur_offset	= abs((cur_kchannel_lower / cur_bbands_lower) - 1) * 100
-			if ( cur_offset >= bbands_kchannel_offset and bbands_kchan_signal_counter >= bbands_kchan_squeeze_count ):
+			if ( bbands_kchan_signal_counter >= bbands_kchan_squeeze_count and cur_offset >= bbands_kchannel_offset ):
 				bbands_kchan_init_signal = True
 
 				if ( debug == True ):
@@ -1688,6 +1704,26 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				if ( max_squeeze_natr != None and natr_t[-1] > max_squeeze_natr ):
 					bbands_kchan_signal = False
+
+
+			# Check the closing candles in relation to the EMA 21
+			# On a long signal, count the number of times the closing price has dipped below
+			#  the EMA 21 value. On a short signal, count the number of times the closing price has gone above
+			#  the EMA 21 value. If this happens multiple times over the course of a squeeze it indicates
+			#  that this is less likely to succeed, so we cancel the bbands_kchan_signal.
+			if ( bbands_kchan_signal == True and bbands_kchan_ma_check == True ):
+				ema_count = 0
+				for i in range(bbands_kchan_signal_counter):
+					if ( signal_mode['primary'] == 'long' and pricehistory['candles'][idx-i]['close'] < bbands_kchan_ma[idx-i] ):
+						ema_count += 1
+
+					elif ( signal_mode['primary'] == 'short' and pricehistory['candles'][idx-i]['close'] > bbands_kchan_ma[idx-i] ):
+						ema_count += 1
+
+					if ( ema_count > 2 ):
+						bbands_kchan_init_signal	= False
+						bbands_kchan_signal		= False
+						break
 
 			# Cancel the bbands_kchan_signal if the bollinger bands popped back inside the keltner channel,
 			#  or if the bbands_kchan_signal_counter has lingered for too long

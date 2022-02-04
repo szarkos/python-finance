@@ -128,6 +128,10 @@ parser.add_argument("--bbands_kchannel_straddle", help='Attempt straddle trade i
 parser.add_argument("--bbands_kchannel_xover_exit_count", help='Number of periods to wait after a crossover to trigger --use_bbands_kchannel_xover_exit (Default: 10)', default=10, type=int)
 parser.add_argument("--bbands_kchannel_offset", help='Percentage offset between the Bollinger bands and Keltner channel indicators to trigger an initial trade entry (Default: 0.15)', default=0.15, type=float)
 parser.add_argument("--bbands_kchan_squeeze_count", help='Number of squeeze periods needed before triggering bbands_kchannel signal (Default: 8)', default=8, type=int)
+parser.add_argument("--bbands_kchan_ma_check", help='Check price action in relation to a moving average during a squeeze to ensure price stays above or below a moving average (Default: False)', action="store_true")
+parser.add_argument("--bbands_kchan_ma_type", help='Moving average type to use with bbands_kchan_ma_check (Default: ema)', default='ema', type=str)
+parser.add_argument("--bbands_kchan_ma_ptype", help='Candle type to use when calculating moving average for use with bbands_kchan_ma_check (Default: close)', default='close', type=str)
+parser.add_argument("--bbands_kchan_ma_period", help='Period to use when calculating moving average for use with bbands_kchan_ma_check (Default: close)', default=21, type=int)
 parser.add_argument("--max_squeeze_natr", help='Maximum NATR allowed during consolidation (squeeze) phase (Default: None)', default=None, type=float)
 parser.add_argument("--max_bbands_natr", help='Maximum NATR between upper and lower Bolinger Bands allowed during consolidation (squeeze) phase (Default: None)', default=None, type=float)
 parser.add_argument("--min_bbands_natr", help='Minimum NATR between upper and lower Bolinger Bands allowed during consolidation (squeeze) phase (Default: None)', default=None, type=float)
@@ -738,6 +742,10 @@ for algo in args.algo.split(','):
 					'bbands_kchannel_xover_exit_count':	args.bbands_kchannel_xover_exit_count,
 					'bbands_kchannel_offset':		args.bbands_kchannel_offset,
 					'bbands_kchan_squeeze_count':		args.bbands_kchan_squeeze_count,
+					'bbands_kchan_ma_check':		args.bbands_kchan_ma_check,
+					'bbands_kchan_ma_type':			args.bbands_kchan_ma_type,
+					'bbands_kchan_ma_ptype':		args.bbands_kchan_ma_ptype,
+					'bbands_kchan_ma_period':		args.bbands_kchan_ma_period,
 					'max_squeeze_natr':			args.max_squeeze_natr,
 					'max_bbands_natr':			args.max_bbands_natr,
 					'bbands_roc_threshold':			args.bbands_roc_threshold,

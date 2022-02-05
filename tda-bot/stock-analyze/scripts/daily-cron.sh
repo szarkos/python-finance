@@ -4,11 +4,43 @@ cd ~/python-finance/tda-bot
 
 # Check email for TDA alerts and update tickers.conf
 ~/python-finance/tda-bot/stock-analyze/scripts/monitor-alerts-imap.py --tda_alert_name='Gobot Stock Scanner - NATR' --ticker_group=HIGH_NATR
-~/python-finance/tda-bot/stock-analyze/tickers.conf /stonks/tickers.conf
 
+## Update full ticker list ##
+# Cleanup first
+mkdir ~/python-finance/tda-bot/stock-analyze/scripts/tickers-history 2>/dev/null
+rm -f ~/python-finance/tda-bot/stock-analyze/scripts/tickers-history/*.conf 2>/dev/null
+
+# Pull all the versions of tickers.conf from the last few months
+cd ~/python-finance/tda-bot/stock-analyze
+hist=$( git log --since=2021-11-01 | grep commit | awk '{print $2}' | tr '\n' ' ' )
+for i in $hist; do
+	git show ${i}:./tickers.conf | tr '\r' '\n' > ./scripts/tickers-history/tickers-commit${i}.conf
+done
+
+# Parse the HIGH_NATR variable from each tickers.conf version and output to a single file
+cd ~/python-finance/tda-bot/stock-analyze/scripts/tickers-history
+for i in tickers-commit* ; do
+	hn=$( egrep '^HIGH_NATR=' $i | grep -v 'CUR_SET' )
+	echo -e "$hn\n" >> ./tickers-all.conf
+
+	hn=$( egrep '^HIGH_NATR=' $i | grep -v 'CUR_SET' | sed 's/HIGH_NATR=//g' | sed 's/"//g' | sed "s/'//g" | tr '\n' ',' | sed 's/\s//g' )
+	echo -e "$hn\n" >> ./tickers-final.conf
+
+done
+
+# Finally sort of uniqify all the tickers, and output result
+final=$( cat tickers-final.conf )
+final=$( echo -n "$final" | tr ',' '\n' | sort | uniq | tr '\n' ',' | sed 's/^,//' | sed 's/,$//' )
+final="'"${final}"'"
+#echo "$final"
+sed -i "s/BACKTEST_NATR=.*/BACKTEST_NATR=${final}/" ~/python-finance/tda-bot/stock-analyze/tickers.conf
+
+cp ~/python-finance/tda-bot/stock-analyze/tickers.conf /stonks/tickers.conf
 git add ~/python-finance/tda-bot/stock-analyze/tickers.conf
 git commit -m 'Update tickers.conf'
 git push
+## End update full ticker list ##
+
 
 # Refresh all the monthly/daily/weekly backtest data every day except on Sunday
 day="$(date +'%w')"
@@ -20,7 +52,7 @@ fi
 # Run a new backtest and email the results
 cd ~/python-finance/tda-bot/stock-analyze/
 source tickers.conf
-tickers="$HIGH_NATR"
+tickers="$BACKTEST_NATR"
 tickers=$( echo -n $tickers | sed 's/,/ /g' )
 
 rm -f results/*

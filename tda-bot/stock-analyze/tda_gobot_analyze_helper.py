@@ -1125,8 +1125,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			stock_roc	= []
 			etf_roc		= []
 			try:
-				stock_roc = tda_algo_helper.get_roc( pricehistory, period=etf_roc_period, type=etf_roc_type )
-				etf_roc			= tda_algo_helper.get_roc( etf_indicators[t]['pricehistory'], period=etf_roc_period, type=etf_roc_type )
+				stock_roc	= tda_algo_helper.get_roc( pricehistory, period=etf_roc_period, type=etf_roc_type )
+				etf_roc		= tda_algo_helper.get_roc( etf_indicators[t]['pricehistory'], period=etf_roc_period, type=etf_roc_type )
 
 			except Exception as e:
 				print('Error, unable to calculate rate-of-change for ticker ' + str(t) + ': ' + str(e))

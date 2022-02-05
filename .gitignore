@@ -144,6 +144,8 @@ watchlist.txt
 *.bz2
 *-steve*
 *-chris*
+tickers-history
+tickers-history/*
 
 # ibrokers monitor
 usa-*.txt

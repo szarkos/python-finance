@@ -117,6 +117,7 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 	# Get the latest quote information for all tickers (last price, bid/ask, etc.)
 	stock_data = False
 	try:
+		tda_gobot_helper.tdalogin(passcode)
 		stock_data = tda_gobot_helper.get_quotes( ','.join(stocks.keys()) )
 
 	except Exception as e:
@@ -124,7 +125,7 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 		stock_data = False
 
 	if ( isinstance(stock_data, bool) and stock_data == False ):
-		print('Error: stochrsi_gobot_run(): tda_gobot_helper.get_quotes() returnd False, skipping', file=sys.stderr)
+		print('Error: stochrsi_gobot_run(): tda_gobot_helper.get_quotes() returned False, skipping', file=sys.stderr)
 
 	else:
 		for tickers in stock_data.keys():

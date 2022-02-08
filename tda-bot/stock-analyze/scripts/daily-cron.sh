@@ -2,6 +2,10 @@
 
 cd ~/python-finance/tda-bot
 
+# Backup log file
+cp ./logs/gobot-v2.log logs/gobot-v2-$(date +'%Y%m%d').log
+xz -9 ./logs/gobot-v2-$(date +'%Y%m%d').log
+
 # Check email for TDA alerts and update tickers.conf
 ~/python-finance/tda-bot/stock-analyze/scripts/monitor-alerts-imap.py --tda_alert_name='Gobot Stock Scanner - NATR' --ticker_group=HIGH_NATR
 
@@ -43,8 +47,8 @@ git push
 
 
 # Refresh all the monthly/daily/weekly backtest data every day except on Sunday
-day="$(date +'%w')"
-if [ "$day" != 0 ]; then
+day=$( date +'%w' )
+if [ "$day" != "0" ]; then
 	~/python-finance/tda-bot/stock-analyze/scripts/refresh-data.sh
 fi
 

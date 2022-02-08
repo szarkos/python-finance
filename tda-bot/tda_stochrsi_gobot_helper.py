@@ -10,14 +10,14 @@ import tda_algo_helper
 
 # Runs from stream_client.handle_message() - calls stochrsi_gobot() with each
 #  set of specified algorithms
-def stochrsi_gobot_run(stream=None, algos=None, debug=False):
+def gobot_run(stream=None, algos=None, debug=False):
 
 	if not isinstance(stream, dict):
-		print('Error: stochrsi_gobot_run() called without valid stream{} data.', file=sys.stderr)
+		print('Error: gobot_run() called without valid stream{} data.', file=sys.stderr)
 		return False
 
 	if not isinstance(algos, list):
-		print('Error: stochrsi_gobot_run() called without valid algos[] list', file=sys.stderr)
+		print('Error: gobot_run() called without valid algos[] list', file=sys.stderr)
 		return False
 
 	# Example stream:
@@ -114,32 +114,6 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 
 			stocks[ticker]['pricehistory_5m']['candles'].append(newcandle)
 
-	# Get the latest quote information for all tickers (last price, bid/ask, etc.)
-	stock_data = False
-	try:
-		tda_gobot_helper.tdalogin(passcode)
-		stock_data = tda_gobot_helper.get_quotes( ','.join(stocks.keys()) )
-
-	except Exception as e:
-		print('Caught exception: stochrsi_gobot_run(): tda_gobot_helper.get_quotes(): ' + str(e), file=sys.stderr)
-		stock_data = False
-
-	if ( isinstance(stock_data, bool) and stock_data == False ):
-		print('Error: stochrsi_gobot_run(): tda_gobot_helper.get_quotes() returned False, skipping', file=sys.stderr)
-
-	else:
-		for tickers in stock_data.keys():
-			try:
-				stocks[ticker]['ask_price']	= stock_data[ticker]['askPrice']
-				stocks[ticker]['ask_size']	= stock_data[ticker]['askSize']
-				stocks[ticker]['bid_price']	= stock_data[ticker]['bidPrice']
-				stocks[ticker]['bid_size']	= stock_data[ticker]['bidSize']
-				stocks[ticker]['last_price']	= stock_data[ticker]['lastPrice']
-
-				stocks[ticker]['bid_ask_pct']	= abs(stocks[ticker]['bid_price'] / stocks[ticker]['ask_price'] - 1 ) * 100
-
-			except:
-				pass
 
 	# Call stochrsi_gobot() for each set of specific algorithms
 	for algo_list in algos:
@@ -157,6 +131,161 @@ def stochrsi_gobot_run(stream=None, algos=None, debug=False):
 			continue
 
 		stocks[ticker]['prev_seq'] = stocks[ticker]['cur_seq']
+
+	return True
+
+
+# Handle level1 stream
+def gobot_level1(stream=None, debug=False):
+
+	if not isinstance(stream, dict):
+		print('Error: gobot_level1() called without valid stream{} data.', file=sys.stderr)
+		return False
+
+	# Level1 quote data fields
+	# Documentation: https://developer.tdameritrade.com/content/streaming-data#_Toc504640599
+	#
+	# 0	Symbol			String	Ticker symbol in upper case
+	# 1	Bid Price		float	Current Best Bid Price
+	# 2	Ask Price		float	Current Best Ask Price
+	# 3	Last Price		float	Price at which the last trade was matched
+	# 4	Bid Size		float	Number of shares for bid
+	# 5	Ask Size		float	Number of shares for ask
+	# 8	Total Volume		long	Aggregated shares traded throughout the day, including pre/post market hours. Volume is set to zero at 7:28am ET. 
+	# 9	Last Size		float	Number of shares traded with last trade	Size in 100’s
+	# 14	Bid Tick		char	Indicates Up or Downtick (NASDAQ NMS & Small Cap) - SAZ Note: this doesn't seem to be populated.
+	# 48	Security Status		String	Indicates a symbols current trading status, Normal, Halted, Closed
+	dt = int( stream['timestamp'] )
+	for idx in stream['content']:
+		ticker					= idx['key']
+		idx['datetime']				= dt
+
+		stocks[ticker]['ask_price']		= float( idx['ASK_PRICE'] )	if ('ASK_PRICE' in idx) else stocks[ticker]['ask_price']
+		stocks[ticker]['ask_size']		= int( idx['ASK_SIZE'] )	if ('ASK_SIZE' in idx) else stocks[ticker]['ask_size']
+		stocks[ticker]['bid_price']		= float( idx['BID_PRICE'] )	if ('BID_PRICE' in idx) else stocks[ticker]['bid_price']
+		stocks[ticker]['bid_size']		= int( idx['BID_SIZE'] )	if ('BID_SIZE' in idx) else stocks[ticker]['bid_size']
+		stocks[ticker]['last_price']		= float( idx['LAST_PRICE'] )	if ('LAST_PRICE' in idx) else stocks[ticker]['last_price']
+		stocks[ticker]['last_size']		= int( idx['LAST_SIZE'] )	if ('LAST_SIZE' in idx) else stocks[ticker]['last_size']
+		stocks[ticker]['total_volume']		= int( idx['TOTAL_VOLUME'] )	if ('TOTAL_VOLUME' in idx) else stocks[ticker]['total_volume']
+		stocks[ticker]['security_status']	= idx['SECURITY_STATUS']	if ('SECURITY_STATUS' in idx) else stocks[ticker]['security_status']
+
+		try:
+			stocks[ticker]['bid_ask_pct'] = abs( stocks[ticker]['bid_price'] / stocks[ticker]['ask_price'] - 1 ) * 100
+		except:
+			stocks[ticker]['bid_ask_pct'] = 0
+
+		# Keep a history of all bid/ask data
+		# Level1 data can come in pieces if, i.e. only the bid or ask has changed,
+		#  so lets make sure each update is a complete set of data.
+		l1_history = {	'ASK_PRICE':	stocks[ticker]['ask_price'],
+				'ASK_SIZE':	stocks[ticker]['ask_size'],
+				'BID_PRICE':	stocks[ticker]['bid_price'],
+				'BID_SIZE':	stocks[ticker]['bid_size'],
+				'LAST_PRICE':	stocks[ticker]['last_price'],
+				'LAST_SIZE':	stocks[ticker]['last_size'],
+				'TOTAL_VOLUME':	stocks[ticker]['total_volume'],
+				'datetime':	dt,
+				'key':		ticker }
+
+		stocks[ticker]['level1'][dt] = l1_history
+
+	return True
+
+# Handle level1 stream
+def gobot_level2(stream=None, debug=False):
+
+	if not isinstance(stream, dict):
+		print('Error: gobot_level2() called without valid stream{} data.', file=sys.stderr)
+		return False
+
+	# Level2 Order Books
+	# Documentation:
+	#  https://developer.tdameritrade.com/content/streaming-data#_Toc504640617
+	#  https://developer.tdameritrade.com/content/streaming-data#_Toc504640616
+	#
+	# The var content['BIDS|ASKS']['BIDS|ASKS'] contains an array of bids/asks at each price,
+	#   so you can consider the ASK|BID_PRICE to be the key to each array of bids/asks.
+	#
+	# We don't actually need to iterate through all the bids and asks because the
+	#   NUM_BIDS|ASKS variable will tell us how many bids or asks there are at each price
+	#   point. Also, the total volume nicely counts the volume of all the bids/asks at
+	#   each price point. This is all we really care about right now.
+	#
+	# Note also that the ASK|BID_VOLUME and TOTAL_VOLUME is the actual amount. This
+	#   is unlike the level1 or get_quote() bid/ask size which is the volume / 100.
+	#
+	#   'content': [ { 'ASKS': [ { 'ASKS': [{	'ASK_VOLUME': 9500,
+	#						'EXCHANGE': 'EDGX',
+	#						'SEQUENCE': 54441732 },
+	#					{...}],
+	#					'ASK_PRICE': 39.3,
+	#					'NUM_ASKS': 2,
+	#					'TOTAL_VOLUME': 9900},
+	#
+	#			 { 'ASKS': [ { ......}],
+	#			],
+	#
+	#		   'BIDS': [ { 'BIDS': [{	'BID_VOLUME': 100,
+	#						'EXCHANGE': 'NSDQ',
+	#						'SEQUENCE': 54443420}
+	#					{...}],
+	#					'BID_PRICE': 39.22,
+	#					'NUM_BIDS': 1,
+	#					'TOTAL_VOLUME': 100},
+	#			  { 'BIDS': [ { .... } ],
+	#			],
+	#		'BOOK_TIME': 1644354444545,
+	#		'key': 'TICKER'}],
+	#   'service': 'LISTED_BOOK',
+	#   'timestamp': 1644354444643 }
+
+	# The order book changes all the time and we don't want to keep stale
+	#  info - so reset the asks/bids for each ticker contained in this stream
+	#  before processing it.
+	for idx in stream['content']:
+		ticker = idx['key']
+		stocks[ticker]['level2']['asks'] = {}
+		stocks[ticker]['level2']['bids'] = {}
+
+	# Process the stream
+	dt = int( stream['timestamp'] )
+	for idx in stream['content']:
+
+		ticker = idx['key']
+
+		# ASKS
+		for ask in idx['ASKS']:
+			ask_price = float( ask['ASK_PRICE'] )
+			stocks[ticker]['level2']['asks'][ask_price] = {}
+
+			stocks[ticker]['level2']['asks'][ask_price]['num_asks']		= int( ask['NUM_ASKS'] )
+			stocks[ticker]['level2']['asks'][ask_price]['total_volume']	= int( ask['TOTAL_VOLUME'] )
+
+		# The lowest ask price data should be the same as what we get from the level1 stream
+		cur_ask_price = min( stocks[ticker]['level2']['asks'].keys() )
+		stocks[ticker]['level2']['cur_ask']['ask_price']	= cur_ask_price
+		stocks[ticker]['level2']['cur_ask']['num_asks']		= stocks[ticker]['level2']['asks'][cur_ask_price]['num_asks']
+		stocks[ticker]['level2']['cur_ask']['total_volume']	= stocks[ticker]['level2']['asks'][cur_ask_price]['total_volume']
+
+		# BIDS
+		for bid in idx['BIDS']:
+			bid_price = float( bid['BID_PRICE'] )
+			stocks[ticker]['level2']['bids'][bid_price] = {}
+
+			stocks[ticker]['level2']['bids'][bid_price]['num_bids']		= int( bid['NUM_BIDS'] )
+			stocks[ticker]['level2']['bids'][bid_price]['total_volume']	= int( bid['TOTAL_VOLUME'] )
+
+		# The highest bid price data should be the same as what we get from the level1 stream
+		cur_bid_price = max( stocks[ticker]['level2']['bids'].keys() )
+		stocks[ticker]['level2']['cur_bid']['bid_price']	= cur_bid_price
+		stocks[ticker]['level2']['cur_bid']['num_bids']		= stocks[ticker]['level2']['bids'][cur_bid_price]['num_bids']
+		stocks[ticker]['level2']['cur_bid']['total_volume']	= stocks[ticker]['level2']['bids'][cur_bid_price]['total_volume']
+
+		# Archive level2 data to use later with backtesting
+		stocks[ticker]['level2']['history'][dt] = {}
+		stocks[ticker]['level2']['history'][dt]['asks'] = stocks[ticker]['level2']['asks']
+		stocks[ticker]['level2']['history'][dt]['bids'] = stocks[ticker]['level2']['bids']
+
 
 	return True
 
@@ -245,6 +374,8 @@ def reset_signals(ticker=None, id=None, signal_mode=None, exclude_bbands_kchan=F
 # Save the pricehistory data for later analysis. This is typically called on exit.
 def export_pricehistory():
 
+	import lzma
+
 	print("Writing stock pricehistory to ./" + args.tx_log_dir + "/\n")
 	try:
 		if ( os.path.isdir('./' + str(args.tx_log_dir)) == False ):
@@ -254,30 +385,55 @@ def export_pricehistory():
 		print('Error: export_pricehistory(): Unable to make directory ./' + str(args.tx_log_dir) + ': ' + e, file=sys.stderr)
 		return False
 
+	# Append today's date to files for archiving
+	dt_today = datetime.datetime.now(mytimezone).strftime('%Y-%m-%d')
+
 	for ticker in stocks.keys():
 		if ( len(stocks[ticker]['pricehistory']) == 0 ):
 			continue
 
 		# Export pricehistory
 		try:
-			fname = './' + str(args.tx_log_dir) + '/' + str(ticker) + '.pickle'
-			with open(fname, 'wb') as handle:
+			fname = './' + str(args.tx_log_dir) + '/' + str(ticker) + '-' + str(dt_today) + '.pickle.xz'
+			with lzma.open(fname, 'wb') as handle:
 				pickle.dump(stocks[ticker]['pricehistory'], handle)
 				handle.flush()
 
 		except Exception as e:
-			print('Warning: Unable to write to file ' + str(fname) + ': ' + str(e), file=sys.stderr)
+			print('Warning: Unable to write pricehistory data to file ' + str(fname) + ': ' + str(e), file=sys.stderr)
 			pass
 
 		# Export 5-minute pricehistory
+		# SAZ 2022-01-08 - This is no longer needed
+		#try:
+		#	fname = './' + str(args.tx_log_dir) + '/' + str(ticker) + '_5m-' + str(dt_today) + '.pickle.xz'
+		#	with lzma.open(fname, 'wb') as handle:
+		#		pickle.dump(stocks[ticker]['pricehistory_5m'], handle)
+		#		handle.flush()
+		#except Exception as e:
+		#	print('Warning: Unable to write to pricehistory_5m data file ' + str(fname) + ': ' + str(e), file=sys.stderr)
+		#	pass
+
+		# Export level 1 data
 		try:
-			fname = './' + str(args.tx_log_dir) + '/' + str(ticker) + '_5m.pickle'
-			with open(fname, 'wb') as handle:
-				pickle.dump(stocks[ticker]['pricehistory_5m'], handle)
+			fname = './' + str(args.tx_log_dir) + '/' + str(ticker) + '_level1-' + str(dt_today) + '.pickle.xz'
+			with lzma.open(fname, 'wb') as handle:
+				pickle.dump(stocks[ticker]['level1'], handle)
 				handle.flush()
 
 		except Exception as e:
-			print('Warning: Unable to write to file ' + str(fname) + ': ' + str(e), file=sys.stderr)
+			print('Warning: Unable to write level1 data to file ' + str(fname) + ': ' + str(e), file=sys.stderr)
+			pass
+
+		# Export level 2 data
+		try:
+			fname = './' + str(args.tx_log_dir) + '/' + str(ticker) + '_level2-' + str(dt_today) + '.pickle.xz'
+			with lzma.open(fname, 'wb') as handle:
+				pickle.dump(stocks[ticker]['level2']['history'], handle)
+				handle.flush()
+
+		except Exception as e:
+			print('Warning: Unable to write level1 data to file ' + str(fname) + ': ' + str(e), file=sys.stderr)
 			pass
 
 	return True

@@ -44,6 +44,7 @@ import tulipy as ti
 parser = argparse.ArgumentParser()
 parser.add_argument("--stocks", help='Stock ticker(s) to watch (comma delimited). Max supported tickers supported by TDA: 300', required=True, type=str)
 parser.add_argument("--stock_usd", help='Amount of money (USD) to invest per trade', default=1000, type=float)
+parser.add_argument("--account_number", help='Account number to use (default: use .env file)', default=None, type=int)
 parser.add_argument("--algos", help='Algorithms to use, comma delimited. Supported options: stochrsi, rsi, adx, dmi, macd, aroonosc, vwap, vpt, support_resistance (Example: --algos=stochrsi,adx --algos=stochrsi,macd)', required=True, nargs="*", action='append', type=str)
 parser.add_argument("--algo_valid_tickers", help='Tickers to use with a particular algorithm (Example: --algo_valid_tickers=algo_id:MSFT,AAPL). If unset all tickers will be used for all algos. Also requires setting "algo_id:algo_name" with --algos=.', action='append', default=None, type=str)
 parser.add_argument("--algo_exclude_tickers", help='Tickers to exclude with a particular algorithm (Example: --algo_exclude_tickers=algo_id:GME,AMC). If unset all tickers will be used for all algos. Also requires setting "algo_id:algo_name" with --algos=.', action='append', default=None, type=str)
@@ -217,8 +218,16 @@ if ( load_dotenv() != True ):
         print('Error: unable to load .env file', file=sys.stderr)
         sys.exit(1)
 
-tda_account_number				= int( os.environ["tda_account_number"] )
-passcode					= os.environ["tda_encryption_passcode"]
+try:
+	passcode = os.environ["tda_encryption_passcode"]
+	if ( args.account_number != None ):
+		tda_account_number = args.account_number
+	else:
+		tda_account_number = int( os.environ["tda_account_number"] )
+
+except Exception as e:
+	print('Error: a valid TDA account number and passcode are required: ' + str(e))
+	sys.exit(1)
 
 tda_gobot_helper.tda				= tda
 tda_stochrsi_gobot_helper.tda			= tda
@@ -775,13 +784,6 @@ for ticker in stock_list.split(','):
 				   'base_price':		float(0),
 				   'primary_algo':		None,
 
-				   'ask_price':			float(0),
-				   'ask_size':			float(0),
-				   'bid_price':			float(0),
-				   'bid_size':			float(0),
-				   'bid_ask_pct':		float(0),
-				   'last_price':		float(0),
-
 				   'incr_threshold':		args.incr_threshold,
 				   'orig_incr_threshold':	args.incr_threshold,
 				   'decr_threshold':		args.decr_threshold,
@@ -938,6 +940,35 @@ for ticker in stock_list.split(','):
 				   'pricehistory_5m':		{ 'candles': [], 'ticker': ticker },
 				   'pricehistory_daily':	{},
 				   'pricehistory_weekly':	{},
+
+				   'exchange':			None,
+				   'ask_price':			float(1),
+				   'ask_size':			int(0),
+				   'bid_price':			float(0),
+				   'bid_size':			int(0),
+				   'bid_ask_pct':		float(0),
+				   'last_price':		float(0),
+				   'last_size':			int(0),
+				   'security_status':		'Normal',
+				   'total_volume':		int(0),
+
+				   # Level 1 data
+				   'level1':			{},
+
+				   # Level 2 order book data
+				   'level2':			{ 'cur_ask': {	'ask_price':	float(0),
+										'num_asks':	int(0),
+										'total_volume':	int(0) },
+
+								  'cur_bid': {	'bid_price':	float(0),
+										'num_bids':	int(0),
+										'total_volume':	int(0) },
+
+								  'asks':	{},
+								  'bids':	{},
+
+								  'history':	{} }, # end level2{}
+
 			}} )
 
 	# Per algo signals
@@ -1029,6 +1060,8 @@ except Exception as e:
 # Initialize additional stocks{} values
 # First purge the blacklist of stale entries
 tda_gobot_helper.clean_blacklist(debug=False)
+nasdaq_tickers	= []
+nyse_tickers	= []
 for ticker in list(stocks.keys()):
 	if ( tda_gobot_helper.check_blacklist(ticker) == True and args.force == False ):
 		print('(' + str(ticker) + ') Warning: stock ' + str(ticker) + ' found in blacklist file, removing from the list')
@@ -1066,6 +1099,35 @@ for ticker in list(stocks.keys()):
 			elif ( args.short == True ):
 				print('Warning: stock(' + str(ticker) + '): does not appear to be shortable, disabling --short')
 				stocks[ticker]['shortable'] = False
+
+	# Find out on which exchange the ticker is listed
+	# This is needed later if we want to subscribe to the level2 stream, which support NYSE and NASDAQ tickers
+	# Pacific Exchange (PCX) operates through NYSEArca, so these should work as well
+	#
+	# Exchange codes:
+	#    NYSE = n
+	#    AMEX = a
+	#    NASDAQ = q
+	#    OTCBB = u
+	#    PACIFIC=p
+	#    INDICES = x
+	#    AMEX_INDEX=g
+	#    MUTUAL_FUND = m
+	#    PINK_SHEET = 9
+	try:
+		stocks[ticker]['exchange'] = stock_data[ticker]['exchange']
+		if ( stock_data[ticker]['exchange'] == 'q' ):
+			nasdaq_tickers.append( str(ticker) )
+
+		elif ( stock_data[ticker]['exchange'] == 'n' or stock_data[ticker]['exchange'] == 'p' ):
+			nyse_tickers.append( str(ticker) )
+
+		else:
+			print('Warning: ticker ' + str(ticker) + ' not found or not listed on NYSE or NASDAQ (' + str(stock_data[ticker]['exchange']) + '), level2 data will not be available')
+
+	except:
+		print('Warning: exchange info not returned for ticker ' + str(ticker) + ', level2 data will not be available')
+		pass
 
 	# Get general information about the stock that we can use later
 	# I.e. volatility, resistance, etc.
@@ -1476,14 +1538,51 @@ async def read_stream():
 	loop.add_signal_handler( signal.SIGUSR1, siguser1_handler )
 
 	await asyncio.wait_for( stream_client.login(), 10 )
-	await stream_client.quality_of_service(StreamClient.QOSLevel.REAL_TIME)
 
+	# QOS level options:
+	# EXPRESS:	500ms between updates (fastest available)
+	# REAL_TIME:	750ms between updates
+	# FAST:		1000ms between updates (TDA default)
+	# MODERATE:	1500ms between updates
+	# SLOW:		3000ms between updates
+	# DELAYED:	5000ms between updates
+	await stream_client.quality_of_service(stream_client.QOSLevel.DELAYED)
+
+	# Subscribe to equity 1-minute candle data
+	# Note: Max tickers=300, list will be truncated if >300
 	stream_client.add_chart_equity_handler(
-		lambda msg: tda_stochrsi_gobot_helper.stochrsi_gobot_run(msg, algos, args.debug) )
-
-	# Max equity subs=300
+		lambda msg: tda_stochrsi_gobot_helper.gobot_run(msg, algos, args.debug) )
 	await asyncio.wait_for( stream_client.chart_equity_subs(stocks.keys()), 10 )
 
+	# Subscribe to equity level1 data
+	l1_fields = [	stream_client.LevelOneEquityFields.SYMBOL,
+			stream_client.LevelOneEquityFields.BID_PRICE,
+			stream_client.LevelOneEquityFields.ASK_PRICE,
+			stream_client.LevelOneEquityFields.LAST_PRICE,
+			stream_client.LevelOneEquityFields.BID_SIZE,
+			stream_client.LevelOneEquityFields.ASK_SIZE,
+			stream_client.LevelOneEquityFields.TOTAL_VOLUME,
+			stream_client.LevelOneEquityFields.LAST_SIZE,
+			stream_client.LevelOneEquityFields.BID_TICK,
+			stream_client.LevelOneEquityFields.SECURITY_STATUS ]
+
+	stream_client.add_level_one_equity_handler(
+		lambda msg: tda_stochrsi_gobot_helper.gobot_level1(msg, args.debug) )
+	await asyncio.wait_for( stream_client.level_one_equity_subs(stocks.keys(), fields=l1_fields), 10 )
+
+	# Subscribe to equity level2 order books
+	# NYSE ("listed")
+	stream_client.add_listed_book_handler(
+		lambda msg: tda_stochrsi_gobot_helper.gobot_level2(msg, args.debug) )
+	await asyncio.wait_for( stream_client.listed_book_subs(nyse_tickers), 10 )
+
+	# NASDAQ
+	stream_client.add_nasdaq_book_handler(
+		lambda msg: tda_stochrsi_gobot_helper.gobot_level2(msg, args.debug) )
+	await asyncio.wait_for( stream_client.nasdaq_book_subs(nasdaq_tickers), 10 )
+
+
+	# Wait for and process messages
 	while True:
 		await asyncio.wait_for( stream_client.handle_message(), 120 )
 

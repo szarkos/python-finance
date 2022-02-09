@@ -63,8 +63,8 @@ rm -f results/*
 monthly_data=$( ls monthly-1min-csv/*.pickle | tail -1 | sed 's/monthly-1min-csv\///' | sed 's/[A-Z]*\-//' )
 for t in $tickers; do
 	./gobot-test.py --ifile=monthly-1min-csv/${t}-${monthly_data} \
-			--ofile=results/${t} \
-			--opts=" --weekly_ifile=weekly-csv/${t}-weekly-2019-2021.pickle --daily_ifile=./daily-csv/${t}-daily-2019-2021.pickle "
+                        --ofile=results/${t} \
+                        --opts=" --weekly_ifile=weekly-csv/${t}-weekly-2019-2021.pickle --daily_ifile=./daily-csv/${t}-daily-2019-2021.pickle "
 done
 
 cur_time=$(TZ="America/Los_Angeles" date)

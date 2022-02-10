@@ -118,20 +118,19 @@ def ismarketopen_US(date=None, safe_open=False, check_day_only=False, extended_h
 
 	# US market holidays - source: https://www.marketbeat.com/stock-market-holidays/
 	# TDA API doesn't provide this, so I'm hardcoding these dates for now.
-	#
-	# 2021-01-01 - New Year's Day
-	# 2021-01-18 - Martin Luther King Jr. Day
-	# 2021-02-15 - President's Day
-	# 2021-04-02 - Good Friday
-	# 2021-05-31 - Memorial Day
-	# 2021-07-02 - Early Close (1:00PM Eastern)
-	# 2021-07-05 - Independence Day
-	# 2021-09-06 - Labor Day
-	# 2021-11-25 - Thanksgiving
-	# 2021-11-26 - Early Close (1:00PM Eastern)
-	# 2021-12-23 - Early Close (1:00PM Eastern)
-	# 2021-12-24 - Christmas Eve
-	#  Note: 12-25 is on Saturday this year
+	# Holidays:
+	#   New Year's Day
+	#   Martin Luther King Jr. Day
+	#   President's Day
+	#   Good Friday
+	#   Memorial Day
+	#   Early Close (1:00PM Eastern)
+	#   Independence Day
+	#   Labor Day
+	#   Thanksgiving
+	#   Early Close (1:00PM Eastern)
+	#   Early Close (1:00PM Eastern)
+	#   Christmas Eve
 	holidays = [	'2021-01-01',
 			'2021-01-18',
 			'2021-02-15',
@@ -1239,7 +1238,7 @@ def buy_stock_marketprice(ticker=None, quantity=None, fillwait=True, account_num
 #  fillwait = (boolean) wait for order to be filled before returning
 # Notes:
 #  - Global object "tda" needs to exist, and tdalogin() should be called first.
-def sell_stock_marketprice(ticker=None, quantity=-1, fillwait=True, account_number=None, debug=False):
+def sell_stock_marketprice(ticker=None, quantity=None, fillwait=True, account_number=None, debug=False):
 
 	if ( ticker == None or quantity == None ):
 		return False
@@ -1498,7 +1497,7 @@ def short_stock_marketprice(ticker=None, quantity=None, fillwait=True, account_n
 #  Ticker = stock ticker
 #  Quantity = amount of stock to buy-to-cover
 #  fillwait = (boolean) wait for order to be filled before returning
-def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, account_number=None, debug=False):
+def buytocover_stock_marketprice(ticker=None, quantity=None, fillwait=True, account_number=None, debug=False):
 
 	if ( ticker == None or quantity == None ):
 		return False
@@ -1619,4 +1618,242 @@ def buytocover_stock_marketprice(ticker=None, quantity=-1, fillwait=True, accoun
 		print('buytocover_stock_marketprice(' + str(ticker) + '): Order completed (Order ID:' + str(order_id) + ')')
 
 	return data
+
+
+# Buy/Close(sell) call or put options
+# Required options:
+#  - contract: option contract ticker name
+#  - quantity: number of option contracts to buy/sell
+#  - instruction: 'buy' or 'buy_to_open' / 'sell' or 'sell_to_close'
+def buy_sell_option(contract=None, quantity=None, limit_price=None, instruction=None, fillwait=True, account_number=None, debug=False):
+
+	try:
+		assert contract		!= None
+		assert quantity		!= None
+		assert instruction	!= None
+		instruction		= str(instruction).upper()
+
+	except Exception as e:
+		print('Caught exception: buy_sell_option(' + str(contract) + '): ' + str(e), file=sys.stderr)
+		return False
+
+	if ( account_number == None ):
+		try:
+			account_number = int( tda_account_number )
+		except:
+			print('Error: buy_sell_option(' + str(contract) + '): invalid account number: ' + str(account_number), file=sys.stderr)
+			return False
+	else:
+		try:
+			account_number = int( account_number )
+		except:
+			print('Error: buy_sell_option(' + str(contract) + '): account number must be an integer: ' + str(account_number), file=sys.stderr)
+			return False
+
+	contract	= str(contract).upper()
+	num_attempts	= 3 # Number of attempts to sell the stock in case of failure
+
+	order = {
+		"complexOrderStrategyType": "NONE",
+		"orderType": "MARKET",
+		"session": "NORMAL",
+		"duration": "DAY",
+		"orderStrategyType": "SINGLE",
+		"orderLegCollection": [ {
+			"instruction": "",
+			"quantity": quantity,
+			"instrument": {
+				"symbol": contract,
+				"assetType": "OPTION"
+			}
+		} ]
+	}
+
+	# Either buy or close options
+	if ( instruction == 'BUY' or instruction == 'BUY_TO_OPEN' ):
+		order['orderLegCollection'][0]['instruction'] = 'BUY_TO_OPEN'
+
+	elif ( instruction == 'SELL' or instruction == 'SELL_TO_CLOSE' ):
+		order['orderLegCollection'][0]['instruction'] = 'SELL_TO_CLOSE'
+
+	else:
+		print('Error: buy_sell_option(' + str(contract) + '): invalid instruction: ' + str(instruction), file=sys.stderr)
+		return False
+
+	# Switch to limit order if limit_price is set
+	if ( limit_price != None ):
+		try:
+			limit_price = float( limit_price )
+		except:
+			print('Error: buy_sell_option(' + str(contract) + '): invalid limit_price: ' + str(limit_price), file=sys.stderr)
+			return False
+		else:
+			order['orderType']	= 'LIMIT'
+			order['price']		= limit_price
+
+
+	# Make sure we are logged into TDA
+	if ( tdalogin(passcode) != True ):
+		print('Error: buy_sell_option(' + str(contract) + '): tdalogin(): login failure', file=sys.stderr)
+
+	# Try to sell the stock num_attempts tries or return False
+	for attempt in range(num_attempts):
+		try:
+			data, err = func_timeout(5, tda.place_order, args=(account_number, order, True))
+			if ( debug == True ):
+				print('DEBUG: buy_sell_option(): tda.place_order(' + str(contract) + '): attempt ' + str(attempt+1))
+				print(order)
+				print(data)
+				print(err)
+
+		except FunctionTimedOut:
+			print('Caught Exception: buy_sell_option(' + str(contract) + '): tda.place_order(): timed out after 5 seconds')
+			err = 'Timed Out'
+
+		except Exception as e:
+			print('Caught Exception: buy_sell_option(' + str(contract) + '): tda.place_order(): ' + str(e))
+			return False
+
+		if ( err != None ):
+			print('Error: buy_sell_option(' + str(contract) + '): tda.place_order(): attempt ' + str(attempt+1) + ',  ' + str(err), file=sys.stderr)
+			if ( attempt == num_attempts-1 ):
+				return False
+
+			# Try to log in again
+			if ( tdalogin(passcode) != True ):
+				print('Error: buy_sell_option(): tdalogin(): Login failure', file=sys.stderr)
+
+			time.sleep(2)
+		else:
+			break
+
+	# Get the order number to feed to tda.get_order
+	try:
+		order_id = func_timeout(5, tda.get_order_number, args=(data,))
+		if ( debug == True ):
+			print(order_id)
+
+	except Exception as e:
+		print('Caught Exception: buy_sell_option(' + str(contract) + '): tda.get_order_number(): ' + str(e))
+		return data
+
+	if ( str(order_id) == '' ):
+		print('Error: buy_sell_option('+ str(contract) + '): tda.get_order_number(): Unable to get order ID', file=sys.stderr)
+		return data
+
+	# Get order information to determine if it was filled
+	try:
+		tdalogin(passcode)
+		data, err = func_timeout(5, tda.get_order, args=(account_number, order_id, True))
+		if ( debug == True ):
+			print(data)
+
+	except Exception as e:
+		print('Caught Exception: buy_sell_option(' + str(contract) + '): tda.get_order(): ' + str(e))
+		return data
+
+	if ( err != None ):
+		print('Error: buy_sell_option(' + str(contract) + '): tda.get_order(): ' + str(err), file=sys.stderr)
+
+	print('buy_sell_option(' + str(contract) + '): Order successfully placed (Order ID:' + str(order_id) + ')')
+
+	# Loop and wait for order to be filled if fillwait==True
+	if ( fillwait == True and data['filledQuantity'] != quantity ):
+		while time.sleep(5):
+			try:
+				data,err = func_timeout(5, tda.get_order, args=(account_number, order_id, True))
+				if ( debug == True ):
+					print(data)
+
+			except Exception as e:
+				print('Caught Exception: buy_sell_option(' + str(contract) + '): tda.get_order() in fillwait loop: ' + str(e))
+
+			if ( err != None ):
+				print('Error: buy_sell_option(' + str(contract) + '): problem in fillwait loop: ' + str(err), file=sys.stderr)
+				continue
+			if ( data['filledQuantity'] == quantity ):
+				break
+
+		print('buy_sell_option(' + str(contract) + '): Order completed (Order ID:' + str(order_id) + ')')
+
+	return data
+
+
+# Get option chain information
+#
+# - contract_type (Optional[str]) – Type of contracts to return in the chain. Can be CALL, PUT, or ALL. Default is ALL.
+# - strike_count (Optional[str]) – The number of strikes to return above and below the at-the-money price.
+# - include_quotes (Optional[str]) – Include quotes for options in the option chain. Can be TRUE or FALSE. Default is FALSE.
+# - strategy (Optional[str]) – Passing a value returns a Strategy Chain. Possible values are SINGLE, ANALYTICAL (allows use of
+#   the volatility, underlyingPrice, interestRate, and daysToExpiration params to calculate theoretical values),
+#   COVERED, VERTICAL, CALENDAR, STRANGLE, STRADDLE, BUTTERFLY, CONDOR, DIAGONAL, COLLAR, or ROLL. Default is SINGLE.
+# - interval (Optional[str]) – Strike interval for spread strategy chains (see strategy param).
+# - strike_price (Optional[str]) – Provide a strike price to return options only at that strike price.
+# - range_value
+#	ITM: In-the-money
+#	NTM: Near-the-money
+#	OTM: Out-of-the-money
+#	SAK: Strikes Above Market
+#	SBK: Strikes Below Market
+#	SNK: Strikes Near Market
+#	ALL: All Strikes (DEFAULT)
+# - from_date (Optional[str]) – Only return expirations after this date. For strategies, expiration refers
+#   to the nearest term expiration in the strategy. Valid ISO-8601 formats are: yyyy-MM-dd and yyyy-MM-dd’T’HH:mm:ssz.
+# - to_date (Optional[str]) – Only return expirations before this date. For strategies, expiration refers to the nearest
+#   term expiration in the strategy. Valid ISO-8601 formats are: yyyy-MM-dd and yyyy-MM-dd’T’HH:mm:ssz.
+# - volatility (Optional[str]) – Volatility to use in calculations. Applies only to ANALYTICAL strategy chains (see strategy param).
+# - underlying_price (Optional[str]) – Underlying price to use in calculations. Applies only to ANALYTICAL strategy chains (see strategy param).
+# - interest_rate (Optional[str]) – Interest rate to use in calculations. Applies only to ANALYTICAL strategy chains (see strategy param).
+# - days_to_expiration (Optional[str]) – Days to expiration to use in calculations. Applies only to ANALYTICAL strategy chains (see strategy param).
+# - exp_month (Optional[str]) – Return only options expiring in the specified month. Month is given in the three character format.
+#   Example: JAN. Default is ALL.
+# - option_type (Optional[str]) – Type of contracts to return. Default is ALL. Possible values are:
+#	S: Standard contracts
+#	NS: Non-standard contracts
+#	ALL: All contracts (DEFAULT)
+# - jsonify (Optional[str]) – If set to False, will return the raw response object. If set to True, will return a dictionary parsed using the JSON format.
+def get_option_chains(ticker=None, contract_type='ALL', strike_count='10', include_quotes='FALSE', strategy='SINGLE', interval=None,
+			strike_price=None, range_value='ALL', from_date=None, to_date=None, volatility=None, underlying_price=None,
+			interest_rate=None, days_to_expiration=None, exp_month='ALL', option_type='ALL', jsonify=True ):
+
+	if ( ticker == None ):
+		print('Error: get_option_chains(' + str(ticker) + '): ticker is empty', file=sys.stderr)
+		return False
+
+	try:
+		all_args = {	'contract_type':	contract_type,
+				'strike_count':		strike_count,
+				'include_quotes':	include_quotes,
+				'strategy':		strategy,
+				'interval':		interval,
+        	                'strike_price':		strike_price,
+				'range_value':		range_value,
+				'from_date':		from_date,
+				'to_date':		to_date,
+				'volatility':		volatility,
+				'underlying_price':	underlying_price,
+        	                'interest_rate':	interest_rate,
+				'days_to_expiration':	days_to_expiration,
+				'exp_month':		exp_month,
+				'option_type':		option_type,
+				'jsonify':		jsonify }
+
+		data, err = func_timeout(5, tda.stocks.get_option_chains, args=(ticker,), kwargs=all_args )
+
+	except FunctionTimedOut:
+		print('Caught Exception: get_option_chains(' + str(query) + '): tda.stocks.get_option_chains(): timed out after 10 seconds', file=sys.stderr)
+		return False
+	except Exception as e:
+		print('Caught Exception: get_option_chains(' + str(query) + '): tda.stocks.get_option_chains(): ' + str(e), file=sys.stderr)
+		return False
+
+	if ( err != None ):
+		print('Error: get_option_chains(' + str(query) + '): tda.stocks.get_option_chains(): ' + str(err), file=sys.stderr)
+		return False
+	elif ( data == {} ):
+		print('Error: get_option_chains(' + str(query) + '): tda.stocks.get_option_chains(): Empty data set', file=sys.stderr)
+		return False
+
+	return data
+
 

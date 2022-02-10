@@ -36,6 +36,7 @@ parser.add_argument("--vwap", help="Get VWAP values", action="store_true")
 parser.add_argument("--volatility", help="Get the historical volatility for a stock", action="store_true")
 parser.add_argument("--get_instrument", help="Stock ticker to obtain instrument data", action="store_true")
 parser.add_argument("--get_earnings_calendar", help="Get the upcoming earnings calendar for a stock", action="store_true")
+parser.add_argument("--get_options", help="Get option chains for ticker", action="store_true")
 
 parser.add_argument("--is_market_open", help="Check if US market is open. Use --market_time to specify day/time, or current day/time will be used", action="store_true")
 parser.add_argument("--market_datetime", help='Day to check if market is open. Must be in US/Eastern timezone, and in the format "HH-MM-DD hh:mm:ss"', default=None, type=str)
@@ -118,7 +119,7 @@ if ( args.stock != '' ):
 else:
 	stock = args.stocks
 
-## Get stock quote and print the results
+# Get stock quote and print the results
 if ( args.get_instrument == True ):
 
 	# Get the fundamental data from get_quote API
@@ -144,7 +145,30 @@ if ( args.get_instrument == True ):
 
 	sys.exit(0)
 
+# Get option chains for ticker
+if ( args.get_options == True ):
 
+	# Get the fundamental data from get_quote API
+	try:
+		data = tda_gobot_helper.get_option_chains(stock)
+
+	except Exception as e:
+		print('Exception caught: get_option_chains(' + str(stock) + '): ' + str(e))
+
+	if ( isinstance(data, bool) and data == False ):
+		print('Error: get_option_chains(' + str(stock) + ') returned False', file=sys.stderr)
+		sys.exit(1)
+	elif ( data == {} ):
+		print('Error: get_option_chains(' + str(stock) + '): Empty data set', file=sys.stderr)
+		sys.exit(1)
+
+	import pprint
+	pp = pprint.PrettyPrinter(indent=4)
+	pp.pprint(data)
+
+	sys.exit(0)
+
+# Get earnings calendar (uses Alphavantage API)
 elif ( args.get_earnings_calendar == True ):
 
 	output = []

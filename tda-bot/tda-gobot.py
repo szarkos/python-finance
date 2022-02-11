@@ -10,6 +10,7 @@ import robin_stocks.tda as tda
 import os, sys, time, random
 import argparse
 import datetime, pytz
+
 import tda_gobot_helper
 
 # Parse and check variables
@@ -17,6 +18,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument("stock", help='Stock ticker to purchase')
 parser.add_argument("stock_usd", help='Amount of money (USD) to invest', nargs='?', default=None, type=float)
 parser.add_argument("--account_number", help='Account number to use (default: None)', default=None, type=int)
+
+parser.add_argument("--options", help='Purchase CALL/PUT options instead of equities', action="store_true")
+parser.add_argument("--contract_type", help='Type of options to purchase (CALL|PUT)', default=None, type=str)
 
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
@@ -46,7 +50,7 @@ if args.decr_threshold:
 if args.incr_threshold:
 	incr_percent_threshold = args.incr_threshold	# Reset base_price if stock increases by this percent
 if ( args.stock_usd == None ):
-	print('Error: please enter stock amount (USD) to invest')
+	print('Error: please enter stock amount (USD) to invest', file=sys.stderr)
 	sys.exit(1)
 
 stock				= args.stock
@@ -77,7 +81,7 @@ if ( args.notmarketclosed == True and tda_gobot_helper.ismarketopen_US() == Fals
 # Initialize and log into TD Ameritrade
 from dotenv import load_dotenv
 if ( load_dotenv() != True ):
-	print('Error: unable to load .env file')
+	print('Error: unable to load .env file', file=sys.stderr)
 	sys.exit(1)
 
 try:
@@ -87,7 +91,7 @@ try:
 		tda_account_number = int( os.environ["tda_account_number"] )
 
 except:
-	print('Error: account number not found, exiting.')
+	print('Error: account number not found, exiting', file=sys.stderr)
 	sys.exit(1)
 
 passcode				= os.environ["tda_encryption_passcode"]
@@ -96,23 +100,26 @@ tda_gobot_helper.tda_account_number	= tda_account_number
 tda_gobot_helper.passcode 		= passcode
 
 if ( tda_gobot_helper.tdalogin(passcode) != True ):
-	print('Error: Login failure')
+	print('Error: Login failure', file=sys.stderr)
 	sys.exit(1)
 
 # Fix up and sanity check the stock symbol before proceeding
 stock	= tda_gobot_helper.fix_stock_symbol(stock)
 ret	= tda_gobot_helper.check_stock_symbol(stock)
 if ( isinstance(ret, bool) and ret == False ):
-	print('Error: check_stock_symbol(' + str(stock) + ') returned False, exiting.')
+	print('Error: check_stock_symbol(' + str(stock) + ') returned False, exiting', file=sys.stderr)
 	sys.exit(1)
 
 if ( tda_gobot_helper.check_blacklist(stock) == True ):
 	if ( args.force == False ):
-		print('(' + str(stock) + ') Error: stock ' + str(stock) + ' found in blacklist file, exiting.')
+		print('(' + str(stock) + ') Error: stock ' + str(stock) + ' found in blacklist file, exiting', file=sys.stderr)
 		sys.exit(1)
 	else:
 		print('(' + str(stock) + ') Warning: stock ' + str(stock) + ' found in blacklist file.')
 
+if ( tda_gobot_helper.ismarketopen_US() != True ):
+	print(str(stock) + ' transaction cancelled because market is closed, exiting.')
+	sys.exit(1)
 
 #############################################################
 # Functions we may need later
@@ -181,8 +188,79 @@ def price_trend(candles=None, type='hl2', period=5, affinity=None):
 
 ## End sub functions
 
+# Find the right option contract to purchase
+if ( args.options == True ):
+	if ( args.contract_type == None ):
+		print('Error: --contract_type (CALL|PUT) is required, exiting', file=sys.stderr)
+		sys.exit(1)
 
-# Loop until the entry price is acheived.
+	args.contract_type = args.contract_type.upper()
+
+	# Search for options that expire either this week or next week
+	dt		= datetime.datetime.now(mytimezone)
+	start_day	= dt
+	end_day		= dt + datetime.timedelta(days=7)
+	if ( int(dt.strftime('%w')) >= 3 ):
+		start_day	= dt + datetime.timedelta(days=7)
+		end_day		= dt + datetime.timedelta(days=13)
+
+	try:
+		option_chain = tda_gobot_helper.get_option_chains( ticker=stock, contract_type=args.contract_type, strike_count=5, range_value='NTM',
+									from_date=start_day.strftime('%Y-%m-%d'), to_date=end_day.strftime('%Y-%m-%d') )
+	except Exception as e:
+		print('Error: looking up option chain for stock ' + str(stock), file=sys.stderr)
+
+	ExpDateMap = 'callExpDateMap'
+	if ( args.contract_type == 'PUT' ):
+		ExpDateMap = 'putExpDateMap'
+
+	exp_date	= list(option_chain[ExpDateMap].keys())[0]
+	stock		= None
+	for key in option_chain[ExpDateMap][exp_date].keys():
+		try:
+			strike = float( key )
+		except:
+			print('(' + str(args.stock) + '): error processing option chain: ' + str(key), file=sys.stderr)
+			continue
+		else:
+			key = option_chain[ExpDateMap][exp_date][key]
+
+		# API returns a list for each strike price, but I've not yet seen any strike price
+		#  data contain more than one entry. Possibly there are times when different brokers
+		#  have different offerings for each strike price.
+		key = key[0]
+
+		# Find the first OTM option
+		if ( key['inTheMoney'] == False ):
+			if ( stock_usd < key['ask'] * 100 ):
+				print('(' + str(key['symbol']) + '): Available stock_usd (' + str(stock_usd) + ') is less than the ask for this option (' + str(key['ask'] * 100) + ')')
+				continue
+
+			bidask_pct	= round( abs( key['bid'] / key['ask'] - 1 ) * 100, 3 )
+			stock_qty	= int( stock_usd / (key['ask'] * 100) )
+
+			print( str(key['symbol']) + ': ' + str(stock_qty) + ' contracts (' + str(stock_qty*key['ask']*100) + ') / Strike: ' + str(strike) )
+			print( 'Bid: ' + str(key['bid']) + ' / Ask: ' + str(key['ask']) + ' (' + str(bidask_pct) + '%)' )
+			print( 'Delta: ' + str(key['delta']) )
+			print( 'Gamma: ' + str(key['gamma']) )
+			print( 'Theta: ' + str(key['theta']) )
+			print( 'Vega: ' + str(key['vega']) )
+			print( 'Volatility: ' + str(key['volatility']) )
+
+			if ( bidask_pct > 1 ):
+				print('Warning: bid/ask gap is bigger than 1% (' + str(bidask_pct) + ')')
+
+			if ( abs(key['delta']) < 0.70 ):
+				print('Warning: delta is less than 70% (' + str(abs(key['delta'])) + ')')
+
+			stock = key['symbol']
+
+			break
+
+	if ( stock == None ):
+		print('Unable to locate an available option to trade')
+
+# Loop until the entry price is achieved.
 if ( args.entry_price != None ):
 
 	while True:
@@ -202,12 +280,22 @@ if ( args.entry_price != None ):
 else:
 	last_price = tda_gobot_helper.get_lastprice( stock, WarnDelayed=False )
 
+# OPTIONS
+if ( args.options == True ):
 
-# Calculate stock quantity from investment amount
-stock_qty = int( stock_usd / last_price )
+	quote		= tda_gobot_helper.get_quotes(stock)
+	stock_qty       = int( stock_usd / (quote[stock]['askPrice'] * 100) )
 
-# Purchase stock, set orig_base_price to the price that we purchases the stock
-if ( tda_gobot_helper.ismarketopen_US() == True ):
+	if ( args.fake == False ):
+		data = tda_gobot_helper.buy_sell_option(contract=stock, quantity=stock_qty, instruction='buy_to_open', fillwait=True, account_number=tda_account_number, debug=debug)
+		if ( isinstance(data, bool) and data == False ):
+			print('Error: Unable to purchase option "' + str(stock) + '"', file=sys.stderr)
+			sys.exit(1)
+
+# EQUITY stock, set orig_base_price to the price that we purchased the stock
+else:
+	stock_qty = int( stock_usd / last_price )
+
 	if ( args.short == True ):
 		print('SHORTING ' + str(stock_qty) + ' shares of ' + str(stock))
 
@@ -225,10 +313,6 @@ if ( tda_gobot_helper.ismarketopen_US() == True ):
 				print('Error: Unable to buy stock "' + str(ticker) + '"', file=sys.stderr)
 				sys.exit(1)
 
-else:
-	print('Error: stock ' + str(stock) + ' not purchased because market is closed, exiting.')
-	sys.exit(1)
-
 try:
 	orig_base_price = float(data['orderActivityCollection'][0]['executionLegs'][0]['price'])
 except:
@@ -243,12 +327,12 @@ while True:
 
 	last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=True)
 	if ( isinstance(last_price, bool) and last_price == False ):
-		print('Error: get_lastprice() returned False')
+		print('Error: get_lastprice() returned False', file=sys.stderr)
 		time.sleep(5)
 
 		# Try logging in again
 		if ( tda_gobot_helper.tdalogin(passcode) != True ):
-			print('Error: Login failure')
+			print('Error: Login failure', file=sys.stderr)
 
 		continue
 
@@ -268,7 +352,6 @@ while True:
 
 	# Log format - stock:%change:last_price:net_change:base_price:orig_base_price:stock_qty:proc_id:short
 	tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short)
-
 
 	# Log the post/pre market pricing, but skip the rest of the loop if the market is closed.
 	# This should only happen if args.multiday == True
@@ -339,7 +422,7 @@ while True:
 	if ( args.exit_percent != None and exit_signal == False ):
 		if ( exit_percent_signal == False ):
 
-			# LONG
+			# LONG or OPTIONS
 			if ( args.short == False and last_price > orig_base_price ):
 				total_percent_change = abs( orig_base_price / last_price - 1 ) * 100
 				if ( total_percent_change >= args.exit_percent ):
@@ -372,27 +455,31 @@ while True:
 		# Once exit_percent_signal is triggered we need to move to use candles so we can analyze
 		#  price movement.
 		elif ( exit_percent_signal == True and exit_signal == False ):
-
 			loopt		= args.exit_percent_loopt
-
 			pricehistory	= {}
-			pricehistory	= get_ph(stock)
+
+			if ( args.options == True ):
+				pricehistory	= get_ph( args.stock ) # Follow the original stock, not the option contract
+			else:
+				pricehistory	= get_ph( stock )
+
 			if ( isinstance(pricehistory, bool) and pricehistory == False ):
 				print('(' + str(stock) + '): get_ph returned False')
 				time.sleep(5)
 				continue
 
 			# Integrate the latest last_price from get_quote() into the latest candle from pricehistory
-			if ( last_price >= pricehistory['candles'][-1]['high'] ):
-				pricehistory['candles'][-1]['high'] = last_price
-				pricehistory['candles'][-1]['close'] = last_price
+			if ( args.options == False ):
+				if ( last_price >= pricehistory['candles'][-1]['high'] ):
+					pricehistory['candles'][-1]['high'] = last_price
+					pricehistory['candles'][-1]['close'] = last_price
 
-			elif ( last_price <= pricehistory['candles'][-1]['low'] ):
-				pricehistory['candles'][-1]['low'] = last_price
-				pricehistory['candles'][-1]['close'] = last_price
+				elif ( last_price <= pricehistory['candles'][-1]['low'] ):
+					pricehistory['candles'][-1]['low'] = last_price
+					pricehistory['candles'][-1]['close'] = last_price
 
-			else:
-				pricehistory['candles'][-1]['close'] = last_price
+				else:
+					pricehistory['candles'][-1]['close'] = last_price
 
 			# Translate candles to Heiken Ashi candles
 			pricehistory	= tda_gobot_helper.translate_heikin_ashi(pricehistory)
@@ -451,30 +538,42 @@ while True:
 	if ( exit_signal == True ):
 		text_color = green
 
-		if ( args.short == False ):
+		# OPTIONS
+		if ( args.options == True ):
 			if ( net_change < 0 ):
 				text_color = red
 
-			print('SELLING: net change (' + str(stock) + '): ' + str(text_color) + str(net_change) + ' USD' + str(reset_color))
 			if ( args.fake == False ):
-				data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, account_number=tda_account_number, debug=debug)
+				data = tda_gobot_helper.buy_sell_option(contract=stock, quantity=stock_qty, instruction='sell_to_close', fillwait=True, account_number=tda_account_number, debug=debug)
 
+			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short, sold=True)
+			sys.exit(0)
+
+
+		# EQUITY stock
 		else:
-			if ( net_change > 0 ):
-				text_color = red
+			if ( args.short == False ):
+				if ( net_change < 0 ):
+					text_color = red
+
+				print('SELLING: net change (' + str(stock) + '): ' + str(text_color) + str(net_change) + ' USD' + str(reset_color))
+				if ( args.fake == False ):
+					data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, account_number=tda_account_number, debug=debug)
+
 			else:
-				# Shorts usually have a negative net_change when trades are successful,
-				#  but make it a positive number for readability
-				net_change = abs(net_change)
+				if ( net_change > 0 ):
+					text_color = red
+				else:
+					# Shorts usually have a negative net_change when trades are successful,
+					#  but make it a positive number for readability
+					net_change = abs(net_change)
 
-			print('BUY_TO_COVER: net change (' + str(stock) + '): ' + str(text_color) + str(net_change) + ' USD' + str(reset_color))
-			if ( args.fake == False ):
-				data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, account_number=tda_account_number, debug=debug)
+				print('BUY_TO_COVER: net change (' + str(stock) + '): ' + str(text_color) + str(net_change) + ' USD' + str(reset_color))
+				if ( args.fake == False ):
+					data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, account_number=tda_account_number, debug=debug)
 
-		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short, sold=True)
-		sys.exit(0)
-
-
+			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short, sold=True)
+			sys.exit(0)
 
 	time.sleep(loopt)
 

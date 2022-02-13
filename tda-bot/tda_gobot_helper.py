@@ -759,6 +759,27 @@ def get_quotes(stock=None):
 
 			return data
 
+	# Get a quote for a single stock ticker
+	else:
+		try:
+			data,err = func_timeout(5, tda.stocks.get_quote, args=(str(stock), True))
+
+		except FunctionTimedOut:
+			print('Caught Exception: get_quotes(' + str(stock) + '): tda.stocks.get_quote(): timed out after 10 seconds', file=sys.stderr)
+			return False
+		except Exception as e:
+			print('Caught Exception: get_quotes(' + str(stock) + '): tda.stocks.get_quote(): ' + str(e), file=sys.stderr)
+			return False
+
+		if ( err != None ):
+			print('Error: get_quotes(' + str(stock) + '): tda.stocks.get_quote(): ' + str(err), file=sys.stderr)
+			return False
+		elif ( data == {} ):
+			print('Error: get_quotes(' + str(stock) + '): tda.stocks.get_quote(): Empty data set', file=sys.stderr)
+			return False
+
+		return data
+
 	return False
 
 

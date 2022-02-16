@@ -3,6 +3,7 @@
 import os, sys, signal
 import time, datetime, pytz, random
 import pickle
+import numpy as np
 
 import tda_gobot_helper
 import tda_algo_helper
@@ -1086,7 +1087,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			roc_stacked_ma  = []
 			try:
 				for i in range(len(etf_roc)):
-					etf_roc[i] = etf_roc[i] * 10000
+					if ( np.isnan(etf_roc[i] * 10000) == True ):
+						etf_roc[i] = 1
+					else:
+						etf_roc[i] = etf_roc[i] * 10000
+
 					temp_ph['candles'].append({ 'open': etf_roc[i], 'high': etf_roc[i], 'low': etf_roc[i], 'close': etf_roc[i] })
 
 				roc_stacked_ma = get_stackedma( pricehistory=temp_ph, stacked_ma_periods=cur_algo['stacked_ma_periods_primary'], stacked_ma_type='ema' )
@@ -1270,19 +1275,19 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 		# MESA Sine Wave
 		if ( cur_algo['primary_mesa_sine'] == True ):
-			mesa_sine = []
-			mesa_lead = []
+			m_sine = []
+			m_lead = []
 			try:
-				mesa_sine, mesa_lead = tda_algo_helper.get_mesa_sine(pricehistory=stocks[ticker]['pricehistory'], type=cur_algo['mesa_sine_type'], period=cur_algo['mesa_sine_period'])
+				m_sine, m_lead = tda_algo_helper.get_mesa_sine(pricehistory=stocks[ticker]['pricehistory'], type=cur_algo['mesa_sine_type'], period=cur_algo['mesa_sine_period'])
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(): get_mesa_sine(' + str(ticker) + '): ' + str(e), file=sys.stderr)
 				continue
 
-			stocks[ticker]['cur_sine']	= mesa_sine[-1]
-			stocks[ticker]['prev_sine']	= mesa_sine[-2]
-			stocks[ticker]['cur_lead']	= mesa_lead[-1]
-			stocks[ticker]['prev_lead']	= mesa_lead[-2]
+			stocks[ticker]['cur_sine']	= m_sine[-1]
+			stocks[ticker]['prev_sine']	= m_sine[-2]
+			stocks[ticker]['cur_lead']	= m_lead[-1]
+			stocks[ticker]['prev_lead']	= m_lead[-2]
 
 		# Stacked Moving Averages (non-primary)
 		if ( cur_algo['stacked_ma'] == True ):
@@ -2013,7 +2018,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						reset_signals(ticker, id=algo_id, signal_mode='short', exclude_bbands_kchan=True)
 					continue
 
-				stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = mesa_sine( sine=mesa_sine, lead=mesa_lead, direction='long', strict=cur_algo['mesa_sine_strict'],
+				stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = mesa_sine( sine=m_sine, lead=m_lead, direction='long', strict=cur_algo['mesa_sine_strict'],
 													mesa_sine_signal=stocks[ticker]['algo_signals'][algo_id]['buy_signal'] )
 
 			## END PRIMARY ALGOS
@@ -3158,14 +3163,14 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# PRIMARY MESA Sine Wave
 			elif ( cur_algo['primary_mesa_sine'] == True ):
-				midline  = 0
+				midline = 0
 				if ( stocks[ticker]['cur_sine'] > midline ):
 					if ( args.shortonly == False ):
 						print('(' + str(ticker) + ') MESA SINE above midline ' + str(stocks[ticker]['cur_sine']) + '/' + str(stocks[ticker]['cur_lead']) + ", switching to long mode.\n" )
 						reset_signals(ticker, id=algo_id, signal_mode='long', exclude_bbands_kchan=True)
 					continue
 
-				stocks[ticker]['algo_signals'][algo_id]['short_signal'] = mesa_sine( sine=mesa_sine, lead=mesa_lead, direction='short', strict=cur_algo['mesa_sine_strict'],
+				stocks[ticker]['algo_signals'][algo_id]['short_signal'] = mesa_sine( sine=m_sine, lead=m_lead, direction='short', strict=cur_algo['mesa_sine_strict'],
 													mesa_sine_signal=stocks[ticker]['algo_signals'][algo_id]['short_signal'] )
 
 			## END PRIMARY ALGOS

@@ -42,6 +42,20 @@ nohup ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=20000 --stocks=${tickers
 	--algo_exclude_tickers=stackedma_macheck_kama_wma_rocstrict:${stackedma_kama_wma_rocstrict} \
 	--algo_exclude_tickers=stochrsi_rsstrict:${stochrsi_rsstrict} \
 	\
+	--algos=algo_id:qqq_mesasine_strict,primary_mesa_sine,mesa_sine_strict,stacked_ma,stacked_ma_type:kama,stacked_ma_periods:5.8.13,stacked_ma_secondary,stacked_ma_type_secondary:tema,stacked_ma_periods_secondary:34.55.89,check_etf_indicators,check_etf_indicators_strict,etf_min_rs:0,etf_tickers:XLF.XLRE.XLI.XPH.XHB.XLV.XRT.XOP.XLU.XBI.KBE.XLE.SPXS.SQQQ.XLP,support_resistance,use_trend,use_combined_exit \
+	--algos=algo_id:tqqq_mesasine_strict,primary_mesa_sine,mesa_sine_strict,stacked_ma,stacked_ma_type:kama,stacked_ma_periods:5.8.13,stacked_ma_secondary,stacked_ma_type_secondary:tema,stacked_ma_periods_secondary:34.55.89,check_etf_indicators,check_etf_indicators_strict,etf_min_rs:0,etf_tickers:XLC.XLP.XLV,support_resistance,use_trend,use_combined_exit \
+	--algos=algo_id:qqq_mesasine,primary_mesa_sine,stacked_ma,stacked_ma_type:kama,stacked_ma_periods:5.8.13,stacked_ma_secondary,stacked_ma_type_secondary:tema,stacked_ma_periods_secondary:34.55.89,check_etf_indicators,check_etf_indicators_strict,etf_min_rs:0,etf_tickers:XLF.XLRE.XLI.XPH.XHB.XLV.XRT.XOP.XLU.XBI.KBE.XLE.KIE.SPXS.SQQQ.XLP,support_resistance,use_trend,use_combined_exit \
+	--algos=algo_id:tqqq_mesasine,primary_mesa_sine,stacked_ma,stacked_ma_type:kama,stacked_ma_periods:5.8.13,stacked_ma_secondary,stacked_ma_type_secondary:tema,stacked_ma_periods_secondary:34.55.89,check_etf_indicators,check_etf_indicators_strict,etf_min_rs:0,etf_tickers:XLC.XLP.XLV,support_resistance,use_trend,use_combined_exit \
+	--algos=algo_id:xop_mesasine,primary_mesa_sine,stacked_ma,stacked_ma_type:kama,stacked_ma_periods:5.8.13,stacked_ma_secondary,stacked_ma_type_secondary:tema,stacked_ma_periods_secondary:34.55.89,check_etf_indicators,check_etf_indicators_strict,etf_min_rs:0,etf_tickers:TQQQ.XSD,support_resistance,use_trend,use_combined_exit \
+	\
+	--algo_valid_tickers=qqq_mesasine_strict:QQQ \
+	--algo_valid_tickers=qqq_mesasine:QQQ \
+	--algo_valid_tickers=tqqq_mesasine_strict:TQQQ \
+	--algo_valid_tickers=tqqq_mesasine:TQQQ \
+	--algo_valid_tickers=xop_mesasine:XOP \
+	\
+	--etf_tickers_allowtrade=QQQ,TQQQ,XOP \
+	\
 	--stacked_ma_periods_primary=8,13,21 --stacked_ma_periods=34,55,89 --stacked_ma_periods_secondary=34,55,89 \
 	--check_etf_indicators --etf_min_rs=4 --etf_min_natr=0.1 \
 	--bbands_kchannel_offset=0.15 --bbands_kchan_squeeze_count=10 --bbands_roc_threshold=0 \

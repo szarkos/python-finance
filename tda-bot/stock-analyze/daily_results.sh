@@ -11,7 +11,7 @@ fi
 cd $results_dir
 
 tickers=''
-for i in *-stoch*; do
+for i in *-*; do
 	tickers="$tickers "$( echo -n $i | sed 's/\-.*//' )
 done
 tickers=$( echo -n $tickers | sed 's/ /\n/g' | uniq | tr '\n' ' ' )

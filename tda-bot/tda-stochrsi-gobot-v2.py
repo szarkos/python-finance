@@ -98,6 +98,10 @@ parser.add_argument("--stacked_ma_secondary", help='Use stacked MA as a secondar
 parser.add_argument("--stacked_ma_type_secondary", help='Moving average type to use (Default: kama)', default='kama', type=str)
 parser.add_argument("--stacked_ma_periods_secondary", help='List of MA periods to use, comma-delimited (Default: 8,13,21)', default='8,13,21', type=str)
 
+parser.add_argument("--mesa_sine_strict", help='Use strict version of the MESA Sine Wave indicator (Default: False)', action="store_true")
+parser.add_argument("--mesa_sine_period", help='Lookback period to use with MESA Sine Wave (Default: 25)', default=25, type=int)
+parser.add_argument("--mesa_sine_type", help='Input type to use with MESA Sine Wave (Default: hl2)', default='hl2', type=str)
+
 parser.add_argument("--mfi_high_limit", help='MFI high limit', default=80, type=int)
 parser.add_argument("--mfi_low_limit", help='MFI low limit', default=20, type=int)
 parser.add_argument("--mfi_period", help='Money Flow Index (MFI) period', default=14, type=int)
@@ -153,6 +157,7 @@ parser.add_argument("--kchan_matype", help='MA type to use when calculating the 
 parser.add_argument("--check_etf_indicators", help='Tailor the stochastic indicator high/low levels based on the 5-minute SMA/EMA behavior of key ETFs (i.e. SPY, QQQ, DIA)', action="store_true")
 parser.add_argument("--check_etf_indicators_strict", help='Do not allow trade unless the 5-minute SMA/EMA behavior of key ETFs (i.e. SPY, QQQ, DIA) agree with direction', action="store_true")
 parser.add_argument("--etf_tickers", help='List of tickers to use with --check_etf_indicators (Default: SPY)', default='SPY', type=str)
+parser.add_argument("--etf_tickers_allowtrade", help='Normally ETF tickers are not tradeable. List any ETF tickers that you want to allow the gobot to trade (comma-delimited)', default=None, type=str)
 parser.add_argument("--etf_roc_period", help='Rate of change lookback period (Default: 50)', default=50, type=int)
 parser.add_argument("--etf_min_rs", help='Minimum relative strength between equity and ETF to allow trade (Default: None)', default=None, type=float)
 parser.add_argument("--etf_min_natr", help='Minimum intraday NATR of ETF to allow trade (Default: None)', default=None, type=float)
@@ -281,7 +286,7 @@ for algo in args.algos:
 				break
 
 	# Indicators
-	primary_stochrsi = primary_stochmfi = primary_stacked_ma = primary_mama_fama = False
+	primary_stochrsi = primary_stochmfi = primary_stacked_ma = primary_mama_fama = primary_mesa_sine = False
 	stacked_ma = stacked_ma_secondary = mama_fama = stochrsi_5m = stochmfi = stochmfi_5m = False
 	rsi = mfi = adx = dmi = dmi_simple = macd = macd_simple = aroonosc = False
 	chop_index = chop_simple = supertrend = bbands_kchannel = False
@@ -312,6 +317,10 @@ for algo in args.algos:
 	stacked_ma_periods		= args.stacked_ma_periods
 	stacked_ma_type_secondary	= args.stacked_ma_type_secondary
 	stacked_ma_periods_secondary	= args.stacked_ma_periods_secondary
+
+	mesa_sine_strict		= args.mesa_sine_strict
+	mesa_sine_period		= args.mesa_sine_period
+	mesa_sine_type			= args.mesa_sine_type
 
 	# Heikin Ashi and TTM_Trend
 	use_ha_exit			= args.use_ha_exit
@@ -402,6 +411,7 @@ for algo in args.algos:
 		if ( a == 'primary_stochmfi' ):		primary_stochmfi	= True
 		if ( a == 'primary_stacked_ma' ):	primary_stacked_ma	= True
 		if ( a == 'primary_mama_fama' ):	primary_mama_fama	= True
+		if ( a == 'primary_mesa_sine' ):	primary_mesa_sine	= True
 		if ( a == 'stacked_ma' ):		stacked_ma		= True
 		if ( a == 'stacked_ma_secondary' ):	stacked_ma_secondary	= True
 		if ( a == 'mama_fama' ):		mama_fama		= True
@@ -448,6 +458,10 @@ for algo in args.algos:
 		if ( re.match('stacked_ma_periods:', a)			!= None ):	stacked_ma_periods		= str( a.split(':')[1] )
 		if ( re.match('stacked_ma_type_secondary:', a)		!= None ):	stacked_ma_type_secondary	= str( a.split(':')[1] )
 		if ( re.match('stacked_ma_periods_secondary:', a)	!= None ):	stacked_ma_periods_secondary	= str( a.split(':')[1] )
+
+		if ( re.match('mesa_sine_strict', a)			!= None ):	mesa_sine_strict		= True
+		if ( re.match('mesa_sine_period:', a)			!= None ):	mesa_sine_period		= int( a.split(':')[1] )
+		if ( re.match('mesa_sine_type:', a)			!= None ):	mesa_sine_type			= str( a.split(':')[1] )
 
 		if ( re.match('use_ha_exit', a)				!= None ):	use_ha_exit			= True
 		if ( re.match('use_ha_candles', a)			!= None ):	use_ha_candles			= True
@@ -525,17 +539,21 @@ for algo in args.algos:
 	if ( primary_stochrsi == True and primary_stochmfi == True ):
 		print('Error: you can only use primary_stochrsi or primary_stochmfi, but not both. Exiting.')
 		sys.exit(1)
-	elif ( primary_stochrsi == False and primary_stochmfi == False and primary_stacked_ma == False and primary_mama_fama == False ):
-		print('Error: you must use one of primary_stochrsi, primary_stochmfi, primary_stacked_ma or primary_mama_fama. Exiting.')
+	elif ( primary_stochrsi == False and primary_stochmfi == False and primary_stacked_ma == False and primary_mama_fama == False and primary_mesa_sine == False ):
+		print('Error: you must use one of primary_stochrsi, primary_stochmfi, primary_stacked_ma, primary_mama_fama or primary_mesa_sine. Exiting.')
 		sys.exit(1)
 
 	# Stacked MA periods expect to be comma-delimited, but the --algos line is already comma-delimited. So MA
 	#  periods may be specified on the algos line using a period delimiter, which we convert back to comma here.
-	if ( stacked_ma_periods_primary != args.stacked_ma_periods_primary ):		stacked_ma_periods_primary	= re.sub('\.', ',', stacked_ma_periods_primary)
-	if ( stacked_ma_periods !=  args.stacked_ma_periods ):				stacked_ma_periods		= re.sub('\.', ',', stacked_ma_periods)
-	if ( stacked_ma_periods_secondary != args.stacked_ma_periods_secondary ):	stacked_ma_periods_secondary	= re.sub('\.', ',', stacked_ma_periods_secondary)
+	if ( stacked_ma_periods_primary != args.stacked_ma_periods_primary ):		stacked_ma_periods_primary	= re.sub( '\.', ',', stacked_ma_periods_primary )
+	if ( stacked_ma_periods !=  args.stacked_ma_periods ):				stacked_ma_periods		= re.sub( '\.', ',', stacked_ma_periods )
+	if ( stacked_ma_periods_secondary != args.stacked_ma_periods_secondary ):	stacked_ma_periods_secondary	= re.sub( '\.', ',', stacked_ma_periods_secondary )
 
+	# Similar to above, convert the etf_tickers using a period delimiter to comma-delimited
+	if ( etf_tickers != args.etf_tickers ):						etf_tickers			= re.sub( '\.', ',', etf_tickers )
+	args.etf_tickers = str(args.etf_tickers) + ',' + str(etf_tickers)
 
+	# DMI/MACD overrides the simple variant of the algorithm
 	if ( dmi == True and dmi_simple == True ):
 		dmi_simple = False
 	if ( macd == True and macd_simple == True ):
@@ -564,6 +582,7 @@ for algo in args.algos:
 			'primary_stochmfi':			primary_stochmfi,
 			'primary_stacked_ma':			primary_stacked_ma,
 			'primary_mama_fama':			primary_mama_fama,
+			'primary_mesa_sine':			primary_mesa_sine,
 			'stacked_ma':				stacked_ma,
 			'stacked_ma_secondary':			stacked_ma_secondary,
 			'mama_fama':				mama_fama,
@@ -633,6 +652,10 @@ for algo in args.algos:
 			'stacked_ma_type_secondary':		stacked_ma_type_secondary,
 			'stacked_ma_periods_secondary':		stacked_ma_periods_secondary,
 
+			'mesa_sine_strict':			mesa_sine_strict,
+			'mesa_sine_period':			mesa_sine_period,
+			'mesa_sine_type':			mesa_sine_type,
+
 			'use_ha_exit':				use_ha_exit,
 			'use_ha_candles':			use_ha_candles,
 			'use_trend_exit':			use_trend_exit,
@@ -686,7 +709,7 @@ for algo in args.algos:
 
 # Clean up this mess
 # All the stuff above should be put into a function to avoid this cleanup stuff. I know it. It'll happen eventually.
-del(stock_usd,quick_exit,primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,stacked_ma,stacked_ma_secondary,mama_fama,stochrsi_5m,stochmfi,stochmfi_5m)
+del(stock_usd,quick_exit,primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,primary_mesa_sine,stacked_ma,stacked_ma_secondary,mama_fama,stochrsi_5m,stochmfi,stochmfi_5m)
 del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,vwap,vpt,support_resistance)
 del(rsi_high_limit,rsi_low_limit,rsi_period,stochrsi_period,stochrsi_5m_period,rsi_k_period,rsi_k_5m_period,rsi_d_period,rsi_slow,stochrsi_offset,stochrsi_5m_offset)
 del(mfi_high_limit,mfi_low_limit,mfi_period,stochmfi_period,stochmfi_5m_period,mfi_k_period,mfi_k_5m_period,mfi_d_period,mfi_slow,stochmfi_offset,stochmfi_5m_offset)
@@ -694,7 +717,7 @@ del(adx_threshold,adx_period,macd_long_period,macd_short_period,macd_signal_peri
 del(chop_period,chop_low_limit,chop_high_limit,supertrend_atr_period,supertrend_min_natr)
 del(bbands_kchannel_offset,bbands_kchan_squeeze_count,bbands_period,kchannel_period,kchannel_atr_period,max_squeeze_natr,bbands_roc_threshold,bbands_roc_count,bbands_roc_strict)
 del(bbands_kchan_ma_check,bbands_kchan_ma_type,bbands_kchan_ma_ptype,bbands_kchan_ma_period)
-del(stacked_ma_type_primary,stacked_ma_periods_primary,stacked_ma_type,stacked_ma_periods,stacked_ma_type_secondary,stacked_ma_periods_secondary)
+del(stacked_ma_type_primary,stacked_ma_periods_primary,stacked_ma_type,stacked_ma_periods,stacked_ma_type_secondary,stacked_ma_periods_secondary,mesa_sine_period,mesa_sine_type,mesa_sine_strict)
 del(use_natr_resistance,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr)
 del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count,bbands_matype,kchan_matype)
 del(use_ha_exit,use_ha_candles,use_trend_exit,use_trend,trend_period,trend_type,use_combined_exit)
@@ -751,7 +774,7 @@ if ( args.check_etf_indicators == True ):
 
 # Initialize stocks{}
 stock_list = args.stocks.split(',')
-stock_list = list( dict.fromkeys(stock_list) )
+stock_list = list( dict.fromkeys(stock_list) ) # remove any duplicate tickers
 stock_list = ','.join(stock_list)
 
 print()
@@ -843,6 +866,12 @@ for ticker in stock_list.split(','):
 				   'prev_mama':			float(-1),
 				   'cur_fama':			float(-1),
 				   'prev_fama':			float(-1),
+
+				   # MESA Sine Wave
+				   'cur_sine':			float(-1),
+				   'prev_sine':			float(-1),
+				   'cur_lead':			float(-1),
+				   'prev_lead':			float(-1),
 
 				   # RSI
 				   'cur_rsi':			float(-1),
@@ -1015,6 +1044,7 @@ for ticker in stock_list.split(','):
 
 						'stacked_ma_signal':			False,
 						'mama_fama_signal':			False,
+						'mesa_sine_signal':			False,
 						'bbands_kchan_init_signal':		False,
 						'bbands_roc_threshold_signal':		False,
 						'bbands_kchan_crossover_signal':	False,
@@ -1041,12 +1071,16 @@ if ( len(stocks) == 0 ):
 # If check_etf_indicators is enabled then make sure the ETF stocks are listed in the global stocks{} dict
 #  and are configured as not tradeable.
 if ( args.check_etf_indicators == True ):
+	args.etf_tickers_allowtrade = args.etf_tickers_allowtrade.split(',')
+
 	for ticker in args.etf_tickers.split(','):
 		if ( ticker not in stocks ):
 			print('Error: check_etf_indicators is enabled, however ticker "' + str(ticker) + '" does not appear to be configured in global stocks{} dictionary, exiting.')
 			sys.exit(1)
 
 		stocks[ticker]['tradeable'] = False
+		if ( args.etf_tickers_allowtrade != None and ticker in args.etf_tickers_allowtrade ):
+			stocks[ticker]['tradeable'] = True
 
 
 # Get stock_data info about the stock that we can use later (i.e. shortable)
@@ -1546,7 +1580,7 @@ async def read_stream():
 	# MODERATE:	1500ms between updates
 	# SLOW:		3000ms between updates
 	# DELAYED:	5000ms between updates
-	await stream_client.quality_of_service(stream_client.QOSLevel.DELAYED)
+	await stream_client.quality_of_service(stream_client.QOSLevel.MODERATE)
 
 	# Subscribe to equity 1-minute candle data
 	# Note: Max tickers=300, list will be truncated if >300

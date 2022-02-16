@@ -240,6 +240,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	kchan_matype			= 'ema'		if ('kchan_matype' not in params) else params['kchan_matype']
 
 	with_mesa_sine			= False		if ('with_mesa_sine' not in params) else params['with_mesa_sine']
+	mesa_sine_strict		= False		if ('mesa_sine_strict' not in params) else params['mesa_sine_strict']
 	mesa_sine_period		= 25		if ('mesa_sine_period' not in params) else params['mesa_sine_period']
 	mesa_sine_type			= 'hl2'		if ('mesa_sine_type' not in params) else params['mesa_sine_type']
 
@@ -1143,6 +1144,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			tmp_stacked_ma		= []
 			tmp_mama		= []
 			tmp_fama		= []
+			tmp_atr			= []
+			tmp_natr		= []
+			tmp_trend		= []
+			tmp_peak		= []
+			tmp_valley		= []
 			try:
 				for i in range(len(etf_roc)):
 					etf_roc[i] = etf_roc[i] * 10000
@@ -1787,10 +1793,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 
 	# MESA Sine Wave
-	def mesa_sine(sine=[], lead=[], direction=None, mesa_exit=False, mesa_sine_signal=False):
+	def mesa_sine(sine=[], lead=[], direction=None, mesa_exit=False, strict=False, mesa_sine_signal=False):
 
 		nonlocal idx
-		nonlocal use_mesa_sine_exit
 
 		cur_sine	= sine[idx]
 		prev_sine	= sine[idx-1]
@@ -1825,8 +1830,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					mesa_sine_signal = True
 
 		# No need to check history if signal is already False
-#		if ( mesa_sine_signal == False ):
-		return mesa_sine_signal
+		if ( mesa_sine_signal == False or strict == False ):
+			return mesa_sine_signal
 
 		# Analyze trendiness
 		# Check for crossovers
@@ -2290,7 +2295,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						signal_mode['primary'] = 'short'
 					continue
 
-				buy_signal = mesa_sine( sine=sine, lead=lead, direction='long', mesa_sine_signal=buy_signal )
+				buy_signal = mesa_sine( sine=sine, lead=lead, direction='long', strict=mesa_sine_strict, mesa_sine_signal=buy_signal )
 
 
 			# Unknown primary indicator
@@ -2387,7 +2392,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# MESA Sine Wave
 			if ( with_mesa_sine == True ):
-				mesa_sine_signal = mesa_sine( sine=sine, lead=lead, direction='long', mesa_sine_signal=mesa_sine_signal )
+				mesa_sine_signal = mesa_sine( sine=sine, lead=lead, direction='long', strict=mesa_sine_strict, mesa_sine_signal=mesa_sine_signal )
 
 			# Momentum Indicator
 			if ( with_momentum == True ):
@@ -2792,6 +2797,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				exit_percent_long	= orig_exit_percent
 				quick_exit		= False
 				for t in etf_tickers:
+					if ( rs_signal == True ):
+						break
+
 					cur_rs = 0
 					if ( tmp_dt not in etf_indicators[t]['roc'] ):
 						print('Warning: etf_indicators does not include timestamp (' + str(tmp_dt) + ')')
@@ -2801,8 +2809,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						etf_indicators[t]['last_dt'] = tmp_dt
 
 						try:
-							with np.errstate(divide='ignore'):
-								cur_rs = stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
+							if ( etf_indicators[t]['roc'][tmp_dt] != 0 ):
+								with np.errstate(divide='ignore'):
+									cur_rs = stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
 
 						except ZeroDivisionError:
 							cur_rs = 0
@@ -3071,7 +3080,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					tmp_roc = str(round(stock_roc[idx], 5))
 					for t in etf_tickers:
 						if ( pricehistory['candles'][idx]['datetime'] in etf_indicators[t]['roc'] ):
-							tmp_roc += '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
+							tmp_dt	= pricehistory['candles'][idx]['datetime']
+							tmp_roc	+= '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
 
 				results.append( str(purchase_price) + ',' + str(num_shares) + ',' + 'False' + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
@@ -3255,7 +3265,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 										tmp_roc = str(round(stock_roc[idx], 5))
 										for t in etf_tickers:
 											if ( pricehistory['candles'][idx]['datetime'] in etf_indicators[t]['roc'] ):
-												tmp_roc += '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
+												tmp_dt	= pricehistory['candles'][idx]['datetime']
+												tmp_roc	+= '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
 
 									straddle_results.append( str(short_price) + ',' + str(num_shares) + ',' + 'True' + ',' +
 												 str(-1) + '/' + str(-1) + ',' +
@@ -3461,7 +3472,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# Check the mesa sign indicator for exit signal
 			if ( use_mesa_sine_exit == True and strict_exit_percent == False and exit_percent_signal_long == False ):
-				mesa_sine_signal = mesa_sine( sine=sine, lead=lead, direction='short', mesa_exit=True )
+				mesa_sine_signal = mesa_sine( sine=sine, lead=lead, direction='short', strict=mesa_sine_strict, mesa_exit=True )
 				if ( mesa_sine_signal == True ):
 					 sell_signal = True
 
@@ -3661,7 +3672,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				else:
 					# If crossover is not required then just check the orientation of
 					#  mama and fama
-
 					short_signal = False
 
 					# Bearish trending
@@ -3690,14 +3700,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						signal_mode['primary'] = 'long'
 					continue
 
-				short_signal = mesa_sine( sine=sine, lead=lead, direction='short', mesa_sine_signal=short_signal )
+				short_signal = mesa_sine( sine=sine, lead=lead, direction='short', strict=mesa_sine_strict, mesa_sine_signal=short_signal )
 
 
 			# Unknown primary indicator
 			else:
 				print('Error: primary_stoch_indicator "' + str(primary_stoch_indicator) + '" unknown, exiting.')
 				return False
-
 
 
 			# StochRSI with 5-minute candles
@@ -3788,7 +3797,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# MESA Sine Wave
 			if ( with_mesa_sine == True ):
-				mesa_sine_signal = mesa_sine(sine=sine, lead=lead, direction='short', mesa_sine_signal=mesa_sine_signal)
+				mesa_sine_signal = mesa_sine(sine=sine, lead=lead, direction='short', strict=mesa_sine_strict, mesa_sine_signal=mesa_sine_signal)
 
 			# Momentum Indicator
 			if ( with_momentum == True ):
@@ -4181,6 +4190,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				exit_percent_short	= orig_exit_percent
 				quick_exit		= False
 				for t in etf_tickers:
+					if ( rs_signal == True ):
+						break
+
 					cur_rs = 0
 					if ( tmp_dt not in etf_indicators[t]['roc'] ):
 						print('Warning: etf_indicators does not include timestamp (' + str(tmp_dt) + ')')
@@ -4190,8 +4202,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						etf_indicators[t]['last_dt'] = tmp_dt
 
 						try:
-							with np.errstate(divide='ignore'):
-								cur_rs = stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
+							if ( etf_indicators[t]['roc'][tmp_dt] != 0 ):
+								with np.errstate(divide='ignore'):
+									cur_rs = stock_roc[idx] / etf_indicators[t]['roc'][tmp_dt]
 
 						except ZeroDivisionError:
 							cur_rs = 0
@@ -4293,10 +4306,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							rs_signal = False
 						if ( etf_min_natr != None and etf_indicators[t]['natr'][tmp_dt] < etf_min_natr ):
 							rs_signal = False
-
-					else:
-						print('Warning: etf_indicators does not include timestamp (' + str(tmp_dt) + ')')
-						rs_signal = prev_rs_signal
 
 
 			# Experimental indicators
@@ -4459,7 +4468,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					tmp_roc = str(round(stock_roc[idx], 5))
 					for t in etf_tickers:
 						if ( pricehistory['candles'][idx]['datetime'] in etf_indicators[t]['roc'] ):
-							tmp_roc += '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
+							tmp_dt	= pricehistory['candles'][idx]['datetime']
+							tmp_roc	+= '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
 
 				results.append( str(short_price) + ',' + str(num_shares) + ',' + 'True' + ',' +
 						str(cur_rsi_k) + '/' + str(cur_rsi_d) + ',' +
@@ -4643,7 +4653,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 										tmp_roc = str(round(stock_roc[idx], 5))
 										for t in etf_tickers:
 											if ( pricehistory['candles'][idx]['datetime'] in etf_indicators[t]['roc'] ):
-												tmp_roc += '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
+												tmp_dt	= pricehistory['candles'][idx]['datetime']
+												tmp_roc	+= '/' + str(round(etf_indicators[t]['roc'][tmp_dt], 5))
 
 									straddle_results.append( str(purchase_price) + ',' + str(num_shares) + ',' + 'False' + ',' +
 												 str(-1) + '/' + str(-1) + ',' +
@@ -4859,7 +4870,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# Check the mesa sign indicator for exit signal
 			if ( use_mesa_sine_exit == True and strict_exit_percent == False and exit_percent_signal_short == False ):
-				mesa_sine_signal = mesa_sine( sine=sine, lead=lead, direction='long', mesa_exit=True )
+				mesa_sine_signal = mesa_sine( sine=sine, lead=lead, direction='long', strict=mesa_sine_strict, mesa_exit=True )
 				if ( mesa_sine_signal == True ):
 					 buy_to_cover_signal = True
 

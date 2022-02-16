@@ -323,6 +323,7 @@ def reset_signals(ticker=None, id=None, signal_mode=None, exclude_bbands_kchan=F
 
 		stocks[ticker]['algo_signals'][algo_id]['stacked_ma_signal']		= False
 		stocks[ticker]['algo_signals'][algo_id]['mama_fama_signal']		= False
+		stocks[ticker]['algo_signals'][algo_id]['mesa_sine_signal']		= False
 
 		stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal']		= False
 		stocks[ticker]['algo_signals'][algo_id]['stochrsi_crossover_signal']	= False
@@ -818,6 +819,89 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				bbands_kchan_signal_counter, bbands_kchan_xover_counter, bbands_roc_counter )
 
 
+	# MESA Sine Wave
+	def mesa_sine(sine=[], lead=[], direction=None, mesa_exit=False, strict=False, mesa_sine_signal=False):
+
+		cur_sine        = sine[-1]
+		prev_sine       = sine[-2]
+		cur_lead        = lead[-1]
+		prev_lead       = lead[-2]
+
+		midline         = 0
+		min_high_limit  = 0.9
+		min_low_limit   = -0.9
+
+		# Long signal
+		if ( direction == 'long' and cur_sine < midline ):
+			return False
+
+		elif ( direction == 'long' and (prev_sine <= prev_lead and cur_sine > cur_lead) ):
+			if ( mesa_exit == True ):
+				mesa_sine_signal = True
+			else:
+				if ( cur_sine > min_high_limit ):
+					mesa_sine_signal = True
+
+		# Short signal
+		elif ( direction == 'short' and cur_sine > midline ):
+			return False
+
+		elif ( direction == 'short' and (prev_sine >= prev_lead and cur_sine < cur_lead) ):
+			if ( mesa_exit == True ):
+				mesa_sine_signal = True
+
+			else:
+				if ( cur_sine < min_low_limit ):
+					mesa_sine_signal = True
+
+		# No need to check history if signal is already False
+		if ( mesa_sine_signal == False or strict == False ):
+			return mesa_sine_signal
+
+		# Analyze trendiness
+		# Check for crossovers
+		xover_count     = 0
+		xover           = []
+		for i in range( len(sine)-1, -1, -1 ):
+
+			# Find the last few sine points that crossed over the midline
+			if ( (sine[i+1] > midline and sine[i] < midline) or
+					(sine[i+1] < midline and sine[i] > midline) ):
+				xover.append(i)
+
+			if ( len(xover) >= 4 ):
+				break
+
+		if ( len(xover) >= 2 ):
+
+			# Check the last two entries in xover[] and see if there was a crossover
+			#  between sine and lead. If not then the stock is probably trending.
+			for i in range( xover[-1]-1, xover[-2]+2, 1 ):
+				cur_sine	= sine[i]
+				prev_sine	= sine[i-1]
+				cur_lead	= lead[i]
+				prev_lead	= lead[i-1]
+
+				if ( (prev_sine < prev_lead and cur_sine > cur_lead) or
+						(prev_sine > prev_lead and cur_sine < cur_lead) ):
+					xover_count += 1
+
+			if ( xover_count == 0 ):
+				mesa_sine_signal = False
+
+		# Find the rate of change for the last few candles
+		# Flatter sine/lead waves indicate trending
+		sine_ph = { 'candles': [] }
+		for i in range( 10, 0, -1 ):
+			sine_ph['candles'].append( { 'close': sine[-i] } )
+		sine_roc = tda_algo_helper.get_roc( sine_ph, period=9, type='close' )
+
+		if ( abs(sine_roc[-1]) * 100 < 170 ):
+			mesa_sine_signal = False
+
+		return mesa_sine_signal
+
+
 	# Intraday stacked moving averages
 	def get_stackedma(pricehistory=None, stacked_ma_periods=None, stacked_ma_type=None, use_ha_candles=False):
 		try:
@@ -1020,11 +1104,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 		# Skip this ticker if it conflicts with a per-algo min/max_daily_natr configuration
 		if ( min_daily_natr != None and stocks[ticker]['natr_daily'] < min_daily_natr ):
-			print( '(' + str(ticker) + ') Skipped - Daily NATR: ' + str(stocks[ticker]['natr_daily']) + ', min_daily_natr: ' + str(min_daily_natr) )
+			print( '(' + str(ticker) + ') |' + str(algo_id) + '| Skipped - Daily NATR: ' + str(stocks[ticker]['natr_daily']) + ', min_daily_natr: ' + str(min_daily_natr) )
 			print()
 			continue
 		if ( max_daily_natr != None and stocks[ticker]['natr_daily'] > max_daily_natr ):
-			print( '(' + str(ticker) + ') Skipped - Daily NATR: ' + str(stocks[ticker]['natr_daily']) + ', max_daily_natr: ' + str(max_daily_natr) )
+			print( '(' + str(ticker) + ') |' + str(algo_id) + '| Skipped - Daily NATR: ' + str(stocks[ticker]['natr_daily']) + ', max_daily_natr: ' + str(max_daily_natr) )
 			print()
 			continue
 
@@ -1151,6 +1235,22 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			stocks[ticker]['prev_mama']	= mama[-2]
 			stocks[ticker]['cur_fama']	= fama[-1]
 			stocks[ticker]['prev_fama']	= fama[-2]
+
+		# MESA Sine Wave
+		if ( cur_algo['primary_mesa_sine'] == True ):
+			mesa_sine = []
+			mesa_lead = []
+			try:
+				mesa_sine, mesa_lead = tda_algo_helper.get_mesa_sine(pricehistory=stocks[ticker]['pricehistory'], type=cur_algo['mesa_sine_type'], period=cur_algo['mesa_sine_period'])
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(): get_mesa_sine(' + str(ticker) + '): ' + str(e), file=sys.stderr)
+				continue
+
+			stocks[ticker]['cur_sine']	= mesa_sine[-1]
+			stocks[ticker]['prev_sine']	= mesa_sine[-2]
+			stocks[ticker]['cur_lead']	= mesa_lead[-1]
+			stocks[ticker]['prev_lead']	= mesa_lead[-2]
 
 		# Stacked Moving Averages (non-primary)
 		if ( cur_algo['stacked_ma'] == True ):
@@ -1475,6 +1575,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			if ( cur_algo['primary_mama_fama'] == True or cur_algo['mama_fama'] == True ):
 				print('(' + str(ticker) + ') Current MAMA/FAMA: ' + str(round(stocks[ticker]['cur_mama'], 4)) +
 						' / ' + str(round(stocks[ticker]['cur_fama'], 4)) )
+
+			# MESA Sine Wave
+			if ( cur_algo['primary_mesa_sine'] == True ):
+				print('(' + str(ticker) + ') Current MESA Sine/Lead: ' + str(round(stocks[ticker]['cur_sine'], 4)) +
+						' / ' + str(round(stocks[ticker]['cur_lead'], 4)) )
 
 			# RSI
 			if ( cur_algo['rsi'] == True ):
@@ -1866,6 +1971,21 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				else:
 					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = False
 
+
+			# PRIMARY MESA Sine Wave
+			elif ( cur_algo['primary_mesa_sine'] == True ):
+				midline  = 0
+				if ( stocks[ticker]['cur_sine'] < midline ):
+					if ( args.short == True and stocks[ticker]['shortable'] == True ):
+						print('(' + str(ticker) + ') MESA SINE below midline ' + str(stocks[ticker]['cur_sine']) + '/' + str(stocks[ticker]['cur_lead']) + ", switching to short mode.\n" )
+						reset_signals(ticker, id=algo_id, signal_mode='short', exclude_bbands_kchan=True)
+					continue
+
+				stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = mesa_sine( sine=mesa_sine, lead=mesa_lead, direction='long', strict=cur_algo['mesa_sine_strict'],
+													mesa_sine_signal=stocks[ticker]['algo_signals'][algo_id]['buy_signal'] )
+
+			## END PRIMARY ALGOS
+
 			# MESA Adaptive Moving Average
 			if ( cur_algo['mama_fama'] == True ):
 
@@ -2058,6 +2178,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				cur_rs = 0
 				for etf_ticker in cur_algo['etf_tickers'].split(','):
+					if ( stocks[ticker]['algo_signals'][algo_id]['rs_signal'] == True ):
+						break
 
 					# Do not allow trade if the rate-of-change of the ETF indicator has no directional affinity.
 					# This is to avoid choppy or sideways movement of the ETF indicator.
@@ -2994,13 +3116,27 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				# Jump to short mode if the MAMA/FAMA are showing a bearish movement
 				elif ( cur_mama >= cur_fama or (prev_mama < prev_fama and cur_mama >= cur_fama) ):
 					if ( args.shortonly == False ):
-						print('(' + str(ticker) + ') MAMA/FAMA values indicate bullish trend ' + str(cur_mama) + '/' + str(cur_fama) + ", switching to short mode.\n" )
+						print('(' + str(ticker) + ') MAMA/FAMA values indicate bullish trend ' + str(cur_mama) + '/' + str(cur_fama) + ", switching to long mode.\n" )
 						reset_signals(ticker, id=algo_id, signal_mode='long', exclude_bbands_kchan=True)
 						continue
 
 				# This shouldn't happen, but just in case...
 				else:
 					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = False
+
+			# PRIMARY MESA Sine Wave
+			elif ( cur_algo['primary_mesa_sine'] == True ):
+				midline  = 0
+				if ( stocks[ticker]['cur_sine'] > midline ):
+					if ( args.shortonly == False ):
+						print('(' + str(ticker) + ') MESA SINE above midline ' + str(stocks[ticker]['cur_sine']) + '/' + str(stocks[ticker]['cur_lead']) + ", switching to long mode.\n" )
+						reset_signals(ticker, id=algo_id, signal_mode='long', exclude_bbands_kchan=True)
+					continue
+
+				stocks[ticker]['algo_signals'][algo_id]['short_signal'] = mesa_sine( sine=mesa_sine, lead=mesa_lead, direction='short', strict=cur_algo['mesa_sine_strict'],
+													mesa_sine_signal=stocks[ticker]['algo_signals'][algo_id]['short_signal'] )
+
+			## END PRIMARY ALGOS
 
 			# MESA Adaptive Moving Average
 			if ( cur_algo['mama_fama'] == True ):
@@ -3194,6 +3330,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				cur_rs = 0
 				for etf_ticker in cur_algo['etf_tickers'].split(','):
+					if ( stocks[ticker]['algo_signals'][algo_id]['rs_signal'] == True ):
+						break
 
 					# Do not allow trade if the rate-of-change of the ETF indicator has no directional affinity.
 					# This is to avoid choppy or sideways movement of the ETF indicator.

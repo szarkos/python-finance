@@ -96,6 +96,7 @@ parser.add_argument("--confirm_daily_ma", help='Confirm that the daily moving av
 parser.add_argument("--with_mama_fama", help='Use MESA Adaptive Moving Average as a secondary indicator for trade entries (Default: False)', action="store_true")
 parser.add_argument("--mama_require_xover", help='When using MESA Adaptive Moving Average, require crossover of MAMA and FAMA to initiate signal (Default: False)', action="store_true")
 parser.add_argument("--with_mesa_sine", help='Use MESA Sine Wave as a secondary indicator for trade entries (Default: False)', action="store_true")
+parser.add_argument("--mesa_sine_strict", help='Use strict version of the MESA Sine Wave indicator (Default: False)', action="store_true")
 parser.add_argument("--mesa_sine_period", help='Lookback period to use with MESA Sine Wave (Default: 25)', default=25, type=int)
 parser.add_argument("--mesa_sine_type", help='Input type to use with MESA Sine Wave (Default: hl2)', default='hl2', type=str)
 
@@ -706,6 +707,7 @@ for algo in args.algo.split(','):
 					'with_mama_fama':			args.with_mama_fama,
 					'mama_require_xover':			args.mama_require_xover,
 					'with_mesa_sine':			args.with_mesa_sine,
+					'mesa_sine_strict':			args.mesa_sine_strict,
 					'mesa_sine_period':			args.mesa_sine_period,
 					'mesa_sine_type':			args.mesa_sine_type,
 

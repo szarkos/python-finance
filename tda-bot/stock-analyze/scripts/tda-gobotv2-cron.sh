@@ -4,7 +4,7 @@ cd ~/python-finance/tda-bot
 mkdir ./logs 2>/dev/null
 
 # Check for updates
-git pull
+git pull 1>/dev/null 2>&1
 
 # Run tda-gobotV2 every day except on Saturday and Sunday
 # Gobot will check to see if it's a weekday market holiday

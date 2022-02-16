@@ -23,8 +23,11 @@ args = parser.parse_args()
 mytimezone = pytz.timezone("US/Eastern")
 
 # Standard options for all scenarios
+# Note: Low-priced stocks don't often work well with these algorithms. Current high NATR scan
+#  limits the minimum price to $30, so when backtesting all tickers we should ensure we not enter
+#  a trade that's below this price (since we wouldn't have done so in real-time).
 std_opts = ' --algo=stochrsi-new --stoploss --skip_check --incr_threshold=0.5 --decr_threshold=1.25 --exit_percent=0.5 --verbose --stock_usd=25000 ' + \
-		' --variable_exit --lod_hod_check --check_volume --daily_atr_period=3 ' #--use_natr_resistance
+		' --variable_exit --lod_hod_check --check_volume --daily_atr_period=3 --min_price=30 ' #--use_natr_resistance
 
 # Test Scenarios
 scenarios = {

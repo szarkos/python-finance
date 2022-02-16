@@ -262,10 +262,15 @@ def gobot_level2(stream=None, debug=False):
 			stocks[ticker]['level2']['asks'][ask_price]['total_volume']	= int( ask['TOTAL_VOLUME'] )
 
 		# The lowest ask price data should be the same as what we get from the level1 stream
-		cur_ask_price = min( stocks[ticker]['level2']['asks'].keys() )
-		stocks[ticker]['level2']['cur_ask']['ask_price']	= cur_ask_price
-		stocks[ticker]['level2']['cur_ask']['num_asks']		= stocks[ticker]['level2']['asks'][cur_ask_price]['num_asks']
-		stocks[ticker]['level2']['cur_ask']['total_volume']	= stocks[ticker]['level2']['asks'][cur_ask_price]['total_volume']
+		try:
+			cur_ask_price = min( stocks[ticker]['level2']['asks'].keys() )
+			stocks[ticker]['level2']['cur_ask']['ask_price']	= cur_ask_price
+			stocks[ticker]['level2']['cur_ask']['num_asks']		= stocks[ticker]['level2']['asks'][cur_ask_price]['num_asks']
+			stocks[ticker]['level2']['cur_ask']['total_volume']	= stocks[ticker]['level2']['asks'][cur_ask_price]['total_volume']
+
+		except:
+			# This means that there were no asks in the L2 data received
+			pass
 
 		# BIDS
 		for bid in idx['BIDS']:
@@ -276,20 +281,30 @@ def gobot_level2(stream=None, debug=False):
 			stocks[ticker]['level2']['bids'][bid_price]['total_volume']	= int( bid['TOTAL_VOLUME'] )
 
 		# The highest bid price data should be the same as what we get from the level1 stream
-		cur_bid_price = max( stocks[ticker]['level2']['bids'].keys() )
-		stocks[ticker]['level2']['cur_bid']['bid_price']	= cur_bid_price
-		stocks[ticker]['level2']['cur_bid']['num_bids']		= stocks[ticker]['level2']['bids'][cur_bid_price]['num_bids']
-		stocks[ticker]['level2']['cur_bid']['total_volume']	= stocks[ticker]['level2']['bids'][cur_bid_price]['total_volume']
+		try:
+			cur_bid_price = max( stocks[ticker]['level2']['bids'].keys() )
+			stocks[ticker]['level2']['cur_bid']['bid_price']	= cur_bid_price
+			stocks[ticker]['level2']['cur_bid']['num_bids']		= stocks[ticker]['level2']['bids'][cur_bid_price]['num_bids']
+			stocks[ticker]['level2']['cur_bid']['total_volume']	= stocks[ticker]['level2']['bids'][cur_bid_price]['total_volume']
+
+		except:
+			# This means that there were no bids in the L2 data received
+			pass
 
 		# Populate stocks[ticker][ask_price/ask_size/bid_price/bid_size]
 		# There are several ways to obtain the latest bid/ask price and size, so we use these additional variables
 		#  to store the info in case the method changes later. We used to do obtain this data with the get_quote() API,
 		#  then with the level1 stream, but now the level2 stream has this info and more, so let's use just level2 for now.
-		stocks[ticker]['ask_price']	= stocks[ticker]['level2']['cur_ask']['ask_price']
-		stocks[ticker]['ask_size']	= stocks[ticker]['level2']['cur_ask']['total_volume'] / 100
-		stocks[ticker]['bid_price']	= stocks[ticker]['level2']['cur_bid']['bid_price']
-		stocks[ticker]['bid_size']	= stocks[ticker]['level2']['cur_bid']['total_volume'] / 100
+		try:
+			stocks[ticker]['ask_price']	= stocks[ticker]['level2']['cur_ask']['ask_price']
+			stocks[ticker]['ask_size']	= stocks[ticker]['level2']['cur_ask']['total_volume'] / 100
+			stocks[ticker]['bid_price']	= stocks[ticker]['level2']['cur_bid']['bid_price']
+			stocks[ticker]['bid_size']	= stocks[ticker]['level2']['cur_bid']['total_volume'] / 100
 
+		except:
+			pass
+
+		# Set the bid/ask percent, which may be useful for gauging liquidity
 		try:
 			stocks[ticker]['bid_ask_pct'] = abs( stocks[ticker]['bid_price'] / stocks[ticker]['ask_price'] - 1 ) * 100
 		except:

@@ -281,11 +281,24 @@ def gobot_level2(stream=None, debug=False):
 		stocks[ticker]['level2']['cur_bid']['num_bids']		= stocks[ticker]['level2']['bids'][cur_bid_price]['num_bids']
 		stocks[ticker]['level2']['cur_bid']['total_volume']	= stocks[ticker]['level2']['bids'][cur_bid_price]['total_volume']
 
+		# Populate stocks[ticker][ask_price/ask_size/bid_price/bid_size]
+		# There are several ways to obtain the latest bid/ask price and size, so we use these additional variables
+		#  to store the info in case the method changes later. We used to do obtain this data with the get_quote() API,
+		#  then with the level1 stream, but now the level2 stream has this info and more, so let's use just level2 for now.
+		stocks[ticker]['ask_price']	= stocks[ticker]['level2']['cur_ask']['ask_price']
+		stocks[ticker]['ask_size']	= stocks[ticker]['level2']['cur_ask']['total_volume'] / 100
+		stocks[ticker]['bid_price']	= stocks[ticker]['level2']['cur_bid']['bid_price']
+		stocks[ticker]['bid_size']	= stocks[ticker]['level2']['cur_bid']['total_volume'] / 100
+
+		try:
+			stocks[ticker]['bid_ask_pct'] = abs( stocks[ticker]['bid_price'] / stocks[ticker]['ask_price'] - 1 ) * 100
+		except:
+			stocks[ticker]['bid_ask_pct'] = 0
+
 		# Archive level2 data to use later with backtesting
 		stocks[ticker]['level2']['history'][dt] = {}
 		stocks[ticker]['level2']['history'][dt]['asks'] = stocks[ticker]['level2']['asks']
 		stocks[ticker]['level2']['history'][dt]['bids'] = stocks[ticker]['level2']['bids']
-
 
 	return True
 
@@ -377,25 +390,29 @@ def export_pricehistory():
 
 	import lzma
 
-	print("Writing stock pricehistory to ./" + args.tx_log_dir + "/\n")
-	try:
-		if ( os.path.isdir('./' + str(args.tx_log_dir)) == False ):
-			os.mkdir('./' + str(args.tx_log_dir), mode=0o755)
-
-	except OSError as e:
-		print('Error: export_pricehistory(): Unable to make directory ./' + str(args.tx_log_dir) + ': ' + e, file=sys.stderr)
-		return False
-
 	# Append today's date to files for archiving
 	dt_today = datetime.datetime.now(mytimezone).strftime('%Y-%m-%d')
 
+	print("Writing stock pricehistory to ./" + args.tx_log_dir + '/' + str(dt_today) + "/\n")
+	try:
+		if ( os.path.isdir('./' + str(args.tx_log_dir)) == False ):
+			os.mkdir('./' + str(args.tx_log_dir), mode=0o755)
+		if ( os.path.isdir('./' + str(args.tx_log_dir) + '/' + str(dt_today)) == False ):
+			os.mkdir('./' + str(args.tx_log_dir) + '/' + str(dt_today), mode=0o755)
+
+	except OSError as e:
+		print('Error: export_pricehistory(): Unable to make TX_LOG_DIR: ' + str(e), file=sys.stderr)
+		return False
+
+
+	base_dir = './' + str(args.tx_log_dir) + '/' + str(dt_today) + '/'
 	for ticker in stocks.keys():
 		if ( len(stocks[ticker]['pricehistory']) == 0 ):
 			continue
 
 		# Export pricehistory
 		try:
-			fname = './' + str(args.tx_log_dir) + '/' + str(ticker) + '-' + str(dt_today) + '.pickle.xz'
+			fname = base_dir + str(ticker) + '-' + str(dt_today) + '.pickle.xz'
 			with lzma.open(fname, 'wb') as handle:
 				pickle.dump(stocks[ticker]['pricehistory'], handle)
 				handle.flush()
@@ -405,9 +422,9 @@ def export_pricehistory():
 			pass
 
 		# Export 5-minute pricehistory
-		# SAZ 2022-01-08 - This is no longer needed
+		# SAZ 2022-02-08 - This is no longer needed
 		#try:
-		#	fname = './' + str(args.tx_log_dir) + '/' + str(ticker) + '_5m-' + str(dt_today) + '.pickle.xz'
+		#	fname = base_dir + str(ticker) + '_5m-' + str(dt_today) + '.pickle.xz'
 		#	with lzma.open(fname, 'wb') as handle:
 		#		pickle.dump(stocks[ticker]['pricehistory_5m'], handle)
 		#		handle.flush()
@@ -416,25 +433,25 @@ def export_pricehistory():
 		#	pass
 
 		# Export level 1 data
-		try:
-			fname = './' + str(args.tx_log_dir) + '/' + str(ticker) + '_level1-' + str(dt_today) + '.pickle.xz'
-			with lzma.open(fname, 'wb') as handle:
-				pickle.dump(stocks[ticker]['level1'], handle)
-				handle.flush()
-
-		except Exception as e:
-			print('Warning: Unable to write level1 data to file ' + str(fname) + ': ' + str(e), file=sys.stderr)
-			pass
+		# SAZ 2022-02-10 - This is no longer needed, using Level2 data instead
+		#try:
+		#	fname = base_dir + str(ticker) + '_level1-' + str(dt_today) + '.pickle.xz'
+		#	with lzma.open(fname, 'wb') as handle:
+		#		pickle.dump(stocks[ticker]['level1'], handle)
+		#		handle.flush()
+		#except Exception as e:
+		#	print('Warning: Unable to write level1 data to file ' + str(fname) + ': ' + str(e), file=sys.stderr)
+		#	pass
 
 		# Export level 2 data
 		try:
-			fname = './' + str(args.tx_log_dir) + '/' + str(ticker) + '_level2-' + str(dt_today) + '.pickle.xz'
+			fname = base_dir + str(ticker) + '_level2-' + str(dt_today) + '.pickle.xz'
 			with lzma.open(fname, 'wb') as handle:
 				pickle.dump(stocks[ticker]['level2']['history'], handle)
 				handle.flush()
 
 		except Exception as e:
-			print('Warning: Unable to write level1 data to file ' + str(fname) + ': ' + str(e), file=sys.stderr)
+			print('Warning: Unable to write level2 data to file ' + str(fname) + ': ' + str(e), file=sys.stderr)
 			pass
 
 	return True

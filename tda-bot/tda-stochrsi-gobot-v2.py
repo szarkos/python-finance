@@ -1589,20 +1589,20 @@ async def read_stream():
 	await asyncio.wait_for( stream_client.chart_equity_subs(stocks.keys()), 10 )
 
 	# Subscribe to equity level1 data
-	l1_fields = [	stream_client.LevelOneEquityFields.SYMBOL,
-			stream_client.LevelOneEquityFields.BID_PRICE,
-			stream_client.LevelOneEquityFields.ASK_PRICE,
-			stream_client.LevelOneEquityFields.LAST_PRICE,
-			stream_client.LevelOneEquityFields.BID_SIZE,
-			stream_client.LevelOneEquityFields.ASK_SIZE,
-			stream_client.LevelOneEquityFields.TOTAL_VOLUME,
-			stream_client.LevelOneEquityFields.LAST_SIZE,
-			stream_client.LevelOneEquityFields.BID_TICK,
-			stream_client.LevelOneEquityFields.SECURITY_STATUS ]
-
-	stream_client.add_level_one_equity_handler(
-		lambda msg: tda_stochrsi_gobot_helper.gobot_level1(msg, args.debug) )
-	await asyncio.wait_for( stream_client.level_one_equity_subs(stocks.keys(), fields=l1_fields), 10 )
+	# 2022-02-10 - Not needed for now since we are also grabbing L2 order book data
+	#l1_fields = [	stream_client.LevelOneEquityFields.SYMBOL,
+	#		stream_client.LevelOneEquityFields.BID_PRICE,
+	#		stream_client.LevelOneEquityFields.ASK_PRICE,
+	#		stream_client.LevelOneEquityFields.LAST_PRICE,
+	#		stream_client.LevelOneEquityFields.BID_SIZE,
+	#		stream_client.LevelOneEquityFields.ASK_SIZE,
+	#		stream_client.LevelOneEquityFields.TOTAL_VOLUME,
+	#		stream_client.LevelOneEquityFields.LAST_SIZE,
+	#		stream_client.LevelOneEquityFields.BID_TICK,
+	#		stream_client.LevelOneEquityFields.SECURITY_STATUS ]
+	#stream_client.add_level_one_equity_handler(
+	#	lambda msg: tda_stochrsi_gobot_helper.gobot_level1(msg, args.debug) )
+	#await asyncio.wait_for( stream_client.level_one_equity_subs(stocks.keys(), fields=l1_fields), 10 )
 
 	# Subscribe to equity level2 order books
 	# NYSE ("listed")

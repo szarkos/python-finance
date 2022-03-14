@@ -1139,15 +1139,15 @@ for ticker in list(stocks.keys()):
 	# Pacific Exchange (PCX) operates through NYSEArca, so these should work as well
 	#
 	# Exchange codes:
-	#    NYSE = n
-	#    AMEX = a
-	#    NASDAQ = q
-	#    OTCBB = u
-	#    PACIFIC=p
-	#    INDICES = x
-	#    AMEX_INDEX=g
+	#    NYSE	 = n
+	#    AMEX	 = a
+	#    NASDAQ	 = q
+	#    OTCBB	 = u
+	#    PACIFIC	 = p
+	#    INDICES	 = x
+	#    AMEX_INDE	 = g
 	#    MUTUAL_FUND = m
-	#    PINK_SHEET = 9
+	#    PINK_SHEET	 = 9
 	try:
 		stocks[ticker]['exchange'] = stock_data[ticker]['exchange']
 		if ( stock_data[ticker]['exchange'] == 'q' ):
@@ -1605,6 +1605,14 @@ async def read_stream():
 	#await asyncio.wait_for( stream_client.level_one_equity_subs(stocks.keys(), fields=l1_fields), 10 )
 
 	# Subscribe to equity level2 order books
+	# SAZ - 2022-03-14 - Max number of tickers for listed_book_subs() and nasdaq_book_subs() is 100.
+	#  This is in contrast to equity OHLCV data which is 300 tickers. Unfortunately, I don't have a
+	#  solution for this yet and so we just need to truncate each list if either is >100.
+	if ( len(nyse_tickers) > 100 ):
+		nyse_tickers = nyse_tickers[0:100]
+	if ( len(nasdaq_tickers) > 100 ):
+		nasdaq_tickers = nasdaq_tickers[0:100]
+
 	# NYSE ("listed")
 	stream_client.add_listed_book_handler(
 		lambda msg: tda_stochrsi_gobot_helper.gobot_level2(msg, args.debug) )

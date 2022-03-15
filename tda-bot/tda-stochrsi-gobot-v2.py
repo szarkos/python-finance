@@ -1228,6 +1228,13 @@ for ticker in list(stocks.keys()):
 
 	time.sleep(1)
 
+# SAZ - 2022-03-14 - Max number of tickers for listed_book_subs() and nasdaq_book_subs() is 100.
+#  This is in contrast to equity OHLCV data which is 300 tickers. Unfortunately, I don't have a
+#  solution for this yet and so we just need to truncate each list if either is >100.
+if ( len(nyse_tickers) > 100 ):
+	nyse_tickers = nyse_tickers[0:100]
+if ( len(nasdaq_tickers) > 100 ):
+	nasdaq_tickers = nasdaq_tickers[0:100]
 
 # Initialize signal handlers to dump stock history on exit
 def graceful_exit(signum=None, frame=None):
@@ -1605,14 +1612,6 @@ async def read_stream():
 	#await asyncio.wait_for( stream_client.level_one_equity_subs(stocks.keys(), fields=l1_fields), 10 )
 
 	# Subscribe to equity level2 order books
-	# SAZ - 2022-03-14 - Max number of tickers for listed_book_subs() and nasdaq_book_subs() is 100.
-	#  This is in contrast to equity OHLCV data which is 300 tickers. Unfortunately, I don't have a
-	#  solution for this yet and so we just need to truncate each list if either is >100.
-	if ( len(nyse_tickers) > 100 ):
-		nyse_tickers = nyse_tickers[0:100]
-	if ( len(nasdaq_tickers) > 100 ):
-		nasdaq_tickers = nasdaq_tickers[0:100]
-
 	# NYSE ("listed")
 	stream_client.add_listed_book_handler(
 		lambda msg: tda_stochrsi_gobot_helper.gobot_level2(msg, args.debug) )

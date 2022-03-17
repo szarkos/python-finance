@@ -20,7 +20,8 @@ parser.add_argument("stock_usd", help='Amount of money (USD) to invest', nargs='
 parser.add_argument("--account_number", help='Account number to use (default: None)', default=None, type=int)
 
 parser.add_argument("--options", help='Purchase CALL/PUT options instead of equities', action="store_true")
-parser.add_argument("--contract_type", help='Type of options to purchase (CALL|PUT)', default=None, type=str)
+parser.add_argument("--option_type", help='Type of options to purchase (CALL|PUT)', default=None, type=str)
+parser.add_argument("--near_expiration", help='Choose an option contract with the earliest expiration date', action="store_true")
 
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
@@ -190,28 +191,28 @@ def price_trend(candles=None, type='hl2', period=5, affinity=None):
 
 # Find the right option contract to purchase
 if ( args.options == True ):
-	if ( args.contract_type == None ):
-		print('Error: --contract_type (CALL|PUT) is required, exiting', file=sys.stderr)
+	if ( args.option_type == None ):
+		print('Error: --option_type (CALL|PUT) is required, exiting', file=sys.stderr)
 		sys.exit(1)
 
-	args.contract_type = args.contract_type.upper()
+	args.option_type = args.option_type.upper()
 
 	# Search for options that expire either this week or next week
 	dt		= datetime.datetime.now(mytimezone)
 	start_day	= dt
 	end_day		= dt + datetime.timedelta(days=7)
-	if ( int(dt.strftime('%w')) >= 3 ):
+	if ( int(dt.strftime('%w')) >= 3 and args.near_expiration == False ):
 		start_day	= dt + datetime.timedelta(days=7)
 		end_day		= dt + datetime.timedelta(days=13)
 
 	try:
-		option_chain = tda_gobot_helper.get_option_chains( ticker=stock, contract_type=args.contract_type, strike_count=5, range_value='NTM',
+		option_chain = tda_gobot_helper.get_option_chains( ticker=stock, contract_type=args.option_type, strike_count=5, range_value='NTM',
 									from_date=start_day.strftime('%Y-%m-%d'), to_date=end_day.strftime('%Y-%m-%d') )
 	except Exception as e:
 		print('Error: looking up option chain for stock ' + str(stock), file=sys.stderr)
 
 	ExpDateMap = 'callExpDateMap'
-	if ( args.contract_type == 'PUT' ):
+	if ( args.option_type == 'PUT' ):
 		ExpDateMap = 'putExpDateMap'
 
 	exp_date	= list(option_chain[ExpDateMap].keys())[0]
@@ -258,7 +259,8 @@ if ( args.options == True ):
 			break
 
 	if ( stock == None ):
-		print('Unable to locate an available option to trade')
+		print('Unable to locate an available option to trade, exiting.')
+		sys.exit(1)
 
 # Loop until the entry price is achieved.
 if ( args.entry_price != None ):
@@ -502,19 +504,19 @@ while True:
 				for i in range(period+1, 0, -1):
 					cndl_slice.append( pricehistory['candles'][-i] )
 
-				if ( args.short == False and price_trend(cndl_slice, period=period, affinity='bull') == False ):
+				if ( (args.short == False or args.option_type == 'CALL') and price_trend(cndl_slice, period=period, affinity='bull') == False ):
 					trend_exit = True
 
-				elif ( args.short == True and price_trend(cndl_slice, period=period, affinity='bear') == False ):
+				elif ( (args.short == True or args.option_type == 'PUT') and price_trend(cndl_slice, period=period, affinity='bear') == False ):
 					trend_exit = True
 
 				# Check Heikin Ashi candles
 				last_close	= pricehistory['hacandles'][-1]['close']
 				last_open	= pricehistory['hacandles'][-1]['open']
-				if ( args.short == False and last_close < last_open ):
+				if ( (args.short == False or args.option_type == 'CALL') and last_close < last_open ):
 					ha_exit = True
 
-				elif ( args.short == True and last_close > last_open ):
+				elif ( (args.short == True or args.option_type == 'PUT') and last_close > last_open ):
 					ha_exit = True
 
 				if ( debug == True ):
@@ -527,10 +529,10 @@ while True:
 			else:
 				# If not using trend and/or HA candles then just exit when we reach
 				#  a candle where the close is moving in the undesired direction.
-				if ( args.short == False and last_close < last_open ):
+				if ( (args.short == False or args.option_type == 'CALL') and last_close < last_open ):
 					exit_signal = True
 
-				elif ( args.short == True and last_close > last_open ):
+				elif ( (args.short == True or args.option_type == 'PUT') and last_close > last_open ):
 					exit_signal = True
 
 

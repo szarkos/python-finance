@@ -22,6 +22,7 @@ parser.add_argument("--account_number", help='Account number to use (default: No
 parser.add_argument("--options", help='Purchase CALL/PUT options instead of equities', action="store_true")
 parser.add_argument("--option_type", help='Type of options to purchase (CALL|PUT)', default=None, type=str)
 parser.add_argument("--near_expiration", help='Choose an option contract with the earliest expiration date', action="store_true")
+parser.add_argument("--strike_price", help='The desired strike price', default=None, type=float)
 
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
@@ -32,8 +33,9 @@ parser.add_argument("--decr_threshold", help="Max allowed drop percentage of the
 parser.add_argument("--entry_price", help="The price to enter a trade", default=None, type=float)
 parser.add_argument("--exit_price", help="The price to exit a trade", default=None, type=float)
 
-parser.add_argument("--exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
+parser.add_argument("--exit_percent", help='Switch to monitoring price action of the security when the price improves by this percentile', default=None, type=float)
 parser.add_argument("--exit_percent_loopt", help='Amount of time to sleep between queries after exit_percent_signal is triggered', default=12, type=int)
+parser.add_argument("--quick_exit_percent", help='Exit immediately if price improves by this percentage', default=None, type=float)
 parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent strategy was set, do not wait for the next candle', action="store_true")
 parser.add_argument("--use_combined_exit", help='Use both the ttm_trend algorithm and Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
 
@@ -53,6 +55,18 @@ if args.incr_threshold:
 if ( args.stock_usd == None ):
 	print('Error: please enter stock amount (USD) to invest', file=sys.stderr)
 	sys.exit(1)
+
+if ( args.quick_exit == True ):
+	if ( args.quick_exit_percent == None and args.exit_percent == None ):
+		if ( args.options == True ):
+			args.exit_percent	= 5
+			args.quick_exit_percent	= 5
+		else:
+			args.exit_percent	= 1
+			args.quick_exit_percent	= 1
+
+	elif ( args.quick_exit_percent == None ):
+		args.quick_exit_percent = args.exit_percent
 
 stock				= args.stock
 stock_usd			= args.stock_usd
@@ -118,9 +132,9 @@ if ( tda_gobot_helper.check_blacklist(stock) == True ):
 	else:
 		print('(' + str(stock) + ') Warning: stock ' + str(stock) + ' found in blacklist file.')
 
-if ( tda_gobot_helper.ismarketopen_US() != True ):
-	print(str(stock) + ' transaction cancelled because market is closed, exiting.')
-	sys.exit(1)
+#if ( tda_gobot_helper.ismarketopen_US() != True ):
+#	print(str(stock) + ' transaction cancelled because market is closed, exiting.')
+#	sys.exit(1)
 
 #############################################################
 # Functions we may need later
@@ -205,21 +219,39 @@ if ( args.options == True ):
 		start_day	= dt + datetime.timedelta(days=7)
 		end_day		= dt + datetime.timedelta(days=13)
 
+	range_val	= 'NTM'
+	strike_price	= None
+	strike_count	= 5
+	if ( args.strike_price != None ):
+		range_val	= 'ALL'
+		strike_price	= str( int(args.strike_price) )
+		strike_count	= 999
+
 	try:
-		option_chain = tda_gobot_helper.get_option_chains( ticker=stock, contract_type=args.option_type, strike_count=5, range_value='NTM',
+		option_chain = tda_gobot_helper.get_option_chains( ticker=stock, contract_type=args.option_type, strike_count=strike_count, range_value=range_val, strike_price=strike_price,
 									from_date=start_day.strftime('%Y-%m-%d'), to_date=end_day.strftime('%Y-%m-%d') )
+
 	except Exception as e:
 		print('Error: looking up option chain for stock ' + str(stock), file=sys.stderr)
 
-	ExpDateMap = 'callExpDateMap'
+	stock		= None
+	ExpDateMap	= 'callExpDateMap'
 	if ( args.option_type == 'PUT' ):
 		ExpDateMap = 'putExpDateMap'
 
-	exp_date	= list(option_chain[ExpDateMap].keys())[0]
-	stock		= None
-	for key in option_chain[ExpDateMap][exp_date].keys():
+	exp_date = list(option_chain[ExpDateMap].keys())[0]
+
+	# For PUTs, reverse the list to get the optimal strike price
+	iter = option_chain[ExpDateMap][exp_date].keys()
+	if ( args.option_type == 'PUT' ):
+		iter	= reversed(option_chain[ExpDateMap][exp_date].keys())
+
+	for key in iter:
 		try:
 			strike = float( key )
+			if ( args.strike_price != None and strike != args.strike_price ):
+				continue
+
 		except:
 			print('(' + str(args.stock) + '): error processing option chain: ' + str(key), file=sys.stderr)
 			continue
@@ -286,7 +318,14 @@ else:
 if ( args.options == True ):
 
 	quote		= tda_gobot_helper.get_quotes(stock)
-	stock_qty       = int( stock_usd / (quote[stock]['askPrice'] * 100) )
+
+	try:
+		option_price	= quote[stock]['askPrice']
+		stock_qty       = int( stock_usd / (option_price * 100) )
+
+	except Exception as e:
+		print(str(stock) + ': Error: Unable to lookup option price')
+		sys.exit(1)
 
 	if ( args.fake == False ):
 		data = tda_gobot_helper.buy_sell_option(contract=stock, quantity=stock_qty, instruction='buy_to_open', fillwait=True, account_number=tda_account_number, debug=debug)
@@ -320,6 +359,7 @@ try:
 except:
 	orig_base_price = last_price
 
+open_time	= datetime.datetime.now( mytimezone )
 base_price	= orig_base_price
 percent_change	= 0
 
@@ -428,7 +468,7 @@ while True:
 			if ( args.short == False and last_price > orig_base_price ):
 				total_percent_change = abs( orig_base_price / last_price - 1 ) * 100
 				if ( total_percent_change >= args.exit_percent ):
-					if ( args.quick_exit == True ):
+					if ( args.quick_exit == True and total_percent_change >= args.quick_exit_percent ):
 						exit_signal = True
 
 					else:
@@ -443,7 +483,7 @@ while True:
 			elif ( args.short == True and last_price < orig_base_price ):
 				total_percent_change = abs( last_price / orig_base_price - 1 ) * 100
 				if ( total_percent_change >= args.exit_percent ):
-					if ( args.quick_exit == True ):
+					if ( args.quick_exit == True and total_percent_change >= args.quick_exit_percent ):
 						exit_signal = True
 
 					else:
@@ -453,6 +493,20 @@ while True:
 
 						time.sleep(loopt)
 						continue
+
+			# If exit_percent_signal is triggered very quickly then get_pricehistory candles
+			#  may not be updated yet and could results in an early exit. Make sure we wait at
+			#  least 60-seconds between opening the position and triggering exit_percent_signal.
+			if ( exit_percent_signal == True ):
+				cur_time	= datetime.datetime.now( mytimezone )
+				delta		= cur_time - open_time
+				delta		= delta.total_seconds()
+				if ( delta < 60 ):
+					if ( debug == True ):
+						print('(' + str(stock) + '): waiting ' + str(delta+loopt) + ' seconds before triggering exit_percent_signal')
+
+					time.sleep( delta + loopt )
+
 
 		# Once exit_percent_signal is triggered we need to move to use candles so we can analyze
 		#  price movement.
@@ -473,12 +527,12 @@ while True:
 			# Integrate the latest last_price from get_quote() into the latest candle from pricehistory
 			if ( args.options == False ):
 				if ( last_price >= pricehistory['candles'][-1]['high'] ):
-					pricehistory['candles'][-1]['high'] = last_price
-					pricehistory['candles'][-1]['close'] = last_price
+					pricehistory['candles'][-1]['high']	= last_price
+					pricehistory['candles'][-1]['close']	= last_price
 
 				elif ( last_price <= pricehistory['candles'][-1]['low'] ):
-					pricehistory['candles'][-1]['low'] = last_price
-					pricehistory['candles'][-1]['close'] = last_price
+					pricehistory['candles'][-1]['low']	= last_price
+					pricehistory['candles'][-1]['close']	= last_price
 
 				else:
 					pricehistory['candles'][-1]['close'] = last_price
@@ -535,6 +589,10 @@ while True:
 				elif ( (args.short == True or args.option_type == 'PUT') and last_close > last_open ):
 					exit_signal = True
 
+		# Handle quick_exit and quick_exit_percent
+		elif ( args.quick_exit == True and exit_signal == False ):
+			if ( total_percent_change >= args.quick_exit_percent ):
+				exit_signal = True
 
 	# Sell/buy_to_cover the security
 	if ( exit_signal == True ):

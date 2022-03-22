@@ -902,7 +902,7 @@ def translate_1m(pricehistory=None, candle_type=5):
 		pass
 
 	if ( pricehistory == None ):
-		print('Error: translate_heikin_ashi(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
+		print('Error: translate_1m(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
 		return False
 
 	new_pricehistory = { 'candles': [], 'ticker': ticker }
@@ -974,6 +974,12 @@ def translate_heikin_ashi(pricehistory=None):
 		ha_close	= ( key['open'] + key['high'] + key['low'] + key['close'] ) / 4
 		ha_high		= max( key['high'], ha_open, ha_close )
 		ha_low		= min( key['low'], ha_open, ha_close )
+
+		if ( ha_close > 1 ):
+			ha_open		= round( ha_open, 2 )
+			ha_high		= round( ha_high, 2 )
+			ha_low		= round( ha_low, 2 )
+			ha_close	= round( ha_close, 2 )
 
 		hacandles.append ( {	'open':		ha_open,
 					'high':		ha_high,

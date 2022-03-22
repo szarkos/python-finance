@@ -378,6 +378,10 @@ while True:
 
 		continue
 
+	stock_last_price = 0
+	if ( args.options == True ):
+		stock_last_price = tda_gobot_helper.get_lastprice(args.stock, WarnDelayed=True)
+
 	# Using last_price for now to approximate gain/loss
 	net_change		= round( (last_price - orig_base_price) * stock_qty, 3 )
 	total_percent_change	= abs( last_price / orig_base_price - 1 ) * 100
@@ -390,7 +394,10 @@ while True:
 				text_color		= red
 				total_percent_change	= -total_percent_change
 
-		print('(' +  str(stock) + '): Total Change: ' + str(text_color) + str(round(total_percent_change, 2)) + '% (' + str(last_price) + ')' + str(reset_color))
+		if ( args.options == True ):
+			print('(' +  str(stock) + '): Total Change: ' + str(text_color) + str(round(total_percent_change, 2)) + '% (' + str(last_price) + ')' + str(reset_color) + ' / ' + str(args.stock) + ': ' + str(stock_last_price))
+		else:
+			print('(' +  str(stock) + '): Total Change: ' + str(text_color) + str(round(total_percent_change, 2)) + '% (' + str(last_price) + ')' + str(reset_color))
 
 	# Log format - stock:%change:last_price:net_change:base_price:orig_base_price:stock_qty:proc_id:short
 	tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short)
@@ -558,19 +565,23 @@ while True:
 				for i in range(period+1, 0, -1):
 					cndl_slice.append( pricehistory['candles'][-i] )
 
-				if ( (args.short == False or args.option_type == 'CALL') and price_trend(cndl_slice, period=period, affinity='bull') == False ):
+				if ( ((args.options == False and args.short == False) or (args.options == True and args.option_type == 'CALL')) and
+						price_trend(cndl_slice, period=period, affinity='bull') == False ):
 					trend_exit = True
 
-				elif ( (args.short == True or args.option_type == 'PUT') and price_trend(cndl_slice, period=period, affinity='bear') == False ):
+				elif ( ((args.options == False and args.short == True) or (args.options == True and args.option_type == 'PUT')) and
+						price_trend(cndl_slice, period=period, affinity='bear') == False ):
 					trend_exit = True
 
 				# Check Heikin Ashi candles
-				last_close	= pricehistory['hacandles'][-1]['close']
-				last_open	= pricehistory['hacandles'][-1]['open']
-				if ( (args.short == False or args.option_type == 'CALL') and last_close < last_open ):
+				last_ha_close	= pricehistory['hacandles'][-1]['close']
+				last_ha_open	= pricehistory['hacandles'][-1]['open']
+				if ( ((args.options == False and args.short == False) or (args.options == True and args.option_type == 'CALL')) and
+						last_ha_close < last_ha_open ):
 					ha_exit = True
 
-				elif ( (args.short == True or args.option_type == 'PUT') and last_close > last_open ):
+				elif ( ((args.options == False and args.short == True) or (args.options == True and args.option_type == 'PUT')) and
+						last_ha_close > last_ha_open ):
 					ha_exit = True
 
 				if ( debug == True ):
@@ -578,15 +589,18 @@ while True:
 
 				# Exit if trend_exit and ha_exit have been triggered
 				if ( trend_exit == True and ha_exit == True ):
+					print('(' + str(args.stock) + '): last_candle: ' + str(last_open) + '/' + str(last_close) + ', last_ha_candle: ' + str(last_ha_open) + '/' + str(last_ha_close))
 					exit_signal = True
 
 			else:
 				# If not using trend and/or HA candles then just exit when we reach
 				#  a candle where the close is moving in the undesired direction.
-				if ( (args.short == False or args.option_type == 'CALL') and last_close < last_open ):
+				if ( ((args.options == False and args.short == False) or (args.options == True and args.option_type == 'CALL')) and
+						last_close < last_open ):
 					exit_signal = True
 
-				elif ( (args.short == True or args.option_type == 'PUT') and last_close > last_open ):
+				elif ( ((args.options == False and args.short == True) or (args.options == True and args.option_type == 'PUT')) and
+						last_close > last_open ):
 					exit_signal = True
 
 		# Handle quick_exit and quick_exit_percent

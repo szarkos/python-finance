@@ -69,6 +69,10 @@ parser.add_argument("--exit_percent", help='Sell security if price improves by t
 parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent strategy was set, do not wait for the next candle', action="store_true")
 parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_threshold and exit_percent based on the price action of the stock over the previous hour',  action="store_true")
 
+parser.add_argument("--options", help='Purchase CALL/PUT options instead of equities', action="store_true")
+parser.add_argument("--options_usd", help='Amount of money (USD) to invest per options trade', default=1000, type=float)
+parser.add_argument("--near_expiration", help='Choose an option contract with the earliest expiration date', action="store_true")
+
 parser.add_argument("--use_ha_exit", help='Use Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
 parser.add_argument("--use_ha_candles", help='Use Heikin Ashi candles with stacked MA indicators', action="store_true")
 parser.add_argument("--use_trend_exit", help='Use ttm_trend algorithm with exit_percent-based exit strategy', action="store_true")
@@ -295,6 +299,9 @@ for algo in args.algos:
 	# Per-algo entry limit
 	stock_usd			= args.stock_usd
 	quick_exit			= args.quick_exit
+	options				= args.options
+	options_usd			= args.options_usd
+	near_expiration			= args.near_expiration
 
 	# Indicator modifiers
 	rsi_high_limit			= args.rsi_high_limit
@@ -438,6 +445,11 @@ for algo in args.algos:
 		if ( re.match('stock_usd:', a)				!= None ):	stock_usd			= float( a.split(':')[1] )
 		if ( re.match('quick_exit', a)				!= None ):	quick_exit			= True
 
+		# Options
+		if ( re.match('options', a)				!= None ):	options				= True
+		if ( re.match('options_usd:', a)			!= None ):	options_usd			= float( a.split(':')[1] )
+		if ( re.match('near_expiration', a)			!= None ):	near_expiration			= True
+
 		# Modifiers
 		if ( re.match('rsi_high_limit:', a)			!= None ):	rsi_high_limit			= float( a.split(':')[1] )
 		if ( re.match('rsi_low_limit:', a)			!= None ):	rsi_low_limit			= float( a.split(':')[1] )
@@ -577,6 +589,10 @@ for algo in args.algos:
 
 			'stock_usd':				stock_usd,
 			'quick_exit':				quick_exit,
+
+			'options':				options,
+			'options_usd':				options_usd,
+			'near_expiration':			near_expiration,
 
 			'primary_stochrsi':			primary_stochrsi,
 			'primary_stochmfi':			primary_stochmfi,
@@ -722,6 +738,7 @@ del(use_natr_resistance,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_n
 del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count,bbands_matype,kchan_matype)
 del(use_ha_exit,use_ha_candles,use_trend_exit,use_trend,trend_period,trend_type,use_combined_exit)
 del(check_etf_indicators,check_etf_indicators_strict,etf_tickers,etf_roc_period,etf_min_rs,etf_min_natr)
+del(options,options_usd,near_expiration)
 
 # Set valid tickers for each algo, if configured
 if ( args.algo_valid_tickers != None ):
@@ -797,21 +814,31 @@ for ticker in stock_list.split(','):
 				   'isvalid':			True,
 				   'tradeable':			True,
 				   'tx_id':			random.randint(1000, 9999),
-				   'stock_usd':			args.stock_usd,
-				   'stock_qty':			int(0),
-				   'quick_exit':		args.quick_exit,
+
 				   'num_purchases':		args.num_purchases,
 				   'failed_txs':		args.max_failed_txs,
 				   'failed_usd':		args.max_failed_usd,
+
+				   'stock_usd':			args.stock_usd,
+				   'stock_qty':			0,
 				   'orig_base_price':		float(0),
 				   'base_price':		float(0),
-				   'primary_algo':		None,
+
+				   'options_ticker':		None,
+				   'options_usd':		args.options_usd,
+				   'options_qty':		0,
+				   'options_orig_base_price':	float(0),
+				   'options_base_price':	float(0),
 
 				   'incr_threshold':		args.incr_threshold,
 				   'orig_incr_threshold':	args.incr_threshold,
 				   'decr_threshold':		args.decr_threshold,
 				   'orig_decr_threshold':	args.decr_threshold,
 				   'exit_percent':		args.exit_percent,
+				   'quick_exit':		args.quick_exit,
+
+				   'primary_algo':		None,
+
 
 				   # Action signals
 				   'final_buy_signal':		False,
@@ -1167,7 +1194,9 @@ for ticker in list(stocks.keys()):
 	# I.e. volatility, resistance, etc.
 	# 3-week high / low / average
 	high = low = avg = False
-	while ( high == False ):
+	count = 0
+	while ( count <= 3 ):
+		count += 1
 		try:
 			high, low, avg = tda_gobot_helper.get_price_stats(ticker, days=15)
 
@@ -1175,6 +1204,11 @@ for ticker in list(stocks.keys()):
 			print('Warning: get_price_stats(' + str(ticker) + '): ' + str(e))
 
 		if ( isinstance(high, bool) and high == False ):
+			if ( count >= 3 ):
+				print('Error: get_price_stats(' + str(ticker) + '): invalidating ticker')
+				stocks[ticker]['isvalid'] = False
+				continue
+
 			if ( tda_gobot_helper.tdalogin(passcode) != True ):
 				print('Error: (' + str(ticker) + '): Login failure')
 			time.sleep(5)
@@ -1187,7 +1221,9 @@ for ticker in list(stocks.keys()):
 
 	# 20-week high / low / average
 	high = low = avg = False
-	while ( high == False ):
+	count = 0
+	while ( count <= 3 ):
+		count += 1
 		try:
 			high, low, avg = tda_gobot_helper.get_price_stats(ticker, days=100)
 
@@ -1195,6 +1231,11 @@ for ticker in list(stocks.keys()):
 			print('Warning: get_price_stats(' + str(ticker) + '): ' + str(e))
 
 		if ( isinstance(high, bool) and high == False ):
+			if ( count >= 3 ):
+				print('Error: get_price_stats(' + str(ticker) + '): invalidating ticker')
+				stocks[ticker]['isvalid'] = False
+				continue
+
 			if ( tda_gobot_helper.tdalogin(passcode) != True ):
 				print('Error: (' + str(ticker) + '): Login failure')
 			time.sleep(5)

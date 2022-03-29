@@ -65,7 +65,7 @@ if ( args.quick_exit == True ):
 			args.exit_percent	= 1
 			args.quick_exit_percent	= 1
 
-	elif ( args.quick_exit_percent == None ):
+	elif ( args.exit_percent != None and args.quick_exit_percent == None ):
 		args.quick_exit_percent = args.exit_percent
 
 stock				= args.stock
@@ -514,10 +514,15 @@ while True:
 
 					time.sleep( delta + loopt )
 
-
 		# Once exit_percent_signal is triggered we need to move to use candles so we can analyze
 		#  price movement.
 		elif ( exit_percent_signal == True and exit_signal == False ):
+
+			# First, process quick_exit_percent if configured
+			if ( args.quick_exit == True and args.quick_exit_percent != None ):
+				if ( total_percent_change >= args.quick_exit_percent ):
+					exit_signal = True
+
 			loopt		= args.exit_percent_loopt
 			pricehistory	= {}
 

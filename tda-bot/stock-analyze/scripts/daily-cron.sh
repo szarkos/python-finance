@@ -35,6 +35,7 @@ done
 # Finally sort of uniqify all the tickers, and output result
 final=$( cat tickers-final.conf )
 final=$( echo -n "$final" | tr ',' '\n' | sort | uniq | tr '\n' ',' | sed 's/^,//' | sed 's/,$//' )
+final=$( echo -n "$final" | sed 's/,[A-Z]*\/[A-Z]*,/,/g' ) # Tickers like OXY/WS slipped in at some point
 final="'"${final}"'"
 #echo "$final"
 sed -i "s/BACKTEST_NATR=.*/BACKTEST_NATR=${final}/" ~/python-finance/tda-bot/stock-analyze/tickers.conf

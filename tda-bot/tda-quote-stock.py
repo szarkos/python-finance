@@ -52,7 +52,7 @@ parser.add_argument("--p_type", help="Period type to request history data (defau
 parser.add_argument("--f_type", help="Frequency type to request history data (default: minute)", default="minute", type=str)
 parser.add_argument("--period", help="Period to request history data (default: None)", default=None, type=str)
 parser.add_argument("--start_date", help="Number of days to subtract from end_date (default: None)", default=None, type=int)
-parser.add_argument("--end_date", help="Epoch (in milliseconds) for the end date of date to retrieve (use -1 for most recent) (default: None)", default=None, type=int)
+parser.add_argument("--end_date", help="Epoch (in milliseconds) for the end date of date to retrieve (use -1 for most recent) (default: -1)", default=-1, type=float)
 parser.add_argument("--extended_hours", help="If extended trading hours are needed (default: False)", action="store_true")
 
 parser.add_argument("-d", "--debug", help="Enable debug output", action="store_true")

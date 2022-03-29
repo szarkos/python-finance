@@ -114,6 +114,8 @@ for line in data.splitlines():
 
 		tickers = re.split(',', tickers)
 		for i in add:
+			if ( re.search('/', i) != None ):
+				continue
 			tickers.append(i)
 
 		for idx,i in enumerate(tickers):

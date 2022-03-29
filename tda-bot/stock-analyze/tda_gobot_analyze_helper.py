@@ -97,6 +97,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal macd_crossover			; macd_crossover		= False
 		nonlocal macd_avg_crossover		; macd_avg_crossover		= False
 
+		nonlocal trin_init_signal		; trin_init_signal		= False
+		nonlocal trin_signal			; trin_signal			= False
+		nonlocal tick_signal			; tick_signal			= False
+		nonlocal roc_signal			; roc_signal			= False
+		nonlocal sp_monitor_signal		; sp_monitor_signal		= False
+
 		nonlocal experimental_signal		; experimental_signal		= False
 
 		return True
@@ -327,6 +333,34 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	mesa_emd_period			= 20		if ('mesa_emd_period' not in params) else params['mesa_emd_period']
 	mesa_emd_type			= 'hl2'		if ('mesa_emd_type' not in params) else params['mesa_emd_type']
 
+	trin_tick			= {}		if ('trin_tick' not in params) else params['trin_tick']
+	with_trin			= False		if ('with_trin' not in params) else params['with_trin']
+	trin_roc_type			= 'hlc3'	if ('trin_roc_type' not in params) else params['trin_roc_type']
+	trin_roc_period			= 1		if ('trin_roc_period' not in params) else params['trin_roc_period']
+	trin_ma_type			= 'ema'		if ('trin_ma_type' not in params) else params['trin_ma_type']
+	trin_ma_period			= 5		if ('trin_ma_period' not in params) else params['trin_ma_period']
+	trin_oversold			= 3		if ('trin_oversold' not in params) else params['trin_oversold']
+	trin_overbought			= -1		if ('trin_overbought' not in params) else params['trin_overbought']
+
+	with_tick			= False		if ('with_tick' not in params) else params['with_tick']
+	tick_ma_type			= 'ema'		if ('tick_ma_type' not in params) else params['tick_ma_type']
+	tick_ma_pricetype		= 'ohlc4'	if ('tick_ma_pricetype' not in params) else params['tick_ma_pricetype']
+	tick_ma_period			= 5		if ('tick_ma_period' not in params) else params['tick_ma_period']
+
+	with_roc			= False		if ('with_roc' not in params) else params['with_roc']
+	roc_type			= 'hlc3'	if ('roc_type' not in params) else params['roc_type']
+	roc_period			= 25		if ('roc_period' not in params) else params['roc_period']
+	roc_ma_type			= 'ema'		if ('roc_ma_type' not in params) else params['roc_ma_type']
+	roc_ma_period			= 5		if ('roc_ma_period' not in params) else params['roc_ma_period']
+	roc_threshold			= 0.15		if ('roc_threshold' not in params) else params['roc_threshold']
+
+	with_sp_monitor			= False		if ('with_sp_monitor' not in params) else params['with_sp_monitor']
+	sp_monitor_tickers		= None		if ('sp_monitor_tickers' not in params) else params['sp_monitor_tickers']
+	sp_roc_type			= 'hlc3'	if ('sp_roc_type' not in params) else params['sp_roc_type']
+	sp_roc_period			= 1		if ('sp_roc_period' not in params) else params['sp_roc_period']
+	sp_ma_period			= 5		if ('sp_ma_period' not in params) else params['sp_ma_period']
+	sp_monitor			= {}		if ('sp_monitor' not in params) else params['sp_monitor']
+
 	experimental			= False		if ('experimental' not in params) else params['experimental']
 	# End params{} configuration
 
@@ -529,18 +563,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_stochmfi() returned false - no data', file=sys.stderr)
 			return False
 
-		if ( with_stochmfi_5m == True ):
-			mfi_k_5m	= []
-			mfi_d_5m	= []
-			try:
-				mfi_k_5m, mfi_d_5m = tda_algo_helper.get_stochmfi(pricehistory_5m, mfi_period=stochmfi_5m_period, mfi_k_period=rsi_k_period, slow_period=rsi_slow, mfi_d_period=rsi_d_period, debug=False)
+	if ( with_stochmfi_5m == True ):
+		mfi_k_5m	= []
+		mfi_d_5m	= []
+		try:
+			mfi_k_5m, mfi_d_5m = tda_algo_helper.get_stochmfi(pricehistory_5m, mfi_period=stochmfi_5m_period, mfi_k_period=rsi_k_period, slow_period=rsi_slow, mfi_d_period=rsi_d_period, debug=False)
 
-			except Exception as e:
-				print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_stochmfi(): ' + str(e))
-				return False
-			if ( isinstance(mfi_k_5m, bool) and mfi_k_5m == False ):
-				print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_stochmfi() returned false - no data', file=sys.stderr)
-				return False
+		except Exception as e:
+			print('Caught Exception: stochrsi_analyze_new(' + str(ticker) + '): get_stochmfi(): ' + str(e))
+			return False
+		if ( isinstance(mfi_k_5m, bool) and mfi_k_5m == False ):
+			print('Error: stochrsi_analyze_new(' + str(ticker) + '): get_stochmfi() returned false - no data', file=sys.stderr)
+			return False
 
 	# RSI
 	if ( with_rsi == True or with_rsi_simple == True ):
@@ -1114,6 +1148,173 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				daily_ma[day] = ma[idx-1]
 	# End MA
 
+	# $TRIN and $TICK
+	if ( with_trin == True or with_tick == True ):
+
+		# Calculate the MA for the rate-of-change, for both $TRIN and $TICK
+		# ROC values need to be squared up with the timestamp so they can be matched properly with
+		#  the datetime value from the current stock's candle.
+		try:
+			trin_roc = tda_algo_helper.get_roc( trin_tick['trin']['pricehistory'], period=trin_roc_period, type=trin_roc_type, calc_percentage=True )
+
+		except Exception as e:
+			print('Error, unable to calculate rate-of-change for trin_tick: ' + str(e))
+			sys.exit(1)
+
+		for i in range( len(trin_tick['trin']['pricehistory']['candles']) ):
+			dt = trin_tick['trin']['pricehistory']['candles'][i]['datetime']
+			trin_tick['trin']['roc'].update( { dt: trin_roc[i] } )
+
+		# Calculate the MA for the rate-of-change, for both $TRIN and $TICK
+		temp_ph = { 'candles': [] }
+		for i in range( len(trin_roc) ):
+			temp_ph['candles'].append({ 'open': trin_roc[i], 'high': trin_roc[i], 'low': trin_roc[i], 'close': trin_roc[i] })
+
+		tmp_trin_ma = tda_algo_helper.get_alt_ma(pricehistory=temp_ph, ma_type=trin_ma_type, type='close', period=trin_ma_period)
+		for i in range( len(trin_tick['trin']['pricehistory']['candles']) ):
+			dt = trin_tick['trin']['pricehistory']['candles'][i]['datetime']
+			trin_tick['trin']['roc_ma'].update( { dt: tmp_trin_ma[i] } )
+
+		temp_ph = { 'candles': [] }
+		for i in range( len(tick_roc) ):
+			temp_ph['candles'].append({ 'open': tick_roc[i], 'high': tick_roc[i], 'low': tick_roc[i], 'close': tick_roc[i] })
+
+		tmp_tick_ma = tda_algo_helper.get_alt_ma(pricehistory=trin_tick['tick']['pricehistory'], ma_type=tick_ma_type, type=tick_ma_pricetype, period=tick_ma_period)
+		for i in range( len(trin_tick['tick']['pricehistory']['candles']) ):
+			dt = trin_tick['tick']['pricehistory']['candles'][i]['datetime']
+			trin_tick['tick']['roc_ma'].update( { dt: tmp_tick_ma[i] } )
+
+	# ROC indicator
+	roc = []
+	if ( with_roc == True ):
+		try:
+			roc = tda_algo_helper.get_roc( pricehistory, period=roc_period, type=roc_type, calc_percentage=True )
+
+		except Exception as e:
+			print('Error, unable to calculate rate-of-change for roc indicator: ' + str(e))
+			sys.exit(1)
+
+		tmp_ph = { 'candles': [] }
+		for i in range( len(roc) ):
+			tmp_ph['candles'].append({ 'close': roc[i] })
+
+		try:
+			roc_ma = tda_algo_helper.get_alt_ma( pricehistory=tmp_ph, period=roc_ma_period, ma_type=roc_ma_type, type='close' )
+
+		except Exception as e:
+			print('Error, unable to calculate the moving average from the rate-of-change for the roc indicator: ' + str(e))
+			sys.exit(1)
+
+	# SP monitor
+	if ( with_sp_monitor == True ):
+
+		# This is a little convoluted, but really all we want to do is take the *weighted* average of the *weighted*
+		#  rate-of-change for each ticker in sp_monitor_tickers, and then calculate the EMA for the final
+		#  rate-of-change values.
+		#
+		# Formula is as follows:
+		#  - Calculate the 1-period rate-of-change for each candle of each stock ticker in sp_monitor_tickers[],
+		#    but weight each RoC value based on the % representation in the target ETF:
+		#
+		#	roc_stock1 = ((stock1_cur_cndl - stock1_prev_cndl) / stock1_prev_cndl) * stock1_pct
+		#
+		# - For each candle, add all the RoCs together for each stock ticker, and then divide that by the sum of
+		#   the previous candle for each ticker, divided by the % representation in the target ETF:
+		#
+		#	 total_roc[i] = (roc_stock1[i] + roc_stock2[i] .... ) \
+		#		( (stock1_prev_cndl[i-1] * stock1_pct) + (stock1_prev_cndl[i-1] * stock2_pct) + ... )
+		#
+		# - Next, take the EMA ofr the total_roc
+		#	ema(total_roc, 5)
+		#
+		# The difficulty with all this like all this, just like other backtesting algos in this file, is that each
+		#  ticker in sp_monitor_tickers will have a different number of candles. Just like the ETF indicator, each
+		#  ROC value will need to be identified based on the datetime value for each candle.
+		roc_total = OrderedDict()
+		for t in sp_monitor_tickers:
+			try:
+				sp_t	= str( t.split(':')[0] )
+				sp_pct	= float( t.split(':')[1] ) / 100
+
+			except Exception as e:
+				print('Warning, invalid sp_monitor ticker format: ' + str(t) + ', ' + str(e))
+				continue
+
+			# Get the ROC for each ticker pricehistory
+			sp_roc = []
+			try:
+				sp_roc = tda_algo_helper.get_roc( sp_monitor[sp_t]['pricehistory'], period=sp_roc_period, type=sp_roc_type, calc_percentage=False )
+
+			except Exception as e:
+				print('Error, unable to calculate rate-of-change for sp_monitor: ' + str(e))
+				sys.exit(1)
+
+			# Separate out each element of sp_roc[] based on the datetime of the original stock's pricehistory data
+			for i in range( len(sp_monitor[sp_t]['pricehistory']['candles']) ):
+				dt = sp_monitor[sp_t]['pricehistory']['candles'][i]['datetime']
+
+				# In a later section we will need the HLC3 value for the previous candle, so we can calculate this
+				#  now and put it in sp_monitor[sp_t][dt]['prev_cndl']
+				if ( i == 0 ):
+					prev_cndl_hlc3 = 0
+				else:
+					prev_cndl_hlc3 = ( sp_monitor[sp_t]['pricehistory']['candles'][i-1]['high'] +
+							   sp_monitor[sp_t]['pricehistory']['candles'][i-1]['low'] +
+							   sp_monitor[sp_t]['pricehistory']['candles'][i-1]['close'] ) / 3
+
+				sp_monitor[sp_t][dt] = {	'roc':		sp_roc[i] * sp_pct,
+								'prev_cndl':	prev_cndl_hlc3 * sp_pct }
+
+				# roc_total will contain ALL the various timestamps from all the tickers, and the total rate-of-change
+				#  values for each timestamp for all tickers.
+				if ( dt not in roc_total ):
+					roc_total.update( { dt: sp_monitor[sp_t][dt]['roc'] } )
+				else:
+					roc_total[dt] += sp_monitor[sp_t][dt]['roc']
+
+		# At this point datetime keys have been added by various tickers, but since different tickers will have varying
+		#  number of candles, we'll need to sort and re-create roc_total{}.
+		roc_t = OrderedDict()
+		for i in sorted(roc_total):
+			roc_t[i] = roc_total[i]
+		roc_total = roc_t
+
+		# roc_total{} contains the rate of change values for each candle for each ticker. However, for the next step we need
+		#  to look at each candle (each timestamp) and divide the total rate-of-change with the sum of each stock's previous
+		#  candle multiplied by the weighted percent.
+		#
+		# Iterate over all the timestamps in roc_total, and add up the prev_cndle_total from each ticker for each timestamp
+		for dt in roc_total:
+			prev_cndl_total = 0
+			for t in sp_monitor_tickers:
+				sp_t = str( t.split(':')[0] )
+
+				if ( dt in sp_monitor[sp_t] ):
+					prev_cndl_total += sp_monitor[sp_t][dt]['prev_cndl']
+
+			# Once we have prev_cndl_total, we can divide roc_total[dt] by this value to find the final roc_total
+			if ( prev_cndl_total == 0 ):
+				roc_total[dt] = 0
+			else:
+				# These values are incredibly small - so multiply by 10000000 to make them useful
+				roc_total[dt] = ( roc_total[dt] / prev_cndl_total ) * 10000000
+
+		# Populate a temporary pricehistory from roc_total and calculate the EMA
+		tmp_ph = { 'candles': [] }
+		sp_monitor_roc_ma = []
+		for dt in roc_total:
+			tmp_ph['candles'].append( { 'close': roc_total[dt] } )
+
+		sp_monitor_roc_ma = tda_algo_helper.get_alt_ma(pricehistory=tmp_ph, ma_type='ema', period=sp_ma_period, type='close')
+
+		# Finally, each element in roc_ma needs to be separated by timestamp. roc_ma[] will have the same length
+		#  as the source data, so we can just iterate over roc_total.keys() and separate each moving average value
+		#  based on its timestamp.
+		for idx,dt in enumerate( roc_total ):
+			sp_monitor['roc_ma'][dt] = sp_monitor_roc_ma[idx]
+
+		del(roc_total, roc_t)
+
 	# Populate rate-of-change for etf indicators
 	etf_roc		= []
 	stock_roc	= []
@@ -1259,6 +1460,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	stochmfi_5m_crossover_signal	= False
 	stochmfi_5m_threshold_signal	= False
 	stochmfi_5m_final_signal	= False
+
+	trin_init_signal		= False
+	trin_signal			= False
+	tick_signal			= False
+	roc_signal			= False
+	sp_monitor_signal		= False
 
 	rsi_signal			= False
 	mfi_signal			= False
@@ -1752,22 +1959,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						bbands_kchan_signal		= False
 						break
 
-###########################################################################
-				# TEST TEST TEST
-#				if ( signal_mode['primary'] == 'long' ):
-#
-#					close_cndls = []
-#					for i in range(len(cndl_slice['candles'])):
-#						close_cndls.append(cndl_slice['candles'][i]['close'])
-#
-#					if ( min(close_cndls) < cndl_slice['candles'][-1]['close'] ):
-#						pct = abs(min(close_cndls) / cndl_slice['candles'][-1]['close'] - 1) * 100
-#						if ( pct > 1 ):
-#							print('POOOOP: ', end='')
-#							print(datetime.fromtimestamp(int(cndl_slice['candles'][-1]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S'), end='')
-#							print(': ' + str(pct))
-#							bbands_kchan_signal = False
-
 			# Cancel the bbands_kchan_signal if the bollinger bands popped back inside the keltner channel,
 			#  or if the bbands_kchan_signal_counter has lingered for too long
 			#
@@ -1970,6 +2161,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		cur_close			= pricehistory['candles'][idx]['close']
 		cur_volume			= pricehistory['candles'][idx]['volume']
 
+		cur_dt				= pricehistory['candles'][idx]['datetime']
+		prev_dt				= pricehistory['candles'][idx-1]['datetime']
+
+		cur_ha_open			= pricehistory['hacandles'][idx]['open']
+		cur_ha_high			= pricehistory['hacandles'][idx]['high']
+		cur_ha_low			= pricehistory['hacandles'][idx]['low']
+		cur_ha_close			= pricehistory['hacandles'][idx]['close']
+
 		# Indicators current values
 		cur_rsi_k			= rsi_k[idx - stochrsi_idx]
 		prev_rsi_k			= rsi_k[idx - stochrsi_idx - 1]
@@ -2024,6 +2223,38 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			cur_fama		= fama[idx]
 			prev_mama		= mama[idx-1]
 			prev_fama		= fama[idx-1]
+
+		if ( primary_stoch_indicator == 'trin' or with_trin == True ):
+			try:
+				cur_trin	= trin_tick['trin']['roc_ma'][cur_dt]
+				prev_trin	= trin_tick['trin']['roc_ma'][prev_dt]
+
+			except:
+				cur_trin	= 0
+				prev_trin	= 0
+
+		if ( with_tick == True ):
+			try:
+				cur_tick	= trin_tick['tick']['roc_ma'][cur_dt]
+				prev_tick	= trin_tick['tick']['roc_ma'][prev_dt]
+
+			except:
+				cur_tick	= 0
+				prev_tick	= 0
+
+		if ( with_roc == True ):
+			cur_roc		= roc[idx]
+			prev_roc	= roc[idx-1]
+			cur_roc_ma	= roc_ma[idx]
+			prev_roc_ma	= roc_ma[idx-1]
+
+		if ( with_sp_monitor == True ):
+			try:
+				cur_sp_monitor	= sp_monitor['roc_ma'][cur_dt]
+				prev_sp_monitor	= sp_monitor['roc_ma'][prev_dt]
+			except:
+				cur_sp_monitor	= 0
+				prev_sp_monitor	= 0
 
 		if ( with_momentum == True ):
 			cur_mom			= mom[idx]
@@ -2297,11 +2528,89 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				buy_signal = mesa_sine( sine=sine, lead=lead, direction='long', strict=mesa_sine_strict, mesa_sine_signal=buy_signal )
 
+			# $TRIN primary indicator
+			#  - Higher values (>= 3) indicate bearish trend
+			#  - Lower values (<= -1) indicate bullish trend
+			#  - A simple algorithm here watches for higher values above 3, which
+			#    indicate that a bearish trend is ongoing but may be approaching oversold
+			#    levels. We then watche for a green candle to form, which will trigger the
+			#    final signal.
+			#  - Alone this is pretty simplistic, but supplimental indicators (roc, tick, etc.)
+			#    can help confirm that a reversal is happening.
+			elif ( primary_stoch_indicator == 'trin' ):
+
+				# Jump to short mode if cur_trin is less than 0
+				if ( primary_stoch_indicator == 'trin' and cur_trin <= trin_overbought and noshort == False ):
+					reset_signals()
+					trin_init_signal	= True
+					signal_mode['primary']	= 'short'
+					continue
+
+				# Trigger trin_init_signal if cur_trin moves above trin_oversold
+				if ( cur_trin >= trin_oversold ):
+					trin_init_signal = True
+
+				# Once trin_init_signal is triggered, we can trigger the final trin_signal
+				#  after the first green candle
+				if ( trin_init_signal == True ):
+					if ( cur_ha_close > cur_ha_open ):
+						trin_signal = True
+
+					else:
+						trin_signal = False
+						if ( primary_stoch_indicator == 'trin' ):
+							buy_signal = False
+
+				# Trigger the buy_signal if all the trin signals have tiggered
+				if ( primary_stoch_indicator == 'trin' and trin_init_signal == True and trin_signal == True ):
+					buy_signal = True
 
 			# Unknown primary indicator
 			else:
 				print('Error: primary_stoch_indicator "' + str(primary_stoch_indicator) + '" unknown, exiting.')
 				return False
+
+
+			# $TRIN indicator
+			if ( with_trin == True ):
+				if ( cur_trin <= trin_overbought ):
+					trin_init_signal = False
+
+				# Trigger trin_init_signal if cur_trin moves above trin_oversold
+				elif ( cur_trin >= trin_oversold ):
+					trin_init_signal = True
+
+				# Once trin_init_signal is triggered, we can trigger the final trin_signal
+				#  after the first green candle
+				if ( trin_init_signal == True ):
+					if ( cur_ha_close > cur_ha_open ):
+						trin_signal = True
+					else:
+						trin_signal = False
+
+			# $TICK indicator
+			# Bearish action when indicator is below zero and heading downward
+			# Bullish action when indicator is above zero and heading upward
+			if ( with_tick == True ):
+				if ( cur_tick > prev_tick and cur_tick > 0 ):
+					tick_signal = True
+				else:
+					tick_signal = False
+
+			# Rate-of-Change (ROC) indicator
+			if ( with_roc == True ):
+				#roc_signal = False
+				if ( cur_roc_ma > 0 and cur_roc_ma > prev_roc_ma ):
+					roc_signal = True
+				if ( cur_roc_ma <= roc_threshold ):
+					roc_signal = False
+
+			# ETF SP indicator
+			if ( with_sp_monitor == True ):
+				if ( cur_sp_monitor < 0 ):
+					sp_monitor_signal = False
+				elif ( cur_sp_monitor > 0 and cur_sp_monitor > prev_sp_monitor ):
+					sp_monitor_signal = True
 
 
 			# StochRSI with 5-minute candles
@@ -2944,6 +3253,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					final_buy_signal = False
 
 				if ( with_rsi == True and rsi_signal != True ):
+					final_buy_signal = False
+
+				if ( with_trin == True and trin_signal != True ):
+					final_buy_signal = False
+
+				if ( with_tick == True and tick_signal != True ):
+					final_buy_signal = False
+
+				if ( with_roc == True and roc_signal != True ):
+					final_buy_signal = False
+
+				if ( with_sp_monitor == True and sp_monitor_signal != True ):
 					final_buy_signal = False
 
 				if ( with_mfi == True and mfi_signal != True ):
@@ -3702,12 +4023,81 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				short_signal = mesa_sine( sine=sine, lead=lead, direction='short', strict=mesa_sine_strict, mesa_sine_signal=short_signal )
 
+			# $TRIN primary indicator
+			elif ( primary_stoch_indicator == 'trin' ):
+
+				# Jump to long mode if cur_trin is greater than trin_overbought
+				if ( primary_stoch_indicator == 'trin' and cur_trin >= trin_oversold and shortonly == False ):
+					reset_signals()
+					trin_init_signal = True
+					signal_mode['primary'] = 'long'
+					continue
+
+				# Trigger trin_init_signal if cur_trin moves below trin_overbought
+				if ( cur_trin <= trin_overbought ):
+					trin_init_signal = True
+
+				# Once trin_init_signal is triggered, we can trigger the final trin_signal
+				#  after the first red candle
+				if ( trin_init_signal == True ):
+					if ( cur_ha_close < cur_ha_open ):
+						trin_signal = True
+
+					else:
+						trin_signal = False
+						if ( primary_stoch_indicator == 'trin' ):
+							short_signal = False
+
+				# Trigger the short_signal if all the trin signals have tiggered
+				if ( primary_stoch_indicator == 'trin' and trin_init_signal == True and trin_signal == True ):
+					short_signal = True
 
 			# Unknown primary indicator
 			else:
 				print('Error: primary_stoch_indicator "' + str(primary_stoch_indicator) + '" unknown, exiting.')
 				return False
 
+
+			# $TRIN indicator
+			if ( with_trin == True ):
+				if ( cur_trin >= trin_oversold ):
+					trin_init_signal = False
+
+				# Trigger trin_init_signal if cur_trin moves below trin_overbought
+				if ( cur_trin <= trin_overbought ):
+					trin_init_signal = True
+
+				# Once trin_init_signal is triggered, we can trigger the final trin_signal
+				#  after the first red candle
+				if ( trin_init_signal == True ):
+					if ( cur_ha_close < cur_ha_open ):
+						trin_signal = True
+					else:
+						trin_signal = False
+
+			# $TICK indicator
+			# Bearish action when indicator is below zero and heading downward
+			# Bullish action when indicator is above zero and heading upward
+			if ( with_tick == True ):
+				if ( cur_tick < prev_tick and cur_tick < 0 ):
+					tick_signal = True
+				else:
+					tick_signal = False
+
+			# Rate-of-Change (ROC) indicator
+			if ( with_roc == True ):
+				#roc_signal = False
+				if ( cur_roc_ma < 0 and cur_roc_ma < prev_roc_ma ):
+					roc_signal = True
+				if ( cur_roc_ma >= -roc_threshold ):
+					roc_signal = False
+
+			# ETF SP indicator
+			if ( with_sp_monitor == True ):
+				if ( cur_sp_monitor > 0 ):
+					sp_monitor_signal = False
+				elif ( cur_sp_monitor < 0 and cur_sp_monitor < prev_sp_monitor ):
+					sp_monitor_signal = True
 
 			# StochRSI with 5-minute candles
 			if ( with_stochrsi_5m == True ):
@@ -4332,6 +4722,18 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					final_short_signal = False
 
 				if ( with_rsi == True and rsi_signal != True ):
+					final_short_signal = False
+
+				if ( with_trin == True and trin_signal != True ):
+					final_short_signal = False
+
+				if ( with_tick == True and tick_signal != True ):
+					final_short_signal = False
+
+				if ( with_roc == True and roc_signal != True ):
+					final_short_signal = False
+
+				if ( with_sp_monitor == True and sp_monitor_signal != True ):
 					final_short_signal = False
 
 				if ( with_mfi == True and mfi_signal != True ):

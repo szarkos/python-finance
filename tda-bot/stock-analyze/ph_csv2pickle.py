@@ -26,7 +26,7 @@ args = parser.parse_args()
 mytimezone = pytz.timezone("US/Eastern")
 
 ticker = re.sub('^.*\/', '', args.ifile)
-ticker = re.sub('\-.*$', '', ticker)
+ticker = re.sub('\-[0-9]*months.*$', '', ticker)
 
 pricehistory = {'candles':	[],
 		'symbol':	str(ticker),
@@ -118,10 +118,13 @@ if ( args.augment_today == True ):
 	f_type = 'minute'
 	freq = '1'
 
+	# Translate '/' or '-' in ticker name to '.' to work with TDA API (i.e. alphavantage uses BRK-B, but TDA wants BRK.B)
+	tda_ticker = re.sub('(\/|\-)', '.', ticker)
+
 	tries = 0
 	while ( tries < 3 ):
 		try:
-			ph_data, epochs = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=True)
+			ph_data, epochs = tda_gobot_helper.get_pricehistory(tda_ticker, p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=True)
 
 		except Exception as e:
 			print('Caught Exception: get_pricehistory(' + str(ticker) + ', ' + str(time_prev_epoch) + ', ' + str(time_now_epoch) + '): ' + str(e) + ', exiting.', file=sys.stderr)

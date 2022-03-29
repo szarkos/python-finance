@@ -8,6 +8,7 @@ import random
 import re
 import argparse
 import pickle
+from collections import OrderedDict
 
 import robin_stocks.tda as tda
 import tulipy as ti
@@ -59,6 +60,30 @@ parser.add_argument("--etf_use_emd", help='Use MESA EMD to check cycle vs. trend
 parser.add_argument("--etf_emd_fraction", help='MESA EMD fraction to use with ETF', default=0.1, type=float)
 parser.add_argument("--etf_emd_period", help='MESA EMD period to use with ETF', default=20, type=int)
 parser.add_argument("--etf_emd_type", help='MESA EMD type to use with ETF', default='hl2', type=str)
+
+parser.add_argument("--with_trin", help='Use $TRIN indicator', action="store_true")
+parser.add_argument("--trin_roc_type", help='Rate of change candles type to use with $TRIN algorithm (Default: hlc3)', default='hlc3', type=str)
+parser.add_argument("--trin_ma_type", help='MA type to use with $TRIN algorithm (Default: ema)', default='ema', type=str)
+parser.add_argument("--trin_oversold", help='Oversold threshold for $TRIN algorithm (Default: 3)', default=3, type=float)
+parser.add_argument("--trin_overbought", help='Overbought threshold for $TRIN algorithm (Default: -1)', default=-1, type=float)
+
+parser.add_argument("--with_tick", help='Use $TICK indicator', action="store_true")
+parser.add_argument("--tick_ma_type", help='MA type to use with $TICK algorithm (Default: ema)', default='ema', type=str)
+parser.add_argument("--tick_ma_pricetype", help='Rate of change candles type to use with $TICK algorithm (Default: ohlc4)', default='ohlc4', type=str)
+parser.add_argument("--tick_ma_period", help='Period to use with ROC algorithm (Default: 4)', default=4, type=int)
+
+parser.add_argument("--with_roc", help='Use Rate-of-Change (ROC) indicator', action="store_true")
+parser.add_argument("--roc_type", help='Rate of change candles type to use (Default: hlc3)', default='hlc3', type=str)
+parser.add_argument("--roc_period", help='Period to use with ROC algorithm (Default: 14)', default=14, type=int)
+parser.add_argument("--roc_ma_type", help='MA period to use with ROC algorithm (Default: ema)', default='ema', type=str)
+parser.add_argument("--roc_ma_period", help='MA period to use with ROC algorithm (Default: 5)', default=5, type=int)
+parser.add_argument("--roc_threshold", help='Threshold to cancel the ROC algorithm (Default: 0.15)', default=0.15, type=float)
+
+parser.add_argument("--with_sp_monitor", help='When trading an ETF like SPY, monitor a set of stocks with weighting to help determine how the ETF will move', action="store_true")
+parser.add_argument("--sp_monitor_tickers", help='List of tickers and their weighting (in %) to use with --with_sp_monitor, comma-delimited (Example: MSFT:1.2,AAPL:1.0,...', default='', type=str)
+parser.add_argument("--sp_roc_type", help='Rate of change candles type to use with sp_monitor (Default: hlc3)', default='hlc3', type=str)
+parser.add_argument("--sp_roc_period", help='Period to use with ROC algorithm for sp_monitor (Default: 1)', default=1, type=int)
+parser.add_argument("--sp_ma_period", help='Moving average period to use with the RoC values for sp_monitor (Default: 5)', default=5, type=int)
 
 parser.add_argument("--emd_affinity_long", help='Require EMD affinity to allow long trade (Default: None)', default=None, type=int)
 parser.add_argument("--emd_affinity_short", help='Require EMD affinity to allow short trade (Default: None)', default=None, type=int)
@@ -539,6 +564,150 @@ for algo in args.algo.split(','):
 				etf_indicators[t]['pricehistory_5m']	= tda_gobot_helper.translate_1m(pricehistory=etf_indicators[t]['pricehistory'], candle_type=5)
 
 
+	# $TRIN and $TICK Indicators
+	trin_tick = {	'trin': {	'pricehistory':		{},
+					'pricehistory_5m':	{},
+					'roc':			{},
+					'roc_ma':		{}
+				},
+			'tick': {	'pricehistory':		{},
+					'pricehistory_5m':	{},
+					'roc':			{},
+					'roc_ma':		{}
+				}
+	}
+
+	if ( args.primary_stoch_indicator == 'trin' ):
+		args.with_trin = True
+
+	if ( args.with_trin == True or args.with_tick == True ):
+		if ( args.ifile != None ):
+			trin_data	= None
+			tick_data	= None
+
+			stock_path	= re.sub('\/[a-zA-Z0-9\.\-_]*$', '', args.ifile)
+			ifile		= re.sub('^.*\/' + str(stock), '', args.ifile)
+			trin_ifile	= stock_path + '/TRIN' + ifile
+			tick_ifile	= stock_path + '/TICK' + ifile
+
+			try:
+				with open(trin_ifile, 'rb') as handle:
+					trin_data = handle.read()
+					trin_data = pickle.loads(trin_data)
+
+				with open(tick_ifile, 'rb') as handle:
+					tick_data = handle.read()
+					tick_data = pickle.loads(tick_data)
+
+			except Exception as e:
+				print('Error opening file: ' + str(e))
+				sys.exit(1)
+
+			trin_tick['trin']['pricehistory']	= trin_data
+			trin_tick['trin']['pricehistory_5m']	= tda_gobot_helper.translate_1m( pricehistory=trin_tick['trin']['pricehistory'], candle_type=5 )
+
+			trin_tick['tick']['pricehistory']	= tick_data
+			trin_tick['tick']['pricehistory_5m']	= tda_gobot_helper.translate_1m( pricehistory=trin_tick['tick']['pricehistory'], candle_type=5 )
+
+		else:
+			days = 5
+			time_now = datetime.datetime.now( mytimezone )
+			time_prev = time_now - datetime.timedelta( days=days )
+
+			# Make sure start and end dates don't land on a weekend
+			#  or outside market hours
+			time_prev = tda_gobot_helper.fix_timestamp(time_prev)
+			if ( int(time_now.strftime('%w')) == 0 or int(time_now.strftime('%w')) == 6 ): # 0=Sunday, 6=Saturday
+				time_now = tda_gobot_helper.fix_timestamp(time_now)
+
+			time_now_epoch = int( time_now.timestamp() * 1000 )
+			time_prev_epoch = int( time_prev.timestamp() * 1000 )
+
+			trin_data = []
+			tick_data = []
+			try:
+				trin_data, epochs = tda_gobot_helper.get_pricehistory('$TRIN', p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=False)
+				tick_data, epochs = tda_gobot_helper.get_pricehistory('$TICK', p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=False)
+
+			except Exception as e:
+				print('Caught Exception: get_pricehistory(' + str(time_prev_epoch) + ', ' + str(time_now_epoch) + '): ' + str(e))
+				continue
+
+			trin_tick['trin']['pricehistory']	= trin_data
+			trin_tick['trin']['pricehistory_5m']	= tda_gobot_helper.translate_1m(pricehistory=trin_tick['trin']['pricehistory'], candle_type=5)
+
+			trin_tick['tick']['pricehistory']	= tick_data
+			trin_tick['tick']['pricehistory_5m']	= tda_gobot_helper.translate_1m(pricehistory=trin_tick['tick']['pricehistory'], candle_type=5)
+
+	# ETF SP monitor
+	sp_monitor_tickers = args.sp_monitor_tickers.split(',')
+	sp_monitor		= { 'roc_ma': OrderedDict() }
+	for t in sp_monitor_tickers:
+		try:
+			sp_t = str(t.split(':')[0])
+		except:
+			print('Warning, invalid sp_monitor ticker format, skipping(' + str(t) + '): ' + str(e))
+			continue
+
+		sp_monitor[sp_t]	= {	'pricehistory':		{},
+						'pricehistory_5m':	{}
+		}
+
+	if ( args.with_sp_monitor == True ):
+		for t in sp_monitor_tickers:
+			try:
+				sp_t = str(t.split(':')[0])
+			except:
+				print('Warning, invalid sp_monitor ticker format, skipping(' + str(t) + '): ' + str(e))
+				continue
+
+			if ( args.ifile != None ):
+				sp_data		= None
+				stock_path	= re.sub('\/[a-zA-Z0-9\.\-_]*$', '', args.ifile)
+				sp_ifile	= re.sub('^.*\/' + str(stock), '', args.ifile)
+				sp_ifile	= stock_path + '/' + str(sp_t) + sp_ifile
+				try:
+					with open(sp_ifile, 'rb') as handle:
+						sp_data = handle.read()
+						sp_data = pickle.loads(sp_data)
+
+				except Exception as e:
+					print('Error opening file ' + str(sp_ifile) + ': ' + str(e))
+					sys.exit(1)
+
+				sp_monitor[sp_t]['pricehistory']	= sp_data
+				sp_monitor[sp_t]['pricehistory_5m']	= tda_gobot_helper.translate_1m( pricehistory=sp_monitor[sp_t]['pricehistory'], candle_type=5 )
+
+			else:
+				days = 5
+				time_now = datetime.datetime.now( mytimezone )
+				time_prev = time_now - datetime.timedelta( days=days )
+
+				# Make sure start and end dates don't land on a weekend
+				#  or outside market hours
+				time_prev = tda_gobot_helper.fix_timestamp(time_prev)
+				if ( int(time_now.strftime('%w')) == 0 or int(time_now.strftime('%w')) == 6 ): # 0=Sunday, 6=Saturday
+					time_now = tda_gobot_helper.fix_timestamp(time_now)
+
+				time_now_epoch = int( time_now.timestamp() * 1000 )
+				time_prev_epoch = int( time_prev.timestamp() * 1000 )
+
+				sp_data = []
+				try:
+					sp_data, epochs = tda_gobot_helper.get_pricehistory(sp_t, p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=False)
+
+				except Exception as e:
+					print('Caught Exception: get_pricehistory(' + str(sp_t) + ', ' + str(time_prev_epoch) + ', ' + str(time_now_epoch) + '): ' + str(e))
+					sys.exit(1)
+
+				if ( isinstance(sp_data, bool) and sp_data == False ):
+					print('Error: get_pricehistory(' + str(sp_t) + ') returned False, exiting')
+					sys.exit(1)
+
+				sp_monitor[sp_t]['pricehistory']	= sp_data
+				sp_monitor[sp_t]['pricehistory_5m']	= tda_gobot_helper.translate_1m(pricehistory=sp_monitor[sp_t]['pricehistory'], candle_type=5)
+
+
 	# Print results for the most recent 10 and 5 days of data
 	for days in str(args.days).split(','):
 
@@ -839,6 +1008,32 @@ for algo in args.algo.split(','):
 					'etf_emd_fraction':			args.etf_emd_fraction,
 					'etf_emd_period':			args.etf_emd_period,
 					'etf_emd_type':				args.etf_emd_type,
+
+					'with_trin':				args.with_trin,
+					'trin_roc_type':			args.trin_roc_type,
+					'trin_ma_type':				args.trin_ma_type,
+					'trin_oversold':			args.trin_oversold,
+					'trin_overbought':			args.trin_overbought,
+
+					'with_tick':				args.with_tick,
+					'tick_ma_type':				args.tick_ma_type,
+					'tick_ma_pricetype':			args.tick_ma_pricetype,
+					'tick_ma_period':			args.tick_ma_period,
+					'trin_tick':				trin_tick,
+
+					'with_roc':				args.with_roc,
+					'roc_type':				args.roc_type,
+					'roc_period':				args.roc_period,
+					'roc_ma_type':				args.roc_ma_type,
+					'roc_ma_period':			args.roc_ma_period,
+					'roc_threshold':			args.roc_threshold,
+
+					'with_sp_monitor':			args.with_sp_monitor,
+					'sp_roc_type':				args.sp_roc_type,
+					'sp_roc_period':			args.sp_roc_period,
+					'sp_ma_period':				args.sp_ma_period,
+					'sp_monitor_tickers':			sp_monitor_tickers,
+					'sp_monitor':				sp_monitor,
 
 					'emd_affinity_long':			args.emd_affinity_long,
 					'emd_affinity_short':			args.emd_affinity_short,

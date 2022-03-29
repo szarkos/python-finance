@@ -2008,7 +2008,7 @@ def get_keylevels(pricehistory=None, atr_period=14, filter=True, plot=False, deb
 
 
 # Calculate the rate of change
-def get_roc(pricehistory=None, type='hlc3', period=50, debug=False):
+def get_roc(pricehistory=None, type='hlc3', period=50, calc_percentage=False, debug=False):
 
 	ticker = ''
 	try:
@@ -2070,6 +2070,12 @@ def get_roc(pricehistory=None, type='hlc3', period=50, debug=False):
 	except Exception as e:
 		print('Error: get_roc(' + str(ticker) + '): unable to calculate rate of change: ' + str(e))
 		return False
+
+	# Unlike other tools, ti.roc() does not multiply the rate-of-change by 100 to produce a percentage.
+	#  That usually doesn't matter, but sometimes it's desirable.
+	if ( calc_percentage == True ):
+		for i in range( len(roc) ):
+			roc[i] = roc[i] * 100
 
 	# Handle inf/-inf data points
 	roc = np.nan_to_num(roc)

@@ -166,13 +166,27 @@ parser.add_argument("--etf_roc_period", help='Rate of change lookback period (De
 parser.add_argument("--etf_min_rs", help='Minimum relative strength between equity and ETF to allow trade (Default: None)', default=None, type=float)
 parser.add_argument("--etf_min_natr", help='Minimum intraday NATR of ETF to allow trade (Default: None)', default=None, type=float)
 
-# Deprecated - use --algos=... instead
-#parser.add_argument("--with_rsi", help='Use standard RSI as a secondary indicator', action="store_true")
-#parser.add_argument("--with_adx", help='Use the Average Directional Index (ADX) as a secondary indicator', action="store_true")
-#parser.add_argument("--with_dmi", help='Use the Directional Movement Index(DMI) as a secondary indicator', action="store_true")
-#parser.add_argument("--with_macd", help='Use the Moving Average Convergence Divergence (MACD) as a secondary indicator', action="store_true")
-#parser.add_argument("--with_aroonosc", help='Use the Aroon Oscillator as a secondary indicator', action="store_true")
-#parser.add_argument("--with_vwap", help='Use VWAP as a secondary indicator', action="store_true")
+parser.add_argument("--trin_roc_type", help='Rate of change candles type to use with $TRIN algorithm (Default: hlc3)', default='hlc3', type=str)
+parser.add_argument("--trin_roc_period", help='Period to use with ROC algorithm (Default: 1)', default=1, type=int)
+parser.add_argument("--trin_ma_type", help='MA type to use with $TRIN algorithm (Default: ema)', default='ema', type=str)
+parser.add_argument("--trin_ma_period", help='Period to use with ROC algorithm (Default: 4)', default=5, type=int)
+parser.add_argument("--trin_oversold", help='Oversold threshold for $TRIN algorithm (Default: 3)', default=3, type=float)
+parser.add_argument("--trin_overbought", help='Overbought threshold for $TRIN algorithm (Default: -1)', default=-1, type=float)
+
+parser.add_argument("--tick_ma_type", help='MA type to use with $TICK algorithm (Default: ema)', default='ema', type=str)
+parser.add_argument("--tick_ma_pricetype", help='Rate of change candles type to use with $TICK algorithm (Default: ohlc4)', default='ohlc4', type=str)
+parser.add_argument("--tick_ma_period", help='Period to use with ROC algorithm (Default: 4)', default=4, type=int)
+
+parser.add_argument("--roc_type", help='Rate of change candles type to use (Default: hlc3)', default='hlc3', type=str)
+parser.add_argument("--roc_period", help='Period to use with ROC algorithm (Default: 14)', default=14, type=int)
+parser.add_argument("--roc_ma_type", help='MA period to use with ROC algorithm (Default: ema)', default='ema', type=str)
+parser.add_argument("--roc_ma_period", help='MA period to use with ROC algorithm (Default: 4)', default=5, type=int)
+parser.add_argument("--roc_threshold", help='Threshold to cancel the ROC algorithm (Default: 0.15)', default=0.15, type=float)
+
+parser.add_argument("--sp_monitor_tickers", help='List of tickers and their weighting (in %) to use with --with_sp_monitor, comma-delimited (Example: MSFT:1.2,AAPL:1.0,...', default=None, type=str)
+parser.add_argument("--sp_roc_type", help='Rate of change candles type to use with sp_monitor (Default: hlc3)', default='hlc3', type=str)
+parser.add_argument("--sp_roc_period", help='Period to use with ROC algorithm for sp_monitor (Default: 1)', default=1, type=int)
+parser.add_argument("--sp_ma_period", help='Moving average period to use with the RoC values for sp_monitor (Default: 4)', default=4, type=int)
 
 parser.add_argument("--daily_ifile", help='Use pickle file for daily pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--weekly_ifile", help='Use pickle file for weekly pricehistory data rather than accessing the API', default=None, type=str)
@@ -290,11 +304,12 @@ for algo in args.algos:
 				break
 
 	# Indicators
-	primary_stochrsi = primary_stochmfi = primary_stacked_ma = primary_mama_fama = primary_mesa_sine = False
+	primary_stochrsi = primary_stochmfi = primary_stacked_ma = primary_mama_fama = primary_mesa_sine = primary_trin = False
 	stacked_ma = stacked_ma_secondary = mama_fama = stochrsi_5m = stochmfi = stochmfi_5m = False
 	rsi = mfi = adx = dmi = dmi_simple = macd = macd_simple = aroonosc = False
 	chop_index = chop_simple = supertrend = bbands_kchannel = False
 	vwap = vpt = support_resistance = False
+	trin = tick = roc = sp_monitor = False
 
 	# Per-algo entry limit
 	stock_usd			= args.stock_usd
@@ -365,6 +380,28 @@ for algo in args.algos:
 	etf_min_rs			= args.etf_min_rs
 	etf_min_natr			= args.etf_min_natr
 
+	trin_roc_type			= args.trin_roc_type
+	trin_roc_period			= args.trin_roc_period
+	trin_ma_type			= args.trin_ma_type
+	trin_ma_period			= args.trin_ma_period
+	trin_oversold			= args.trin_oversold
+	trin_overbought			= args.trin_overbought
+
+	tick_ma_type			= args.tick_ma_type
+	tick_ma_pricetype		= args.tick_ma_pricetype
+	tick_ma_period			= args.tick_ma_period
+
+	roc_type			= args.roc_type
+	roc_period			= args.roc_period
+	roc_ma_type			= args.roc_ma_type
+	roc_ma_period			= args.roc_ma_period
+	roc_threshold			= args.roc_threshold
+
+	sp_monitor_tickers		= args.sp_monitor_tickers
+	sp_roc_type			= args.sp_roc_type
+	sp_roc_period			= args.sp_roc_period
+	sp_ma_period			= args.sp_ma_period
+
 	# MFI
 	mfi_high_limit			= args.mfi_high_limit
 	mfi_low_limit			= args.mfi_low_limit
@@ -419,6 +456,11 @@ for algo in args.algos:
 		if ( a == 'primary_stacked_ma' ):	primary_stacked_ma	= True
 		if ( a == 'primary_mama_fama' ):	primary_mama_fama	= True
 		if ( a == 'primary_mesa_sine' ):	primary_mesa_sine	= True
+		if ( a == 'primary_trin' ):		primary_trin		= True
+		if ( a == 'trin'):			trin			= True
+		if ( a == 'tick'):			tick			= True
+		if ( a == 'roc'):			roc			= True
+		if ( a == 'sp_monitor'):		sp_monitor		= True
 		if ( a == 'stacked_ma' ):		stacked_ma		= True
 		if ( a == 'stacked_ma_secondary' ):	stacked_ma_secondary	= True
 		if ( a == 'mama_fama' ):		mama_fama		= True
@@ -541,6 +583,28 @@ for algo in args.algos:
 		if ( re.match('supertrend_atr_period:', a)		!= None ):	supertrend_atr_period		= int( a.split(':')[1] )
 		if ( re.match('supertrend_min_natr:', a)		!= None ):	supertrend_min_natr		= float( a.split(':')[1] )
 
+		if ( re.match('trin_roc_type:', a)			!= None ):	trin_roc_type			= str( a.split(':')[1] )
+		if ( re.match('trin_roc_period:', a)			!= None ):	trin_roc_period			= int( a.split(':')[1] )
+		if ( re.match('trin_ma_type:', a)			!= None ):	trin_ma_type			= str( a.split(':')[1] )
+		if ( re.match('trin_ma_period:', a)			!= None ):	trin_ma_period			= int( a.split(':')[1] )
+		if ( re.match('trin_oversold:', a)			!= None ):	trin_oversold			= float( a.split(':')[1] )
+		if ( re.match('trin_overbought:', a)			!= None ):	trin_overbought			= float( a.split(':')[1] )
+
+		if ( re.match('tick_ma_type:', a)			!= None ):	tick_ma_type			= str( a.split(':')[1] )
+		if ( re.match('tick_ma_pricetype:', a)			!= None ):	tick_ma_pricetype		= str( a.split(':')[1] )
+		if ( re.match('tick_ma_period:', a)			!= None ):	tick_ma_period			= int( a.split(':')[1] )
+
+		if ( re.match('roc_type:', a)				!= None ):	roc_type			= str( a.split(':')[1] )
+		if ( re.match('roc_period:', a)				!= None ):	roc_period			= int( a.split(':')[1] )
+		if ( re.match('roc_ma_type:', a)			!= None ):	roc_ma_type			= str( a.split(':')[1] )
+		if ( re.match('roc_ma_period:', a)			!= None ):	roc_ma_period			= int( a.split(':')[1] )
+		if ( re.match('roc_threshold:', a)			!= None ):	roc_threshold			= float( a.split(':')[1] )
+
+		if ( re.match('sp_monitor_tickers:', a)			!= None ):	sp_monitor_tickers		= str( a.split(':', 1)[1] )
+		if ( re.match('sp_roc_type:', a)			!= None ):	sp_roc_type			= str( a.split(':')[1] )
+		if ( re.match('sp_roc_period:', a)			!= None ):	sp_roc_period			= int( a.split(':')[1] )
+		if ( re.match('sp_ma_period:', a)			!= None ):	sp_ma_period			= int( a.split(':')[1] )
+
 		if ( re.match('use_natr_resistance:', a)		!= None ):	use_natr_resistance		= float( a.split(':')[1] )
 		if ( re.match('min_intra_natr:', a)			!= None ):	min_intra_natr			= float( a.split(':')[1] )
 		if ( re.match('max_intra_natr:', a)			!= None ):	max_intra_natr			= float( a.split(':')[1] )
@@ -551,7 +615,8 @@ for algo in args.algos:
 	if ( primary_stochrsi == True and primary_stochmfi == True ):
 		print('Error: you can only use primary_stochrsi or primary_stochmfi, but not both. Exiting.')
 		sys.exit(1)
-	elif ( primary_stochrsi == False and primary_stochmfi == False and primary_stacked_ma == False and primary_mama_fama == False and primary_mesa_sine == False ):
+	elif ( primary_stochrsi == False and primary_stochmfi == False and primary_stacked_ma == False and
+			primary_mama_fama == False and primary_mesa_sine == False and primary_trin == False ):
 		print('Error: you must use one of primary_stochrsi, primary_stochmfi, primary_stacked_ma, primary_mama_fama or primary_mesa_sine. Exiting.')
 		sys.exit(1)
 
@@ -564,6 +629,9 @@ for algo in args.algos:
 	# Similar to above, convert the etf_tickers using a period delimiter to comma-delimited
 	if ( etf_tickers != args.etf_tickers ):						etf_tickers			= re.sub( '\.', ',', etf_tickers )
 	args.etf_tickers = str(args.etf_tickers) + ',' + str(etf_tickers)
+
+	# sp_monitor_tickers are dot '.' delimited
+	if ( sp_monitor_tickers != args.sp_monitor_tickers ):				sp_monitor_tickers		= re.sub( '\+', ',', sp_monitor_tickers )
 
 	# DMI/MACD overrides the simple variant of the algorithm
 	if ( dmi == True and dmi_simple == True ):
@@ -599,6 +667,13 @@ for algo in args.algos:
 			'primary_stacked_ma':			primary_stacked_ma,
 			'primary_mama_fama':			primary_mama_fama,
 			'primary_mesa_sine':			primary_mesa_sine,
+			'primary_trin':				primary_trin,
+
+			'trin':					trin,
+			'tick':					tick,
+			'roc':					roc,
+			'sp_monitor':				sp_monitor,
+
 			'stacked_ma':				stacked_ma,
 			'stacked_ma_secondary':			stacked_ma_secondary,
 			'mama_fama':				mama_fama,
@@ -712,6 +787,28 @@ for algo in args.algos:
 			'supertrend_atr_period':		supertrend_atr_period,
 			'supertrend_min_natr':			supertrend_min_natr,
 
+			'trin_roc_type':			trin_roc_type,
+			'trin_roc_period':			trin_roc_period,
+			'trin_ma_type':				trin_ma_type,
+			'trin_ma_period':			trin_ma_period,
+			'trin_oversold':			trin_oversold,
+			'trin_overbought':			trin_overbought,
+
+			'tick_ma_type':				tick_ma_type,
+			'tick_ma_pricetype':			tick_ma_pricetype,
+			'tick_ma_period':			tick_ma_period,
+
+			'roc_type':				roc_type,
+			'roc_period':				roc_period,
+			'roc_ma_type':				roc_ma_type,
+			'roc_ma_period':			roc_ma_period,
+			'roc_threshold':			roc_threshold,
+
+			'sp_monitor_tickers':			sp_monitor_tickers,
+			'sp_roc_type':				sp_roc_type,
+			'sp_roc_period':			sp_roc_period,
+			'sp_ma_period':				sp_ma_period,
+
 			'use_natr_resistance':			use_natr_resistance,
 			'min_intra_natr':			min_intra_natr,
 			'max_intra_natr':			max_intra_natr,
@@ -725,7 +822,8 @@ for algo in args.algos:
 
 # Clean up this mess
 # All the stuff above should be put into a function to avoid this cleanup stuff. I know it. It'll happen eventually.
-del(stock_usd,quick_exit,primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,primary_mesa_sine,stacked_ma,stacked_ma_secondary,mama_fama,stochrsi_5m,stochmfi,stochmfi_5m)
+del(stock_usd,quick_exit,primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,primary_mesa_sine,primary_trin)
+del(stacked_ma,stacked_ma_secondary,mama_fama,stochrsi_5m,stochmfi,stochmfi_5m)
 del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,vwap,vpt,support_resistance)
 del(rsi_high_limit,rsi_low_limit,rsi_period,stochrsi_period,stochrsi_5m_period,rsi_k_period,rsi_k_5m_period,rsi_d_period,rsi_slow,stochrsi_offset,stochrsi_5m_offset)
 del(mfi_high_limit,mfi_low_limit,mfi_period,stochmfi_period,stochmfi_5m_period,mfi_k_period,mfi_k_5m_period,mfi_d_period,mfi_slow,stochmfi_offset,stochmfi_5m_offset)
@@ -738,6 +836,9 @@ del(use_natr_resistance,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_n
 del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count,bbands_matype,kchan_matype)
 del(use_ha_exit,use_ha_candles,use_trend_exit,use_trend,trend_period,trend_type,use_combined_exit)
 del(check_etf_indicators,check_etf_indicators_strict,etf_tickers,etf_roc_period,etf_min_rs,etf_min_natr)
+del(trin,tick,roc,sp_monitor,trin_roc_type,trin_roc_period,trin_ma_type,trin_ma_period,trin_oversold,trin_overbought,tick_ma_type,tick_ma_pricetype,tick_ma_period)
+del(roc_type,roc_period,roc_ma_type,roc_ma_period,roc_threshold)
+del(sp_monitor_tickers,sp_roc_type,sp_roc_period,sp_ma_period)
 del(options,options_usd,near_expiration)
 
 # Set valid tickers for each algo, if configured
@@ -770,7 +871,7 @@ if ( args.algo_exclude_tickers != None ):
 			algo_id, tickers = algo.split(':')
 
 		except Exception as e:
-			print('Caught exception: error setting algo_exclude_tickers (' + str(algo) + '), exiting.', file=sys.stderr)
+			print('Caught exception: error setting algo_exclude_tickers (' + str(algo) + '), ' + str(e), file=sys.stderr)
 			sys.exit(1)
 
 		exclude_ids = [ a['algo_id'] for a in algos ]
@@ -788,6 +889,45 @@ if ( args.algo_exclude_tickers != None ):
 # etf_tickers should go in the front of args.stocks to ensure these stocks are not truncated
 if ( args.check_etf_indicators == True ):
 	args.stocks = str(args.etf_tickers) + ',' + str(args.stocks)
+
+# Process sp_monitor, trin and tick indicators to add the appropriate ticker name to stocks[ticker] array.
+sp_tickers = []
+for algo in range( len(algos) ):
+
+	# SP_Monitor
+	# Format is "ticker1:pct1,ticker2:pct2,..."
+	# Populate sp_tickers[] to use later, and turn algos[algo]['sp_monitor_tickers'] into an array containing a dict with
+	#  the tickername and percent weighting of each ticker:
+	#
+	#	algos[algo]['sp_monitor_tickers'] = [ { 'sp_t': tickername, 'sp_pct': percent_weight }, ... ]
+	#
+	if ( algos[algo]['sp_monitor_tickers'] != None ):
+		sp_monitor_tickers = algos[algo]['sp_monitor_tickers'].split(',')
+		if ( len(sp_monitor_tickers) != 0 ):
+			algos[algo]['sp_monitor_tickers'] = []
+			for sp_ticker in sp_monitor_tickers:
+				try:
+					sp_t	= sp_ticker.split(':')[0]
+					sp_pct	= float( sp_ticker.split(':')[1] ) / 100
+
+				except Exception as e:
+					print('Caught exception: error parsing sp_ticker (' + str(sp_ticker) + '), ' + str(e), file=sys.stderr)
+					sys.exit(1)
+
+				sp_tickers.append( sp_t )
+				algos[algo]['sp_monitor_tickers'].append( { 'sp_t': sp_t, 'sp_pct': sp_pct } )
+
+	# TRIN
+	if ( algos[algo]['primary_trin'] == True or algos[algo]['trin'] == True ):
+		args.stocks = '$TRIN,' + str(args.stocks)
+
+	# TICK
+	if ( algos[algo]['tick'] == True ):
+		args.stocks = '$TICK,' + str(args.stocks)
+
+if ( len(sp_tickers) > 0 ):
+	args.stocks = ','.join(sp_tickers) + ',' + str(args.stocks)
+
 
 # Initialize stocks{}
 stock_list = args.stocks.split(',')
@@ -941,6 +1081,18 @@ for ticker in stock_list.split(','):
 				   'cur_kchannel':		float(-1),
 				   'prev_kchannel':		float(-1),
 
+				   # $TRIN, $TICK and ROC
+				   'cur_trin':			0,
+				   'prev_trin':			0,
+				   'cur_tick':			0,
+				   'prev_tick':			0,
+				   'cur_roc_ma':		0,
+				   'prev_roc_ma':		0,
+
+				   # SP Monitor
+				   'cur_sp_monitor':		0,
+				   'prev_sp_monitor':		0,
+
 				   # VWAP
 				   'cur_vwap':			float(-1),
 				   'cur_vwap_up':		float(-1),
@@ -1080,6 +1232,12 @@ for ticker in stock_list.split(','):
 						'bbands_kchan_xover_counter':		0,
 						'bbands_roc_counter':			0,
 
+						'trin_init_signal':			False,
+						'trin_signal':				False,
+						'tick_signal':				False,
+						'roc_signal':				False,
+						'sp_monitor_signal':			False,
+
 						# Relative Strength
 						'rs_signal':				False,
 
@@ -1109,6 +1267,22 @@ if ( args.check_etf_indicators == True ):
 		if ( args.etf_tickers_allowtrade != None and ticker in args.etf_tickers_allowtrade ):
 			stocks[ticker]['tradeable'] = True
 
+# Ensure sp_monitor tickers are not tradeable
+if ( len(sp_tickers) != 0 ):
+	for ticker in sp_tickers:
+		if ( ticker not in stocks ):
+			print('Error: sp_tickers is not empty, however ticker "' + str(ticker) + '" does not appear to be configured in global stocks{} dictionary, exiting.')
+			sys.exit(1)
+
+		stocks[ticker]['tradeable'] = False
+
+# $TRIN and $TICK are not tradeable
+if ( '$TRIN' in stocks ):
+	stocks['$TRIN']['isvalid']	= True
+	stocks['$TRIN']['tradeable']	= False
+if ( '$TICK' in stocks ):
+	stocks['$TICK']['isvalid']	= True
+	stocks['$TICK']['tradeable']	= False
 
 # Get stock_data info about the stock that we can use later (i.e. shortable)
 try:
@@ -1445,6 +1619,7 @@ for ticker in list(stocks.keys()):
 		wkly_f_type = 'weekly'
 		wkly_freq = '1'
 
+		print('(' + str(ticker) + '): Using TDA API for weekly pricehistory...')
 		while ( stocks[ticker]['pricehistory_weekly'] == {} ):
 			stocks[ticker]['pricehistory_weekly'], ep = tda_gobot_helper.get_pricehistory(ticker, wkly_p_type, wkly_f_type, wkly_freq, wkly_period, needExtendedHoursData=False)
 
@@ -1692,14 +1867,14 @@ while True:
 		continue
 
 	# Call read_stream():stream_client.handle_message() to read from the stream continuously
-	try:
-		asyncio.run(read_stream())
+#	try:
+	asyncio.run(read_stream())
 
-	except KeyboardInterrupt:
-		sys.exit(0)
+#	except KeyboardInterrupt:
+#		sys.exit(0)
 
-	except Exception as e:
-		print('Exception caught: read_stream(): ' + str(e) + ': retrying...')
+#	except Exception as e:
+#		print('Exception caught: read_stream(): ' + str(e) + ': retrying...')
 
 
 sys.exit(0)

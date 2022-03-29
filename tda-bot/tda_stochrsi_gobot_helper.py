@@ -2,6 +2,7 @@
 
 import os, sys, signal
 import time, datetime, pytz, random
+from collections import OrderedDict
 import pickle
 import numpy as np
 
@@ -498,6 +499,12 @@ def reset_signals(ticker=None, id=None, signal_mode=None, exclude_bbands_kchan=F
 			stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_signal_counter']		= 0
 			stocks[ticker]['algo_signals'][algo_id]['bbands_kchan_xover_counter']		= 0
 			stocks[ticker]['algo_signals'][algo_id]['bbands_roc_counter']			= 0
+
+		stocks[ticker]['algo_signals'][algo_id]['trin_init_signal']		= False
+		stocks[ticker]['algo_signals'][algo_id]['trin_signal']			= False
+		stocks[ticker]['algo_signals'][algo_id]['tick_signal']			= False
+		stocks[ticker]['algo_signals'][algo_id]['roc_signal']			= False
+		stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal']		= False
 
 		stocks[ticker]['algo_signals'][algo_id]['plus_di_crossover']		= False
 		stocks[ticker]['algo_signals'][algo_id]['minus_di_crossover']		= False
@@ -1209,6 +1216,179 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			stocks[ticker]['cur_s_ma_primary']	= roc_stacked_ma[-1]
 			stocks[ticker]['prev_s_ma_primary']	= roc_stacked_ma[-2]
 
+	# $TRIN
+	if ( cur_algo['primary_trin'] == True or cur_algo['trin'] == True ):
+		trin_roc	= []
+		trin_roc_ma	= []
+		temp_ph		= { 'candles': [] }
+
+		stocks['$TRIN']['isvalid']	= True
+		stocks['$TRIN']['tradeable']	= False
+
+		# First, calculate the rate-of-change for $TRIN
+		try:
+			trin_roc = tda_algo_helper.get_roc( stocks['$TRIN']['pricehistory'], period=cur_algo['trin_roc_period'], type=cur_algo['trin_roc_type'], calc_percentage=True )
+
+		except Exception as e:
+			print('Error: stochrsi_gobot(): get_roc($TRIN): ' + str(e))
+			trin_roc_ma = [0 ,0]
+
+		if ( isinstance(trin_roc, bool) and trin_roc == False ):
+			print('Error: stochrsi_gobot(): get_roc($TRIN) returned False')
+			trin_roc_ma = [0, 0]
+
+		# Next, calculate a moving average of trin_roc_ma to smooth trin_roc
+		for i in range( len(trin_roc) ):
+			temp_ph['candles'].append({ 'open': trin_roc[i], 'high': trin_roc[i], 'low': trin_roc[i], 'close': trin_roc[i] })
+
+		try:
+			trin_roc_ma = tda_algo_helper.get_alt_ma(pricehistory=temp_ph, ma_type=cur_algo['trin_ma_type'], type='close', period=cur_algo['trin_ma_period'])
+
+		except Exception as e:
+			print('Error: stochrsi_gobot(): get_alt_ma(trin_roc): ' + str(e))
+			trin_roc_ma = [0 ,0]
+
+		if ( isinstance(trin_roc_ma, bool) and trin_roc_ma == False ):
+			print('Error: stochrsi_gobot(): get_alt_ma($TRIN) returned False')
+			trin_roc_ma = [0, 0]
+
+		for ticker in stocks.keys():
+			stocks[ticker]['cur_trin']	= trin_roc_ma[-1]
+			stocks[ticker]['prev_trin']	= trin_roc_ma[-2]
+
+	# $TICK
+	if ( cur_algo['tick'] == True ):
+		stocks['$TICK']['isvalid']	= True
+		stocks['$TICK']['tradeable']	= False
+
+		# Calculate a moving average of tick to smooth
+		tick_ma	= []
+		try:
+			tick_ma = tda_algo_helper.get_alt_ma(pricehistory=stocks['$TICK']['pricehistory'], ma_type=cur_algo['tick_ma_type'], type=cur_algo['tick_ma_pricetype'], period=cur_algo['tick_ma_period'])
+
+		except Exception as e:
+			print('Error: stochrsi_gobot(): get_alt_ma(tick_ma): ' + str(e))
+			tick_ma = [0, 0]
+
+		if ( isinstance(tick_ma, bool) and tick_ma == False ):
+			print('Error: stochrsi_gobot(): get_alt_ma($TICK) returned False')
+			tick_ma = [0, 0]
+
+		for ticker in stocks.keys():
+			stocks[ticker]['cur_tick']      = tick_ma[-1]
+			stocks[ticker]['prev_tick']     = tick_ma[-2]
+
+	# SP_Monitor
+	# This algorithm measures the price action of the more highly represented stocks in an ETF to help gauge strength and trend.
+	# It uses the *weighted* average of the *weighted* rate-of-change for each ticker in sp_monitor_tickers, and then calculates
+	#  the EMA for the final rate-of-change values.
+	#
+	# Formula is as follows:
+	#  - Calculate the 1-period rate-of-change for each candle of each stock ticker in sp_monitor_tickers,
+	#    but weight each RoC value based on the % representation in the target ETF:
+	#
+	#	roc_stock1 = ((stock1_cur_cndl - stock1_prev_cndl) / stock1_prev_cndl) * stock1_pct
+	#
+	# - Add all the RoCs together for each stock ticker, and then divide that by the sum of
+	#   the previous candle for each ticker, divided by the % representation in the target ETF:
+	#
+	#	total_roc = (roc_stock1 + roc_stock2 .... ) \
+	#			( (stock1_prev_cndl * stock1_pct) + (stock1_prev_cndl * stock2_pct) + ... )
+	#
+	# - Next, take the EMA ofr the total_roc
+	#
+	#	ema(total_roc, N)
+	#
+	if ( cur_algo['sp_monitor'] == True ):
+
+		# First collect all the datetime values for all candles in sp_monitor tickers
+		sp_mon_dt = OrderedDict()
+		for idx in range( len(cur_algo['sp_monitor_tickers']) ):
+			try:
+				sp_t	= cur_algo['sp_monitor_tickers'][idx]['sp_t']
+				sp_pct	= cur_algo['sp_monitor_tickers'][idx]['sp_pct']
+
+			except Exception as e:
+				print('Warning, invalid sp_monitor ticker format: ' + str(cur_algo['sp_monitor_tickers'][idx]) + ', ' + str(e))
+				continue
+
+			stocks[sp_t]['isvalid'] = True
+
+			for i in range( len(stocks[sp_t]['pricehistory']['candles']) ):
+				dt = stocks[sp_t]['pricehistory']['candles'][i]['datetime']
+				sp_mon_dt[dt] = { 'total_roc_prelim': 0, 'prev_cndl_sum': 0, 'total_roc': 0 }
+
+		# Calculate ROC and ROC_MA
+		for idx in range( len(cur_algo['sp_monitor_tickers']) ):
+			try:
+				sp_t	= cur_algo['sp_monitor_tickers'][idx]['sp_t']
+				sp_pct	= cur_algo['sp_monitor_tickers'][idx]['sp_pct']
+
+			except Exception as e:
+				print('Warning, invalid sp_monitor ticker format: ' + str(cur_algo['sp_monitor_tickers'][idx]) + ', ' + str(e))
+				continue
+
+			# Get the ROC for each ticker pricehistory, then multiply the latest value by sp_pct and add
+			#  it to total_roc_prelim
+			sp_roc = []
+			try:
+				sp_roc = tda_algo_helper.get_roc( stocks[sp_t]['pricehistory'], period=cur_algo['sp_roc_period'], type=cur_algo['sp_roc_type'], calc_percentage=False )
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(): get_roc(' + str(sp_t) + '): ' + str(e))
+				continue
+
+			for i in range( len(stocks[sp_t]['pricehistory']['candles']) ):
+				dt = stocks[sp_t]['pricehistory']['candles'][i]['datetime']
+
+				# Next, calculate the denominator which is thre previous_candle's HLC3 value, multiply
+				#  it by sp_pct and add it to prev_cndl_sum
+				if ( i == 0 ):
+					prev_cndl_hlc3 = 0
+				else:
+					prev_cndl_hlc3 = ( stocks[sp_t]['pricehistory']['candles'][i-1]['high'] +
+								stocks[sp_t]['pricehistory']['candles'][i-1]['low'] +
+								stocks[sp_t]['pricehistory']['candles'][i-1]['close'] ) / 3
+
+				sp_mon_dt[dt]['total_roc_prelim']	+= ( sp_roc[i] * sp_pct )
+				sp_mon_dt[dt]['prev_cndl_sum']		+= ( prev_cndl_hlc3 * sp_pct )
+
+
+		# At this point datetime keys have been added by various tickers, but since different tickers will have varying
+		#  number of candles, we'll need to sort and re-create roc_total{}.
+		roc_t = OrderedDict()
+		for i in sorted(sp_mon_dt):
+			roc_t[i] = sp_mon_dt[i]
+		sp_mon_dt = roc_t
+
+		total_roc = []
+		for dt in sp_mon_dt.keys():
+			if ( sp_mon_dt[dt]['total_roc_prelim'] == 0 or sp_mon_dt[dt]['prev_cndl_sum'] == 0 ):
+				total_roc.append(0)
+
+			else:
+				# These values are incredibly small - so multiply by 10000000 to make them more readable
+				total_roc.append( (sp_mon_dt[dt]['total_roc_prelim'] / sp_mon_dt[dt]['prev_cndl_sum']) * 10000000 )
+
+		# Now calculate the MA for total_roc
+		temp_ph			= { 'candles': [] }
+		sp_monitor_roc_ma	= []
+		for i in range( len(total_roc) ):
+			temp_ph['candles'].append({ 'close': total_roc[i] })
+			try:
+				sp_monitor_roc_ma = tda_algo_helper.get_alt_ma(pricehistory=temp_ph, ma_type='ema', period=cur_algo['sp_ma_period'], type='close')
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(): sp_monitor: get_alt_ma(total_roc): ' + str(e))
+				sp_monitor_roc_ma = [0, 0]
+
+		# Update cur_sp_monitor and prev_sp_monitor for all tickers
+		for ticker in stocks.keys():
+			stocks[ticker]['cur_sp_monitor']	= sp_monitor_roc_ma[-1]
+			stocks[ticker]['prev_sp_monitor']	= sp_monitor_roc_ma[-2]
+
+		del(total_roc,roc_t,sp_mon_dt,sp_monitor_roc_ma,temp_ph)
+
 
 	##########################################################################################
 	# Iterate through the stock tickers, calculate all the indicators, and make buy/sell decisions
@@ -1630,6 +1810,31 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					print('Error: stochrsi_gobot(' + str(ticker) + '): get_alt_ma(ema,21): ' + str(e))
 					bbands_kchan_ma = []
 
+		# Rate-of-Change (ROC)
+		if ( cur_algo['roc'] == True ):
+			roc = []
+			try:
+				roc = tda_algo_helper.get_roc( stocks[ticker]['pricehistory'], period=cur_algo['roc_period'], type=cur_algo['roc_type'], calc_percentage=True )
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(' + str(ticker) + '): get_roc(): ' + str(e))
+				continue
+
+			# Calculate the moving average to smooth the rate-of-change values
+			tmp_ph = { 'candles': [] }
+			for i in range( len(roc) ):
+				tmp_ph['candles'].append( { 'close': roc[i] } )
+
+			try:
+				roc_ma = tda_algo_helper.get_alt_ma( pricehistory=tmp_ph, period=cur_algo['roc_ma_period'], ma_type=cur_algo['roc_ma_type'], type='close' )
+
+			except Exception as e:
+				print('Error: stochrsi_gobot(' + str(ticker) + '): get_alt_ma(roc_ma): ' + str(e))
+				continue
+
+			stocks[ticker]['cur_roc_ma']	= roc_ma[-1]
+			stocks[ticker]['prev_roc_ma']	= roc_ma[-2]
+
 		# VWAP
 		# Calculate vwap to use as entry or exit algorithm
 		if ( cur_algo['vwap'] == True or cur_algo['support_resistance'] == True ):
@@ -1713,6 +1918,26 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				for idx in range(0, len(stocks[ticker]['cur_s_ma'])):
 					print( str(round(stocks[ticker]['cur_s_ma'][idx], 2)) + ' ', end='' )
 				print()
+
+			# $TRIN
+			if ( cur_algo['primary_trin'] == True or cur_algo['trin'] == True ):
+				print( '(' + str(ticker) + ') Current $TRIN: ' + str(round(stocks[ticker]['cur_trin'], 3)) + ' / ' +
+						'$TRIN Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['trin_signal']) )
+
+			# $TICK
+			if ( cur_algo['tick'] == True ):
+				print( '(' + str(ticker) + ') Current $TICK: ' + str(round(stocks[ticker]['cur_tick'], 3)) + ' / ' +
+						'$TICK Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['tick_signal']) )
+
+			# ROC
+			if ( cur_algo['roc'] == True ):
+				print( '(' + str(ticker) + ') Current ROC_MA: ' + str(round(stocks[ticker]['cur_roc_ma'], 4)) + ' / ' +
+						'ROC Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['roc_signal']) )
+
+			# SP_Monitor
+			if ( cur_algo['sp_monitor'] == True ):
+				print('(' + str(ticker) + ') Current SP_Monitor: ' + str(round(stocks[ticker]['cur_sp_monitor'], 6)) + ' / ' +
+						'SP Monitor Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal']) )
 
 			# MESA Adaptive Moving Average
 			if ( cur_algo['primary_mama_fama'] == True or cur_algo['mama_fama'] == True ):
@@ -1852,6 +2077,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		last_low		= stocks[ticker]['pricehistory']['candles'][-1]['low']
 		last_close		= stocks[ticker]['pricehistory']['candles'][-1]['close']
 
+		last_ha_open		= stocks[ticker]['pricehistory']['hacandles'][-1]['open']
+		last_ha_high		= stocks[ticker]['pricehistory']['hacandles'][-1]['high']
+		last_ha_low		= stocks[ticker]['pricehistory']['hacandles'][-1]['low']
+		last_ha_close		= stocks[ticker]['pricehistory']['hacandles'][-1]['close']
+
 		# StochRSI
 		cur_rsi_k		= stocks[ticker]['cur_rsi_k']
 		prev_rsi_k		= stocks[ticker]['prev_rsi_k']
@@ -1940,6 +2170,18 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		prev_vpt_sma		= stocks[ticker]['prev_vpt_sma']
 
 		cur_roc			= stocks[ticker]['cur_roc']
+
+		cur_trin		= stocks[ticker]['cur_trin']
+		prev_trin		= stocks[ticker]['prev_trin']
+
+		cur_tick		= stocks[ticker]['cur_tick']
+		prev_tick		= stocks[ticker]['prev_tick']
+
+		cur_roc_ma		= stocks[ticker]['cur_roc_ma']
+		prev_roc_ma		= stocks[ticker]['prev_roc_ma']
+
+		cur_sp_monitor		= stocks[ticker]['cur_sp_monitor']
+		prev_sp_monitor		= stocks[ticker]['prev_sp_monitor']
 
 		# Algo modifiers
 		stoch_high_limit	= cur_algo['rsi_high_limit']
@@ -2127,7 +2369,85 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = mesa_sine( sine=m_sine, lead=m_lead, direction='long', strict=cur_algo['mesa_sine_strict'],
 													mesa_sine_signal=stocks[ticker]['algo_signals'][algo_id]['buy_signal'] )
 
+
+			# $TRIN primary indicator
+			#  - Higher values (>= 3) indicate bearish trend
+			#  - Lower values (<= -1) indicate bullish trend
+			#  - A simple algorithm here watches for higher values above 3, which
+			#    indicate that a bearish trend is ongoing but may be approaching oversold
+			#    levels. We then watche for a green candle to form, which will trigger the
+			#    final signal.
+			#  - Alone this is pretty simplistic, but supplimental indicators (roc, tick, etc.)
+			#    can help confirm that a reversal is happening.
+			elif ( cur_algo['primary_trin'] ):
+
+				# Jump to short mode if cur_trin is less than 0
+				if ( cur_trin <= cur_algo['trin_overbought'] and args.short == True and stocks[ticker]['shortable'] == True ):
+					reset_signals(ticker, id=algo_id, signal_mode='short', exclude_bbands_kchan=True)
+					stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] = True
+					continue
+
+				# Trigger trin_init_signal if cur_trin moves above trin_oversold
+				elif ( cur_trin >= cur_algo['trin_oversold'] ):
+					stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] = True
+
+				# Once trin_init_signal is triggered, we can trigger the final trin_signal
+				#  after the first green candle
+				if ( stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] == True ):
+					if ( last_ha_close > last_ha_open ):
+						stocks[ticker]['algo_signals'][algo_id]['trin_signal']	= True
+
+					else:
+						stocks[ticker]['algo_signals'][algo_id]['trin_signal']	= False
+						stocks[ticker]['algo_signals'][algo_id]['buy_signal']	= False
+
+				# Trigger the buy_signal if all the trin signals have tiggered
+				if ( stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] == True and stocks[ticker]['algo_signals'][algo_id]['trin_signal'] == True ):
+					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = True
+
 			## END PRIMARY ALGOS
+
+
+			# TRIN
+			if ( cur_algo['trin'] == True ):
+				if ( cur_trin <= cur_algo['trin_overbought'] ):
+					stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] = False
+
+				# Trigger trin_init_signal if cur_trin moves above trin_oversold
+				elif ( cur_trin >= cur_algo['trin_oversold'] ):
+					stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] = True
+
+				# Once trin_init_signal is triggered, we can trigger the final trin_signal
+				#  after the first green candle
+				if ( stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] == True ):
+					if ( last_ha_close > last_ha_open ):
+						stocks[ticker]['algo_signals'][algo_id]['trin_signal']	= True
+					else:
+						stocks[ticker]['algo_signals'][algo_id]['trin_signal']	= False
+
+			# TICK
+			# Bearish action when indicator is below zero and heading downward
+			# Bullish action when indicator is above zero and heading upward
+			if ( cur_algo['tick'] == True ):
+				if ( cur_tick > prev_tick and cur_tick > 0 ):
+					stocks[ticker]['algo_signals'][algo_id]['tick_signal'] = True
+				else:
+					stocks[ticker]['algo_signals'][algo_id]['tick_signal'] = False
+
+			# Rate-of-Change (ROC) indicator
+			if ( cur_algo['roc'] == True ):
+				#roc_signal = False
+				if ( cur_roc_ma > 0 and cur_roc_ma > prev_roc_ma ):
+					stocks[ticker]['algo_signals'][algo_id]['roc_signal'] = True
+				if ( cur_roc_ma <= cur_algo['roc_threshold'] ):
+					stocks[ticker]['algo_signals'][algo_id]['roc_signal'] = False
+
+			# ETF SP indicator
+			if ( cur_algo['sp_monitor'] == True ):
+				if ( cur_sp_monitor < 0 ):
+					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal'] = False
+				elif ( cur_sp_monitor > 0 and cur_sp_monitor > prev_sp_monitor ):
+					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal'] = True
 
 			# MESA Adaptive Moving Average
 			if ( cur_algo['mama_fama'] == True ):
@@ -2589,6 +2909,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			if ( stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
 
 				stacked_ma_signal		= stocks[ticker]['algo_signals'][algo_id]['stacked_ma_signal']
+				trin_signal			= stocks[ticker]['algo_signals'][algo_id]['trin_signal']
+				tick_signal			= stocks[ticker]['algo_signals'][algo_id]['tick_signal']
+				roc_signal			= stocks[ticker]['algo_signals'][algo_id]['roc_signal']
+				sp_monitor_signal		= stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal']
 				mama_fama_signal		= stocks[ticker]['algo_signals'][algo_id]['mama_fama_signal']
 				stochrsi_5m_signal		= stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_final_signal']
 				stochmfi_signal			= stocks[ticker]['algo_signals'][algo_id]['stochmfi_final_signal']
@@ -2611,6 +2935,18 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				stocks[ticker]['final_buy_signal'] = True
 
 				if ( cur_algo['stacked_ma'] == True and stacked_ma_signal != True ):
+					stocks[ticker]['final_buy_signal'] = False
+
+				if ( cur_algo['trin'] == True and trin_signal != True ):
+					stocks[ticker]['final_buy_signal'] = False
+
+				if ( cur_algo['tick'] == True and tick_signal != True ):
+					stocks[ticker]['final_buy_signal'] = False
+
+				if ( cur_algo['roc'] == True and roc_signal != True ):
+					stocks[ticker]['final_buy_signal'] = False
+
+				if ( cur_algo['sp_monitor'] == True and sp_monitor_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
 				if ( cur_algo['mama_fama'] == True and mama_fama_signal != True ):
@@ -2686,6 +3022,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['options_ticker']	= option_data['ticker']
 					stocks[ticker]['options_qty']		= int( stocks[ticker]['options_usd'] / (option_data['ask'] * 100) )
 
+					print( 'Purchasing ' + str(stocks[ticker]['options_qty']) + ' contracts of ' + str(stocks[ticker]['options_ticker']) + ' (' + str(cur_algo['algo_id'])  + ')' )
 					if ( args.fake == False ):
 						data = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='buy_to_open', fillwait=True, account_number=tda_account_number, debug=debug)
 						if ( isinstance(data, bool) and data == False ):
@@ -2695,11 +3032,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							reset_signals(ticker)
 							continue
 
-						# FIXME: pull the final purchase price from the returned debug data
-						stocks[ticker]['options_orig_base_price']	= float( option_data['ask'] )
-						stocks[ticker]['options_base_price']		= stocks[ticker]['options_orig_base_price']
-						stocks[ticker]['orig_base_price']		= float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
-						options_net_change				= 0
+					# FIXME: pull the final purchase price from the returned debug data
+					stocks[ticker]['options_orig_base_price']	= float( option_data['ask'] )
+					stocks[ticker]['options_base_price']		= stocks[ticker]['options_orig_base_price']
+					stocks[ticker]['orig_base_price']		= float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+					options_net_change				= 0
 
 				# PURCHASE EQUITY
 				else:
@@ -3329,7 +3666,83 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				stocks[ticker]['algo_signals'][algo_id]['short_signal'] = mesa_sine( sine=m_sine, lead=m_lead, direction='short', strict=cur_algo['mesa_sine_strict'],
 													mesa_sine_signal=stocks[ticker]['algo_signals'][algo_id]['short_signal'] )
 
+			# $TRIN primary indicator
+			#  - Higher values (>= 3) indicate bearish trend
+			#  - Lower values (<= -1) indicate bullish trend
+			#  - A simple algorithm here watches for higher values above 3, which
+			#    indicate that a bearish trend is ongoing but may be approaching oversold
+			#    levels. We then watche for a green candle to form, which will trigger the
+			#    final signal.
+			#  - Alone this is pretty simplistic, but supplimental indicators (roc, tick, etc.)
+			#    can help confirm that a reversal is happening.
+			elif ( cur_algo['primary_trin'] ):
+
+				# Jump to long mode if cur_trin is greater than trin_overbought
+				if ( cur_trin >= cur_algo['trin_oversold'] and args.shortonly == False):
+					reset_signals(ticker, id=algo_id, signal_mode='long', exclude_bbands_kchan=True)
+					stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] = True
+					continue
+
+				# Trigger trin_init_signal if cur_trin moves below trin_overbought
+				elif ( cur_trin <= cur_algo['trin_overbought'] ):
+					stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] = True
+
+				# Once trin_init_signal is triggered, we can trigger the final trin_signal
+				#  after the first red candle
+				if ( stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] == True ):
+					if ( last_ha_close < last_ha_open ):
+						stocks[ticker]['algo_signals'][algo_id]['trin_signal']	= True
+
+					else:
+						stocks[ticker]['algo_signals'][algo_id]['trin_signal']	= False
+						stocks[ticker]['algo_signals'][algo_id]['short_signal']	= False
+
+				# Trigger the short_signal if all the trin signals have tiggered
+				if ( stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] == True and stocks[ticker]['algo_signals'][algo_id]['trin_signal'] == True ):
+					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = True
+
 			## END PRIMARY ALGOS
+
+
+			# TRIN
+			if ( cur_algo['trin'] == True ):
+				if ( cur_trin >= cur_algo['trin_oversold'] ):
+					stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] = False
+
+				# Trigger trin_init_signal if cur_trin moves below trin_overbought
+				elif ( cur_trin <= cur_algo['trin_overbought'] ):
+					stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] = True
+
+				# Once trin_init_signal is triggered, we can trigger the final trin_signal
+				#  after the first red candle
+				if ( stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] == True ):
+					if ( last_ha_close < last_ha_open ):
+						stocks[ticker]['algo_signals'][algo_id]['trin_signal']	= True
+					else:
+						stocks[ticker]['algo_signals'][algo_id]['trin_signal']	= False
+
+			# TICK
+			# Bearish action when indicator is below zero and heading downward
+			# Bullish action when indicator is above zero and heading upward
+			if ( cur_algo['tick'] == True ):
+				if ( cur_tick < prev_tick and cur_tick < 0 ):
+					stocks[ticker]['algo_signals'][algo_id]['tick_signal'] = True
+				else:
+					stocks[ticker]['algo_signals'][algo_id]['tick_signal'] = False
+
+			# Rate-of-Change (ROC) indicator
+			if ( cur_algo['roc'] == True ):
+				if ( cur_roc_ma < 0 and cur_roc_ma < prev_roc_ma ):
+					stocks[ticker]['algo_signals'][algo_id]['roc_signal'] = True
+				if ( cur_roc_ma >= -cur_algo['roc_threshold'] ):
+					stocks[ticker]['algo_signals'][algo_id]['roc_signal'] = False
+
+			# ETF SP indicator
+			if ( cur_algo['sp_monitor'] == True ):
+				if ( cur_sp_monitor > 0 ):
+					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal'] = False
+				elif ( cur_sp_monitor < 0 and cur_sp_monitor < prev_sp_monitor ):
+					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal'] = True
 
 			# MESA Adaptive Moving Average
 			if ( cur_algo['mama_fama'] == True ):
@@ -3791,6 +4204,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True ):
 
 				stacked_ma_signal		= stocks[ticker]['algo_signals'][algo_id]['stacked_ma_signal']
+				trin_signal			= stocks[ticker]['algo_signals'][algo_id]['trin_signal']
+				tick_signal			= stocks[ticker]['algo_signals'][algo_id]['tick_signal']
+				roc_signal			= stocks[ticker]['algo_signals'][algo_id]['roc_signal']
+				sp_monitor_signal		= stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal']
 				mama_fama_signal		= stocks[ticker]['algo_signals'][algo_id]['mama_fama_signal']
 				stochrsi_5m_signal		= stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_final_signal']
 				stochmfi_signal			= stocks[ticker]['algo_signals'][algo_id]['stochmfi_final_signal']
@@ -3813,6 +4230,18 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				stocks[ticker]['final_short_signal'] = True
 
 				if ( cur_algo['stacked_ma'] == True and stacked_ma_signal != True ):
+					stocks[ticker]['final_short_signal'] = False
+
+				if ( cur_algo['trin'] == True and trin_signal != True ):
+					stocks[ticker]['final_short_signal'] = False
+
+				if ( cur_algo['tick'] == True and tick_signal != True ):
+					stocks[ticker]['final_short_signal'] = False
+
+				if ( cur_algo['roc'] == True and roc_signal != True ):
+					stocks[ticker]['final_short_signal'] = False
+
+				if ( cur_algo['sp_monitor'] == True and sp_monitor_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
 
 				if ( cur_algo['mama_fama'] == True and mama_fama_signal != True ):
@@ -3888,6 +4317,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['options_ticker']	= option_data['ticker']
 					stocks[ticker]['options_qty']		= int( stocks[ticker]['options_usd'] / (option_data['ask'] * 100) )
 
+					print( 'Purchasing ' + str(stocks[ticker]['options_qty']) + ' contracts of ' + str(stocks[ticker]['options_ticker']) + ' (' + str(cur_algo['algo_id'])  + ')' )
 					if ( args.fake == False ):
 						data = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='buy_to_open', fillwait=True, account_number=tda_account_number, debug=debug)
 						if ( isinstance(data, bool) and data == False ):
@@ -3897,11 +4327,11 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 							reset_signals(ticker)
 							continue
 
-						# FIXME: pull the final purchase price from the returned debug data
-						stocks[ticker]['options_orig_base_price']	= float( option_data['ask'] )
-						stocks[ticker]['options_base_price']		= stocks[ticker]['options_orig_base_price']
-						stocks[ticker]['orig_base_price']		= float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
-						options_net_change				= 0
+					# FIXME: pull the final purchase price from the returned debug data
+					stocks[ticker]['options_orig_base_price']	= float( option_data['ask'] )
+					stocks[ticker]['options_base_price']		= stocks[ticker]['options_orig_base_price']
+					stocks[ticker]['orig_base_price']		= float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+					options_net_change				= 0
 
 				# PURCHASE EQUITY
 				else:

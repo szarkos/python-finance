@@ -205,31 +205,33 @@ def price_trend(candles=None, type='hl2', period=5, affinity=None):
 ## End sub functions
 
 # Find the right option contract to purchase
-if ( args.options == True ):
-	if ( args.option_type == None ):
-		print('Error: --option_type (CALL|PUT) is required, exiting', file=sys.stderr)
-		sys.exit(1)
+def search_options(ticker=None, option_type=None, near_expiration=False, strike_price=None, debug=False):
 
-	args.option_type = args.option_type.upper()
+	if ( ticker == None or option_type == None ):
+		return False
+
+	option_type = option_type.upper()
+	if ( option_type != 'CALL' and option_type != 'PUT' ):
+		return False
 
 	# Search for options that expire either this week or next week
 	dt		= datetime.datetime.now(mytimezone)
 	start_day	= dt
 	end_day		= dt + datetime.timedelta(days=7)
-	if ( int(dt.strftime('%w')) >= 3 and args.near_expiration == False ):
+	if ( int(dt.strftime('%w')) >= 3 and near_expiration == False ):
 		start_day	= dt + datetime.timedelta(days=7)
 		end_day		= dt + datetime.timedelta(days=13)
 
 	range_val	= 'NTM'
 	strike_price	= None
 	strike_count	= 5
-	if ( args.strike_price != None ):
+	if ( strike_price != None ):
 		range_val	= 'ALL'
-		strike_price	= str( int(args.strike_price) )
+		strike_price	= str( int(strike_price) )
 		strike_count	= 999
 
 	try:
-		option_chain = tda_gobot_helper.get_option_chains( ticker=stock, contract_type=args.option_type, strike_count=strike_count, range_value=range_val, strike_price=strike_price,
+		option_chain = tda_gobot_helper.get_option_chains( ticker=stock, contract_type=option_type, strike_count=strike_count, range_value=range_val, strike_price=strike_price,
 									from_date=start_day.strftime('%Y-%m-%d'), to_date=end_day.strftime('%Y-%m-%d') )
 
 	except Exception as e:
@@ -237,24 +239,24 @@ if ( args.options == True ):
 
 	stock		= None
 	ExpDateMap	= 'callExpDateMap'
-	if ( args.option_type == 'PUT' ):
+	if ( option_type == 'PUT' ):
 		ExpDateMap = 'putExpDateMap'
 
 	exp_date = list(option_chain[ExpDateMap].keys())[0]
 
 	# For PUTs, reverse the list to get the optimal strike price
 	iter = option_chain[ExpDateMap][exp_date].keys()
-	if ( args.option_type == 'PUT' ):
+	if ( option_type == 'PUT' ):
 		iter	= reversed(option_chain[ExpDateMap][exp_date].keys())
 
 	for key in iter:
 		try:
 			strike = float( key )
-			if ( args.strike_price != None and strike != args.strike_price ):
+			if ( strike_price != None and strike != strike_price ):
 				continue
 
 		except:
-			print('(' + str(args.stock) + '): error processing option chain: ' + str(key), file=sys.stderr)
+			print('(' + str(ticker) + '): error processing option chain: ' + str(key), file=sys.stderr)
 			continue
 		else:
 			key = option_chain[ExpDateMap][exp_date][key]
@@ -287,13 +289,41 @@ if ( args.options == True ):
 			if ( abs(key['delta']) < 0.70 ):
 				print('Warning: delta is less than 70% (' + str(abs(key['delta'])) + ')')
 
+			if ( float(key['ask']) < 1 ):
+				print('Warning: option price (' + str(key['ask']) + ' is <$1, accidental stoploss via jitter might occur')
+
 			stock = key['symbol']
 
 			break
 
 	if ( stock == None ):
 		print('Unable to locate an available option to trade, exiting.')
+		return False
+
+	return stock, float(key['ask'])
+
+
+# Find the right option to purchase
+if ( args.options == True ):
+	if ( args.option_type == None ):
+		print('Error: --option_type (CALL|PUT) is required, exiting', file=sys.stderr)
 		sys.exit(1)
+
+	stock, option_price = search_options(ticker=stock, option_type=args.option_type, near_expiration=args.near_expiration, strike_price=args.strike_price, debug=False)
+	if ( isinstance(stock, bool) and stock == False ):
+		print('Error: Unable to look up options for stock "' + str(args.stock) + '"', file=sys.stderr)
+		sys.exit(1)
+
+	# If the option is < $1, then the price action may be too jittery. If near_expiration is set to True
+	#  then try to disable to find an option with a later expiration date.
+	if ( option_price < 1 and args.near_expiration == True and args.force == False ):
+		print('Notice: ' + str(option_data['ticker']) + ' price (' + str(option_price) + ') is below $1, setting near_expiration to False (you can use --force to avoid this check)')
+
+		stock, option_price = search_options(ticker=stock, option_type=args.option_type, near_expiration=False, strike_price=args.strike_price, debug=False)
+		if ( isinstance(stock, bool) and stock == False ):
+			print('Error: Unable to look up options for stock "' + str(args.stock) + '"', file=sys.stderr)
+			sys.exit(1)
+
 
 # Loop until the entry price is achieved.
 if ( args.entry_price != None ):
@@ -318,7 +348,7 @@ else:
 # OPTIONS
 if ( args.options == True ):
 
-	quote		= tda_gobot_helper.get_quotes(stock)
+	quote = tda_gobot_helper.get_quotes(stock)
 
 	try:
 		option_price	= quote[stock]['askPrice']

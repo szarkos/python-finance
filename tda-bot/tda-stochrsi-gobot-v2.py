@@ -1658,49 +1658,6 @@ for ticker in list(stocks.keys()):
 		print('(' + str(ticker) + '): Warning: unable to retrieve weekly data to calculate key levels, skipping.')
 		continue
 
-	# Calculate the keylevels
-	kl_long_support_full	= []
-	kl_long_resistance_full	= []
-	try:
-		# Pull the main keylevels, filtered to reduce redundant keylevels
-		stocks[ticker]['kl_long_support'], stocks[ticker]['kl_long_resistance'] = tda_algo_helper.get_keylevels(stocks[ticker]['pricehistory_weekly'], filter=True)
-
-		# Also pull the full keylevels, and include those that have been hit more than once
-		kl_long_support_full, kl_long_resistance_full = tda_algo_helper.get_keylevels(stocks[ticker]['pricehistory_weekly'], filter=False)
-
-		kl = dt = count = 0
-		for kl,dt,count in kl_long_support_full:
-			if ( count > 1 and (kl, dt, count) not in stocks[ticker]['kl_long_support'] ):
-				stocks[ticker]['kl_long_support'].append( (kl, dt, count) )
-
-		for kl,dt,count in kl_long_resistance_full:
-			if ( count > 1 and (kl, dt, count) not in stocks[ticker]['kl_long_resistance'] ):
-				stocks[ticker]['kl_long_resistance'].append( (kl, dt, count) )
-
-		# Populate the keylevels using daily values in case cur_algo['keylevel_use_daily'] is configured
-		kl_long_support_full, kl_long_resistance_full = tda_algo_helper.get_keylevels( stocks[ticker]['pricehistory_daily'], filter=False )
-
-		kl = dt = count = 0
-		for kl,dt,count in kl_long_support_full:
-			if ( count > 1 and (kl, dt, count) not in stocks[ticker]['kl_long_support'] ):
-				stocks[ticker]['kl_long_support_daily'].append( (kl, dt, count) )
-
-		for kl,dt,count in kl_long_resistance_full:
-			if ( count > 1 and (kl, dt, count) not in stocks[ticker]['kl_long_resistance'] ):
-				stocks[ticker]['kl_long_resistance_daily'].append( (kl, dt, count) )
-
-	except Exception as e:
-		print('Exception caught: get_keylevels(' + str(ticker) + '): ' + str(e) + '. Keylevels will not be used.')
-
-	if ( stocks[ticker]['kl_long_support'] == False ):
-		stocks[ticker]['kl_long_support']		= []
-		stocks[ticker]['kl_long_resistance']		= []
-		stocks[ticker]['kl_long_support_daily']		= []
-		stocks[ticker]['kl_long_resistance_daily']	= []
-
-	time.sleep(1)
-	# End Key Levels
-
 	# Use daily_ifile or download daily candle data
 	if ( args.daily_ifile != None ):
 		import pickle
@@ -1744,6 +1701,48 @@ for ticker in list(stocks.keys()):
 		print('(' + str(ticker) + '): Warning: unable to retrieve daily data, skipping.')
 		stocks[ticker]['pricehistory_daily'] = {}
 		continue
+
+	# Calculate the keylevels
+	kl_long_support_full	= []
+	kl_long_resistance_full	= []
+	try:
+		# Pull the main keylevels, filtered to reduce redundant keylevels
+		stocks[ticker]['kl_long_support'], stocks[ticker]['kl_long_resistance'] = tda_algo_helper.get_keylevels(stocks[ticker]['pricehistory_weekly'], filter=True)
+
+		# Also pull the full keylevels, and include those that have been hit more than once
+		kl_long_support_full, kl_long_resistance_full = tda_algo_helper.get_keylevels(stocks[ticker]['pricehistory_weekly'], filter=False)
+
+		kl = dt = count = 0
+		for kl,dt,count in kl_long_support_full:
+			if ( count > 1 and (kl, dt, count) not in stocks[ticker]['kl_long_support'] ):
+				stocks[ticker]['kl_long_support'].append( (kl, dt, count) )
+
+		for kl,dt,count in kl_long_resistance_full:
+			if ( count > 1 and (kl, dt, count) not in stocks[ticker]['kl_long_resistance'] ):
+				stocks[ticker]['kl_long_resistance'].append( (kl, dt, count) )
+
+		# Populate the keylevels using daily values in case cur_algo['keylevel_use_daily'] is configured
+		kl_long_support_full, kl_long_resistance_full = tda_algo_helper.get_keylevels( stocks[ticker]['pricehistory_daily'], filter=False )
+
+		kl = dt = count = 0
+		for kl,dt,count in kl_long_support_full:
+			if ( count > 1 and (kl, dt, count) not in stocks[ticker]['kl_long_support'] ):
+				stocks[ticker]['kl_long_support_daily'].append( (kl, dt, count) )
+
+		for kl,dt,count in kl_long_resistance_full:
+			if ( count > 1 and (kl, dt, count) not in stocks[ticker]['kl_long_resistance'] ):
+				stocks[ticker]['kl_long_resistance_daily'].append( (kl, dt, count) )
+
+	except Exception as e:
+		print('Exception caught: get_keylevels(' + str(ticker) + '): ' + str(e) + '. Keylevels will not be used.')
+
+	if ( stocks[ticker]['kl_long_support'] == False ):
+		stocks[ticker]['kl_long_support']		= []
+		stocks[ticker]['kl_long_resistance']		= []
+		stocks[ticker]['kl_long_support_daily']		= []
+		stocks[ticker]['kl_long_resistance_daily']	= []
+
+	# End Key Levels
 
 	# Today's open + previous day high/low/close (PDH/PDL/PDC)
 	cur_day_start = time_now.strftime('%Y-%m-%d')

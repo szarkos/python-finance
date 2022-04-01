@@ -39,8 +39,9 @@ parser.add_argument("--unsafe", help='Allow trading between 9:30-10:15AM where v
 parser.add_argument("--hold_overnight", help='Allow algorithm to hold stocks across multiple days', action="store_true")
 
 parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (Default: False)', action="store_true")
+parser.add_argument("--use_keylevel", help='Use key level checks to enter trades (Default: True if --no_use_resistance=False)', action="store_true")
 parser.add_argument("--keylevel_strict", help='Use strict key level checks to enter trades (Default: False)', action="store_true")
-parser.add_argument("--keylevel_use_daily", help='Use daily candles to determine key levels instead of weekly (Default: False)', action="store_true")
+parser.add_argument("--keylevel_use_daily", help='Use daily candles as well as weeklies to determine key levels (Default: False)', action="store_true")
 parser.add_argument("--price_resistance_pct", help='Resistance indicators will come into effect if price is within this percentage of a known support/resistance line', default=1, type=float)
 parser.add_argument("--price_support_pct", help='Support indicators will come into effect if price is within this percentage of a known support/resistance line', default=1, type=float)
 parser.add_argument("--use_natr_resistance", help='Enable the daily NATR resistance check', action="store_true")
@@ -69,14 +70,14 @@ parser.add_argument("--trin_overbought", help='Overbought threshold for $TRIN al
 
 parser.add_argument("--with_tick", help='Use $TICK indicator', action="store_true")
 parser.add_argument("--tick_ma_type", help='MA type to use with $TICK algorithm (Default: ema)', default='ema', type=str)
-parser.add_argument("--tick_ma_pricetype", help='Rate of change candles type to use with $TICK algorithm (Default: ohlc4)', default='ohlc4', type=str)
+parser.add_argument("--tick_ma_pricetype", help='Rate of change candles type to use with $TICK algorithm (Default: hlc3)', default='hlc3', type=str)
 parser.add_argument("--tick_ma_period", help='Period to use with ROC algorithm (Default: 4)', default=4, type=int)
 
 parser.add_argument("--with_roc", help='Use Rate-of-Change (ROC) indicator', action="store_true")
 parser.add_argument("--roc_type", help='Rate of change candles type to use (Default: hlc3)', default='hlc3', type=str)
 parser.add_argument("--roc_period", help='Period to use with ROC algorithm (Default: 14)', default=14, type=int)
 parser.add_argument("--roc_ma_type", help='MA period to use with ROC algorithm (Default: ema)', default='ema', type=str)
-parser.add_argument("--roc_ma_period", help='MA period to use with ROC algorithm (Default: 5)', default=5, type=int)
+parser.add_argument("--roc_ma_period", help='MA period to use with ROC algorithm (Default: 4)', default=4, type=int)
 parser.add_argument("--roc_threshold", help='Threshold to cancel the ROC algorithm (Default: 0.15)', default=0.15, type=float)
 
 parser.add_argument("--with_sp_monitor", help='When trading an ETF like SPY, monitor a set of stocks with weighting to help determine how the ETF will move', action="store_true")
@@ -84,6 +85,11 @@ parser.add_argument("--sp_monitor_tickers", help='List of tickers and their weig
 parser.add_argument("--sp_roc_type", help='Rate of change candles type to use with sp_monitor (Default: hlc3)', default='hlc3', type=str)
 parser.add_argument("--sp_roc_period", help='Period to use with ROC algorithm for sp_monitor (Default: 1)', default=1, type=int)
 parser.add_argument("--sp_ma_period", help='Moving average period to use with the RoC values for sp_monitor (Default: 5)', default=5, type=int)
+
+parser.add_argument("--with_vix", help='Use the VIX volatility index ticker as an indicator', action="store_true")
+parser.add_argument("--vix_stacked_ma_periods", help='Moving average periods to use when calculating VIX stacked MA (Default: 5,8,13)', default='5,8,13', type=str)
+parser.add_argument("--vix_stacked_ma_type", help='Moving average type to use when calculating VIX stacked MA (Default: ema)', default='ema', type=str)
+parser.add_argument("--vix_use_ha_candles", help='Use Heikin Ashi candles when calculating the stacked MA', action="store_true")
 
 parser.add_argument("--emd_affinity_long", help='Require EMD affinity to allow long trade (Default: None)', default=None, type=int)
 parser.add_argument("--emd_affinity_short", help='Require EMD affinity to allow short trade (Default: None)', default=None, type=int)
@@ -537,7 +543,7 @@ for algo in args.algo.split(','):
 				etf_indicators[t]['pricehistory']	= tda_gobot_helper.translate_heikin_ashi( pricehistory=etf_indicators[t]['pricehistory'] )
 
 		else:
-			days = 5
+			days = 9
 			time_now = datetime.datetime.now( mytimezone )
 			time_prev = time_now - datetime.timedelta( days=days )
 
@@ -577,10 +583,7 @@ for algo in args.algo.split(','):
 				}
 	}
 
-	if ( args.primary_stoch_indicator == 'trin' ):
-		args.with_trin = True
-
-	if ( args.with_trin == True or args.with_tick == True ):
+	if ( args.with_trin == True or args.primary_stoch_indicator == 'trin' or args.with_tick == True ):
 		if ( args.ifile != None ):
 			trin_data	= None
 			tick_data	= None
@@ -610,7 +613,7 @@ for algo in args.algo.split(','):
 			trin_tick['tick']['pricehistory_5m']	= tda_gobot_helper.translate_1m( pricehistory=trin_tick['tick']['pricehistory'], candle_type=5 )
 
 		else:
-			days = 5
+			days = 9
 			time_now = datetime.datetime.now( mytimezone )
 			time_prev = time_now - datetime.timedelta( days=days )
 
@@ -679,7 +682,7 @@ for algo in args.algo.split(','):
 				sp_monitor[sp_t]['pricehistory_5m']	= tda_gobot_helper.translate_1m( pricehistory=sp_monitor[sp_t]['pricehistory'], candle_type=5 )
 
 			else:
-				days = 5
+				days = 9
 				time_now = datetime.datetime.now( mytimezone )
 				time_prev = time_now - datetime.timedelta( days=days )
 
@@ -707,6 +710,59 @@ for algo in args.algo.split(','):
 				sp_monitor[sp_t]['pricehistory']	= sp_data
 				sp_monitor[sp_t]['pricehistory_5m']	= tda_gobot_helper.translate_1m(pricehistory=sp_monitor[sp_t]['pricehistory'], candle_type=5)
 
+	# VIX - volatility index
+	vix = {	'pricehistory':	{},
+		'ma':		OrderedDict(),
+	}
+	if ( args.with_vix == True ):
+		if ( args.ifile != None ):
+			vix_data	= None
+
+			stock_path	= re.sub('\/[a-zA-Z0-9\.\-_]*$', '', args.ifile)
+			ifile		= re.sub('^.*\/' + str(stock), '', args.ifile)
+			vix_ifile	= stock_path + '/VXX' + ifile
+
+			try:
+				with open(vix_ifile, 'rb') as handle:
+					vix_data = handle.read()
+					vix_data = pickle.loads(vix_data)
+
+			except Exception as e:
+				print('Error opening file: ' + str(e))
+				sys.exit(1)
+
+			vix['pricehistory'] = vix_data
+			vix['pricehistory'] = tda_gobot_helper.translate_heikin_ashi(pricehistory=vix['pricehistory'])
+
+		else:
+			days = 9
+			time_now = datetime.datetime.now( mytimezone )
+			time_prev = time_now - datetime.timedelta( days=days )
+
+			# Make sure start and end dates don't land on a weekend
+			#  or outside market hours
+			time_prev = tda_gobot_helper.fix_timestamp(time_prev)
+			if ( int(time_now.strftime('%w')) == 0 or int(time_now.strftime('%w')) == 6 ): # 0=Sunday, 6=Saturday
+				time_now = tda_gobot_helper.fix_timestamp(time_now)
+
+			time_now_epoch = int( time_now.timestamp() * 1000 )
+			time_prev_epoch = int( time_prev.timestamp() * 1000 )
+
+			vix_data = []
+			try:
+#				vix_data, epochs = tda_gobot_helper.get_pricehistory('$VIX.X', p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=False)
+				vix_data, epochs = tda_gobot_helper.get_pricehistory('VXX', p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=False)
+
+			except Exception as e:
+				print('Caught Exception: get_pricehistory(' + str(time_prev_epoch) + ', ' + str(time_now_epoch) + '): ' + str(e))
+				continue
+
+			if ( isinstance(vix_data, bool) and vix_data == False ):
+				print('Error: get_pricehistory($VIX.X) returned False, exiting')
+				sys.exit(1)
+
+			vix['pricehistory'] = vix_data
+			vix['pricehistory'] = tda_gobot_helper.translate_heikin_ashi(pricehistory=vix['pricehistory'])
 
 	# Print results for the most recent 10 and 5 days of data
 	for days in str(args.days).split(','):
@@ -746,7 +802,7 @@ for algo in args.algo.split(','):
 		# Specifying days=-1 will get you the most recent info we can from the API
 		# But we still need to ask for a few days in order to force it to give us at least two days of data
 		else:
-			days = 5
+			days = 9
 			time_now = datetime.datetime.now( mytimezone )
 			time_prev = time_now - datetime.timedelta( days=days )
 
@@ -988,6 +1044,7 @@ for algo in args.algo.split(','):
 					'price_resistance_pct':			args.price_resistance_pct,
 					'price_support_pct':			args.price_support_pct,
 					'lod_hod_check':			args.lod_hod_check,
+					'use_keylevel':				args.use_keylevel,
 					'keylevel_strict':			args.keylevel_strict,
 					'keylevel_use_daily':			args.keylevel_use_daily,
 					'use_natr_resistance':			args.use_natr_resistance,
@@ -1034,6 +1091,12 @@ for algo in args.algo.split(','):
 					'sp_ma_period':				args.sp_ma_period,
 					'sp_monitor_tickers':			sp_monitor_tickers,
 					'sp_monitor':				sp_monitor,
+
+					'with_vix':				args.with_vix,
+					'vix_stacked_ma_periods':		args.vix_stacked_ma_periods,
+					'vix_stacked_ma_type':			args.vix_stacked_ma_type,
+					'vix_use_ha_candles':			args.vix_use_ha_candles,
+					'vix':					vix,
 
 					'emd_affinity_long':			args.emd_affinity_long,
 					'emd_affinity_short':			args.emd_affinity_short,

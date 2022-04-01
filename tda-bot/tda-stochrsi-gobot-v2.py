@@ -191,9 +191,14 @@ parser.add_argument("--sp_ma_period", help='Moving average period to use with th
 parser.add_argument("--daily_ifile", help='Use pickle file for daily pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--weekly_ifile", help='Use pickle file for weekly pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (default=False)', action="store_true")
+parser.add_argument("--use_keylevel", help='Use keylevel resistance to avoid possibly bad trades (default=False, True if --no_use_resistance is False)', action="store_true")
+parser.add_argument("--keylevel_use_daily", help='Use daily candles as well as weeklies to determine key levels (Default: False)', action="store_true")
 parser.add_argument("--keylevel_strict", help='Use strict key level checks to enter trades (Default: False)', action="store_true")
 parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
 parser.add_argument("--use_natr_resistance", help='Enable daily NATR level resistance checks', action="store_true")
+parser.add_argument("--price_resistance_pct", help='Percentage threshold from resistance or keylevel to trigger signal (Default: 1)', default=1, type=float)
+parser.add_argument("--price_support_pct", help='Percentage threshold from resistance or keylevel to trigger signal (Default: 1)', default=1, type=float)
+
 parser.add_argument("--min_intra_natr", help='Minimum intraday NATR value to allow trade entry (Default: None)', default=None, type=float)
 parser.add_argument("--max_intra_natr", help='Maximum intraday NATR value to allow trade entry (Default: None)', default=None, type=float)
 parser.add_argument("--min_daily_natr", help='Do not process tickers with less than this daily NATR value (Default: None)', default=None, type=float)
@@ -308,7 +313,7 @@ for algo in args.algos:
 	stacked_ma = stacked_ma_secondary = mama_fama = stochrsi_5m = stochmfi = stochmfi_5m = False
 	rsi = mfi = adx = dmi = dmi_simple = macd = macd_simple = aroonosc = False
 	chop_index = chop_simple = supertrend = bbands_kchannel = False
-	vwap = vpt = support_resistance = False
+	vwap = vpt = support_resistance = use_keylevel = False
 	trin = tick = roc = sp_monitor = False
 
 	# Per-algo entry limit
@@ -439,6 +444,11 @@ for algo in args.algos:
 	supertrend_min_natr		= args.supertrend_min_natr
 
 	use_natr_resistance		= args.use_natr_resistance
+	keylevel_use_daily		= args.keylevel_use_daily
+	keylevel_strict			= args.keylevel_strict
+	price_resistance_pct		= args.price_resistance_pct
+	price_support_pct		= args.price_support_pct
+
 	min_intra_natr			= args.min_intra_natr
 	max_intra_natr			= args.max_intra_natr
 	min_daily_natr			= args.min_daily_natr
@@ -482,6 +492,7 @@ for algo in args.algos:
 		if ( a == 'vwap' ):			vwap			= True
 		if ( a == 'vpt' ):			vpt			= True
 		if ( a == 'support_resistance' ):	support_resistance	= True
+		if ( a == 'use_keylevel' ):		use_keylevel		= True
 
 		# Entry limit
 		if ( re.match('stock_usd:', a)				!= None ):	stock_usd			= float( a.split(':')[1] )
@@ -605,7 +616,12 @@ for algo in args.algos:
 		if ( re.match('sp_roc_period:', a)			!= None ):	sp_roc_period			= int( a.split(':')[1] )
 		if ( re.match('sp_ma_period:', a)			!= None ):	sp_ma_period			= int( a.split(':')[1] )
 
-		if ( re.match('use_natr_resistance:', a)		!= None ):	use_natr_resistance		= float( a.split(':')[1] )
+		if ( re.match('use_natr_resistance', a)			!= None ):	use_natr_resistance		= True
+		if ( re.match('keylevel_use_daily', a)			!= None ):	keylevel_use_daily		= True
+		if ( re.match('keylevel_strict', a)			!= None ):	keylevel_strict			= True
+		if ( re.match('price_support_pct', a)			!= None ):	price_support_pct		= True
+		if ( re.match('price_resistance_pct', a)		!= None ):	price_resistance_pct		= True
+
 		if ( re.match('min_intra_natr:', a)			!= None ):	min_intra_natr			= float( a.split(':')[1] )
 		if ( re.match('max_intra_natr:', a)			!= None ):	max_intra_natr			= float( a.split(':')[1] )
 		if ( re.match('min_daily_natr:', a)			!= None ):	min_daily_natr			= float( a.split(':')[1] )
@@ -633,16 +649,15 @@ for algo in args.algos:
 	# sp_monitor_tickers are dot '.' delimited
 	if ( sp_monitor_tickers != args.sp_monitor_tickers ):				sp_monitor_tickers		= re.sub( '\+', ',', sp_monitor_tickers )
 
+	# support_resistance==True implies that use_keylevel==True
+	if ( support_resistance == True):
+		use_keylevel = True
+
 	# DMI/MACD overrides the simple variant of the algorithm
 	if ( dmi == True and dmi_simple == True ):
 		dmi_simple = False
 	if ( macd == True and macd_simple == True ):
 		macd_simple = False
-
-	if ( str(use_natr_resistance).lower() == 'true' ):
-		use_natr_resistance = True
-	else:
-		use_natr_resistance = False
 
 	# Aroon Oscillator with MACD
 	# aroonosc_with_macd_simple implies that if aroonosc is enabled, then macd_simple will be
@@ -653,6 +668,7 @@ for algo in args.algos:
 			macd = False
 			macd_simple = False
 
+	# Populate the algo{} dict with all the options parsed above
 	algo_list = {   'algo_id':				algo_id,
 
 			'stock_usd':				stock_usd,
@@ -694,6 +710,7 @@ for algo in args.algos:
 			'vwap':					vwap,
 			'vpt':					vpt,
 			'support_resistance':			support_resistance,
+			'use_keylevel':				use_keylevel,
 
 			# Algo modifiers
 			'rsi_high_limit':			rsi_high_limit,
@@ -810,6 +827,11 @@ for algo in args.algos:
 			'sp_ma_period':				sp_ma_period,
 
 			'use_natr_resistance':			use_natr_resistance,
+			'keylevel_use_daily':			keylevel_use_daily,
+			'keylevel_strict':			keylevel_strict,
+			'price_resistance_pct':			price_resistance_pct,
+			'price_support_pct':			price_support_pct,
+
 			'min_intra_natr':			min_intra_natr,
 			'max_intra_natr':			max_intra_natr,
 			'min_daily_natr':			min_daily_natr,
@@ -824,7 +846,7 @@ for algo in args.algos:
 # All the stuff above should be put into a function to avoid this cleanup stuff. I know it. It'll happen eventually.
 del(stock_usd,quick_exit,primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,primary_mesa_sine,primary_trin)
 del(stacked_ma,stacked_ma_secondary,mama_fama,stochrsi_5m,stochmfi,stochmfi_5m)
-del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,vwap,vpt,support_resistance)
+del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,vwap,vpt,support_resistance,use_keylevel)
 del(rsi_high_limit,rsi_low_limit,rsi_period,stochrsi_period,stochrsi_5m_period,rsi_k_period,rsi_k_5m_period,rsi_d_period,rsi_slow,stochrsi_offset,stochrsi_5m_offset)
 del(mfi_high_limit,mfi_low_limit,mfi_period,stochmfi_period,stochmfi_5m_period,mfi_k_period,mfi_k_5m_period,mfi_d_period,mfi_slow,stochmfi_offset,stochmfi_5m_offset)
 del(adx_threshold,adx_period,macd_long_period,macd_short_period,macd_signal_period,macd_offset,aroonosc_period,di_period,atr_period,vpt_sma_period)
@@ -832,7 +854,7 @@ del(chop_period,chop_low_limit,chop_high_limit,supertrend_atr_period,supertrend_
 del(bbands_kchannel_offset,bbands_kchan_squeeze_count,bbands_period,kchannel_period,kchannel_atr_period,max_squeeze_natr,bbands_roc_threshold,bbands_roc_count,bbands_roc_strict)
 del(bbands_kchan_ma_check,bbands_kchan_ma_type,bbands_kchan_ma_ptype,bbands_kchan_ma_period)
 del(stacked_ma_type_primary,stacked_ma_periods_primary,stacked_ma_type,stacked_ma_periods,stacked_ma_type_secondary,stacked_ma_periods_secondary,mesa_sine_period,mesa_sine_type,mesa_sine_strict)
-del(use_natr_resistance,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr)
+del(use_natr_resistance,keylevel_use_daily,keylevel_strict,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr,price_resistance_pct,price_support_pct)
 del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count,bbands_matype,kchan_matype)
 del(use_ha_exit,use_ha_candles,use_trend_exit,use_trend,trend_period,trend_type,use_combined_exit)
 del(check_etf_indicators,check_etf_indicators_strict,etf_tickers,etf_roc_period,etf_min_rs,etf_min_natr)
@@ -1128,6 +1150,8 @@ for ticker in stock_list.split(','):
 
 				   'kl_long_support':		[],
 				   'kl_long_resistance':	[],
+				   'kl_long_support_daily':	[],
+				   'kl_long_resistance_daily':	[],
 
 				   # SMA200 and EMA50
 				   'cur_sma':			None,
@@ -1176,6 +1200,9 @@ for ticker in stock_list.split(','):
 								  'bids':	{},
 
 								  'history':	{} }, # end level2{}
+
+				   # Equity time and sale data
+				   'ets':			[],
 
 			}} )
 
@@ -1525,10 +1552,6 @@ tda_stochrsi_gobot_helper.aroonosc_secondary_threshold		= args.aroonosc_secondar
 tda_stochrsi_gobot_helper.default_chop_low_limit		= 38.2
 tda_stochrsi_gobot_helper.default_chop_high_limit		= 61.8
 
-# Support / Resistance
-tda_stochrsi_gobot_helper.price_resistance_pct			= 1
-tda_stochrsi_gobot_helper.price_support_pct			= 1
-
 # Initialize pricehistory for each stock ticker
 print( 'Populating pricehistory for stock tickers: ' + str(list(stocks.keys())) )
 
@@ -1654,12 +1677,26 @@ for ticker in list(stocks.keys()):
 			if ( count > 1 and (kl, dt, count) not in stocks[ticker]['kl_long_resistance'] ):
 				stocks[ticker]['kl_long_resistance'].append( (kl, dt, count) )
 
+		# Populate the keylevels using daily values in case cur_algo['keylevel_use_daily'] is configured
+		kl_long_support_full, kl_long_resistance_full = tda_algo_helper.get_keylevels( stocks[ticker]['pricehistory_daily'], filter=False )
+
+		kl = dt = count = 0
+		for kl,dt,count in kl_long_support_full:
+			if ( count > 1 and (kl, dt, count) not in stocks[ticker]['kl_long_support'] ):
+				stocks[ticker]['kl_long_support_daily'].append( (kl, dt, count) )
+
+		for kl,dt,count in kl_long_resistance_full:
+			if ( count > 1 and (kl, dt, count) not in stocks[ticker]['kl_long_resistance'] ):
+				stocks[ticker]['kl_long_resistance_daily'].append( (kl, dt, count) )
+
 	except Exception as e:
 		print('Exception caught: get_keylevels(' + str(ticker) + '): ' + str(e) + '. Keylevels will not be used.')
 
 	if ( stocks[ticker]['kl_long_support'] == False ):
-		stocks[ticker]['kl_long_support'] = []
-		stocks[ticker]['kl_long_resistance'] = []
+		stocks[ticker]['kl_long_support']		= []
+		stocks[ticker]['kl_long_resistance']		= []
+		stocks[ticker]['kl_long_support_daily']		= []
+		stocks[ticker]['kl_long_resistance_daily']	= []
 
 	time.sleep(1)
 	# End Key Levels
@@ -1838,6 +1875,13 @@ async def read_stream():
 		lambda msg: tda_stochrsi_gobot_helper.gobot_level2(msg, args.debug) )
 	await asyncio.wait_for( stream_client.nasdaq_book_subs(nasdaq_tickers), 10 )
 
+	# T&S Data
+	# Note: we subscribe to nyse_tickers+nasdaq_tickers here to be sure we have valid equity tickers.
+	#  Some tickers in stocks.keys(), i.e. indicators like $TICK or $TRIN, will not have time/sale data.
+	stream_client.add_timesale_equity_handler(
+		lambda msg: tda_stochrsi_gobot_helper.gobot_ets(msg, False) )
+	await asyncio.wait_for( stream_client.timesale_equity_subs(nyse_tickers+nasdaq_tickers), 10 )
+
 
 	# Wait for and process messages
 	while True:
@@ -1867,14 +1911,14 @@ while True:
 		continue
 
 	# Call read_stream():stream_client.handle_message() to read from the stream continuously
-#	try:
-	asyncio.run(read_stream())
+	try:
+		asyncio.run(read_stream())
 
-#	except KeyboardInterrupt:
-#		sys.exit(0)
+	except KeyboardInterrupt:
+		sys.exit(0)
 
-#	except Exception as e:
-#		print('Exception caught: read_stream(): ' + str(e) + ': retrying...')
+	except Exception as e:
+		print('Exception caught: read_stream(): ' + str(e) + ': retrying...')
 
 
 sys.exit(0)

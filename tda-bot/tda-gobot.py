@@ -35,8 +35,9 @@ parser.add_argument("--exit_price", help="The price to exit a trade", default=No
 
 parser.add_argument("--exit_percent", help='Switch to monitoring price action of the security when the price improves by this percentile', default=None, type=float)
 parser.add_argument("--exit_percent_loopt", help='Amount of time to sleep between queries after exit_percent_signal is triggered', default=12, type=int)
-parser.add_argument("--quick_exit_percent", help='Exit immediately if price improves by this percentage', default=None, type=float)
 parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent strategy was set, do not wait for the next candle', action="store_true")
+parser.add_argument("--quick_exit_half", help='Exit half-size immediately if an exit_percent strategy was set', action="store_true")
+parser.add_argument("--quick_exit_percent", help='Exit immediately if price improves by this percentage', default=None, type=float)
 parser.add_argument("--use_combined_exit", help='Use both the ttm_trend algorithm and Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
 
 parser.add_argument("--multiday", help="Watch stock until decr_threshold is reached. Do not sell and exit when market closes", action="store_true")

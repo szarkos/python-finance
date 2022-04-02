@@ -2718,3 +2718,93 @@ def get_mesa_fisher_transform(pricehistory=None, period=20, debug=False):
 	return fisher, fisher_signal
 
 
+# Calculate and return the Market Profile (Volume Profile)
+# close_type: close, hl2 (default), hlc3, ohlc4
+# mp_mode: vol (volume, default), tpo (trade price opportunity)
+# tick_size: 0.01 (default), market_profile module default is actually 0.05
+def get_market_profile(pricehistory=None, close_type='hl2', mp_mode='vol', tick_size=0.01, debug=False):
+
+	if ( pricehistory == None ):
+		print('Error: get_market_profile(): pricehistory is empty', file=sys.stderr)
+		return False
+
+	ticker = ''
+	try:
+		ticker = pricehistory['symbol']
+	except:
+		pass
+
+	try:
+		assert mytimezone
+	except:
+		mytimezone = timezone("US/Eastern")
+
+	try:
+		float( tick_size )
+	except Exception as e:
+		print('Error: get_market_profile(): tick_size must be a number', file=sys.stderr)
+		return False
+
+	if ( mp_mode != 'vol' and mp_mode != 'tpo' ):
+		print('Error: get_market_profile(): mode must be either "vol" or "tpo"', file=sys.stderr)
+		return False
+
+	# Import the market_profile module (pip3 install marketprofile)
+	from market_profile import MarketProfile
+
+	mprofile = {}
+	for key in pricehistory['candles']:
+		open		= float( key['open'] )
+		high		= float( key['high'] )
+		low		= float( key['low'] )
+		close		= float( key['close'] )
+		volume		= int( key['volume'] )
+		dt		= int( key['datetime'] / 1000 )
+
+		if ( close_type == 'hl2' ):
+			close = (high + low) / 2
+		elif ( close_type == 'hlc3' ):
+			close = (high + low + close ) / 3
+		elif ( close_type == 'ohlc4' ):
+			close = (open + high + low + close ) / 4
+		elif ( close_type == 'close' ):
+			pass
+		else:
+			return False
+
+		day = datetime.fromtimestamp(dt, tz=mytimezone).strftime('%Y-%m-%d')
+		if ( day not in mprofile ):
+			mprofile[day] = { 'p_history': np.array([[1,1,1,1,1,1]]) }
+
+		mprofile[day]['p_history'] = np.append( mprofile[day]['p_history'], [[dt,open,high,low,close,volume]], axis=0 )
+
+	for day in mprofile.keys():
+		mprofile[day]['p_history']	= np.delete( mprofile[day]['p_history'], 0, axis=0 )
+		mprofile[day]['p_history']	= pd.DataFrame( data=mprofile[day]['p_history'], columns=['datetime', 'Open', 'High', 'Low', 'Close', 'Volume'] )
+		posix_time			= pd.to_datetime( mprofile[day]['p_history']['datetime'], unit='s' )
+
+		mprofile[day]['p_history'].insert( 0, "Date", posix_time )
+		mprofile[day]['p_history'].drop( "datetime", axis = 1, inplace = True )
+
+		mprofile[day]['p_history']	= mprofile[day]['p_history'].set_index( pd.DatetimeIndex(mprofile[day]['p_history']['Date'].values) )
+		mprofile[day]['p_history'].Date	= mprofile[day]['p_history'].Date.dt.tz_localize(tz='UTC').dt.tz_convert(tz=mytimezone)
+		mprofile[day]['p_history'].drop( columns=['Date'], axis=1, inplace=True )
+
+	# Create MarketProfile object and populate the mprofile
+	for day in mprofile.keys():
+		mp		= MarketProfile( mprofile[day]['p_history'], tick_size=tick_size, mode='vol' )
+		mp_slice	= mp[ mprofile[day]['p_history'].index.min():mprofile[day]['p_history'].index.max() ]
+
+		mprofile[day]['val']			= mp_slice.value_area[0]
+		mprofile[day]['vah']			= mp_slice.value_area[1]
+		mprofile[day]['profile']		= mp_slice.profile
+		mprofile[day]['initial_balance']	= mp_slice.initial_balance()
+		mprofile[day]['open_range']		= mp_slice.open_range()
+		mprofile[day]['poc_price']		= mp_slice.poc_price
+		mprofile[day]['profile_range']		= mp_slice.profile_range
+		mprofile[day]['balanced_target']	= mp_slice.balanced_target
+		mprofile[day]['low_value_nodes']	= mp_slice.low_value_nodes
+		mprofile[day]['high_value_nodes']	= mp_slice.high_value_nodes
+
+	return mprofile
+

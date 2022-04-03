@@ -4,6 +4,8 @@ import os, sys
 from datetime import datetime, timedelta
 from pytz import timezone
 
+from collections import OrderedDict
+
 import numpy as np
 import pandas as pd
 import tulipy as ti
@@ -2752,7 +2754,7 @@ def get_market_profile(pricehistory=None, close_type='hl2', mp_mode='vol', tick_
 	# Import the market_profile module (pip3 install marketprofile)
 	from market_profile import MarketProfile
 
-	mprofile = {}
+	mprofile = OrderedDict()
 	for key in pricehistory['candles']:
 		open		= float( key['open'] )
 		high		= float( key['high'] )
@@ -2805,6 +2807,7 @@ def get_market_profile(pricehistory=None, close_type='hl2', mp_mode='vol', tick_
 		mprofile[day]['balanced_target']	= mp_slice.balanced_target
 		mprofile[day]['low_value_nodes']	= mp_slice.low_value_nodes
 		mprofile[day]['high_value_nodes']	= mp_slice.high_value_nodes
+
 
 	return mprofile
 

@@ -10,8 +10,10 @@ import sys, os
 from datetime import datetime, timedelta
 import pytz
 import argparse
-import robin_stocks.tda as tda
 
+from collections import OrderedDict
+
+import robin_stocks.tda as tda
 import tda_gobot_helper
 import tda_algo_helper
 
@@ -51,18 +53,43 @@ if ( tda_gobot_helper.tdalogin(passcode) != True ):
 mytimezone	= pytz.timezone("US/Eastern")
 time_now	= datetime.now(mytimezone)
 
-# get_pricehistory() variables
-p_type = 'year'
-period = '2'
-freq = '1'
+# get_pricehistory() for weekly and daily candles
+p_type	= 'year'
+period	= '2'
+freq	= '1'
 
 try:
 	pricehistory_weekly, epochs = tda_gobot_helper.get_pricehistory(args.stock, p_type, 'weekly', freq, period, needExtendedHoursData=False)
 	pricehistory_daily, epochs = tda_gobot_helper.get_pricehistory(args.stock, p_type, 'daily', freq, period, needExtendedHoursData=False)
 
 except Exception as e:
-	print('Caught Exception: ' + str(e))
-	sys.exit(0)
+	print('Caught Exception: get_pricehistory(' + str(ticker) + '): ' + str(e), file=sys.stderr)
+	sys.exit(1)
+
+# get_pricehistory() for 1-minute candles, used to calculate the daily volume profile
+p_type	= 'day'
+period	= None
+f_type	= 'minute'
+freq	= '1'
+
+time_now	= datetime.now( mytimezone )
+time_prev	= time_now - timedelta( days=4 )
+
+# Make sure start and end dates don't land on a weekend
+#  or outside market hours
+time_now	= tda_gobot_helper.fix_timestamp(time_now)
+time_prev	= tda_gobot_helper.fix_timestamp(time_prev)
+
+time_now_epoch	= int( time_now.timestamp() * 1000 )
+time_prev_epoch	= int( time_prev.timestamp() * 1000 )
+
+try:
+	pricehistory_1min, epochs = tda_gobot_helper.get_pricehistory(args.stock, p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=False)
+
+except Exception as e:
+	print('Caught Exception: get_pricehistory(' + str(ticker) + '): ' + str(e), file=sys.stderr)
+	sys.exit(1)
+
 
 # Call get_keylevels() and print the result
 # If plot==True then a plot will appear before key levels are printed on the screen
@@ -106,6 +133,22 @@ else:
 		long_support	= long_support_unfiltered
 		long_resistance	= long_resistance_unfiltered
 
+# Get Value Area High (VAH) and Value Area Low (VAL) from the most recent trading day
+try:
+	mprofile = OrderedDict()
+	mprofile = tda_algo_helper.get_market_profile(pricehistory=pricehistory_1min, close_type='hl2', mp_mode='vol', tick_size=0.01)
+
+except Exception as e:
+	print('Caught Exception: get_market_profile(' + str(args.stock) + '): ' + str(e), file=sys.stderr)
+
+#last_date = next(reversed(mprofile))
+date_1	= list(mprofile.keys())[-1]
+date_2	= list(mprofile.keys())[-2]
+val_1	= mprofile[date_1]['val']
+vah_1	= mprofile[date_1]['vah']
+val_2	= mprofile[date_2]['val']
+vah_2	= mprofile[date_2]['vah']
+
 
 # Print the results or output a ToS indicator
 if ( args.tos_indicator == False ):
@@ -122,6 +165,7 @@ if ( args.tos_indicator == False ):
 		dt	= datetime.fromtimestamp(int(dt)/1000, tz=mytimezone).strftime('%Y-%m-%d')
 		print(str(dt) + ': ' + str(kl) + ' (' + str(count) + ')')
 
+	print()
 	print('Long resistance:')
 	tmp = {}
 	for kl,dt,count in long_resistance:
@@ -133,6 +177,10 @@ if ( args.tos_indicator == False ):
 		dt = datetime.fromtimestamp(int(dt)/1000, tz=mytimezone).strftime('%Y-%m-%d')
 		print(str(dt) + ': ' + str(kl) + ' (' + str(count) + ')')
 
+
+	print()
+	print('VAH (' + str(last_date) + '): ' + str(vah))
+	print('VAL (' + str(last_date) + '): ' + str(val))
 
 # ToS indicator
 else:
@@ -185,4 +233,25 @@ else:
 			counter += 1
 
 
+	# Volume Profile VAH/VAL
+	print( "\n" )
+	print( '# Value Area High (VAH) and Value Area Low (VAL) from last')
+	print( '#  two previous trading days (' + str(date_1) + ' / ' + str(date_2) + ')' )
+	print( 'plot vah_1 = ' + str(vah_1) )
+	print( 'vah_1.SetDefaultColor(CreateColor(255, 35, 0));' ) # Orange
+	print( 'plot val_1 = ' + str(val_1) )
+	print( 'val_1.SetDefaultColor(CreateColor(255, 35, 0));' )
+	print()
+
+	# Two-day VAH/VAL paint with dashed lines
+	print( 'plot vah_2 = ' + str(vah_2) )
+	print( 'vah_2.SetDefaultColor(CreateColor(255, 35, 0));' )
+	print( 'vah_2.SetPaintingStrategy(PaintingStrategy.DASHES);' )
+	print( 'plot val_2 = ' + str(val_2) )
+	print( 'val_2.SetDefaultColor(CreateColor(255, 35, 0));' )
+	print( 'val_2.SetPaintingStrategy(PaintingStrategy.DASHES);' )
+	print()
+
+
 sys.exit(0)
+

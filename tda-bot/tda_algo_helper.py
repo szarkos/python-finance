@@ -2732,7 +2732,7 @@ def get_market_profile(pricehistory=None, close_type='hl2', mp_mode='vol', tick_
 
 	ticker = ''
 	try:
-		ticker = pricehistory['symbol']
+		ticker = str( pricehistory['symbol'] )
 	except:
 		pass
 

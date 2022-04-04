@@ -215,12 +215,20 @@ def search_options(ticker=None, option_type=None, near_expiration=False, strike_
 		return False
 
 	# Search for options that expire either this week or next week
+	#
+	# If near_expiration=False, then push the search date out at least one-day.
+	#  This is useful for stocks like SPY that have options expiring on Mon/Wed/Fri.
+	#
+	# In addition, if the day of the week is Wednesday or later, then search for an
+	#  option expiring in the following week or more.
 	dt		= datetime.datetime.now(mytimezone)
 	start_day	= dt
 	end_day		= dt + datetime.timedelta(days=7)
-	if ( int(dt.strftime('%w')) >= 3 and near_expiration == False ):
-		start_day	= dt + datetime.timedelta(days=7)
-		end_day		= dt + datetime.timedelta(days=13)
+	if ( near_expiration == False ):
+		start_day = dt + datetime.timedelta(days=1)
+		if ( int(dt.strftime('%w')) >= 3 ):
+			start_day	= dt + datetime.timedelta(days=6)
+			end_day		= dt + datetime.timedelta(days=12)
 
 	range_val	= 'NTM'
 	strike_price	= None
@@ -231,18 +239,23 @@ def search_options(ticker=None, option_type=None, near_expiration=False, strike_
 		strike_count	= 999
 
 	try:
-		option_chain = tda_gobot_helper.get_option_chains( ticker=stock, contract_type=option_type, strike_count=strike_count, range_value=range_val, strike_price=strike_price,
+		option_chain = tda_gobot_helper.get_option_chains( ticker=ticker, contract_type=option_type, strike_count=strike_count, range_value=range_val, strike_price=strike_price,
 									from_date=start_day.strftime('%Y-%m-%d'), to_date=end_day.strftime('%Y-%m-%d') )
 
 	except Exception as e:
-		print('Error: looking up option chain for stock ' + str(stock), file=sys.stderr)
+		print('Error: looking up option chain for stock ' + str(ticker) + ': ' + str(e), file=sys.stderr)
+		sys.exit(1)
 
 	stock		= None
 	ExpDateMap	= 'callExpDateMap'
 	if ( option_type == 'PUT' ):
 		ExpDateMap = 'putExpDateMap'
 
-	exp_date = list(option_chain[ExpDateMap].keys())[0]
+	try:
+		exp_date = list(option_chain[ExpDateMap].keys())[0]
+	except Exception as e:
+		print('Caught Exception: ' + str(e))
+		return False
 
 	# For PUTs, reverse the list to get the optimal strike price
 	iter = option_chain[ExpDateMap][exp_date].keys()
@@ -290,7 +303,7 @@ def search_options(ticker=None, option_type=None, near_expiration=False, strike_
 				print('Warning: delta is less than 70% (' + str(abs(key['delta'])) + ')')
 
 			if ( float(key['ask']) < 1 ):
-				print('Warning: option price (' + str(key['ask']) + ' is <$1, accidental stoploss via jitter might occur')
+				print('Warning: option price (' + str(key['ask']) + ') is <$1, accidental stoploss via jitter might occur')
 
 			stock = key['symbol']
 
@@ -309,7 +322,7 @@ if ( args.options == True ):
 		print('Error: --option_type (CALL|PUT) is required, exiting', file=sys.stderr)
 		sys.exit(1)
 
-	stock, option_price = search_options(ticker=stock, option_type=args.option_type, near_expiration=args.near_expiration, strike_price=args.strike_price, debug=False)
+	stock, option_price = search_options(ticker=args.stock, option_type=args.option_type, near_expiration=args.near_expiration, strike_price=args.strike_price, debug=False)
 	if ( isinstance(stock, bool) and stock == False ):
 		print('Error: Unable to look up options for stock "' + str(args.stock) + '"', file=sys.stderr)
 		sys.exit(1)
@@ -317,9 +330,9 @@ if ( args.options == True ):
 	# If the option is < $1, then the price action may be too jittery. If near_expiration is set to True
 	#  then try to disable to find an option with a later expiration date.
 	if ( option_price < 1 and args.near_expiration == True and args.force == False ):
-		print('Notice: ' + str(option_data['ticker']) + ' price (' + str(option_price) + ') is below $1, setting near_expiration to False (you can use --force to avoid this check)')
+		print('Notice: ' + str(stock) + ' price (' + str(option_price) + ') is below $1, setting near_expiration to False (you can use --force to avoid this check)')
 
-		stock, option_price = search_options(ticker=stock, option_type=args.option_type, near_expiration=False, strike_price=args.strike_price, debug=False)
+		stock, option_price = search_options(ticker=args.stock, option_type=args.option_type, near_expiration=False, strike_price=args.strike_price, debug=False)
 		if ( isinstance(stock, bool) and stock == False ):
 			print('Error: Unable to look up options for stock "' + str(args.stock) + '"', file=sys.stderr)
 			sys.exit(1)
@@ -640,7 +653,7 @@ while True:
 					exit_signal = True
 
 		# Handle quick_exit and quick_exit_percent
-		elif ( args.quick_exit == True and exit_signal == False ):
+		if ( args.quick_exit == True and exit_signal == False ):
 			if ( total_percent_change >= args.quick_exit_percent ):
 				exit_signal = True
 

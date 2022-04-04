@@ -67,11 +67,15 @@ parser.add_argument("--max_failed_txs", help='Maximum number of failed transacti
 parser.add_argument("--max_failed_usd", help='Maximum allowed USD for a failed transaction before the stock is blacklisted', default=99999, type=float)
 parser.add_argument("--exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
 parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent strategy was set, do not wait for the next candle', action="store_true")
+parser.add_argument("--quick_exit_percent", help='Exit immediately if --quick_exit and this profit target is achieved', default=None, type=float)
 parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_threshold and exit_percent based on the price action of the stock over the previous hour',  action="store_true")
 
 parser.add_argument("--options", help='Purchase CALL/PUT options instead of equities', action="store_true")
 parser.add_argument("--options_usd", help='Amount of money (USD) to invest per options trade', default=1000, type=float)
 parser.add_argument("--near_expiration", help='Choose an option contract with the earliest expiration date', action="store_true")
+parser.add_argument("--options_incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
+parser.add_argument("--options_decr_threshold", help='Max allowed drop percentage of the stock price', default=5, type=float)
+parser.add_argument("--options_exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
 
 parser.add_argument("--use_ha_exit", help='Use Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
 parser.add_argument("--use_ha_candles", help='Use Heikin Ashi candles with stacked MA indicators', action="store_true")
@@ -226,13 +230,9 @@ if ( args.hold_overnight == True ):
 	args.multiday = True
 	args.unsafe = True
 
-# Safe open - ensure that we don't trade until after 10:15AM Eastern
-safe_open = True
-if ( args.unsafe == True ):
-	safe_open = False
-tda_stochrsi_gobot_helper.safe_open = safe_open
-
 # Early exit criteria goes here
+# Safe open - ensure that we don't trade until after 10:15AM Eastern
+safe_open = not args.unsafe
 if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False and args.multiday == False and args.singleday == False ):
 	print('Market is closed and --multiday or --singleday was not set, exiting.')
 	sys.exit(0)
@@ -319,9 +319,11 @@ for algo in args.algos:
 	# Per-algo entry limit
 	stock_usd			= args.stock_usd
 	quick_exit			= args.quick_exit
+	quick_exit_percent		= args.quick_exit_percent
 	options				= args.options
 	options_usd			= args.options_usd
 	near_expiration			= args.near_expiration
+	safe_open			= not args.unsafe
 
 	# Indicator modifiers
 	rsi_high_limit			= args.rsi_high_limit
@@ -497,6 +499,10 @@ for algo in args.algos:
 		# Entry limit
 		if ( re.match('stock_usd:', a)				!= None ):	stock_usd			= float( a.split(':')[1] )
 		if ( re.match('quick_exit', a)				!= None ):	quick_exit			= True
+		if ( re.match('quick_exit_percent:', a)			!= None ):	quick_exit_percent		= float( a.split(':')[1] )
+
+		if ( re.match('safe_open', a)				!= None ):	safe_open			= True
+		if ( re.match('unsafe', a)				!= None ):	safe_open			= False
 
 		# Options
 		if ( re.match('options', a)				!= None ):	options				= True
@@ -668,11 +674,19 @@ for algo in args.algos:
 			macd = False
 			macd_simple = False
 
+	# Default quick_exit_percent to exit_percent if it is unset
+	if ( options == False and (quick_exit_percent == None and args.exit_percent != None) ):
+		quick_exit_percent = args.exit_percent
+	elif ( options == True and (quick_exit_percent == None and args.options_exit_percent != None) ):
+		quick_exit_percent = args.options_exit_percent
+
 	# Populate the algo{} dict with all the options parsed above
 	algo_list = {   'algo_id':				algo_id,
 
 			'stock_usd':				stock_usd,
 			'quick_exit':				quick_exit,
+			'quick_exit_percent':			quick_exit_percent,
+			'safe_open':				safe_open,
 
 			'options':				options,
 			'options_usd':				options_usd,
@@ -844,7 +858,7 @@ for algo in args.algos:
 
 # Clean up this mess
 # All the stuff above should be put into a function to avoid this cleanup stuff. I know it. It'll happen eventually.
-del(stock_usd,quick_exit,primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,primary_mesa_sine,primary_trin)
+del(stock_usd,quick_exit,quick_exit_percent,primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,primary_mesa_sine,primary_trin)
 del(stacked_ma,stacked_ma_secondary,mama_fama,stochrsi_5m,stochmfi,stochmfi_5m)
 del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,vwap,vpt,support_resistance,use_keylevel)
 del(rsi_high_limit,rsi_low_limit,rsi_period,stochrsi_period,stochrsi_5m_period,rsi_k_period,rsi_k_5m_period,rsi_d_period,rsi_slow,stochrsi_offset,stochrsi_5m_offset)
@@ -999,8 +1013,11 @@ for ticker in stock_list.split(','):
 				   'exit_percent':		args.exit_percent,
 				   'quick_exit':		args.quick_exit,
 
-				   'primary_algo':		None,
+				   'options_incr_threshold':	args.options_incr_threshold,
+				   'options_decr_threshold':	args.options_decr_threshold,
+				   'options_exit_percent':	args.options_exit_percent,
 
+				   'primary_algo':		None,
 
 				   # Action signals
 				   'final_buy_signal':		False,

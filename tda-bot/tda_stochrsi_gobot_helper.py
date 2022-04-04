@@ -368,9 +368,11 @@ def search_options(ticker=None, option_type=None, near_expiration=False, debug=F
 	dt		= datetime.datetime.now(mytimezone)
 	start_day	= dt
 	end_day		= dt + datetime.timedelta(days=7)
-	if ( int(dt.strftime('%w')) >= 3 and near_expiration == False ):
-		start_day	= dt + datetime.timedelta(days=7)
-		end_day		= dt + datetime.timedelta(days=13)
+	if ( near_expiration == False ):
+		start_day = dt + datetime.timedelta(days=1)
+		if ( int(dt.strftime('%w')) >= 3 ):
+			start_day	= dt + datetime.timedelta(days=6)
+			end_day		= dt + datetime.timedelta(days=12)
 
 	strike_count = 5
 	try:
@@ -385,7 +387,11 @@ def search_options(ticker=None, option_type=None, near_expiration=False, debug=F
 	if ( option_data['type'] == 'PUT' ):
 		ExpDateMap = 'putExpDateMap'
 
-	exp_date = list(option_chain[ExpDateMap].keys())[0]
+	try:
+		exp_date = list(option_chain[ExpDateMap].keys())[0]
+	except Exception as e:
+		print('Caught Exception: search_options(' + str(ticker) + '): ' + str(e))
+		return False
 
 	# For PUTs, reverse the list to get the optimal strike price
 	iter = option_chain[ExpDateMap][exp_date].keys()
@@ -436,6 +442,9 @@ def search_options(ticker=None, option_type=None, near_expiration=False, debug=F
 
 				if ( abs(key['delta']) < 0.70 ):
 					print('Warning: delta is less than 70% (' + str(abs(key['delta'])) + ')')
+
+				if ( float(key['ask']) < 1 ):
+					print('Warning: option price (' + str(key['ask']) + ') is <$1, accidental stoploss via jitter might occur')
 
 			break
 
@@ -650,7 +659,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		sys.exit(0)
 
 	# Exit if we are not set up to monitor across multiple days
-	if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False ):
+	if ( tda_gobot_helper.ismarketopen_US(safe_open=cur_algo['safe_open']) == False ):
 		if ( args.singleday == False and args.multiday == False ):
 			print('Market closed, exiting.')
 			export_pricehistory()
@@ -2097,7 +2106,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 		# Loop continuously while after hours if --multiday or --singleday is set
 		# Also re-set --singleday to False when the market opens
-		if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False ):
+		if ( tda_gobot_helper.ismarketopen_US(safe_open=cur_algo['safe_open']) == False ):
 			if ( args.multiday == True or args.singleday == True ):
 				continue
 		else:
@@ -2244,7 +2253,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# If --multiday isn't set then we do not want to start trading if the market is closed.
 			# Also if --multiday isn't set we should avoid buying any securities if it's within
 			#  1-hour from market close. Otherwise we may be forced to sell too early.
-			if ( (tda_gobot_helper.isendofday(75) == True or tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == False) and args.multiday == False ):
+			if ( (tda_gobot_helper.isendofday(75) == True or tda_gobot_helper.ismarketopen_US(safe_open=cur_algo['safe_open']) == False) and args.multiday == False ):
 				print('(' + str(ticker) + ') Market is closed or near closing.')
 				reset_signals(ticker)
 				continue
@@ -3107,7 +3116,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['stock_qty']	= int( stocks[ticker]['stock_usd'] / float(last_price) )
 
 					# Purchase the stock
-					if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == True ):
+					if ( tda_gobot_helper.ismarketopen_US(safe_open=cur_algo['safe_open']) == True ):
 						print( 'Purchasing ' + str(stocks[ticker]['stock_qty']) + ' shares of ' + str(ticker) + ' (' + str(cur_algo['algo_id'])  + ')' )
 						stocks[ticker]['num_purchases'] -= 1
 
@@ -3431,29 +3440,46 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# ADDITIONAL EXIT STRATEGIES
 			# Sell if --exit_percent was set and threshold met
-			if ( stocks[ticker]['exit_percent'] != None and last_price > stocks[ticker]['orig_base_price'] and
-					stocks[ticker]['algo_signals'][algo_id]['sell_signal'] == False ):
+			if ( stocks[ticker]['algo_signals'][algo_id]['sell_signal'] == False and stoploss_last_price > stoploss_orig_base and
+					((cur_algo['options'] == False and stocks[ticker]['exit_percent'] != None)
+					 (cur_algo['options'] == True and stocks[ticker]['options_exit_percent'] != None)) ):
 
-				total_percent_change	= abs( stocks[ticker]['orig_base_price'] / last_price - 1 ) * 100
-				high_percent_change	= abs( stocks[ticker]['orig_base_price'] / last_high - 1 ) * 100
+				# Determine if exit_percent has been achieved
+				if ( stocks[ticker]['exit_percent_signal'] == False ):
 
-				if ( total_percent_change >= stocks[ticker]['exit_percent'] ):
-					stocks[ticker]['exit_percent_signal'] = True
+					if ( cur_algo['options'] == True ):
+						total_percent_change = abs( stocks[ticker]['options_orig_base_price'] / options_last_price - 1 ) * 100
+						if ( total_percent_change >= stocks[ticker]['options_exit_percent'] ):
+							stocks[ticker]['exit_percent_signal'] = True
 
-					# Once we've hit exit_percent, move the stoploss to break even
-					stocks[ticker]['decr_threshold'] = stocks[ticker]['exit_percent']
+					else:
+						total_percent_change	= abs( stocks[ticker]['orig_base_price'] / last_price - 1 ) * 100
+						high_percent_change	= abs( stocks[ticker]['orig_base_price'] / last_high - 1 ) * 100
 
-					if ( cur_algo['quick_exit'] == True or stocks[ticker]['quick_exit'] == True ):
-						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
+						if ( total_percent_change >= stocks[ticker]['exit_percent'] ):
+							stocks[ticker]['exit_percent_signal'] = True
 
-				# Set the stoploss lower if the candle touches the exit_percent, but closes below it
-				elif ( high_percent_change >= stocks[ticker]['exit_percent'] and total_percent_change < stocks[ticker]['exit_percent'] and
-						stocks[ticker]['exit_percent_signal'] == False ):
-					if ( stocks[ticker]['decr_threshold'] > total_percent_change ):
-						stocks[ticker]['decr_threshold'] = total_percent_change
+						# Set the stoploss lower if the candle touches the exit_percent, but closes below it
+						elif ( high_percent_change >= stocks[ticker]['exit_percent'] and total_percent_change < stocks[ticker]['exit_percent'] and
+								stocks[ticker]['exit_percent_signal'] == False ):
+							if ( stocks[ticker]['decr_threshold'] > total_percent_change ):
+								stocks[ticker]['decr_threshold'] = total_percent_change
 
-				# If exit_percent has been hit, we will sell at the first RED candle
-				if ( stocks[ticker]['exit_percent_signal'] == True ):
+					# Actions to take when we first hit exit_percent_signal
+					if ( stocks[ticker]['exit_percent_signal'] == True ):
+
+						# Set stoploss to exit_percent
+						stocks[ticker]['decr_threshold']		= stocks[ticker]['exit_percent']
+						stocks[ticker]['options_decr_threshold']	= stocks[ticker]['options_exit_percent']
+
+						# Trigger the exit signal if quick_exit was configured and quick_exit_percent
+						#  has been achieved
+						if ( (cur_algo['quick_exit'] == True or stocks[ticker]['quick_exit'] == True) and
+								total_percent_change >= cur_algo['quick_exit_percent'] ):
+							stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
+
+				# If exit_percent has been hit, watch the price action and determine when the trend has ended
+				elif ( stocks[ticker]['exit_percent_signal'] == True ):
 
 					if ( cur_algo['use_ha_exit'] == True ):
 						last_close	= stocks[ticker]['pricehistory']['hacandles'][-1]['close']
@@ -3496,21 +3522,32 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						if ( last_close < last_open ):
 							ha_exit = True
 
+						print( '(' + str(ticker) + '): trend_exit=' + str(trend_exit) + ', ha_exit=' + str(ha_exit) )
 						if ( trend_exit == True and ha_exit == True ):
 							stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
+					# Basic exit algo, just sell on the first RED candle
 					elif ( last_close < last_open ):
 						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
-			elif ( stocks[ticker]['exit_percent_signal'] == True and last_close < stocks[ticker]['orig_base_price'] and
-					stocks[ticker]['algo_signals'][algo_id]['sell_signal'] == False ):
+				# Check for price reversal below the original entry price
+				if ( stocks[ticker]['exit_percent_signal'] == True and stocks[ticker]['algo_signals'][algo_id]['sell_signal'] == False and
+						 stoploss_last_price < stoploss_orig_base ):
 
-				# If we get to this point then the exit_percent_signal was triggered, but then the stock
-				#  rapidly changed direction below cost basis. But because exit_percent_signal was triggered
-				#  the stoploss routine above will not catch this. So at this point we probably need to stop out.
-				stocks[ticker]['exit_percent_signal']	= False
-				stocks[ticker]['decr_threshold']	= 0.5
+					# If we get to this point then the exit_percent_signal was triggered, but then the stock
+					#  rapidly changed direction below cost basis. But because exit_percent_signal was triggered
+					#  the stoploss routine above will not catch this. So at this point we probably need to stop out.
+					stocks[ticker]['exit_percent_signal']		= False
+					stocks[ticker]['decr_threshold']		= 0.5
+					stocks[ticker]['options_decr_threshold']	= stocks[ticker]['options_decr_threshold'] / 2
 
+				# Handle quick_exit_percent if quick_exit is configured
+				if ( (cur_algo['quick_exit'] == True or stocks[ticker]['quick_exit'] == True) and
+						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] == False ):
+
+					if ( (cur_algo['options'] == True and options_net_change >= cur_algo['quick_exit_percent']) or
+					     (cur_algo['options'] == False and net_change >= cur_algo['quick_exit_percent']) ):
+						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 			# StochRSI MONITOR
 			# Do not use stochrsi as an exit signal if exit_percent_signal is triggered. That means we've surpassed the
@@ -3531,7 +3568,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						print(  '(' + str(ticker) + ') SELL SIGNAL: StochRSI K value passed below the D value in the high_limit region (' +
 							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
-
 
 				if ( stocks[ticker]['algo_signals'][algo_id]['stochrsi_signal'] == True ):
 					if ( prev_rsi_k > stoch_default_high_limit and cur_rsi_k <= stoch_default_high_limit ):
@@ -3593,6 +3629,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				stocks[ticker]['decr_threshold']		= args.decr_threshold
 				stocks[ticker]['orig_decr_threshold']		= args.decr_threshold
 				stocks[ticker]['exit_percent']			= args.exit_percent
+
+				stocks[ticker]['options_incr_threshold']	= args.options_incr_threshold
+				stocks[ticker]['options_decr_threshold']	= args.options_decr_threshold
+				stocks[ticker]['options_exit_percent']		= args.options_exit_percent
 
 				reset_signals(ticker)
 				if ( args.short == True and stocks[ticker]['shortable'] == True ):
@@ -4432,7 +4472,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['stock_qty'] = int( stocks[ticker]['stock_usd'] / float(last_price) )
 
 					# Short the stock
-					if ( tda_gobot_helper.ismarketopen_US(safe_open=safe_open) == True ):
+					if ( tda_gobot_helper.ismarketopen_US(safe_open=cur_algo['safe_open']) == True ):
 						print( 'Shorting ' + str(stocks[ticker]['stock_qty']) + ' shares of ' + str(ticker) + ' (' + str(cur_algo['algo_id'])  + ')' )
 						stocks[ticker]['num_purchases'] -= 1
 
@@ -4814,29 +4854,50 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 			# ADDITIONAL EXIT STRATEGIES
 			# Sell if --exit_percent was set and threshold met
-			if ( stocks[ticker]['exit_percent'] != None and last_price < stocks[ticker]['orig_base_price'] and
-					stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] == False ):
+			if ( stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] == False and
+					((cur_algo['options'] == False and stoploss_last_price < stoploss_orig_base) or
+					 (cur_algo['options'] == True and stoploss_last_price > stoploss_orig_base))
+					and
+					((cur_algo['options'] == False and stocks[ticker]['exit_percent'] != None)
+					 (cur_algo['options'] == True and stocks[ticker]['options_exit_percent'] != None)) ):
 
-				total_percent_change = abs( last_price / stocks[ticker]['orig_base_price'] - 1 ) * 100
-				low_percent_change = abs( last_low / stocks[ticker]['orig_base_price'] - 1 ) * 100
+				# Determine if exit_percent has been achieved
+				if ( stocks[ticker]['exit_percent_signal'] == False ):
 
-				if ( total_percent_change >= stocks[ticker]['exit_percent'] ):
-					stocks[ticker]['exit_percent_signal'] = True
+					if ( cur_algo['options'] == True ):
+						total_percent_change = abs( stocks[ticker]['options_orig_base_price'] / options_last_price - 1 ) * 100
+						if ( total_percent_change >= stocks[ticker]['options_exit_percent'] ):
+							stocks[ticker]['exit_percent_signal'] = True
 
-					# Once we've hit exit_percent, move the stoploss to break even
-					stocks[ticker]['decr_threshold'] = stocks[ticker]['exit_percent']
+					else:
+						total_percent_change	= abs( last_price / stocks[ticker]['orig_base_price'] - 1 ) * 100
+						low_percent_change	= abs( last_low / stocks[ticker]['orig_base_price'] - 1 ) * 100
 
-					if ( cur_algo['quick_exit'] == True or stocks[ticker]['quick_exit'] == True ):
-						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
+						if ( total_percent_change >= stocks[ticker]['exit_percent'] ):
+							stocks[ticker]['exit_percent_signal'] = True
 
-				# Set the stoploss lower if the candle touches the exit_percent, but closes above it
-				elif ( low_percent_change >= stocks[ticker]['exit_percent'] and total_percent_change < stocks[ticker]['exit_percent'] and
-						stocks[ticker]['exit_percent_signal'] == False ):
-					if ( stocks[ticker]['decr_threshold'] > total_percent_change ):
-						stocks[ticker]['decr_threshold'] = total_percent_change
+						# Set the stoploss lower if the candle touches the exit_percent, but closes above it
+						elif ( low_percent_change >= stocks[ticker]['exit_percent'] and total_percent_change < stocks[ticker]['exit_percent'] and
+								stocks[ticker]['exit_percent_signal'] == False ):
+							if ( stocks[ticker]['decr_threshold'] > total_percent_change ):
+								stocks[ticker]['decr_threshold'] = total_percent_change
 
-				# If exit_percent has been hit, we will sell at the first GREEN candle
-				if ( stocks[ticker]['exit_percent_signal'] == True ):
+					# Actions to take when we first hit exit_percent_signal
+					if ( stocks[ticker]['exit_percent_signal'] == True ):
+
+						# Set stoploss to exit_percent
+						stocks[ticker]['decr_threshold']                = stocks[ticker]['exit_percent']
+						stocks[ticker]['options_decr_threshold']        = stocks[ticker]['options_exit_percent']
+
+						# Trigger the exit signal if quick_exit was configured and quick_exit_percent
+						#  has been achieved
+						if ( (cur_algo['quick_exit'] == True or stocks[ticker]['quick_exit'] == True) and
+								total_percent_change >= cur_algo['quick_exit_percent'] ):
+							stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
+
+				# If exit_percent has been hit, watch the price action and determine when the trend has ended
+				#  Typically this is when the candles start to turn GREEN
+				elif ( stocks[ticker]['exit_percent_signal'] == True ):
 
 					if ( cur_algo['use_ha_exit'] == True ):
 						last_close	= stocks[ticker]['pricehistory']['hacandles'][-1]['close']
@@ -4852,8 +4913,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 						# We need to pull the latest n-period candles from pricehistory and send it
 						#  to our function.
-						period = 5
-						cndl_slice = []
+						period		= 5
+						cndl_slice	= []
 						for i in range(period+1, 0, -1):
 							cndl_slice.append( cndls[-i] )
 
@@ -4865,8 +4926,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						ha_exit		= False
 
 						# Check Trend
-						period = 2
-						cndl_slice = []
+						period		= 2
+						cndl_slice	= []
 						for i in range(period+1, 0, -1):
 							cndl_slice.append( stocks[ticker]['pricehistory']['candles'][-i] )
 
@@ -4879,20 +4940,33 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						if ( last_close > last_open ):
 							ha_exit = True
 
+						print( '(' + str(ticker) + '): trend_exit=' + str(trend_exit) + ', ha_exit=' + str(ha_exit) )
 						if ( trend_exit == True and ha_exit == True ):
 							stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
+					# Basic exit algo, just sell on the first RED candle
 					elif ( last_close > last_open ):
 						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
-			elif ( stocks[ticker]['exit_percent_signal'] == True and last_close > stocks[ticker]['orig_base_price'] and
-					stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] == False ):
+				# Check for price reversal above the original entry price
+				if ( stocks[ticker]['exit_percent_signal'] == True and stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] == False and
+						((cur_algo['options'] == True and stoploss_last_price < stoploss_orig_base) or
+						 (cur_algo['options'] == False and stoploss_last_price > stoploss_orig_base)) ):
 
-				# If we get to this point then the exit_percent_signal was triggered, but then the stock
-				#  rapidly changed direction above cost basis. But because exit_percent_signal was triggered
-				#  the stoploss routine above will not catch this. So at this point we probably need to stop out.
-				stocks[ticker]['exit_percent_signal'] = False
-				stocks[ticker]['decr_threshold'] = 0.5
+					# If we get to this point then the exit_percent_signal was triggered, but then the stock
+					#  rapidly changed direction above cost basis. But because exit_percent_signal was triggered
+					#  the stoploss routine above will not catch this. So at this point we probably need to stop out.
+					stocks[ticker]['exit_percent_signal']		= False
+					stocks[ticker]['decr_threshold']		= 0.5
+					stocks[ticker]['options_decr_threshold']	= stocks[ticker]['options_decr_threshold'] / 2
+
+				# Handle quick_exit_percent if quick_exit is configured
+				if ( (cur_algo['quick_exit'] == True or stocks[ticker]['quick_exit'] == True) and
+						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] == False ):
+
+					if ( (cur_algo['options'] == True and options_net_change >= cur_algo['quick_exit_percent']) or
+					     (cur_algo['options'] == False and net_change <= -cur_algo['quick_exit_percent']) ):
+						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 			# StochRSI MONITOR
 			# Do not use stochrsi as an exit signal if exit_percent_signal is triggered. That means we've surpassed the
@@ -4969,6 +5043,10 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				stocks[ticker]['decr_threshold']		= args.decr_threshold
 				stocks[ticker]['orig_decr_threshold']		= args.decr_threshold
 				stocks[ticker]['exit_percent']			= args.exit_percent
+
+				stocks[ticker]['options_incr_threshold']	= args.options_incr_threshold
+				stocks[ticker]['options_decr_threshold']	= args.options_decr_threshold
+				stocks[ticker]['options_exit_percent']		= args.options_exit_percent
 
 				if ( args.shortonly == True ):
 					reset_signals(ticker, signal_mode='short')

@@ -253,9 +253,9 @@ else:
 	print( "\n" )
 	print( '# Value Area High (VAH) and Value Area Low (VAL) from last')
 	print( '#  two previous trading days (' + str(date_1) + ' / ' + str(date_2) + ')' )
-	print( 'plot vah_1 = ' + str(vah_1) )
+	print( 'plot vah_1 = ' + str(vah_1) + ';' )
 	print( 'vah_1.SetDefaultColor(CreateColor(255, 35, 0));' ) # Orange
-	print( 'plot val_1 = ' + str(val_1) )
+	print( 'plot val_1 = ' + str(val_1) + ';' )
 	print( 'val_1.SetDefaultColor(CreateColor(255, 35, 0));' )
 	print()
 

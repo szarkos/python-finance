@@ -47,6 +47,7 @@ parser.add_argument("--price_support_pct", help='Support indicators will come in
 parser.add_argument("--use_natr_resistance", help='Enable the daily NATR resistance check', action="store_true")
 parser.add_argument("--use_pivot_resistance", help='Enable the use of pivot points and PDH/PDL resistance check', action="store_true")
 parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
+parser.add_argument("--va_check", help='Use the previous day Value Area High (VAH) Value Area Low (VAL) as resistance', action="store_true")
 
 parser.add_argument("--check_etf_indicators", help='Use the relative strength against one or more ETF indicators to assist with trade entry', action="store_true")
 parser.add_argument("--check_etf_indicators_strict", help='Do not allow trade unless check_etf_indicators agrees with direction', action="store_true")
@@ -189,9 +190,9 @@ parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the
 parser.add_argument("--stoploss", help='Sell security if price drops below --decr_threshold (Default: False)', action="store_true")
 parser.add_argument("--exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
 parser.add_argument("--strict_exit_percent", help='Only exit when exit_percent signals an exit, ignore stochrsi', action="store_true")
-parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent strategy was set, do not wait for the next candle', action="store_true")
 parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_threshold and exit_percent based on the price action of the stock over the previous hour', action="store_true")
 parser.add_argument("--cost_basis_exit", help='Set stoploss to cost-basis if price improves by this percentile', default=None, type=float)
+
 parser.add_argument("--use_ha_exit", help='Use Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
 parser.add_argument("--use_ha_candles", help='Use Heikin Ashi candles with entry strategy', action="store_true")
 parser.add_argument("--use_trend_exit", help='Use ttm_trend algorithm with exit_percent-based exit strategy', action="store_true")
@@ -201,6 +202,12 @@ parser.add_argument("--use_trend", help='Use ttm_trend algorithm with entry stra
 parser.add_argument("--trend_type", help='Type to use with ttm_trend algorithm (Default: hl2)', default='hl2', type=str)
 parser.add_argument("--trend_period", help='Period to use with ttm_trend algorithm (Default: 5)', default=5, type=int)
 parser.add_argument("--use_combined_exit", help='Use both the ttm_trend algorithm and Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
+
+parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent strategy was set, do not wait for the next candle', action="store_true")
+parser.add_argument("--quick_exit_percent", help='Exit immediately if --quick_exit and this profit target is achieved', default=None, type=float)
+parser.add_argument("--trend_quick_exit", help='Enable quick exit when entering counter-trend moves', action="store_true")
+parser.add_argument("--qe_stacked_ma_periods", help='Moving average periods to use with --trend_quick_exit (Default: )', default='34,55,89', type=str)
+parser.add_argument("--qe_stacked_ma_type", help='Moving average type to use when calculating trend_quick_exit stacked_ma (Default: hma)', default='hma', type=str)
 
 parser.add_argument("--blacklist_earnings", help='Blacklist trading one week before and after quarterly earnings dates (Default: False)', action="store_true")
 parser.add_argument("--check_volume", help='Check the last several days (up to 6-days, depending on how much history is available) to ensure stock is not trading at a low volume threshold (Default: False)', action="store_true")
@@ -268,15 +275,14 @@ parser.add_argument("--debug_all", help='Enable extra debugging output', action=
 # Obsolete, but it would have been cool if it worked...
 #parser.add_argument("--use_candle_monitor", help='Enable the trivial candle monitor (Default: False)', action="store_true")
 
-args = parser.parse_args()
+args		= parser.parse_args()
+args.debug	= True	# Should default to False eventually, testing for now
 
-args.debug = True	# Should default to False eventually, testing for now
+decr_threshold	= args.decr_threshold
+incr_threshold	= args.incr_threshold
 
-decr_threshold = args.decr_threshold
-incr_threshold = args.incr_threshold
-
-stock = args.stock
-stock_usd = args.stock_usd
+stock		= args.stock
+stock_usd	= args.stock_usd
 
 # Initialize and log into TD Ameritrade
 from dotenv import load_dotenv
@@ -873,10 +879,10 @@ for algo in args.algo.split(','):
 					'decr_threshold':			args.decr_threshold,
 					'stoploss':				args.stoploss,
 					'exit_percent':				args.exit_percent,
-					'quick_exit':				args.quick_exit,
 					'strict_exit_percent':			args.strict_exit_percent,
 					'variable_exit':			args.variable_exit,
 					'cost_basis_exit':			args.cost_basis_exit,
+
 					'use_ha_exit':				args.use_ha_exit,
 					'use_ha_candles':			args.use_ha_candles,
 					'use_trend_exit':			args.use_trend_exit,
@@ -887,6 +893,12 @@ for algo in args.algo.split(','):
 					'trend_period':				args.trend_period,
 					'use_combined_exit':			args.use_combined_exit,
 					'hold_overnight':			args.hold_overnight,
+
+					'quick_exit':				args.quick_exit,
+					'quick_exit_percent':			args.quick_exit_percent,
+					'trend_quick_exit':			args.trend_quick_exit,
+					'qe_stacked_ma_periods':		args.qe_stacked_ma_periods,
+					'qe_stacked_ma_type':			args.qe_stacked_ma_type,
 
 					# Stock shorting options
 					'noshort':				args.noshort,
@@ -1049,6 +1061,7 @@ for algo in args.algo.split(','):
 					'keylevel_use_daily':			args.keylevel_use_daily,
 					'use_natr_resistance':			args.use_natr_resistance,
 					'use_pivot_resistance':			args.use_pivot_resistance,
+					'va_check':				args.va_check,
 
 					'experimental':				args.experimental,
 					'check_etf_indicators':			args.check_etf_indicators,

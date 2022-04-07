@@ -136,9 +136,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	exit_percent_short		= None		if ('exit_percent' not in params) else params['exit_percent']
 	cost_basis_exit			= None		if ('cost_basis_exit' not in params) else params['cost_basis_exit']
 	orig_exit_percent		= None		if ('exit_percent' not in params) else params['exit_percent']
-	quick_exit			= False		if ('quick_exit' not in params) else params['quick_exit']
 	strict_exit_percent		= False		if ('strict_exit_percent' not in params) else params['strict_exit_percent']
 	variable_exit			= False		if ('variable_exit' not in params) else params['variable_exit']
+
 	use_ha_exit			= False		if ('use_ha_exit' not in params) else params['use_ha_exit']
 	use_ha_candles			= False		if ('use_ha_candles' not in params) else params['use_ha_candles']
 	use_trend_exit			= False		if ('use_trend_exit' not in params) else params['use_trend_exit']
@@ -149,6 +149,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	trend_period			= 5		if ('trend_period' not in params) else params['trend_period']
 	use_combined_exit		= False		if ('use_combined_exit' not in params) else params['use_combined_exit']
 	hold_overnight			= False		if ('hold_overnight' not in params) else params['hold_overnight']
+
+	quick_exit			= False		if ('quick_exit' not in params) else params['quick_exit']
+	quick_exit_percent		= None		if ('quick_exit_percent' not in params) else params['quick_exit_percent']
+	quick_exit_percent		= params['exit_percent'] if (quick_exit_percent == None and params['exit_percent'] != None) else quick_exit_percent
+	trend_quick_exit		= False		if ('trend_quick_exit' not in params) else params['trend_quick_exit']
+	qe_stacked_ma_periods		= '34,55,89'	if ('qe_stacked_ma_periods' not in params) else params['qe_stacked_ma_periods']
+	qe_stacked_ma_type		= 'hma'		if ('qe_stacked_ma_type' not in params) else params['qe_stacked_ma_type']
+	default_quick_exit		= quick_exit
 
 	# Stock shorting options
 	noshort				= False		if ('noshort' not in params) else params['noshort']
@@ -314,6 +322,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	use_keylevel			= True		if ( no_use_resistance == False ) else use_keylevel
 	keylevel_strict			= False		if ('keylevel_strict' not in params) else params['keylevel_strict']
 	keylevel_use_daily		= False		if ('keylevel_use_daily' not in params) else params['keylevel_use_daily']
+	va_check			= False		if ('va_check' not in params) else params['va_check']
 
 	check_etf_indicators		= False		if ('check_etf_indicators' not in params) else params['check_etf_indicators']
 	check_etf_indicators_strict	= False		if ('check_etf_indicators_strict' not in params) else params ['check_etf_indicators_strict']
@@ -1088,6 +1097,26 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					long_resistance.append( (kl, dt, count) )
 
 
+	# VAH/VAL levels
+	mprofile = {}
+	if ( va_check == True ):
+		try:
+			mprofile = tda_algo_helper.get_market_profile(pricehistory=pricehistory, close_type='hl2', mp_mode='vol', tick_size=0.01)
+
+		except Exception as e:
+			print('Caught Exception: get_market_profile(' + str(ticker) + '): ' + str(e), file=sys.stderr)
+			sys.exit(1)
+
+		for day in mprofile:
+			cur_day = datetime.strptime(day, '%Y-%m-%d')
+			cur_day = mytimezone.localize(cur_day)
+
+			prev_day = cur_day - timedelta( days=1 )
+			prev_day = tda_gobot_helper.fix_timestamp( prev_day )
+			prev_day = prev_day.strftime('%Y-%m-%d')
+
+			mprofile[day]['prev_day'] = prev_day
+
 	# Intraday stacked moving averages
 	def get_stackedma(pricehistory=None, stacked_ma_periods=None, stacked_ma_type=None, use_ha_candles=False):
 		try:
@@ -1116,6 +1145,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			except Exception as e:
 				print('Error, unable to calculate stacked MAs: ' + str(e))
 				return False
+
+			# MAMA will return a mama/frama tuple - just return mama
+			if ( stacked_ma_type == 'mama' ):
+				ma = ma[0]
 
 			ma_array.append(ma)
 
@@ -1360,6 +1393,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		for i in range( len(vix['pricehistory']['candles']) ):
 			dt = vix['pricehistory']['candles'][i]['datetime']
 			vix['ma'][dt] = vix_ma[i]
+
+	# Quick exit when entering counter-trend moves
+	if ( trend_quick_exit == True ):
+		qe_s_ma = get_stackedma(pricehistory, qe_stacked_ma_periods, qe_stacked_ma_type)
 
 	# Populate rate-of-change for etf indicators
 	etf_roc		= []
@@ -2311,6 +2348,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				cur_vix_ma	= (0,0,0)
 				prev_vix_ma	= (0,0,0)
 
+		if ( trend_quick_exit == True ):
+			cur_qe_s_ma		= qe_s_ma[idx]
+			prev_qe_s_ma		= qe_s_ma[idx-1]
+
 		if ( with_momentum == True ):
 			cur_mom			= mom[idx]
 			prev_mom		= mom[idx-1]
@@ -3161,6 +3202,45 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# End Key Levels
 
+			# VAH/VAL Check
+			if ( va_check == True and buy_signal == True and resistance_signal == True ):
+				cur_day = date.strftime('%Y-%m-%d')
+
+				try:
+					prev_day = mprofile[cur_day]['prev_day']
+
+				except Exception as e:
+					print('Caught Exception: "prev_day" value does not exist in mprofile[' + str(cur_day) + ']')
+					sys.exit(1)
+
+				if ( prev_day in mprofile ):
+					vah = mprofile[prev_day]['vah']
+					val = mprofile[prev_day]['val']
+
+					for lvl in [vah,val]:
+						if ( abs((lvl / cur_close - 1) * 100) <= price_support_pct ):
+
+							# Current price is very close to a vah/val
+							# Next check average of last 15 (1-minute) candles
+							#
+							# If last 15 candles average above key level, then key level is support
+							# otherwise it is resistance
+							avg = 0
+							for i in range(15, 0, -1):
+								avg += float( pricehistory['candles'][idx-i]['close'] )
+							avg = avg / 15
+
+							# If average was below key level then key level is resistance
+							# Therefore this is not a great buy
+							if ( avg < lvl or abs((avg / lvl - 1) * 100) <= price_resistance_pct / 2 ):
+								resistance_signal = False
+								break
+
+				else:
+					print('Warning: market_profile(): ' + str(prev_day) + ' not in mprofile, skipping check')
+
+			# End VAH/VAL Check
+
 			# Relative Strength vs. an ETF indicator (i.e. SPY)
 			if ( check_etf_indicators == True ):
 				prev_rs_signal		= rs_signal
@@ -3525,6 +3605,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					elif ( cur_natr*2 < decr_threshold_long ):
 						decr_threshold_long = cur_natr*2
 
+				# Quick exit when entering counter-trend moves
+				if ( trend_quick_exit == True ):
+					stacked_ma_bear_affinity = check_stacked_ma(cur_qe_s_ma, 'bear')
+					if ( stacked_ma_bear_affinity == True ):
+						quick_exit = True
+
 				# DEBUG
 				if ( debug_all == True ):
 					print('(' + str(ticker) + '): Incr_Threshold: ' + str(incr_threshold_long) + ', Decr_Threshold: ' + str(decr_threshold_long) + ', Exit Percent: ' + str(exit_percent_long))
@@ -3767,7 +3853,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					decr_threshold_long		= exit_percent_long
 					exit_percent_signal_long	= True
 
-					if ( quick_exit == True ):
+					if ( quick_exit == True and total_percent_change >= quick_exit_percent ):
 						sell_signal		= True
 						exit_percent_exits	+= 1
 
@@ -3836,9 +3922,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						exit_percent_exits	+= 1
 
 			# If we've reached this point we probably need to stop out
-			elif ( exit_percent_signal_long == True and cur_close < purchase_price ):
+			if ( exit_percent_signal_long == True and cur_close < purchase_price ):
 				exit_percent_signal_long = False
 				decr_threshold_long	 = 0.5
+
+			# Handle quick_exit_percent if quick_exit is configured
+			if ( quick_exit == True and sell_signal == False and cur_close > purchase_price ):
+				total_percent_change = abs( purchase_price / cur_close - 1 ) * 100
+				if ( total_percent_change >= quick_exit_percent ):
+					sell_signal = True
 
 			# Monitor RSI for SELL signal
 			#  Note that this RSI implementation is more conservative than the one for buy/sell to ensure we don't
@@ -3903,6 +3995,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				incr_threshold_long	= orig_incr_threshold_long = default_incr_threshold
 				decr_threshold_long	= orig_decr_threshold_long = default_decr_threshold
 				exit_percent_long	= orig_exit_percent
+				quick_exit		= default_quick_exit
 
 				if ( signal_mode['straddle'] == True ):
 					if ( signal_mode['primary'] == 'sell' ):
@@ -4651,6 +4744,45 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# End Key Levels
 
+			# VAH/VAL Check
+			if ( va_check == True and short_signal == True and resistance_signal == True ):
+				cur_day = date.strftime('%Y-%m-%d')
+
+				try:
+					prev_day = mprofile[cur_day]['prev_day']
+
+				except Exception as e:
+					print('Caught Exception: "prev_day" value does not exist in mprofile[' + str(cur_day) + ']')
+					sys.exit(1)
+
+				if ( prev_day in mprofile ):
+					vah = mprofile[prev_day]['vah']
+					val = mprofile[prev_day]['val']
+
+					for lvl in [vah,val]:
+						if ( abs((lvl / cur_close - 1) * 100) <= price_support_pct ):
+
+							# Current price is very close to a vah/val
+							# Next check average of last 15 (1-minute) candles
+							#
+							# If last 15 candles average above key level, then key level is support
+							# otherwise it is resistance
+							avg = 0
+							for i in range(15, 0, -1):
+								avg += float( pricehistory['candles'][idx-i]['close'] )
+							avg = avg / 15
+
+							# If average was below key level then key level is resistance
+							# Therefore this is not a great buy
+							if ( avg > lvl or abs((avg / lvl - 1) * 100) <= price_resistance_pct / 1 ):
+								resistance_signal = False
+								break
+
+				else:
+					print('Warning: market_profile(): ' + str(prev_day) + ' not in mprofile, skipping check')
+
+			# End VAH/VAL Check
+
 			# Relative Strength vs. an ETF indicator (i.e. SPY)
 			if ( check_etf_indicators == True ):
 				prev_rs_signal		= rs_signal
@@ -5011,6 +5143,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					elif ( cur_natr*2 < decr_threshold_short ):
 						decr_threshold_short = cur_natr*2
 
+				# Quick exit when entering counter-trend moves
+				if ( trend_quick_exit == True ):
+					stacked_ma_bull_affinity = check_stacked_ma(cur_qe_s_ma, 'bull')
+					if ( stacked_ma_bull_affinity == True ):
+						quick_exit = True
+
 				# DEBUG
 				if ( debug_all == True ):
 					print('(' + str(ticker) + '): Incr_Threshold: ' + str(incr_threshold_short) + ', Decr_Threshold: ' + str(decr_threshold_short) + ', Exit Percent: ' + str(exit_percent_short))
@@ -5263,7 +5401,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					decr_threshold_short		= exit_percent_short
 					exit_percent_signal_short	= True
 
-					if ( quick_exit == True ):
+					if ( quick_exit == True and total_percent_change >= quick_exit_percent ):
 						buy_to_cover_signal	= True
 						exit_percent_exits	+= 1
 
@@ -5333,10 +5471,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						buy_to_cover_signal	= True
 						exit_percent_exits	+= 1
 
-			elif ( exit_percent_signal_short == True and cur_close > short_price ):
-				# If we've reached this point we probably need to stop out
+			# If we've reached this point we probably need to stop out
+			if ( exit_percent_signal_short == True and cur_close > short_price ):
 				exit_percent_signal_short	= False
 				decr_threshold_short		= 0.5
+
+			# Handle quick_exit_percent if quick_exit is configured
+			if ( quick_exit == True and buy_to_cover_signal == False and cur_close < short_price ):
+				total_percent_change = abs( cur_close / short_price - 1 ) * 100
+				if ( total_percent_change >= quick_exit_percent ):
+					buy_to_cover_signal = True
 
 			# Monitor RSI for BUY_TO_COVER signal
 			# Do not use stochrsi as an exit signal if strict_exit_percent is set to True
@@ -5394,6 +5538,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				incr_threshold_short	= orig_incr_threshold_short = default_incr_threshold
 				decr_threshold_short	= orig_decr_threshold_short = default_decr_threshold
 				exit_percent_short	= orig_exit_percent
+				quick_exit		= default_quick_exit
 
 				if ( signal_mode['straddle'] == True ):
 					if ( signal_mode['primary'] == 'buy_to_cover' ):

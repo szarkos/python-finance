@@ -1868,17 +1868,17 @@ def get_option_chains(ticker=None, contract_type='ALL', strike_count='10', inclu
 		data, err = func_timeout(5, tda.stocks.get_option_chains, args=(ticker,), kwargs=all_args )
 
 	except FunctionTimedOut:
-		print('Caught Exception: get_option_chains(' + str(query) + '): tda.stocks.get_option_chains(): timed out after 10 seconds', file=sys.stderr)
+		print('Caught Exception: get_option_chains(' + str(ticker) + '): tda.stocks.get_option_chains(): timed out after 10 seconds', file=sys.stderr)
 		return False
 	except Exception as e:
-		print('Caught Exception: get_option_chains(' + str(query) + '): tda.stocks.get_option_chains(): ' + str(e), file=sys.stderr)
+		print('Caught Exception: get_option_chains(' + str(ticker) + '): tda.stocks.get_option_chains(): ' + str(e), file=sys.stderr)
 		return False
 
 	if ( err != None ):
-		print('Error: get_option_chains(' + str(query) + '): tda.stocks.get_option_chains(): ' + str(err), file=sys.stderr)
+		print('Error: get_option_chains(' + str(ticker) + '): tda.stocks.get_option_chains(): ' + str(err), file=sys.stderr)
 		return False
 	elif ( data == {} ):
-		print('Error: get_option_chains(' + str(query) + '): tda.stocks.get_option_chains(): Empty data set', file=sys.stderr)
+		print('Error: get_option_chains(' + str(ticker) + '): tda.stocks.get_option_chains(): Empty data set', file=sys.stderr)
 		return False
 
 	return data

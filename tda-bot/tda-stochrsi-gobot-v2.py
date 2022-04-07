@@ -61,21 +61,25 @@ parser.add_argument("--incr_threshold", help='Reset base_price if stock increase
 parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1, type=float)
 parser.add_argument("--last_hour_threshold", help='Sell the stock if net gain is above this percentage during the final hour. Assumes --hold_overnight is False.', default=0.2, type=float)
 
+parser.add_argument("--options", help='Purchase CALL/PUT options instead of equities', action="store_true")
+parser.add_argument("--options_usd", help='Amount of money (USD) to invest per options trade', default=1000, type=float)
+parser.add_argument("--near_expiration", help='Choose an option contract with the earliest expiration date', action="store_true")
+parser.add_argument("--options_incr_threshold", help='Reset base_price if stock increases by this percent', default=2, type=float)
+parser.add_argument("--options_decr_threshold", help='Max allowed drop percentage of the stock price', default=5, type=float)
+parser.add_argument("--options_exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
+
 parser.add_argument("--num_purchases", help='Number of purchases allowed per day', default=10, type=int)
 parser.add_argument("--stoploss", help='Sell security if price drops below --decr_threshold (default=False)', action="store_true")
 parser.add_argument("--max_failed_txs", help='Maximum number of failed transactions allowed for a given stock before stock is blacklisted', default=2, type=int)
 parser.add_argument("--max_failed_usd", help='Maximum allowed USD for a failed transaction before the stock is blacklisted', default=99999, type=float)
 parser.add_argument("--exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
-parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent strategy was set, do not wait for the next candle', action="store_true")
-parser.add_argument("--quick_exit_percent", help='Exit immediately if --quick_exit and this profit target is achieved', default=None, type=float)
 parser.add_argument("--variable_exit", help='Adjust incr_threshold, decr_threshold and exit_percent based on the price action of the stock over the previous hour',  action="store_true")
 
-parser.add_argument("--options", help='Purchase CALL/PUT options instead of equities', action="store_true")
-parser.add_argument("--options_usd", help='Amount of money (USD) to invest per options trade', default=1000, type=float)
-parser.add_argument("--near_expiration", help='Choose an option contract with the earliest expiration date', action="store_true")
-parser.add_argument("--options_incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
-parser.add_argument("--options_decr_threshold", help='Max allowed drop percentage of the stock price', default=5, type=float)
-parser.add_argument("--options_exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
+parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent strategy was set, do not wait for the next candle', action="store_true")
+parser.add_argument("--quick_exit_percent", help='Exit immediately if --quick_exit and this profit target is achieved', default=None, type=float)
+parser.add_argument("--trend_quick_exit", help='Enable quick exit when entering counter-trend moves', action="store_true")
+parser.add_argument("--qe_stacked_ma_periods", help='Moving average periods to use with --trend_quick_exit (Default: )', default='34,55,89', type=str)
+parser.add_argument("--qe_stacked_ma_type", help='Moving average type to use when calculating trend_quick_exit stacked_ma (Default: hma)', default='hma', type=str)
 
 parser.add_argument("--use_ha_exit", help='Use Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
 parser.add_argument("--use_ha_candles", help='Use Heikin Ashi candles with stacked MA indicators', action="store_true")
@@ -318,12 +322,16 @@ for algo in args.algos:
 
 	# Per-algo entry limit
 	stock_usd			= args.stock_usd
-	quick_exit			= args.quick_exit
-	quick_exit_percent		= args.quick_exit_percent
 	options				= args.options
 	options_usd			= args.options_usd
 	near_expiration			= args.near_expiration
 	safe_open			= not args.unsafe
+
+	quick_exit			= args.quick_exit
+	quick_exit_percent		= args.quick_exit_percent
+	trend_quick_exit		= args.trend_quick_exit
+	qe_stacked_ma_periods		= args.qe_stacked_ma_periods
+	qe_stacked_ma_type		= args.qe_stacked_ma_type
 
 	# Indicator modifiers
 	rsi_high_limit			= args.rsi_high_limit
@@ -498,11 +506,14 @@ for algo in args.algos:
 
 		# Entry limit
 		if ( re.match('stock_usd:', a)				!= None ):	stock_usd			= float( a.split(':')[1] )
-		if ( re.match('quick_exit', a)				!= None ):	quick_exit			= True
-		if ( re.match('quick_exit_percent:', a)			!= None ):	quick_exit_percent		= float( a.split(':')[1] )
-
 		if ( re.match('safe_open', a)				!= None ):	safe_open			= True
 		if ( re.match('unsafe', a)				!= None ):	safe_open			= False
+
+		if ( re.match('quick_exit', a)				!= None ):	quick_exit			= True
+		if ( re.match('quick_exit_percent:', a)			!= None ):	quick_exit_percent		= float( a.split(':')[1] )
+		if ( re.match('trend_quick_exit', a)			!= None ):	trend_quick_exit		= True
+		if ( re.match('qe_stacked_ma_periods:', a)		!= None ):	qe_stacked_ma_periods		= str( a.split(':')[1] )
+		if ( re.match('qe_stacked_ma_type:', a)			!= None ):	qe_stacked_ma_type		= str( a.split(':')[1] )
 
 		# Options
 		if ( re.match('options', a)				!= None ):	options				= True
@@ -648,6 +659,8 @@ for algo in args.algos:
 	if ( stacked_ma_periods !=  args.stacked_ma_periods ):				stacked_ma_periods		= re.sub( '\.', ',', stacked_ma_periods )
 	if ( stacked_ma_periods_secondary != args.stacked_ma_periods_secondary ):	stacked_ma_periods_secondary	= re.sub( '\.', ',', stacked_ma_periods_secondary )
 
+	if ( qe_stacked_ma_periods != args.qe_stacked_ma_periods ):			qe_stacked_ma_periods		= re.sub( '\.', ',', qe_stacked_ma_periods )
+
 	# Similar to above, convert the etf_tickers using a period delimiter to comma-delimited
 	if ( etf_tickers != args.etf_tickers ):						etf_tickers			= re.sub( '\.', ',', etf_tickers )
 	args.etf_tickers = str(args.etf_tickers) + ',' + str(etf_tickers)
@@ -684,9 +697,13 @@ for algo in args.algos:
 	algo_list = {   'algo_id':				algo_id,
 
 			'stock_usd':				stock_usd,
+			'safe_open':				safe_open,
+
 			'quick_exit':				quick_exit,
 			'quick_exit_percent':			quick_exit_percent,
-			'safe_open':				safe_open,
+			'trend_quick_exit':			trend_quick_exit,
+			'qe_stacked_ma_periods':		qe_stacked_ma_periods,
+			'qe_stacked_ma_type':			qe_stacked_ma_type,
 
 			'options':				options,
 			'options_usd':				options_usd,
@@ -858,7 +875,8 @@ for algo in args.algos:
 
 # Clean up this mess
 # All the stuff above should be put into a function to avoid this cleanup stuff. I know it. It'll happen eventually.
-del(stock_usd,quick_exit,quick_exit_percent,primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,primary_mesa_sine,primary_trin)
+del(stock_usd,quick_exit,quick_exit_percent,trend_quick_exit,qe_stacked_ma_periods,qe_stacked_ma_type)
+del(primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,primary_mesa_sine,primary_trin)
 del(stacked_ma,stacked_ma_secondary,mama_fama,stochrsi_5m,stochmfi,stochmfi_5m)
 del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,vwap,vpt,support_resistance,use_keylevel)
 del(rsi_high_limit,rsi_low_limit,rsi_period,stochrsi_period,stochrsi_5m_period,rsi_k_period,rsi_k_5m_period,rsi_d_period,rsi_slow,stochrsi_offset,stochrsi_5m_offset)
@@ -1176,6 +1194,10 @@ for ticker in stock_list.split(','):
 
 				   # Rate of Change (ROC)
 				   'cur_roc':			float(0),
+
+				   # Trend Quick Exit
+				   'cur_qe_s_ma':		(0,0,0,0),
+				   'prev_qe_s_ma':		(0,0,0,0),
 
 				   # Per-algo indicator signals
 				   'algo_signals':		{},
@@ -1927,14 +1949,14 @@ while True:
 		continue
 
 	# Call read_stream():stream_client.handle_message() to read from the stream continuously
-	try:
-		asyncio.run(read_stream())
+#	try:
+	asyncio.run(read_stream())
 
-	except KeyboardInterrupt:
-		sys.exit(0)
+#	except KeyboardInterrupt:
+#		sys.exit(0)
 
-	except Exception as e:
-		print('Exception caught: read_stream(): ' + str(e) + ': retrying...')
+#	except Exception as e:
+#		print('Exception caught: read_stream(): ' + str(e) + ': retrying...')
 
 
 sys.exit(0)

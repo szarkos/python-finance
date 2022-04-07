@@ -150,8 +150,10 @@ def get_ema(pricehistory=None, period=50, type='close', debug=False):
 
 
 # Generic function that returns the requested moving average.
-# Most moving average functions take the same options (lookback period),
-#  with one exception of vwma which needs volume and period.
+#  - Most moving average functions only require a lookback period and a set of prices (type).
+#  - VWMA also requires volume
+#  - MAMA requires mama_fastlimit and mama_slowlimit
+#  - VIDYA requires period, short period and alpha
 #
 # Supported input data types: close, high, low, open, volume, hl2, hlc3 (default), ohlc4
 #
@@ -163,11 +165,12 @@ def get_ema(pricehistory=None, period=50, type='close', debug=False):
 #	mama	= Mesa adaptive moving average
 #	frama	= Fractal moving average
 #	trima	= Triangular Moving Average
+#	vidya	= Variable Index Dynamic Average
 #	vwma	= Volume Weighted Moving Average
 #	wma	= Weighted Moving Average
 #	zlema	= Zero-Lag Exponential Moving Average
 #
-def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_fastlimit=0.5, mama_slowlimit=0.05, debug=False):
+def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_fastlimit=0.5, mama_slowlimit=0.05, short_period=2, alpha=0.2, debug=False):
 
 	if ( pricehistory == None ):
 		return []
@@ -349,6 +352,17 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_f
 
 		# Lengths of mama/fama are already the same as prices[] and pricehistory['candles']
 		return frama
+
+	# VIDYA - Variable Index Dynamic Average
+	elif ( ma_type == 'vidya' ):
+		vidya = []
+		try:
+			#vidya = ti.vidya(prices, slow_period, period, alpha)
+			vidya = ti.vidya(prices, 15, period, 1)
+
+		except Exception as e:
+			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.vidya(): ' + str(e), file=sys.stderr)
+			return False
 
 	else:
 		print('Error: unknown ma_type "' + str(ma_type) + '"', file=sys.stderr)

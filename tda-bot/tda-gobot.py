@@ -36,9 +36,10 @@ parser.add_argument("--exit_price", help="The price to exit a trade", default=No
 parser.add_argument("--exit_percent", help='Switch to monitoring price action of the security when the price improves by this percentile', default=None, type=float)
 parser.add_argument("--exit_percent_loopt", help='Amount of time to sleep between queries after exit_percent_signal is triggered', default=12, type=int)
 parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent strategy was set, do not wait for the next candle', action="store_true")
-parser.add_argument("--quick_exit_half", help='Exit half-size immediately if an exit_percent strategy was set', action="store_true")
 parser.add_argument("--quick_exit_percent", help='Exit immediately if price improves by this percentage', default=None, type=float)
 parser.add_argument("--use_combined_exit", help='Use both the ttm_trend algorithm and Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
+parser.add_argument("--partial_exit_strat", help='Configure an exit strategy', default=None, type=str)
+parser.add_argument("--initial_partial_exit_pct", help='Set the initial trigger for the first stage of partial_exit_strat, using incr_threshold afterward', default=5, type=float)
 
 parser.add_argument("--multiday", help="Watch stock until decr_threshold is reached. Do not sell and exit when market closes", action="store_true")
 parser.add_argument("--notmarketclosed", help="Cancel order and exit if US stock market is closed", action="store_true")
@@ -78,6 +79,7 @@ loopt				= 3				# Period between stock get_lastprice() checks
 
 exit_percent_signal		= False
 exit_signal			= False
+stopout_signal			= False
 
 mytimezone			= pytz.timezone("US/Eastern")
 tda_gobot_helper.mytimezone	= mytimezone
@@ -362,7 +364,6 @@ else:
 if ( args.options == True ):
 
 	quote = tda_gobot_helper.get_quotes(stock)
-
 	try:
 		option_price	= quote[stock]['askPrice']
 		stock_qty       = int( stock_usd / (option_price * 100) )
@@ -405,7 +406,9 @@ except:
 
 open_time	= datetime.datetime.now( mytimezone )
 base_price	= orig_base_price
+total_stock_qty	= stock_qty
 percent_change	= 0
+time.sleep(3)
 
 
 # Main loop
@@ -455,49 +458,51 @@ while True:
 	# Sell the security if we're getting close to market close
 	if ( tda_gobot_helper.isendofday() == True and args.multiday == False ):
 		print('Market closing, selling stock ' + str(stock))
-		exit_signal = True
+		exit_signal	= True
+		stopout_signal	= True
 
 	# If exit_price was set
 	if ( args.exit_price != None and exit_signal == False ):
 		percent_change = abs( last_price / base_price - 1 ) * 100
-
 		if ( args.short == True ):
 			if ( last_price <= args.exit_price ):
 				print('BUY_TO_COVER stock ' + str(stock) + '" - the last_price (' + str(last_price) + ') crossed the exit_price(' + str(args.exit_price) + ')')
-				exit_signal = True
+				exit_signal	= True
+				stopout_signal	= True
 
 		else:
 			if ( last_price >= args.exit_price ):
 				print('SELLING stock ' + str(stock) + '" - the last_price (' + str(last_price) + ') crossed the exit_price(' + str(args.exit_price) + ')')
-				exit_signal = True
+				exit_signal	= True
+				stopout_signal	= True
 
 	# Stoploss Monitor
 	# Monitor negative movement in price, unless exit_percent_signal has been triggered
 	#
 	# If price decreases
 	if ( last_price < base_price and exit_percent_signal == False and exit_signal == False ):
-		if ( args.short == True ):
-			if ( percent_change >= incr_percent_threshold ):
-				base_price = last_price
-				if ( debug == True ):
-					print('SHORTED Stock "' + str(stock) + '" decreased below the incr_percent_threshold (' + str(incr_percent_threshold) + '%), resetting base price to ' + str(base_price))
+		if ( args.short == True and percent_change >= incr_percent_threshold ):
+			base_price = last_price
+			if ( debug == True ):
+				print('SHORTED Stock "' + str(stock) + '" decreased below the incr_percent_threshold (' + str(incr_percent_threshold) + '%), resetting base price to ' + str(base_price))
 
-				if ( decr_percent_threshold == args.decr_threshold ):
-					decr_percent_threshold = incr_percent_threshold / 2
+			if ( decr_percent_threshold == args.decr_threshold ):
+				decr_percent_threshold = args.decr_threshold / 2
 
 		elif ( percent_change >= decr_percent_threshold ):
 			# Sell the security
 			print('SELLING stock ' + str(stock) + '" - the security moved below the decr_percent_threshold (' + str(decr_percent_threshold) + '%)')
-			exit_signal = True
+			exit_signal	= True
+			stopout_signal	= True
 
 	# If price increases
 	elif ( last_price > base_price and exit_percent_signal == False and exit_signal == False ):
 
-		if ( args.short == True ):
-			if ( percent_change >= decr_percent_threshold ):
-				# Buy-to-cover the security
-				print('BUY_TO_COVER stock ' + str(stock) + '" - the security moved above the decr_percent_threshold (' + str(decr_percent_threshold) + '%)')
-				exit_signal = True
+		if ( args.short == True and percent_change >= decr_percent_threshold ):
+			# Buy-to-cover the security
+			print('BUY_TO_COVER stock ' + str(stock) + '" - the security moved above the decr_percent_threshold (' + str(decr_percent_threshold) + '%)')
+			exit_signal	= True
+			stopout_signal	= True
 
 		elif ( percent_change >= incr_percent_threshold ):
 
@@ -507,8 +512,46 @@ while True:
 			if ( debug == True ):
 				print('Stock "' + str(stock) + '" increased above the incr_percent_threshold (' + str(incr_percent_threshold) + '%), resetting base price to ' + str(base_price))
 
-			if ( decr_percent_threshold == args.decr_threshold ):
-				decr_percent_threshold = incr_percent_threshold / 2
+#			if ( decr_percent_threshold == args.decr_threshold ):
+#				decr_percent_threshold = args.decr_threshold / 2
+
+			# Handle partial_exit_strat
+			# Split the stock into separate partial transactions, as long as the price is going up
+			if ( args.partial_exit_strat != None ):
+				if ( (stock_qty == total_stock_qty and total_percent_change >= initial_partial_exit_pct) or
+						stock_qty < total_stock_qty ):
+
+					# Split the stock into three transactions
+					if ( args.partial_exit_strat == 'one_third' or args.partial_exit_strat == 'one_third_run' ):
+						if ( int(stock_qty - (total_stock_qty / 3) * 2) > int(total_stock_qty / 3) ):
+							stock_qty	= int( stock_qty - (total_stock_qty / 3) * 2 )
+							exit_signal	= True
+
+						else:
+							# one_third_run means to leave the final 1/3 to a
+							#  trend-based exit strategy below, otherwise just stop out
+							if ( args.partial_exit_strat == 'one_third_run' ):
+								exit_percent = incr_percent_threshold
+
+							else:
+								exit_signal	= True
+								stopout_signal	= True
+
+					# Split the stock into four transactions
+					if ( args.partial_exit_strat == 'one_fourth' or args.partial_exit_strat == 'one_fourth_run' ):
+						if ( int(stock_qty - (total_stock_qty / 4) * 2) > int(total_stock_qty / 4) ):
+							stock_qty	= int( stock_qty - (total_stock_qty / 4) * 2 )
+							exit_signal	= True
+
+						else:
+							# one_fourth_run means to leave the final 1/4 to a
+							#  trend-based exit strategy below, otherwise just stop out
+							if ( args.partial_exit_strat == 'one_fourth_run' ):
+								exit_percent = incr_percent_threshold
+
+							else:
+								exit_signal	= True
+								stopout_signal	= True
 
 
 	# Additional exit strategies
@@ -520,7 +563,8 @@ while True:
 				total_percent_change = abs( orig_base_price / last_price - 1 ) * 100
 				if ( total_percent_change >= args.exit_percent ):
 					if ( args.quick_exit == True and total_percent_change >= args.quick_exit_percent ):
-						exit_signal = True
+						exit_signal	= True
+						stopout_signal	= True
 
 					else:
 						exit_percent_signal = True
@@ -535,7 +579,8 @@ while True:
 				total_percent_change = abs( last_price / orig_base_price - 1 ) * 100
 				if ( total_percent_change >= args.exit_percent ):
 					if ( args.quick_exit == True and total_percent_change >= args.quick_exit_percent ):
-						exit_signal = True
+						exit_signal	= True
+						stopout_signal	= True
 
 					else:
 						exit_percent_signal = True
@@ -565,7 +610,8 @@ while True:
 			# First, process quick_exit_percent if configured
 			if ( args.quick_exit == True and args.quick_exit_percent != None ):
 				if ( total_percent_change >= args.quick_exit_percent ):
-					exit_signal = True
+					exit_signal	= True
+					stopout_signal	= True
 
 			loopt		= args.exit_percent_loopt
 			pricehistory	= {}
@@ -639,27 +685,35 @@ while True:
 				# Exit if trend_exit and ha_exit have been triggered
 				if ( trend_exit == True and ha_exit == True ):
 					print('(' + str(args.stock) + '): last_candle: ' + str(last_open) + '/' + str(last_close) + ', last_ha_candle: ' + str(last_ha_open) + '/' + str(last_ha_close))
-					exit_signal = True
+					exit_signal	= True
+					stopout_signal	= True
+
 
 			else:
 				# If not using trend and/or HA candles then just exit when we reach
 				#  a candle where the close is moving in the undesired direction.
 				if ( ((args.options == False and args.short == False) or (args.options == True and args.option_type == 'CALL')) and
 						last_close < last_open ):
-					exit_signal = True
+					exit_signal	= True
+					stopout_signal	= True
 
 				elif ( ((args.options == False and args.short == True) or (args.options == True and args.option_type == 'PUT')) and
 						last_close > last_open ):
-					exit_signal = True
+					exit_signal	= True
+					stopout_signal	= True
 
 		# Handle quick_exit and quick_exit_percent
 		if ( args.quick_exit == True and exit_signal == False ):
 			if ( total_percent_change >= args.quick_exit_percent ):
-				exit_signal = True
+				exit_signal	= True
+				stopout_signal	= True
 
 	# Sell/buy_to_cover the security
 	if ( exit_signal == True ):
 		text_color = green
+
+		if ( args.partial_exit_strat != None ):
+			print( '(' + str(stock) + '): exiting ' + str(stock_qty) + ' shares/options, (Total: ' + str(total_stock_qty) + ')' )
 
 		# OPTIONS
 		if ( args.options == True ):
@@ -670,8 +724,6 @@ while True:
 				data = tda_gobot_helper.buy_sell_option(contract=stock, quantity=stock_qty, instruction='sell_to_close', fillwait=True, account_number=tda_account_number, debug=debug)
 
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short, sold=True)
-			sys.exit(0)
-
 
 		# EQUITY stock
 		else:
@@ -696,6 +748,8 @@ while True:
 					data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, account_number=tda_account_number, debug=debug)
 
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short, sold=True)
+
+		if ( stopout_signal == True ):
 			sys.exit(0)
 
 	time.sleep(loopt)

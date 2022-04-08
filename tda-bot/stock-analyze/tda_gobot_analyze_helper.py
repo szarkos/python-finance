@@ -99,6 +99,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 		nonlocal trin_init_signal		; trin_init_signal		= False
 		nonlocal trin_signal			; trin_signal			= False
+		nonlocal trin_counter			; trin_counter			= 0
+
 		nonlocal tick_signal			; tick_signal			= False
 		nonlocal roc_signal			; roc_signal			= False
 		nonlocal sp_monitor_signal		; sp_monitor_signal		= False
@@ -1215,9 +1217,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		# Calculate the MA for the rate-of-change, for both $TRIN and $TICK
 		# ROC values need to be squared up with the timestamp so they can be matched properly with
 		#  the datetime value from the current stock's candle.
+		trin_roc	= []
+		trinq_roc	= []
+		tick_roc	= []
 		try:
-			trin_roc = tda_algo_helper.get_roc( trin_tick['trin']['pricehistory'], period=trin_roc_period, type=trin_roc_type, calc_percentage=True )
-			tick_roc = tda_algo_helper.get_roc( trin_tick['tick']['pricehistory'], period=trin_roc_period, type=trin_roc_type, calc_percentage=True )
+			trin_roc	= tda_algo_helper.get_roc( trin_tick['trin']['pricehistory'], period=trin_roc_period, type=trin_roc_type, calc_percentage=True )
+			trinq_roc	= tda_algo_helper.get_roc( trin_tick['trinq']['pricehistory'], period=trin_roc_period, type=trin_roc_type, calc_percentage=True )
+			tick_roc	= tda_algo_helper.get_roc( trin_tick['tick']['pricehistory'], period=trin_roc_period, type=trin_roc_type, calc_percentage=True )
 
 		except Exception as e:
 			print('Error, unable to calculate rate-of-change for trin_tick: ' + str(e))
@@ -1227,19 +1233,29 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			dt = trin_tick['trin']['pricehistory']['candles'][i]['datetime']
 			trin_tick['trin']['roc'].update( { dt: trin_roc[i] } )
 
+		for i in range( len(trin_tick['trinq']['pricehistory']['candles']) ):
+			dt = trin_tick['trinq']['pricehistory']['candles'][i]['datetime']
+			trin_tick['trinq']['roc'].update( { dt: trinq_roc[i] } )
+
 		for i in range( len(trin_tick['tick']['pricehistory']['candles']) ):
 			dt = trin_tick['tick']['pricehistory']['candles'][i]['datetime']
 			trin_tick['tick']['roc'].update( { dt: tick_roc[i] } )
 
 		# Calculate the MA for the rate-of-change, for both $TRIN and $TICK
+		#
+		# When using $TRIN + $TRIN/Q we will average the ROC from each when generating the moving average
+		# However, $TRIN and $TRIN/Q might have some different datetimes, so we need to account for that
 		temp_ph = { 'candles': [] }
-		for i in range( len(trin_roc) ):
-			temp_ph['candles'].append({ 'open': trin_roc[i], 'high': trin_roc[i], 'low': trin_roc[i], 'close': trin_roc[i] })
+		all_dts = list( trin_tick['trin']['roc'].keys() ) + list( trin_tick['trinq']['roc'].keys() )
+		all_dts = sorted( list(dict.fromkeys(all_dts)) )
+		for dt in all_dts:
+			trin	= trin_tick['trin']['roc'][dt] if ( dt in trin_tick['trin']['roc'] ) else 0
+			trinq	= trin_tick['trinq']['roc'][dt] if ( dt in trin_tick['trinq']['roc'] ) else 0
+			temp_ph['candles'].append( { 'close': (trin + trinq) / 2 } )
 
 		tmp_trin_ma = tda_algo_helper.get_alt_ma(pricehistory=temp_ph, ma_type=trin_ma_type, type='close', period=trin_ma_period)
-		for i in range( len(trin_tick['trin']['pricehistory']['candles']) ):
-			dt = trin_tick['trin']['pricehistory']['candles'][i]['datetime']
-			trin_tick['trin']['roc_ma'].update( { dt: tmp_trin_ma[i] } )
+		for idx,dt in enumerate( all_dts ):
+			trin_tick['trin']['roc_ma'].update( { dt: tmp_trin_ma[idx] } )
 
 		# TICK ROC
 		temp_ph = { 'candles': [] }
@@ -1548,6 +1564,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	trin_init_signal		= False
 	trin_signal			= False
+	trin_counter			= 0
+
 	tick_signal			= False
 	roc_signal			= False
 	sp_monitor_signal		= False
@@ -2657,7 +2675,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				# Trigger trin_init_signal if cur_trin moves above trin_oversold
 				if ( cur_trin >= trin_oversold ):
-					trin_init_signal = True
+					trin_counter		= 0
+					trin_init_signal	= True
 
 				# Once trin_init_signal is triggered, we can trigger the final trin_signal
 				#  after the first green candle
@@ -2667,6 +2686,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					else:
 						trin_signal	= False
 						buy_signal	= False
+
+					trin_counter += 1
+					if ( trin_counter >= 10 ):
+						trin_counter		= 0
+						trin_init_signal	= False
 
 				# Trigger the buy_signal if all the trin signals have tiggered
 				if ( trin_init_signal == True and trin_signal == True ):
@@ -2688,7 +2712,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				# Trigger trin_init_signal if cur_trin moves above trin_oversold
 				elif ( cur_trin >= trin_oversold ):
-					trin_init_signal = True
+					trin_counter		= 0
+					trin_init_signal	= True
 
 				# Once trin_init_signal is triggered, we can trigger the final trin_signal
 				#  after the first green candle
@@ -2697,6 +2722,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						trin_signal = True
 					else:
 						trin_signal = False
+
+					trin_counter += 1
+					if ( trin_counter >= 10 ):
+						trin_counter		= 0
+						trin_init_signal	= False
 
 			# $TICK indicator
 			# Bearish action when indicator is below zero and heading downward
@@ -3732,9 +3762,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							if ( stacked_ma_bear_affinity == True ):
 								sell_signal = True
 
-#							elif ( bbands_kchan_xover_counter >= 4 and cur_close < cur_open ):
-#								sell_signal = True
-
 					if ( primary_stoch_indicator == 'stacked_ma' or primary_stoch_indicator == 'mama_fama' ):
 						if ( stacked_ma_bear_affinity == True or stacked_ma_bear_ha_affinity == True ):
 							if ( decr_threshold_long > 1 ):
@@ -4225,7 +4252,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				# Trigger trin_init_signal if cur_trin moves below trin_overbought
 				if ( cur_trin <= trin_overbought ):
-					trin_init_signal = True
+					trin_counter		= 0
+					trin_init_signal	= True
 
 				# Once trin_init_signal is triggered, we can trigger the final trin_signal
 				#  after the first red candle
@@ -4235,6 +4263,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					else:
 						trin_signal	= False
 						short_signal	= False
+
+					trin_counter += 1
+					if ( trin_counter >= 10 ):
+						trin_counter		= 0
+						trin_init_signal	= False
 
 				# Trigger the short_signal if all the trin signals have tiggered
 				if ( trin_init_signal == True and trin_signal == True ):
@@ -4256,7 +4289,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				# Trigger trin_init_signal if cur_trin moves below trin_overbought
 				if ( cur_trin <= trin_overbought ):
-					trin_init_signal = True
+					trin_counter		= 0
+					trin_init_signal	= True
 
 				# Once trin_init_signal is triggered, we can trigger the final trin_signal
 				#  after the first red candle
@@ -4265,6 +4299,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						trin_signal = True
 					else:
 						trin_signal = False
+
+					trin_counter += 1
+					if ( trin_counter >= 10 ):
+						trin_counter		= 0
+						trin_init_signal	= False
 
 			# $TICK indicator
 			# Bearish action when indicator is below zero and heading downward
@@ -5449,8 +5488,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 				# Set the stoploss to the entry price if the candle touches the exit_percent, but closes below it
 				elif ( low_percent_change >= exit_percent_short and total_percent_change < exit_percent_short and exit_percent_signal_short == False ):
-#					if ( decr_threshold_short > 1 ):
-#						decr_threshold_short = 1
 					if ( decr_threshold_short > total_percent_change ):
 						decr_threshold_short = total_percent_change
 

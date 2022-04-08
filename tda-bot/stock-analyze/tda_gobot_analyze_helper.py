@@ -315,6 +315,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	no_use_resistance		= False		if ('no_use_resistance' not in params) else params['no_use_resistance']
 	price_resistance_pct		= 1		if ('price_resistance_pct' not in params) else params['price_resistance_pct']
 	price_support_pct		= 1		if ('price_support_pct' not in params) else params['price_support_pct']
+	resist_pct_dynamic		= False		if ('resist_pct_dynamic' not in params) else params['resist_pct_dynamic']
 	use_natr_resistance		= False		if ('use_natr_resistance' not in params) else params['use_natr_resistance']
 	use_pivot_resistance		= False		if ('use_pivot_resistance' not in params) else params['use_pivot_resistance']
 	lod_hod_check			= False		if ('lod_hod_check' not in params) else params['lod_hod_check']
@@ -360,11 +361,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	tick_ma_period			= 5		if ('tick_ma_period' not in params) else params['tick_ma_period']
 
 	with_roc			= False		if ('with_roc' not in params) else params['with_roc']
+	roc_exit			= False		if ('roc_exit' not in params) else params['roc_exit']
 	roc_type			= 'hlc3'	if ('roc_type' not in params) else params['roc_type']
 	roc_period			= 25		if ('roc_period' not in params) else params['roc_period']
 	roc_ma_type			= 'ema'		if ('roc_ma_type' not in params) else params['roc_ma_type']
 	roc_ma_period			= 5		if ('roc_ma_period' not in params) else params['roc_ma_period']
 	roc_threshold			= 0.15		if ('roc_threshold' not in params) else params['roc_threshold']
+	default_roc_exit		= roc_exit
 
 	with_sp_monitor			= False		if ('with_sp_monitor' not in params) else params['with_sp_monitor']
 	sp_monitor_tickers		= None		if ('sp_monitor_tickers' not in params) else params['sp_monitor_tickers']
@@ -1096,7 +1099,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( count > 1 and (kl, dt, count) not in long_resistance ):
 					long_resistance.append( (kl, dt, count) )
 
-
 	# VAH/VAL levels
 	mprofile = {}
 	if ( va_check == True ):
@@ -1256,7 +1258,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	# ROC indicator
 	roc = []
-	if ( with_roc == True ):
+	if ( with_roc == True or roc_exit == True ):
 		try:
 			roc = tda_algo_helper.get_roc( pricehistory, period=roc_period, type=roc_type, calc_percentage=True )
 
@@ -2238,7 +2240,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			continue
 
 		# Helper variables from the current pricehistory data
-		date				= datetime.fromtimestamp(int(pricehistory['candles'][idx]['datetime'])/1000, tz=mytimezone)
 		cur_open			= pricehistory['candles'][idx]['open']
 		cur_high			= pricehistory['candles'][idx]['high']
 		cur_low				= pricehistory['candles'][idx]['low']
@@ -2252,6 +2253,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		cur_ha_high			= pricehistory['hacandles'][idx]['high']
 		cur_ha_low			= pricehistory['hacandles'][idx]['low']
 		cur_ha_close			= pricehistory['hacandles'][idx]['close']
+
+		date				= datetime.fromtimestamp(int(cur_dt)/1000, tz=mytimezone)
 
 		# Indicators current values
 		cur_rsi_k			= rsi_k[idx - stochrsi_idx]
@@ -2326,7 +2329,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				cur_tick	= 0
 				prev_tick	= 0
 
-		if ( with_roc == True ):
+		if ( with_roc == True or default_roc_exit == True ):
 			cur_roc		= roc[idx]
 			prev_roc	= roc[idx-1]
 			cur_roc_ma	= roc_ma[idx]
@@ -2417,6 +2420,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			cur_daily_ma = daily_ma[date.strftime('%Y-%m-%d')]
 		except:
 			pass
+
+		# Set price_resistance_pct/price_support_pct dynamically
+		if ( resist_pct_dynamic == True ):
+			price_resistance_pct = (1 / cur_close) * 100
+			if ( price_resistance_pct < 0.25 ):
+				price_resistance_pct = 0.25
+			elif ( price_resistance_pct > 1 ):
+				price_resistance_pct = 1
+
+			price_support_pct = price_resistance_pct
 
 		# Skip all candles until start_date, if it is set
 		if ( start_date != None and date < start_date ):
@@ -2650,12 +2663,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				#  after the first green candle
 				if ( trin_init_signal == True ):
 					if ( cur_ha_close > cur_ha_open ):
-						trin_signal = True
-
+						trin_signal	= True
 					else:
-						trin_signal = False
-						if ( primary_stoch_indicator == 'trin' ):
-							buy_signal = False
+						trin_signal	= False
+						buy_signal	= False
 
 				# Trigger the buy_signal if all the trin signals have tiggered
 				if ( trin_init_signal == True and trin_signal == True ):
@@ -3232,7 +3243,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 							# If average was below key level then key level is resistance
 							# Therefore this is not a great buy
-							if ( avg < lvl or abs((avg / lvl - 1) * 100) <= price_resistance_pct / 2 ):
+							if ( avg < lvl ):
 								resistance_signal = False
 								break
 
@@ -3611,6 +3622,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					if ( stacked_ma_bear_affinity == True ):
 						quick_exit = True
 
+				# Disable ROC exit if we're already entering in a countertrend move
+				if ( roc_exit == True ):
+					if ( cur_roc_ma < prev_roc_ma ):
+						roc_exit = False
+
 				# DEBUG
 				if ( debug_all == True ):
 					print('(' + str(ticker) + '): Incr_Threshold: ' + str(incr_threshold_long) + ', Decr_Threshold: ' + str(decr_threshold_long) + ', Exit Percent: ' + str(exit_percent_long))
@@ -3756,6 +3772,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 									signal_mode['straddle']		= True
 
 			# STOPLOSS
+			# Use a flattening or falling rate-of-change to signal an exit
+			if ( default_roc_exit == True and sell_signal == False ):
+				if ( roc_exit == False ):
+					if ( cur_roc_ma > prev_roc_ma ):
+						roc_exit = True
+
+				elif ( cur_roc_ma < prev_roc_ma ):
+					decr_threshold_long = default_decr_threshold - default_decr_threshold / 3
+
 			# Monitor cost basis
 			percent_change = 0
 			if ( cur_close < base_price_long and sell_signal == False and exit_percent_signal_long == False ):
@@ -3799,6 +3824,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					incr_threshold_long	= orig_incr_threshold_long = default_incr_threshold
 					decr_threshold_long	= orig_decr_threshold_long = default_decr_threshold
 					exit_percent_long	= orig_exit_percent
+					quick_exit		= default_quick_exit
+					roc_exit		= default_roc_exit
 
 					if ( signal_mode['straddle'] == True ):
 						if ( signal_mode['primary'] == 'sell' ):
@@ -3959,9 +3986,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					 sell_signal = True
 
 
+			# SELL
 			if ( sell_signal == True ):
 
-				# Sell
 				sell_price = pricehistory['candles'][idx]['close']
 				sell_time = datetime.fromtimestamp(pricehistory['candles'][idx]['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f')
 
@@ -3996,6 +4023,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				decr_threshold_long	= orig_decr_threshold_long = default_decr_threshold
 				exit_percent_long	= orig_exit_percent
 				quick_exit		= default_quick_exit
+				roc_exit		= default_roc_exit
 
 				if ( signal_mode['straddle'] == True ):
 					if ( signal_mode['primary'] == 'sell' ):
@@ -4189,10 +4217,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			elif ( primary_stoch_indicator == 'trin' ):
 
 				# Jump to long mode if cur_trin is greater than trin_overbought
-				if ( primary_stoch_indicator == 'trin' and cur_trin >= trin_oversold and shortonly == False ):
+				if ( cur_trin >= trin_oversold and shortonly == False ):
 					reset_signals()
-					trin_init_signal = True
-					signal_mode['primary'] = 'long'
+					trin_init_signal	= True
+					signal_mode['primary']	= 'long'
 					continue
 
 				# Trigger trin_init_signal if cur_trin moves below trin_overbought
@@ -4203,15 +4231,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				#  after the first red candle
 				if ( trin_init_signal == True ):
 					if ( cur_ha_close < cur_ha_open ):
-						trin_signal = True
-
+						trin_signal	= True
 					else:
-						trin_signal = False
-						if ( primary_stoch_indicator == 'trin' ):
-							short_signal = False
+						trin_signal	= False
+						short_signal	= False
 
 				# Trigger the short_signal if all the trin signals have tiggered
-				if ( primary_stoch_indicator == 'trin' and trin_init_signal == True and trin_signal == True ):
+				if ( trin_init_signal == True and trin_signal == True ):
 					short_signal = True
 
 			# Unknown primary indicator
@@ -4774,7 +4800,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 							# If average was below key level then key level is resistance
 							# Therefore this is not a great buy
-							if ( avg > lvl or abs((avg / lvl - 1) * 100) <= price_resistance_pct / 1 ):
+							if ( avg > lvl ):
 								resistance_signal = False
 								break
 
@@ -5149,6 +5175,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					if ( stacked_ma_bull_affinity == True ):
 						quick_exit = True
 
+				# Disable ROC exit if we're already entering in a countertrend move
+				if ( roc_exit == True ):
+					if ( cur_roc_ma > prev_roc_ma ):
+						roc_exit = False
+
 				# DEBUG
 				if ( debug_all == True ):
 					print('(' + str(ticker) + '): Incr_Threshold: ' + str(incr_threshold_short) + ', Decr_Threshold: ' + str(decr_threshold_short) + ', Exit Percent: ' + str(exit_percent_short))
@@ -5304,6 +5335,15 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 #						buy_to_cover_signal = True
 
 			# STOPLOSS
+			# Use a flattening or falling rate-of-change to signal an exit
+			if ( default_roc_exit == True and buy_to_cover_signal == False ):
+				if ( roc_exit == False ):
+					if ( cur_roc_ma < prev_roc_ma ):
+						roc_exit = True
+
+				elif ( cur_roc_ma > prev_roc_ma ):
+					decr_threshold_short = default_decr_threshold - default_decr_threshold / 3
+
 			# Monitor cost basis
 			percent_change = 0
 			if ( cur_close > base_price_short and buy_to_cover_signal == False and exit_percent_signal_short == False ):
@@ -5347,6 +5387,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					incr_threshold_short	= orig_incr_threshold_short = default_incr_threshold
 					decr_threshold_short	= orig_decr_threshold_short = default_decr_threshold
 					exit_percent_short	= orig_exit_percent
+					quick_exit		= default_quick_exit
+					roc_exit		= default_roc_exit
 
 					if ( signal_mode['straddle'] == True ):
 						if ( signal_mode['primary'] == 'buy_to_cover' ):
@@ -5505,6 +5547,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( mesa_sine_signal == True ):
 					 buy_to_cover_signal = True
 
+
 			# BUY-TO-COVER
 			if ( buy_to_cover_signal == True ):
 
@@ -5539,6 +5582,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				decr_threshold_short	= orig_decr_threshold_short = default_decr_threshold
 				exit_percent_short	= orig_exit_percent
 				quick_exit		= default_quick_exit
+				roc_exit		= default_roc_exit
 
 				if ( signal_mode['straddle'] == True ):
 					if ( signal_mode['primary'] == 'buy_to_cover' ):

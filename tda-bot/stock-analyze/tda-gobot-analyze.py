@@ -44,6 +44,7 @@ parser.add_argument("--keylevel_strict", help='Use strict key level checks to en
 parser.add_argument("--keylevel_use_daily", help='Use daily candles as well as weeklies to determine key levels (Default: False)', action="store_true")
 parser.add_argument("--price_resistance_pct", help='Resistance indicators will come into effect if price is within this percentage of a known support/resistance line', default=1, type=float)
 parser.add_argument("--price_support_pct", help='Support indicators will come into effect if price is within this percentage of a known support/resistance line', default=1, type=float)
+parser.add_argument("--resist_pct_dynamic", help='Calculate price_resistance_pct/price_support_pct dynamically', action="store_true")
 parser.add_argument("--use_natr_resistance", help='Enable the daily NATR resistance check', action="store_true")
 parser.add_argument("--use_pivot_resistance", help='Enable the use of pivot points and PDH/PDL resistance check', action="store_true")
 parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
@@ -75,9 +76,10 @@ parser.add_argument("--tick_ma_pricetype", help='Rate of change candles type to 
 parser.add_argument("--tick_ma_period", help='Period to use with ROC algorithm (Default: 4)', default=4, type=int)
 
 parser.add_argument("--with_roc", help='Use Rate-of-Change (ROC) indicator', action="store_true")
+parser.add_argument("--roc_exit", help='Use Rate-of-Change (ROC) indicator to signal an exit', action="store_true")
 parser.add_argument("--roc_type", help='Rate of change candles type to use (Default: hlc3)', default='hlc3', type=str)
 parser.add_argument("--roc_period", help='Period to use with ROC algorithm (Default: 14)', default=14, type=int)
-parser.add_argument("--roc_ma_type", help='MA period to use with ROC algorithm (Default: ema)', default='ema', type=str)
+parser.add_argument("--roc_ma_type", help='MA period to use with ROC algorithm (Default: wma)', default='wma', type=str)
 parser.add_argument("--roc_ma_period", help='MA period to use with ROC algorithm (Default: 4)', default=4, type=int)
 parser.add_argument("--roc_threshold", help='Threshold to cancel the ROC algorithm (Default: 0.15)', default=0.15, type=float)
 
@@ -207,7 +209,7 @@ parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent st
 parser.add_argument("--quick_exit_percent", help='Exit immediately if --quick_exit and this profit target is achieved', default=None, type=float)
 parser.add_argument("--trend_quick_exit", help='Enable quick exit when entering counter-trend moves', action="store_true")
 parser.add_argument("--qe_stacked_ma_periods", help='Moving average periods to use with --trend_quick_exit (Default: )', default='34,55,89', type=str)
-parser.add_argument("--qe_stacked_ma_type", help='Moving average type to use when calculating trend_quick_exit stacked_ma (Default: hma)', default='hma', type=str)
+parser.add_argument("--qe_stacked_ma_type", help='Moving average type to use when calculating trend_quick_exit stacked_ma (Default: vidya)', default='vidya', type=str)
 
 parser.add_argument("--blacklist_earnings", help='Blacklist trading one week before and after quarterly earnings dates (Default: False)', action="store_true")
 parser.add_argument("--check_volume", help='Check the last several days (up to 6-days, depending on how much history is available) to ensure stock is not trading at a low volume threshold (Default: False)', action="store_true")
@@ -1055,6 +1057,7 @@ for algo in args.algo.split(','):
 					'no_use_resistance':			args.no_use_resistance,
 					'price_resistance_pct':			args.price_resistance_pct,
 					'price_support_pct':			args.price_support_pct,
+					'resist_pct_dynamic':			args.resist_pct_dynamic,
 					'lod_hod_check':			args.lod_hod_check,
 					'use_keylevel':				args.use_keylevel,
 					'keylevel_strict':			args.keylevel_strict,
@@ -1092,6 +1095,7 @@ for algo in args.algo.split(','):
 					'trin_tick':				trin_tick,
 
 					'with_roc':				args.with_roc,
+					'roc_exit':				args.roc_exit,
 					'roc_type':				args.roc_type,
 					'roc_period':				args.roc_period,
 					'roc_ma_type':				args.roc_ma_type,

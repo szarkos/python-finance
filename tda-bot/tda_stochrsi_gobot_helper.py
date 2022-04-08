@@ -1435,17 +1435,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 	# Iterate through the stock tickers, calculate all the indicators, and make buy/sell decisions
 	for ticker in stocks.keys():
 
-		stocks[ticker]['options_ticker'] = 'SPY_040622P447'
-		stocks[ticker]['options_qty'] = 10
-		stocks[ticker]['options_orig_base_price'] = 0.05
-		stocks[ticker]['options_base_price'] = 0.05
-		stocks[ticker]['orig_base_price'] = 448.50
-		options_last_price = 0.05
-		options_net_change = 0
-
-		stocks[ticker]['algo_signals'][algo_id]['signal_mode'] = 'buy_to_cover'
-		stocks[ticker]['primary_algo'] = 'trin_tick_options'
-
 		# Initialize some local variables
 		percent_change	= 0
 		net_change	= 0
@@ -1862,7 +1851,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					bbands_kchan_ma = []
 
 		# Rate-of-Change (ROC)
-		if ( cur_algo['roc'] == True ):
+		if ( cur_algo['roc'] == True or cur_algo['roc_exit'] == True ):
 			roc = []
 			try:
 				roc = tda_algo_helper.get_roc( stocks[ticker]['pricehistory'], period=cur_algo['roc_period'], type=cur_algo['roc_type'], calc_percentage=True )
@@ -1997,7 +1986,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						'$TICK Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['tick_signal']) )
 
 			# ROC
-			if ( cur_algo['roc'] == True ):
+			if ( cur_algo['roc'] == True or cur_algo['roc_exit'] == True ):
 				print( '(' + str(ticker) + ') Current ROC_MA: ' + str(round(stocks[ticker]['cur_roc_ma'], 4)) + ' / ' +
 						'ROC Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['roc_signal']) )
 
@@ -2260,6 +2249,16 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 		mfi_low_limit		= cur_algo['mfi_low_limit']
 		adx_threshold		= cur_algo['adx_threshold']
 
+		# Set price_resistance_pct/price_support_pct dynamically based on price of the stock
+		if ( cur_algo['resist_pct_dynamic'] == True ):
+			cur_algo['price_resistance_pct'] = ( 1 / last_close ) * 100
+			if ( cur_algo['price_resistance_pct'] < 0.25 ):
+				cur_algo['price_resistance_pct'] = 0.25
+
+			elif ( cur_algo['price_resistance_pct'] > 1 ):
+				cur_algo['price_resistance_pct'] = 1
+
+			cur_algo['price_support_pct'] = cur_algo['price_resistance_pct']
 
 		# Global criteria for long or sell mode
 		if ( signal_mode == 'long' or signal_mode == 'short'):
@@ -2968,7 +2967,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						# If average was below key level then key level is resistance
 						# Therefore this is not a great buy
 						if ( avg < lvl or abs((avg / lvl - 1) * 100) <= cur_algo['price_resistance_pct'] / 3 ):
-							if ( debug == True and stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
+							if ( debug == True ):
 								print( '(' + str(ticker) + ') BUY SIGNAL stalled due to Key Level resistance - KL: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
 								print()
 
@@ -2978,12 +2977,43 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				# If keylevel_strict is True then only buy the stock if price is near a key level
 				# Otherwise reject this buy to avoid getting chopped around between levels
 				if ( cur_algo['keylevel_strict'] == True and near_keylevel == False ):
-					if ( debug == True and stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
+					if ( debug == True ):
 						print( '(' + str(ticker) + ') BUY SIGNAL stalled due to keylevel_strict - Current price: ' + str(round(last_close, 2)) )
 						print()
 
 					stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 			# End Key Levels
+
+			# Volume Profile (VAH/VAL)
+			if ( cur_algo['va_check'] == True and
+					stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and
+					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
+
+				levels = [ stocks[ticker]['vah'], stocks[ticker]['val'] ] # stocks[ticker]['vah_2'], stocks[ticker]['val_2']
+				for lvl in levels:
+					if ( abs((lvl / last_close - 1) * 100) <= cur_algo['price_resistance_pct'] ):
+
+						# Current price is very close to a VA level
+						# Next check average of last 15 (1-minute) candles
+						#
+						# If last 15 candles average above key level, then key level is support
+						# otherwise it is resistance
+						avg = 0
+						for i in range(15, 0, -1):
+							avg += float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
+						avg = avg / 15
+
+						# If average was below key level then key level is resistance
+						# Therefore this is not a great buy
+						if ( avg < lvl ):
+							if ( debug == True ):
+								print( '(' + str(ticker) + ') BUY SIGNAL stalled due to VAH/VAL resistance: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
+								print()
+
+							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
+							break
+
+			# End Volume Profile (VAH/VAL)
 
 
 			# Resolve the primary stochrsi buy_signal with the secondary indicators
@@ -3224,6 +3254,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					if ( stacked_ma_bear_affinity == True ):
 						stocks[ticker]['quick_exit'] = True
 
+				# Disable ROC exit if we're already entering in a countertrend move
+				stocks[ticker]['roc_exit'] = cur_algo['roc_exit']
+				if ( cur_algo['roc_exit'] == True ):
+					if ( cur_roc_ma < prev_roc_ma ):
+						stocks[ticker]['roc_exit'] = False
+
 
 		# SELL MODE - look for a signal to sell the stock
 		elif ( signal_mode == 'sell' ):
@@ -3410,9 +3446,19 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 								stocks[ticker]['decr_threshold'] = 1
 
 			# STOPLOSS MONITOR
-			#  - When using options, we follow the options price when in stoploss mode.
-			#  - If exit_percent is configured and stocks[ticker]['exit_percent_signal'] is set, then we use the original stock
-			#    candles with strategies like --combined_exit.
+			# Use a falling rate-of-change (actually its moving average) as a warning signal and reduce the decr_threshold
+			if ( cur_algo['roc_exit'] == True and stocks[ticker]['algo_signals'][algo_id]['sell_signal'] == False ):
+				if ( stocks[ticker]['roc_exit'] == False ):
+					if ( cur_roc_ma > prev_roc_ma ):
+						stocks[ticker]['roc_exit'] = True
+
+				elif ( cur_roc_ma < prev_roc_ma ):
+					stocks[ticker]['decr_threshold']		= args.decr_threshold - args.threshold / 3
+					stocks[ticker]['options_decr_threshold']	= args.options_decr_threshold / 2
+
+			# When using options, we follow the options price when in stoploss mode.
+			# If exit_percent is configured and stocks[ticker]['exit_percent_signal'] is set, then we use the original stock
+			#  candles with strategies like --combined_exit.
 			#
 			# OPTIONS
 			if ( cur_algo['options'] == True ):
@@ -3431,7 +3477,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				stoploss_orig_base	= stocks[ticker]['orig_base_price']
 				stoploss_base		= stocks[ticker]['base_price']
 				stoploss_net_change	= net_change
-
 
 
 			# If price decreases
@@ -4359,7 +4404,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						# If average was above key level then key level is support
 						# Therefore this is not a good short
 						if ( avg > lvl or abs((avg / lvl - 1) * 100) <= cur_algo['price_resistance_pct'] / 3 ):
-							if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True and debug == True ):
+							if ( debug == True ):
 								print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to Key Level resistance - KL: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
 								print()
 
@@ -4369,12 +4414,43 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				# If keylevel_strict is True then only short the stock if price is near a key level
 				# Otherwise reject this short altogether to avoid getting chopped around between levels
 				if ( cur_algo['keylevel_strict'] == True and near_keylevel == False ):
-					if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True and debug == True ):
+					if ( debug == True ):
 						print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to keylevel_strict - Current price: ' + str(round(last_close, 2)) )
 						print()
 
 					stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 			# End Key Levels
+
+			# Volume Profile (VAH/VAL)
+			if ( cur_algo['va_check'] == True and
+					stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and
+					stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True ):
+
+				levels = [ stocks[ticker]['vah'], stocks[ticker]['val'] ] # stocks[ticker]['vah_2'], stocks[ticker]['val_2']
+				for lvl in levels:
+					if ( abs((lvl / last_close - 1) * 100) <= cur_algo['price_resistance_pct'] ):
+
+						# Current price is very close to a VA level
+						# Next check average of last 15 (1-minute) candles
+						#
+						# If last 15 candles average above key level, then key level is support
+						# otherwise it is resistance
+						avg = 0
+						for i in range(15, 0, -1):
+							avg += float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
+						avg = avg / 15
+
+						# If average was below key level then key level is resistance
+						# Therefore this is not a great buy
+						if ( avg > lvl ):
+							if ( debug == True ):
+								print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to VAH/VAL resistance: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
+								print()
+
+							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
+							break
+
+			# End Volume Profile (VAH/VAL)
 
 
 			# Resolve the primary stochrsi short_signal with the secondary indicators
@@ -4630,6 +4706,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					if ( stacked_ma_bull_affinity == True ):
 						stocks[ticker]['quick_exit'] = True
 
+				# Disable ROC exit if we're already entering in a countertrend move
+				stocks[ticker]['roc_exit'] = cur_algo['roc_exit']
+				if ( cur_algo['roc_exit'] == True ):
+					if ( cur_roc_ma > prev_roc_ma ):
+						stocks[ticker]['roc_exit'] = False
+
 
 		# BUY_TO_COVER a previous short sale
 		# This mode must always follow a previous "short" signal. We will monitor the RSI and initiate
@@ -4820,9 +4902,19 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 								stocks[ticker]['decr_threshold'] = 1
 
 			# STOPLOSS MONITOR
-			#  - When using options, we follow the options price when in stoploss mode.
-			#  - If exit_percent is configured and stocks[ticker]['exit_percent_signal'] is set, then we use the original stock
-			#    candles with strategies like --combined_exit.
+			# Use a rising rate-of-change (actually its moving average) as a warning signal and reduce the decr_threshold
+			if ( cur_algo['roc_exit'] == True and stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] == False ):
+				if ( stocks[ticker]['roc_exit'] == False ):
+					if ( cur_roc_ma < prev_roc_ma ):
+						stocks[ticker]['roc_exit'] = True
+
+				elif ( cur_roc_ma > prev_roc_ma ):
+					stocks[ticker]['decr_threshold']		= args.decr_threshold - args.threshold / 3
+					stocks[ticker]['options_decr_threshold']	= args.options_decr_threshold / 2
+
+			# When using options, we follow the options price when in stoploss mode.
+			# If exit_percent is configured and stocks[ticker]['exit_percent_signal'] is set, then we use the original stock
+			#  candles with strategies like --combined_exit.
 			#
 			# OPTIONS
 			if ( cur_algo['options'] == True ):

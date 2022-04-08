@@ -79,7 +79,7 @@ parser.add_argument("--quick_exit", help='Exit immediately if an exit_percent st
 parser.add_argument("--quick_exit_percent", help='Exit immediately if --quick_exit and this profit target is achieved', default=None, type=float)
 parser.add_argument("--trend_quick_exit", help='Enable quick exit when entering counter-trend moves', action="store_true")
 parser.add_argument("--qe_stacked_ma_periods", help='Moving average periods to use with --trend_quick_exit (Default: )', default='34,55,89', type=str)
-parser.add_argument("--qe_stacked_ma_type", help='Moving average type to use when calculating trend_quick_exit stacked_ma (Default: hma)', default='hma', type=str)
+parser.add_argument("--qe_stacked_ma_type", help='Moving average type to use when calculating trend_quick_exit stacked_ma (Default: vidya)', default='vidya', type=str)
 
 parser.add_argument("--use_ha_exit", help='Use Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
 parser.add_argument("--use_ha_candles", help='Use Heikin Ashi candles with stacked MA indicators', action="store_true")
@@ -186,9 +186,10 @@ parser.add_argument("--tick_ma_pricetype", help='Rate of change candles type to 
 parser.add_argument("--tick_ma_period", help='Period to use with ROC algorithm (Default: 4)', default=4, type=int)
 
 parser.add_argument("--roc_type", help='Rate of change candles type to use (Default: hlc3)', default='hlc3', type=str)
+parser.add_argument("--roc_exit", help='Use Rate-of-Change (ROC) indicator to signal an exit', action="store_true")
 parser.add_argument("--roc_period", help='Period to use with ROC algorithm (Default: 14)', default=14, type=int)
-parser.add_argument("--roc_ma_type", help='MA period to use with ROC algorithm (Default: ema)', default='ema', type=str)
-parser.add_argument("--roc_ma_period", help='MA period to use with ROC algorithm (Default: 4)', default=5, type=int)
+parser.add_argument("--roc_ma_type", help='MA period to use with ROC algorithm (Default: wma)', default='wma', type=str)
+parser.add_argument("--roc_ma_period", help='MA period to use with ROC algorithm (Default: 5)', default=5, type=int)
 parser.add_argument("--roc_threshold", help='Threshold to cancel the ROC algorithm (Default: 0.15)', default=0.15, type=float)
 
 parser.add_argument("--sp_monitor_tickers", help='List of tickers and their weighting (in %) to use with --with_sp_monitor, comma-delimited (Example: MSFT:1.2,AAPL:1.0,...', default=None, type=str)
@@ -202,10 +203,12 @@ parser.add_argument("--no_use_resistance", help='Do no use the high/low resistan
 parser.add_argument("--use_keylevel", help='Use keylevel resistance to avoid possibly bad trades (default=False, True if --no_use_resistance is False)', action="store_true")
 parser.add_argument("--keylevel_use_daily", help='Use daily candles as well as weeklies to determine key levels (Default: False)', action="store_true")
 parser.add_argument("--keylevel_strict", help='Use strict key level checks to enter trades (Default: False)', action="store_true")
+parser.add_argument("--va_check", help='Use the previous day Value Area High (VAH) Value Area Low (VAL) as resistance', action="store_true")
 parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
 parser.add_argument("--use_natr_resistance", help='Enable daily NATR level resistance checks', action="store_true")
 parser.add_argument("--price_resistance_pct", help='Percentage threshold from resistance or keylevel to trigger signal (Default: 1)', default=1, type=float)
 parser.add_argument("--price_support_pct", help='Percentage threshold from resistance or keylevel to trigger signal (Default: 1)', default=1, type=float)
+parser.add_argument("--resist_pct_dynamic", help='Calculate price_resistance_pct/price_support_pct dynamically', action="store_true")
 
 parser.add_argument("--min_intra_natr", help='Minimum intraday NATR value to allow trade entry (Default: None)', default=None, type=float)
 parser.add_argument("--max_intra_natr", help='Maximum intraday NATR value to allow trade entry (Default: None)', default=None, type=float)
@@ -407,6 +410,7 @@ for algo in args.algos:
 	tick_ma_period			= args.tick_ma_period
 
 	roc_type			= args.roc_type
+	roc_exit			= args.roc_exit
 	roc_period			= args.roc_period
 	roc_ma_type			= args.roc_ma_type
 	roc_ma_period			= args.roc_ma_period
@@ -456,8 +460,10 @@ for algo in args.algos:
 	use_natr_resistance		= args.use_natr_resistance
 	keylevel_use_daily		= args.keylevel_use_daily
 	keylevel_strict			= args.keylevel_strict
+	va_check			= args.va_check
 	price_resistance_pct		= args.price_resistance_pct
 	price_support_pct		= args.price_support_pct
+	resist_pct_dynamic		= args.resist_pct_dynamic
 
 	min_intra_natr			= args.min_intra_natr
 	max_intra_natr			= args.max_intra_natr
@@ -623,6 +629,7 @@ for algo in args.algos:
 		if ( re.match('tick_ma_period:', a)			!= None ):	tick_ma_period			= int( a.split(':')[1] )
 
 		if ( re.match('roc_type:', a)				!= None ):	roc_type			= str( a.split(':')[1] )
+		if ( re.match('roc_exit', a)				!= None ):	roc_exit			= True
 		if ( re.match('roc_period:', a)				!= None ):	roc_period			= int( a.split(':')[1] )
 		if ( re.match('roc_ma_type:', a)			!= None ):	roc_ma_type			= str( a.split(':')[1] )
 		if ( re.match('roc_ma_period:', a)			!= None ):	roc_ma_period			= int( a.split(':')[1] )
@@ -636,8 +643,10 @@ for algo in args.algos:
 		if ( re.match('use_natr_resistance', a)			!= None ):	use_natr_resistance		= True
 		if ( re.match('keylevel_use_daily', a)			!= None ):	keylevel_use_daily		= True
 		if ( re.match('keylevel_strict', a)			!= None ):	keylevel_strict			= True
-		if ( re.match('price_support_pct', a)			!= None ):	price_support_pct		= True
-		if ( re.match('price_resistance_pct', a)		!= None ):	price_resistance_pct		= True
+		if ( re.match('va_check', a)				!= None ):	va_check			= True
+		if ( re.match('price_support_pct', a)			!= None ):	price_support_pct		= float( a.split(':')[1] )
+		if ( re.match('price_resistance_pct', a)		!= None ):	price_resistance_pct		= float( a.split(':')[1] )
+		if ( re.match('resist_pct_dynamic', a)			!= None ):	resist_pct_dynamic		= True
 
 		if ( re.match('min_intra_natr:', a)			!= None ):	min_intra_natr			= float( a.split(':')[1] )
 		if ( re.match('max_intra_natr:', a)			!= None ):	max_intra_natr			= float( a.split(':')[1] )
@@ -847,6 +856,7 @@ for algo in args.algos:
 			'tick_ma_period':			tick_ma_period,
 
 			'roc_type':				roc_type,
+			'roc_exit':				roc_exit,
 			'roc_period':				roc_period,
 			'roc_ma_type':				roc_ma_type,
 			'roc_ma_period':			roc_ma_period,
@@ -860,8 +870,10 @@ for algo in args.algos:
 			'use_natr_resistance':			use_natr_resistance,
 			'keylevel_use_daily':			keylevel_use_daily,
 			'keylevel_strict':			keylevel_strict,
+			'va_check':				va_check,
 			'price_resistance_pct':			price_resistance_pct,
 			'price_support_pct':			price_support_pct,
+			'resist_pct_dynamic':			resist_pct_dynamic,
 
 			'min_intra_natr':			min_intra_natr,
 			'max_intra_natr':			max_intra_natr,
@@ -886,12 +898,12 @@ del(chop_period,chop_low_limit,chop_high_limit,supertrend_atr_period,supertrend_
 del(bbands_kchannel_offset,bbands_kchan_squeeze_count,bbands_period,kchannel_period,kchannel_atr_period,max_squeeze_natr,bbands_roc_threshold,bbands_roc_count,bbands_roc_strict)
 del(bbands_kchan_ma_check,bbands_kchan_ma_type,bbands_kchan_ma_ptype,bbands_kchan_ma_period)
 del(stacked_ma_type_primary,stacked_ma_periods_primary,stacked_ma_type,stacked_ma_periods,stacked_ma_type_secondary,stacked_ma_periods_secondary,mesa_sine_period,mesa_sine_type,mesa_sine_strict)
-del(use_natr_resistance,keylevel_use_daily,keylevel_strict,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr,price_resistance_pct,price_support_pct)
+del(use_natr_resistance,keylevel_use_daily,keylevel_strict,va_check,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr,price_resistance_pct,price_support_pct,resist_pct_dynamic)
 del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count,bbands_matype,kchan_matype)
 del(use_ha_exit,use_ha_candles,use_trend_exit,use_trend,trend_period,trend_type,use_combined_exit)
 del(check_etf_indicators,check_etf_indicators_strict,etf_tickers,etf_roc_period,etf_min_rs,etf_min_natr)
 del(trin,tick,roc,sp_monitor,trin_roc_type,trin_roc_period,trin_ma_type,trin_ma_period,trin_oversold,trin_overbought,tick_ma_type,tick_ma_pricetype,tick_ma_period)
-del(roc_type,roc_period,roc_ma_type,roc_ma_period,roc_threshold)
+del(roc_type,roc_period,roc_ma_type,roc_ma_period,roc_threshold,roc_exit)
 del(sp_monitor_tickers,sp_roc_type,sp_roc_period,sp_ma_period)
 del(options,options_usd,near_expiration)
 
@@ -1029,7 +1041,9 @@ for ticker in stock_list.split(','):
 				   'decr_threshold':		args.decr_threshold,
 				   'orig_decr_threshold':	args.decr_threshold,
 				   'exit_percent':		args.exit_percent,
+
 				   'quick_exit':		args.quick_exit,
+				   'roc_exit':			args.roc_exit,
 
 				   'options_incr_threshold':	args.options_incr_threshold,
 				   'options_decr_threshold':	args.options_decr_threshold,
@@ -1183,10 +1197,17 @@ for ticker in stock_list.split(','):
 				   'previous_twoday_high':	float(0),
 				   'previous_twoday_low':	float(0),
 
+				   # Key levels
 				   'kl_long_support':		[],
 				   'kl_long_resistance':	[],
 				   'kl_long_support_daily':	[],
 				   'kl_long_resistance_daily':	[],
+
+				   # Volume Area High (VAH) and Volume Area Low (VAL)
+				   'vah':			0,
+				   'val':			0,
+				   'vah_2':			0,
+				   'val_2':			0,
 
 				   # SMA200 and EMA50
 				   'cur_sma':			None,
@@ -1783,6 +1804,39 @@ for ticker in list(stocks.keys()):
 
 	# End Key Levels
 
+	# Volume Profile
+	mprofile = {}
+	try:
+		mprofile = tda_algo_helper.get_market_profile(pricehistory=stocks[ticker]['pricehistory'], close_type='hl2', mp_mode='vol', tick_size=0.01)
+
+	except Exception as e:
+		print('Exception caught: get_market_profile(' + str(ticker) + '): ' + str(e) + '. VAH/VAL will not be used.')
+
+	# Get the previous day's and 2-day VAH/VAL
+	cur_day	 = datetime.datetime.now( mytimezone )
+	prev_day = cur_day - datetime.timedelta( days=1 )
+	prev_day = tda_gobot_helper.fix_timestamp( prev_day )
+	prev_day = prev_day.strftime('%Y-%m-%d')
+
+	if ( prev_day not in mprofile ):
+		print('Warning: get_market_profile(' + str(ticker) + '): previous day (' + str(prev_day) + ') not returned in mprofile{}. VAH/VAL will not be used.')
+	else:
+		stocks[ticker]['vah'] = mprofile[prev_day]['vah']
+		stocks[ticker]['val'] = mprofile[prev_day]['val']
+
+	prev_day = cur_day - datetime.timedelta( days=2 )
+	prev_day = tda_gobot_helper.fix_timestamp( prev_day )
+	prev_day = prev_day.strftime('%Y-%m-%d')
+
+	if ( prev_day not in mprofile ):
+		print('Warning: get_market_profile(' + str(ticker) + '): previous day (' + str(prev_day) + ') not returned in mprofile{}. VAH/VAL will not be used.')
+
+	else:
+		stocks[ticker]['vah_2']	= mprofile[prev_day]['vah']
+		stocks[ticker]['val_2']	= mprofile[prev_day]['val']
+
+	# End Volume Profile
+
 	# Today's open + previous day high/low/close (PDH/PDL/PDC)
 	cur_day_start = time_now.strftime('%Y-%m-%d')
 	for key in stocks[ticker]['pricehistory']['candles']:
@@ -1949,14 +2003,14 @@ while True:
 		continue
 
 	# Call read_stream():stream_client.handle_message() to read from the stream continuously
-#	try:
-	asyncio.run(read_stream())
+	try:
+		asyncio.run(read_stream())
 
-#	except KeyboardInterrupt:
-#		sys.exit(0)
+	except KeyboardInterrupt:
+		sys.exit(0)
 
-#	except Exception as e:
-#		print('Exception caught: read_stream(): ' + str(e) + ': retrying...')
+	except Exception as e:
+		print('Exception caught: read_stream(): ' + str(e) + ': retrying...')
 
 
 sys.exit(0)

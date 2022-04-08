@@ -355,10 +355,9 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_f
 
 	# VIDYA - Variable Index Dynamic Average
 	elif ( ma_type == 'vidya' ):
-		vidya = []
+		ma = []
 		try:
-			#vidya = ti.vidya(prices, slow_period, period, alpha)
-			vidya = ti.vidya(prices, 15, period, 1)
+			ma = ti.vidya(prices, short_period, period, alpha)
 
 		except Exception as e:
 			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.vidya(): ' + str(e), file=sys.stderr)

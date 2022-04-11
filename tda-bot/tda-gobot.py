@@ -26,6 +26,7 @@ parser.add_argument("--strike_price", help='The desired strike price', default=N
 
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
+parser.add_argument("--prompt", help='Print out action but wait for confirmation before entering trade', action="store_true")
 parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX_LOGS-GOBOTv1', default='TX_LOGS-GOBOTv1', type=str)
 
 parser.add_argument("--incr_threshold", help="Reset base_price if stock increases by this percent", default=1, type=float)
@@ -235,9 +236,9 @@ def search_options(ticker=None, option_type=None, near_expiration=False, strike_
 	range_val	= 'NTM'
 	strike_price	= None
 	strike_count	= 5
-	if ( strike_price != None ):
+	if ( args.strike_price != None ):
 		range_val	= 'ALL'
-		strike_price	= str( int(strike_price) )
+		strike_price	= float( args.strike_price )
 		strike_count	= 999
 
 	try:
@@ -262,17 +263,18 @@ def search_options(ticker=None, option_type=None, near_expiration=False, strike_
 	# For PUTs, reverse the list to get the optimal strike price
 	iter = option_chain[ExpDateMap][exp_date].keys()
 	if ( option_type == 'PUT' ):
-		iter	= reversed(option_chain[ExpDateMap][exp_date].keys())
+		iter = reversed(option_chain[ExpDateMap][exp_date].keys())
 
 	for key in iter:
 		try:
-			strike = float( key )
+			strike = int( float(key) )
 			if ( strike_price != None and strike != strike_price ):
 				continue
 
-		except:
-			print('(' + str(ticker) + '): error processing option chain: ' + str(key), file=sys.stderr)
+		except Exception as e:
+			print('(' + str(ticker) + '): error processing option chain: ' + str(key) + ': ' + str(e), file=sys.stderr)
 			continue
+
 		else:
 			key = option_chain[ExpDateMap][exp_date][key]
 
@@ -281,8 +283,8 @@ def search_options(ticker=None, option_type=None, near_expiration=False, strike_
 		#  have different offerings for each strike price.
 		key = key[0]
 
-		# Find the first OTM option
-		if ( key['inTheMoney'] == False ):
+		# Find the first OTM option or follow --strike_price
+		if ( key['inTheMoney'] == False or strike_price != None ):
 			if ( stock_usd < key['ask'] * 100 ):
 				print('(' + str(key['symbol']) + '): Available stock_usd (' + str(stock_usd) + ') is less than the ask for this option (' + str(key['ask'] * 100) + ')')
 				continue
@@ -372,6 +374,9 @@ if ( args.options == True ):
 		print(str(stock) + ': Error: Unable to lookup option price')
 		sys.exit(1)
 
+	if ( args.prompt == True ):
+		input('PURCHASING ' + str(stock_qty) + ' contracts of ' + str(stock) + ' - Press <ENTER> to confirm')
+
 	if ( args.fake == False ):
 		data = tda_gobot_helper.buy_sell_option(contract=stock, quantity=stock_qty, instruction='buy_to_open', fillwait=True, account_number=tda_account_number, debug=debug)
 		if ( isinstance(data, bool) and data == False ):
@@ -381,9 +386,11 @@ if ( args.options == True ):
 # EQUITY stock, set orig_base_price to the price that we purchased the stock
 else:
 	stock_qty = int( stock_usd / last_price )
-
 	if ( args.short == True ):
-		print('SHORTING ' + str(stock_qty) + ' shares of ' + str(stock))
+		if ( args.prompt == True ):
+			input('SHORTING ' + str(stock_qty) + ' shares of ' + str(stock) + ' - Press <ENTER> to confirm')
+		else:
+			print('SHORTING ' + str(stock_qty) + ' shares of ' + str(stock))
 
 		if ( args.fake == False ):
 			data = tda_gobot_helper.short_stock_marketprice(stock, stock_qty, fillwait=True, account_number=tda_account_number, debug=debug)
@@ -392,7 +399,11 @@ else:
 				sys.exit(1)
 
 	else:
-		print('PURCHASING ' + str(stock_qty) + ' shares of ' + str(stock))
+		if ( args.prompt == True ):
+			input('PURCHASING ' + str(stock_qty) + ' shares of ' + str(stock) + ' - Press <ENTER> to confirm')
+		else:
+			print('PURCHASING ' + str(stock_qty) + ' shares of ' + str(stock))
+
 		if ( args.fake == False ):
 			data = tda_gobot_helper.buy_stock_marketprice(stock, stock_qty, fillwait=True, account_number=tda_account_number, debug=debug)
 			if ( isinstance(data, bool) and data == False ):
@@ -408,7 +419,7 @@ open_time	= datetime.datetime.now( mytimezone )
 base_price	= orig_base_price
 total_stock_qty	= stock_qty
 percent_change	= 0
-time.sleep(3)
+time.sleep(5)
 
 
 # Main loop
@@ -518,12 +529,12 @@ while True:
 			# Handle partial_exit_strat
 			# Split the stock into separate partial transactions, as long as the price is going up
 			if ( args.partial_exit_strat != None ):
-				if ( (stock_qty == total_stock_qty and total_percent_change >= initial_partial_exit_pct) or
+				if ( (stock_qty == total_stock_qty and total_percent_change >= args.initial_partial_exit_pct) or
 						stock_qty < total_stock_qty ):
 
 					# Split the stock into three transactions
 					if ( args.partial_exit_strat == 'one_third' or args.partial_exit_strat == 'one_third_run' ):
-						if ( int(stock_qty - (total_stock_qty / 3) * 2) > int(total_stock_qty / 3) ):
+						if ( stock_qty > int(total_stock_qty / 3) ):
 							stock_qty	= int( stock_qty - (total_stock_qty / 3) * 2 )
 							exit_signal	= True
 
@@ -539,7 +550,7 @@ while True:
 
 					# Split the stock into four transactions
 					if ( args.partial_exit_strat == 'one_fourth' or args.partial_exit_strat == 'one_fourth_run' ):
-						if ( int(stock_qty - (total_stock_qty / 4) * 2) > int(total_stock_qty / 4) ):
+						if ( stock_qty > int(total_stock_qty / 4) ):
 							stock_qty	= int( stock_qty - (total_stock_qty / 4) * 2 )
 							exit_signal	= True
 

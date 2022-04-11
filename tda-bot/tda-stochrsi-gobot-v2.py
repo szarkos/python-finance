@@ -80,6 +80,8 @@ parser.add_argument("--quick_exit_percent", help='Exit immediately if --quick_ex
 parser.add_argument("--trend_quick_exit", help='Enable quick exit when entering counter-trend moves', action="store_true")
 parser.add_argument("--qe_stacked_ma_periods", help='Moving average periods to use with --trend_quick_exit (Default: )', default='34,55,89', type=str)
 parser.add_argument("--qe_stacked_ma_type", help='Moving average type to use when calculating trend_quick_exit stacked_ma (Default: vidya)', default='vidya', type=str)
+parser.add_argument("--scalp_mode", help='Enable scalp mode', action="store_true")
+parser.add_argument("--scalp_mode_pct", help='Required percent increase in value before exiting trade', default=2, type=float)
 
 parser.add_argument("--use_ha_exit", help='Use Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
 parser.add_argument("--use_ha_candles", help='Use Heikin Ashi candles with stacked MA indicators', action="store_true")
@@ -335,6 +337,8 @@ for algo in args.algos:
 	trend_quick_exit		= args.trend_quick_exit
 	qe_stacked_ma_periods		= args.qe_stacked_ma_periods
 	qe_stacked_ma_type		= args.qe_stacked_ma_type
+	scalp_mode			= args.scalp_mode
+	scalp_mode_pct			= args.scalp_mode_pct
 
 	# Indicator modifiers
 	rsi_high_limit			= args.rsi_high_limit
@@ -520,6 +524,8 @@ for algo in args.algos:
 		if ( re.match('trend_quick_exit', a)			!= None ):	trend_quick_exit		= True
 		if ( re.match('qe_stacked_ma_periods:', a)		!= None ):	qe_stacked_ma_periods		= str( a.split(':')[1] )
 		if ( re.match('qe_stacked_ma_type:', a)			!= None ):	qe_stacked_ma_type		= str( a.split(':')[1] )
+		if ( re.match('scalp_mode', a)				!= None ):	scalp_mode			= True
+		if ( re.match('scalp_mode_pct:', a)			!= None ):	scalp_mode_pct			= float( a.split(':')[1] )
 
 		# Options
 		if ( re.match('options', a)				!= None ):	options				= True
@@ -702,6 +708,11 @@ for algo in args.algos:
 	elif ( options == True and (quick_exit_percent == None and args.options_exit_percent != None) ):
 		quick_exit_percent = args.options_exit_percent
 
+	# If using scalpe_mode, enable quick_exit and set quick_exit_percent to scalp_mode_pct
+	if ( scalp_mode == True ):
+		quick_exit		= True
+		quick_exit_percent	= scalp_mode_pct
+
 	# Populate the algo{} dict with all the options parsed above
 	algo_list = {   'algo_id':				algo_id,
 
@@ -713,6 +724,8 @@ for algo in args.algos:
 			'trend_quick_exit':			trend_quick_exit,
 			'qe_stacked_ma_periods':		qe_stacked_ma_periods,
 			'qe_stacked_ma_type':			qe_stacked_ma_type,
+			'scalp_mode':				scalp_mode,
+			'scalp_mode_pct':			scalp_mode_pct,
 
 			'options':				options,
 			'options_usd':				options_usd,
@@ -887,7 +900,7 @@ for algo in args.algos:
 
 # Clean up this mess
 # All the stuff above should be put into a function to avoid this cleanup stuff. I know it. It'll happen eventually.
-del(stock_usd,quick_exit,quick_exit_percent,trend_quick_exit,qe_stacked_ma_periods,qe_stacked_ma_type)
+del(stock_usd,quick_exit,quick_exit_percent,trend_quick_exit,qe_stacked_ma_periods,qe_stacked_ma_type,scalp_mode,scalp_mode_pct)
 del(primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,primary_mesa_sine,primary_trin)
 del(stacked_ma,stacked_ma_secondary,mama_fama,stochrsi_5m,stochmfi,stochmfi_5m)
 del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,vwap,vpt,support_resistance,use_keylevel)
@@ -1027,6 +1040,7 @@ for ticker in stock_list.split(','):
 
 				   'stock_usd':			args.stock_usd,
 				   'stock_qty':			0,
+				   'order_id':			None,
 				   'orig_base_price':		float(0),
 				   'base_price':		float(0),
 
@@ -1321,6 +1335,7 @@ for ticker in stock_list.split(','):
 
 						'trin_init_signal':			False,
 						'trin_signal':				False,
+						'trin_counter':				0,
 						'tick_signal':				False,
 						'roc_signal':				False,
 						'sp_monitor_signal':			False,
@@ -1805,35 +1820,39 @@ for ticker in list(stocks.keys()):
 	# End Key Levels
 
 	# Volume Profile
-	mprofile = {}
-	try:
-		mprofile = tda_algo_helper.get_market_profile(pricehistory=stocks[ticker]['pricehistory'], close_type='hl2', mp_mode='vol', tick_size=0.01)
-
-	except Exception as e:
-		print('Exception caught: get_market_profile(' + str(ticker) + '): ' + str(e) + '. VAH/VAL will not be used.')
-
-	# Get the previous day's and 2-day VAH/VAL
-	cur_day	 = datetime.datetime.now( mytimezone )
-	prev_day = cur_day - datetime.timedelta( days=1 )
-	prev_day = tda_gobot_helper.fix_timestamp( prev_day )
-	prev_day = prev_day.strftime('%Y-%m-%d')
-
-	if ( prev_day not in mprofile ):
-		print('Warning: get_market_profile(' + str(ticker) + '): previous day (' + str(prev_day) + ') not returned in mprofile{}. VAH/VAL will not be used.')
+	# Don't bother processing tickers like $TRIN and $TICK since they have no volume data
+	if ( ticker not in nasdaq_tickers and ticker not in nyse_tickers ):
+		print('INFO: get_market_profile(' + str(ticker) + '): skipping since ticker is not listed in nasdaq_tickers or nyse_tickers')
 	else:
-		stocks[ticker]['vah'] = mprofile[prev_day]['vah']
-		stocks[ticker]['val'] = mprofile[prev_day]['val']
+		mprofile = {}
+		try:
+			mprofile = tda_algo_helper.get_market_profile(pricehistory=stocks[ticker]['pricehistory'], close_type='hl2', mp_mode='vol', tick_size=0.01)
 
-	prev_day = cur_day - datetime.timedelta( days=2 )
-	prev_day = tda_gobot_helper.fix_timestamp( prev_day )
-	prev_day = prev_day.strftime('%Y-%m-%d')
+		except Exception as e:
+			print('Exception caught: get_market_profile(' + str(ticker) + '): ' + str(e) + '. VAH/VAL will not be used.')
 
-	if ( prev_day not in mprofile ):
-		print('Warning: get_market_profile(' + str(ticker) + '): previous day (' + str(prev_day) + ') not returned in mprofile{}. VAH/VAL will not be used.')
+		# Get the previous day's and 2-day VAH/VAL
+		cur_day	 = datetime.datetime.now( mytimezone )
+		prev_day = cur_day - datetime.timedelta( days=1 )
+		prev_day = tda_gobot_helper.fix_timestamp( prev_day )
+		prev_day = prev_day.strftime('%Y-%m-%d')
 
-	else:
-		stocks[ticker]['vah_2']	= mprofile[prev_day]['vah']
-		stocks[ticker]['val_2']	= mprofile[prev_day]['val']
+		if ( prev_day not in mprofile ):
+			print('Warning: get_market_profile(' + str(ticker) + '): previous day (' + str(prev_day) + ') not returned in mprofile{}. VAH/VAL will not be used.')
+		else:
+			stocks[ticker]['vah'] = mprofile[prev_day]['vah']
+			stocks[ticker]['val'] = mprofile[prev_day]['val']
+
+		prev_day = cur_day - datetime.timedelta( days=2 )
+		prev_day = tda_gobot_helper.fix_timestamp( prev_day )
+		prev_day = prev_day.strftime('%Y-%m-%d')
+
+		if ( prev_day not in mprofile ):
+			print('Warning: get_market_profile(' + str(ticker) + '): previous day (' + str(prev_day) + ') not returned in mprofile{}. VAH/VAL will not be used.')
+
+		else:
+			stocks[ticker]['vah_2']	= mprofile[prev_day]['vah']
+			stocks[ticker]['val_2']	= mprofile[prev_day]['val']
 
 	# End Volume Profile
 
@@ -1942,19 +1961,19 @@ async def read_stream():
 
 	# Subscribe to equity level1 data
 	# 2022-02-10 - Not needed for now since we are also grabbing L2 order book data
-	#l1_fields = [	stream_client.LevelOneEquityFields.SYMBOL,
-	#		stream_client.LevelOneEquityFields.BID_PRICE,
-	#		stream_client.LevelOneEquityFields.ASK_PRICE,
-	#		stream_client.LevelOneEquityFields.LAST_PRICE,
-	#		stream_client.LevelOneEquityFields.BID_SIZE,
-	#		stream_client.LevelOneEquityFields.ASK_SIZE,
-	#		stream_client.LevelOneEquityFields.TOTAL_VOLUME,
-	#		stream_client.LevelOneEquityFields.LAST_SIZE,
-	#		stream_client.LevelOneEquityFields.BID_TICK,
-	#		stream_client.LevelOneEquityFields.SECURITY_STATUS ]
-	#stream_client.add_level_one_equity_handler(
-	#	lambda msg: tda_stochrsi_gobot_helper.gobot_level1(msg, args.debug) )
-	#await asyncio.wait_for( stream_client.level_one_equity_subs(stocks.keys(), fields=l1_fields), 10 )
+	l1_fields = [	stream_client.LevelOneEquityFields.SYMBOL,
+			stream_client.LevelOneEquityFields.BID_PRICE,
+			stream_client.LevelOneEquityFields.ASK_PRICE,
+			stream_client.LevelOneEquityFields.LAST_PRICE,
+			stream_client.LevelOneEquityFields.BID_SIZE,
+			stream_client.LevelOneEquityFields.ASK_SIZE,
+			stream_client.LevelOneEquityFields.TOTAL_VOLUME,
+			stream_client.LevelOneEquityFields.LAST_SIZE,
+			stream_client.LevelOneEquityFields.BID_TICK,
+			stream_client.LevelOneEquityFields.SECURITY_STATUS ]
+	stream_client.add_level_one_equity_handler(
+		lambda msg: tda_stochrsi_gobot_helper.gobot_level1(msg, algos, args.debug) )
+	await asyncio.wait_for( stream_client.level_one_equity_subs(nyse_tickers+nasdaq_tickers, fields=l1_fields), 10 )
 
 	# Subscribe to equity level2 order books
 	# NYSE ("listed")

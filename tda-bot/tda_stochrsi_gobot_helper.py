@@ -6,6 +6,8 @@ from collections import OrderedDict
 import pickle
 import numpy as np
 
+from func_timeout import func_timeout, FunctionTimedOut
+
 import tda_gobot_helper
 import tda_algo_helper
 
@@ -119,9 +121,9 @@ def gobot_run(stream=None, algos=None, debug=False):
 
 	# Call stochrsi_gobot() for each set of specific algorithms
 	for algo_list in algos:
-		ret = stochrsi_gobot( cur_algo=algo_list, debug=debug )
+		ret = stochrsi_gobot( cur_algo=algo_list, caller_id='chart_equity', debug=debug )
 		if ( ret == False ):
-			print('Error: stochrsi_gobot_start(): stochrsi_gobot(' + str(algo) + '): returned False', file=sys.stderr)
+			print('Error: gobot_run(): stochrsi_gobot(' + str(algo) + '): returned False', file=sys.stderr)
 
 
 	# After all the algos have been processed, iterate through tickers again and set
@@ -138,7 +140,7 @@ def gobot_run(stream=None, algos=None, debug=False):
 
 
 # Handle level1 stream
-def gobot_level1(stream=None, debug=False):
+def gobot_level1(stream=None, algos=None, debug=False):
 
 	if not isinstance(stream, dict):
 		print('Error: gobot_level1() called without valid stream{} data.', file=sys.stderr)
@@ -159,7 +161,7 @@ def gobot_level1(stream=None, debug=False):
 	# 48	Security Status		String	Indicates a symbols current trading status, Normal, Halted, Closed
 	dt = int( stream['timestamp'] )
 	for idx in stream['content']:
-		ticker					= idx['key']
+		ticker					= str( idx['key'] )
 		idx['datetime']				= dt
 
 		stocks[ticker]['ask_price']		= float( idx['ASK_PRICE'] )	if ('ASK_PRICE' in idx) else stocks[ticker]['ask_price']
@@ -169,7 +171,7 @@ def gobot_level1(stream=None, debug=False):
 		stocks[ticker]['last_price']		= float( idx['LAST_PRICE'] )	if ('LAST_PRICE' in idx) else stocks[ticker]['last_price']
 		stocks[ticker]['last_size']		= int( idx['LAST_SIZE'] )	if ('LAST_SIZE' in idx) else stocks[ticker]['last_size']
 		stocks[ticker]['total_volume']		= int( idx['TOTAL_VOLUME'] )	if ('TOTAL_VOLUME' in idx) else stocks[ticker]['total_volume']
-		stocks[ticker]['security_status']	= idx['SECURITY_STATUS']	if ('SECURITY_STATUS' in idx) else stocks[ticker]['security_status']
+		stocks[ticker]['security_status']	= str( idx['SECURITY_STATUS'] )	if ('SECURITY_STATUS' in idx) else stocks[ticker]['security_status']
 
 		try:
 			stocks[ticker]['bid_ask_pct'] = abs( stocks[ticker]['bid_price'] / stocks[ticker]['ask_price'] - 1 ) * 100
@@ -191,9 +193,16 @@ def gobot_level1(stream=None, debug=False):
 
 		stocks[ticker]['level1'][dt] = l1_history
 
+	# Call stochrsi_gobot() for each set of specific algorithms
+	for algo_list in algos:
+		ret = stochrsi_gobot( cur_algo=algo_list, caller_id='level1', debug=debug )
+		if ( ret == False ):
+			print('Error: gobot_level1(): stochrsi_gobot(' + str(algo) + '): returned False', file=sys.stderr)
+
 	return True
 
-# Handle level1 stream
+
+# Handle level2 stream
 def gobot_level2(stream=None, debug=False):
 
 	if not isinstance(stream, dict):
@@ -280,9 +289,9 @@ def gobot_level2(stream=None, debug=False):
 
 		# BIDS
 		for bid in idx['BIDS']:
-			bid_price = float( bid['BID_PRICE'] )
-			stocks[ticker]['level2']['bids'][bid_price] = {}
+			bid_price							= float( bid['BID_PRICE'] )
 
+			stocks[ticker]['level2']['bids'][bid_price]			= {}
 			stocks[ticker]['level2']['bids'][bid_price]['num_bids']		= int( bid['NUM_BIDS'] )
 			stocks[ticker]['level2']['bids'][bid_price]['total_volume']	= int( bid['TOTAL_VOLUME'] )
 
@@ -317,9 +326,9 @@ def gobot_level2(stream=None, debug=False):
 			stocks[ticker]['bid_ask_pct'] = 0
 
 		# Archive level2 data to use later with backtesting
-		stocks[ticker]['level2']['history'][dt] = {}
-		stocks[ticker]['level2']['history'][dt]['asks'] = stocks[ticker]['level2']['asks']
-		stocks[ticker]['level2']['history'][dt]['bids'] = stocks[ticker]['level2']['bids']
+		stocks[ticker]['level2']['history'][dt]		= {}
+		stocks[ticker]['level2']['history'][dt]['asks']	= stocks[ticker]['level2']['asks']
+		stocks[ticker]['level2']['history'][dt]['bids']	= stocks[ticker]['level2']['bids']
 
 	return True
 
@@ -532,6 +541,8 @@ def reset_signals(ticker=None, id=None, signal_mode=None, exclude_bbands_kchan=F
 
 		stocks[ticker]['algo_signals'][algo_id]['trin_init_signal']		= False
 		stocks[ticker]['algo_signals'][algo_id]['trin_signal']			= False
+		stocks[ticker]['algo_signals'][algo_id]['trin_counter']			= 0
+
 		stocks[ticker]['algo_signals'][algo_id]['tick_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['roc_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal']		= False
@@ -592,15 +603,14 @@ def export_pricehistory():
 		#	pass
 
 		# Export level 1 data
-		# SAZ 2022-02-10 - This is no longer needed, using Level2 data instead
-		#try:
-		#	fname = base_dir + str(ticker) + '_level1-' + str(dt_today) + '.pickle.xz'
-		#	with lzma.open(fname, 'wb') as handle:
-		#		pickle.dump(stocks[ticker]['level1'], handle)
-		#		handle.flush()
-		#except Exception as e:
-		#	print('Warning: Unable to write level1 data to file ' + str(fname) + ': ' + str(e), file=sys.stderr)
-		#	pass
+		try:
+			fname = base_dir + str(ticker) + '_level1-' + str(dt_today) + '.pickle.xz'
+			with lzma.open(fname, 'wb') as handle:
+				pickle.dump(stocks[ticker]['level1'], handle)
+				handle.flush()
+		except Exception as e:
+			print('Warning: Unable to write level1 data to file ' + str(fname) + ': ' + str(e), file=sys.stderr)
+			pass
 
 		# Export level 2 data
 		try:
@@ -629,7 +639,7 @@ def export_pricehistory():
 
 # Main helper function for tda-stochrsi-gobot-v2 that implements the primary stochrsi
 #  algorithm along with any secondary algorithms specified.
-def stochrsi_gobot( cur_algo=None, debug=False ):
+def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 	if not isinstance(cur_algo, dict):
 		print('Error: stochrsi_gobot() called without valid cur_algo parameter, stochrsi_gobot() cannot continue.', file=sys.stderr)
@@ -1466,6 +1476,13 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				stocks[ticker]['algo_signals'][algo_id]['signal_mode'] == 'short' ):
 				continue
 
+		# If called from gobot_level1() and the stock is in sell or buy_to_cover mode, then we
+		#  will use this opportunity to check last_price and determine exit_criteria.
+		if ( caller_id != None and caller_id == 'level1' ):
+			if ( stocks[ticker]['algo_signals'][algo_id]['signal_mode'] == 'long' or
+				stocks[ticker]['algo_signals'][algo_id]['signal_mode'] == 'short' ):
+				continue
+
 		# Skip this ticker if it conflicts with a per-algo min/max_daily_natr configuration
 		if ( min_daily_natr != None and stocks[ticker]['natr_daily'] < min_daily_natr ):
 			print( '(' + str(ticker) + ') |' + str(algo_id) + '| Skipped - Daily NATR: ' + str(stocks[ticker]['natr_daily']) + ', min_daily_natr: ' + str(min_daily_natr) )
@@ -1978,7 +1995,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# $TRIN
 			if ( cur_algo['primary_trin'] == True or cur_algo['trin'] == True ):
 				print( '(' + str(ticker) + ') Current $TRIN: ' + str(round(stocks[ticker]['cur_trin'], 3)) + ' / ' +
-						'$TRIN Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['trin_signal']) )
+						'$TRIN Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['trin_signal']) + ' / ' +
+						'Counter: ' + str(stocks[ticker]['algo_signals'][algo_id]['trin_counter']) )
 
 			# $TICK
 			if ( cur_algo['tick'] == True ):
@@ -2307,6 +2325,17 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			if ( stocks[ticker]['primary_algo'] != cur_algo['algo_id'] ):
 				continue
 
+		# Check security_status from Level1 data
+		# "Normal" / "Halted" / "Closed"
+		try:
+			str( stocks[ticker]['security_status'] )
+		except:
+			pass
+		else:
+			if ( stocks[ticker]['security_status'].lower() != 'normal' ):
+				print( '(' + str(ticker) + '): WARNING, security status is not set to "Normal" (' + str(stocks[ticker]['security_status']) + '), skipping for now.')
+				continue
+
 
 		# BUY MODE - looking for a signal to purchase the stock
 		if ( signal_mode == 'long' ):
@@ -2444,7 +2473,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			#  - Lower values (<= -1) indicate bullish trend
 			#  - A simple algorithm here watches for higher values above 3, which
 			#    indicate that a bearish trend is ongoing but may be approaching oversold
-			#    levels. We then watche for a green candle to form, which will trigger the
+			#    levels. We then watch for a green candle to form, which will trigger the
 			#    final signal.
 			#  - Alone this is pretty simplistic, but supplimental indicators (roc, tick, etc.)
 			#    can help confirm that a reversal is happening.
@@ -2458,7 +2487,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# Trigger trin_init_signal if cur_trin moves above trin_oversold
 				elif ( cur_trin >= cur_algo['trin_oversold'] ):
-					stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] = True
+					stocks[ticker]['algo_signals'][algo_id]['trin_counter']		= 0
+					stocks[ticker]['algo_signals'][algo_id]['trin_init_signal']	= True
 
 				# Once trin_init_signal is triggered, we can trigger the final trin_signal
 				#  after the first green candle
@@ -2469,6 +2499,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					else:
 						stocks[ticker]['algo_signals'][algo_id]['trin_signal']	= False
 						stocks[ticker]['algo_signals'][algo_id]['buy_signal']	= False
+
+					# Cancel the trin_init_signal if we've lingered here for too long
+					stocks[ticker]['algo_signals'][algo_id]['trin_counter'] += 1
+					if ( stocks[ticker]['algo_signals'][algo_id]['trin_counter'] >= 10 ):
+						stocks[ticker]['algo_signals'][algo_id]['trin_counter']		= 0
+						stocks[ticker]['algo_signals'][algo_id]['trin_init_signal']	= False
 
 				# Trigger the buy_signal if all the trin signals have tiggered
 				if ( stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] == True and stocks[ticker]['algo_signals'][algo_id]['trin_signal'] == True ):
@@ -2484,7 +2520,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# Trigger trin_init_signal if cur_trin moves above trin_oversold
 				elif ( cur_trin >= cur_algo['trin_oversold'] ):
-					stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] = True
+					stocks[ticker]['algo_signals'][algo_id]['trin_counter']		= 0
+					stocks[ticker]['algo_signals'][algo_id]['trin_init_signal']	= True
 
 				# Once trin_init_signal is triggered, we can trigger the final trin_signal
 				#  after the first green candle
@@ -2493,6 +2530,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						stocks[ticker]['algo_signals'][algo_id]['trin_signal']	= True
 					else:
 						stocks[ticker]['algo_signals'][algo_id]['trin_signal']	= False
+
+					# Cancel the trin_init_signal if we've lingered here for too long
+					stocks[ticker]['algo_signals'][algo_id]['trin_counter'] += 1
+					if ( stocks[ticker]['algo_signals'][algo_id]['trin_counter'] >= 10 ):
+						stocks[ticker]['algo_signals'][algo_id]['trin_counter']		= 0
+						stocks[ticker]['algo_signals'][algo_id]['trin_init_signal']	= False
 
 			# TICK
 			# Bearish action when indicator is below zero and heading downward
@@ -3125,6 +3168,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# PURCHASE OPTIONS
 				if ( cur_algo['options'] == True ):
+
+					# Lookup the option to purchase
 					option_data = search_options(ticker=ticker, option_type='CALL', near_expiration=cur_algo['near_expiration'], debug=True)
 					if ( isinstance(option_data, bool) and option_data == False ):
 						print('Error: Unable to look up options for stock "' + str(ticker) + '"', file=sys.stderr)
@@ -3148,20 +3193,31 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					stocks[ticker]['options_ticker']	= option_data['ticker']
 					stocks[ticker]['options_qty']		= int( stocks[ticker]['options_usd'] / (option_data['ask'] * 100) )
 
+					# Buy the options
 					print( 'Purchasing ' + str(stocks[ticker]['options_qty']) + ' contracts of ' + str(stocks[ticker]['options_ticker']) + ' (' + str(cur_algo['algo_id'])  + ')' )
 					if ( args.fake == False ):
-						data = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='buy_to_open', fillwait=True, account_number=tda_account_number, debug=debug)
-						if ( isinstance(data, bool) and data == False ):
+						order_id = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='buy_to_open', fillwait=True, account_number=tda_account_number, debug=debug)
+						if ( isinstance(order_id, bool) and order_id == False ):
 							print('Error: Unable to purchase CALL option "' + str(stocks[ticker]['options_ticker']) + '"', file=sys.stderr)
 							stocks[ticker]['options_usd']	= cur_algo['options_usd']
 							stocks[ticker]['isvalid']	= False
 							reset_signals(ticker)
 							continue
 
-					# FIXME: pull the final purchase price from the returned debug data
+						if ( cur_algo['scalp_mode'] == True ):
+							scalp_price	= float( option_data['ask'] ) * ( cur_algo['scalp_mode_pct'] / 100 + 1 )
+							scalp_price	= round( scale_price, 2 )
+							order_id	= tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], limit_price=scalp_price, instruction='sell_to_close', fillwait=False, account_number=tda_account_number, debug=debug)
+							if ( isinstance(order_id, bool) and order_id == False ):
+								print('Error: Unable to create limit order for "' + str(stocks[ticker]['options_ticker']) + '"', file=sys.stderr)
+								continue
+
+							print( 'Successfully placed limit order for ' + str(stocks[ticker]['options_ticker']) + ' at ' + str(scalp_price) )
+
 					stocks[ticker]['options_orig_base_price']	= float( option_data['ask'] )
 					stocks[ticker]['options_base_price']		= stocks[ticker]['options_orig_base_price']
 					stocks[ticker]['orig_base_price']		= float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+					stocks[ticker]['order_id']			= order_id
 					options_last_price				= float( option_data['ask'] )
 					options_net_change				= 0
 
@@ -3270,23 +3326,33 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			options_net_change		= 0
 			options_total_percent_change	= 0
 
-			# First try to get the latest price from the API, and fall back to the last close only if necessary
-			last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
-			if ( isinstance(last_price, bool) and last_price == False ):
+			# If called from gobot_level1() then just use the last_price received from level1
+			# Otherwise, try to get the last_price from the API, and fall back to the last close
+			#  price only if necessary
+			if ( caller_id != None and caller_id == 'level1' ):
+				try:
+					last_price = float( stocks[ticker]['last_price'] )
+				except:
+					last_price = 0
 
-				# This happens often enough that it's worth just trying again before falling back
-				#  to the latest candle
-				tda_gobot_helper.tdalogin(passcode)
+			if ( last_price == 0 ):
 				last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
 				if ( isinstance(last_price, bool) and last_price == False ):
-					print('Warning: get_lastprice(' + str(ticker) + ') returned False, falling back to latest candle')
-					last_price = stocks[ticker]['pricehistory']['candles'][-1]['close']
+
+					# This happens often enough that it's worth just trying again before falling back
+					#  to the latest candle
+					tda_gobot_helper.tdalogin(passcode)
+					last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
+					if ( isinstance(last_price, bool) and last_price == False ):
+						print('Warning: get_lastprice(' + str(ticker) + ') returned False, falling back to latest candle')
+						last_price = stocks[ticker]['pricehistory']['candles'][-1]['close']
 
 			net_change		= round( (last_price - stocks[ticker]['orig_base_price']) * stocks[ticker]['stock_qty'], 3 )
 			total_percent_change	= abs( stocks[ticker]['orig_base_price'] / last_price - 1 ) * 100
 
-			# Lookup the option price as well as the equity since we will use the options_last_price
-			#  with the stoploss algorithm, but we'll use the equity candles with algos like --combined_exit
+			# Along with the equity's last_price above, lookup the option price as well since we will use the
+			#  options_last_price with the stoploss algorithm, but we'll use the equity candles with algos
+			#  like --combined_exit
 			if ( cur_algo['options'] == True ):
 				options_last_price = tda_gobot_helper.get_lastprice(stocks[ticker]['options_ticker'], WarnDelayed=False)
 				if ( isinstance(options_last_price, bool) and options_last_price == False ):
@@ -3453,7 +3519,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						stocks[ticker]['roc_exit'] = True
 
 				elif ( cur_roc_ma < prev_roc_ma ):
-					stocks[ticker]['decr_threshold']		= args.decr_threshold - args.threshold / 3
+					stocks[ticker]['decr_threshold']		= args.decr_threshold - args.decr_threshold / 3
 					stocks[ticker]['options_decr_threshold']	= args.options_decr_threshold / 2
 
 			# When using options, we follow the options price when in stoploss mode.
@@ -3477,7 +3543,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				stoploss_orig_base	= stocks[ticker]['orig_base_price']
 				stoploss_base		= stocks[ticker]['base_price']
 				stoploss_net_change	= net_change
-
 
 			# If price decreases
 			if ( stoploss_last_price < stoploss_base and stocks[ticker]['exit_percent_signal'] == False ):
@@ -3692,7 +3757,21 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 					# OPTIONS
 					if ( cur_algo['options'] == True ):
-						data = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='sell_to_close', fillwait=True, account_number=tda_account_number, debug=debug)
+						if ( cur_algo['scalp_mode'] == True ):
+							# Look up order_id status to see if stock had already hit the stop limit
+							if ( stocks[ticker]['order_id'] != None ):
+								try:
+									data, err = func_timeout(5, tda.get_order, args=(tda_account_number, stocks[ticker]['order_id'], True))
+
+								except Exception as e:
+									print('Caught Exception: tda.get_order(): ' + str(e))
+
+								# FIXME: determine if limit order has been filled already
+								data = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='sell_to_close', fillwait=True, account_number=tda_account_number, debug=debug)
+
+						# Place market order to sell option
+						else:
+							data = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='sell_to_close', fillwait=True, account_number=tda_account_number, debug=debug)
 
 					# EQUITY
 					else:
@@ -3721,6 +3800,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				stocks[ticker]['tx_id']				= random.randint(1000, 9999)
 				stocks[ticker]['stock_usd']			= cur_algo['stock_usd']
 				stocks[ticker]['quick_exit']			= cur_algo['quick_exit']
+				stocks[ticker]['order_id']			= None
 				stocks[ticker]['stock_qty']			= 0
 				stocks[ticker]['base_price']			= 0
 				stocks[ticker]['orig_base_price']		= 0
@@ -3880,12 +3960,6 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 			# $TRIN primary indicator
 			#  - Higher values (>= 3) indicate bearish trend
 			#  - Lower values (<= -1) indicate bullish trend
-			#  - A simple algorithm here watches for higher values above 3, which
-			#    indicate that a bearish trend is ongoing but may be approaching oversold
-			#    levels. We then watche for a green candle to form, which will trigger the
-			#    final signal.
-			#  - Alone this is pretty simplistic, but supplimental indicators (roc, tick, etc.)
-			#    can help confirm that a reversal is happening.
 			elif ( cur_algo['primary_trin'] ):
 
 				# Jump to long mode if cur_trin is greater than trin_overbought
@@ -3896,7 +3970,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# Trigger trin_init_signal if cur_trin moves below trin_overbought
 				elif ( cur_trin <= cur_algo['trin_overbought'] ):
-					stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] = True
+					stocks[ticker]['algo_signals'][algo_id]['trin_counter']		= 0
+					stocks[ticker]['algo_signals'][algo_id]['trin_init_signal']	= True
 
 				# Once trin_init_signal is triggered, we can trigger the final trin_signal
 				#  after the first red candle
@@ -3907,6 +3982,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 					else:
 						stocks[ticker]['algo_signals'][algo_id]['trin_signal']	= False
 						stocks[ticker]['algo_signals'][algo_id]['short_signal']	= False
+
+					# Cancel the trin_init_signal if we've lingered here for too long
+					stocks[ticker]['algo_signals'][algo_id]['trin_counter'] += 1
+					if ( stocks[ticker]['algo_signals'][algo_id]['trin_counter'] >= 10 ):
+						stocks[ticker]['algo_signals'][algo_id]['trin_counter']		= 0
+						stocks[ticker]['algo_signals'][algo_id]['trin_init_signal']	= False
 
 				# Trigger the short_signal if all the trin signals have tiggered
 				if ( stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] == True and stocks[ticker]['algo_signals'][algo_id]['trin_signal'] == True ):
@@ -3922,7 +4003,8 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 				# Trigger trin_init_signal if cur_trin moves below trin_overbought
 				elif ( cur_trin <= cur_algo['trin_overbought'] ):
-					stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] = True
+					stocks[ticker]['algo_signals'][algo_id]['trin_counter']		= 0
+					stocks[ticker]['algo_signals'][algo_id]['trin_init_signal']	= True
 
 				# Once trin_init_signal is triggered, we can trigger the final trin_signal
 				#  after the first red candle
@@ -3931,6 +4013,12 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						stocks[ticker]['algo_signals'][algo_id]['trin_signal']	= True
 					else:
 						stocks[ticker]['algo_signals'][algo_id]['trin_signal']	= False
+
+					# Cancel the trin_init_signal if we've lingered here for too long
+					stocks[ticker]['algo_signals'][algo_id]['trin_counter'] += 1
+					if ( stocks[ticker]['algo_signals'][algo_id]['trin_counter'] >= 10 ):
+						stocks[ticker]['algo_signals'][algo_id]['trin_counter']		= 0
+						stocks[ticker]['algo_signals'][algo_id]['trin_init_signal']	= False
 
 			# TICK
 			# Bearish action when indicator is below zero and heading downward
@@ -4587,18 +4675,29 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 					print( 'Purchasing ' + str(stocks[ticker]['options_qty']) + ' contracts of ' + str(stocks[ticker]['options_ticker']) + ' (' + str(cur_algo['algo_id'])  + ')' )
 					if ( args.fake == False ):
-						data = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='buy_to_open', fillwait=True, account_number=tda_account_number, debug=debug)
-						if ( isinstance(data, bool) and data == False ):
+						order_id = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='buy_to_open', fillwait=True, account_number=tda_account_number, debug=debug)
+						if ( isinstance(order_id, bool) and order_id == False ):
 							print('Error: Unable to purchase CALL option "' + str(stocks[ticker]['options_ticker']) + '"', file=sys.stderr)
 							stocks[ticker]['options_usd']	= cur_algo['options_usd']
 							stocks[ticker]['isvalid']	= False
 							reset_signals(ticker)
 							continue
 
+						if ( cur_algo['scalp_mode'] == True ):
+							scalp_price	= float( option_data['ask'] ) * ( cur_algo['scalp_mode_pct'] / 100 + 1 )
+							scalp_price	= round( scale_price, 2 )
+							order_id	= tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], limit_price=scalp_price, instruction='sell_to_close', fillwait=False, account_number=tda_account_number, debug=debug)
+							if ( isinstance(order_id, bool) and order_id == False ):
+								print('Error: Unable to create limit order for "' + str(stocks[ticker]['options_ticker']) + '"', file=sys.stderr)
+								continue
+
+							print( 'Successfully placed limit order for ' + str(stocks[ticker]['options_ticker']) + ' at ' + str(scalp_price) )
+
 					# FIXME: pull the final purchase price from the returned debug data
 					stocks[ticker]['options_orig_base_price']	= float( option_data['ask'] )
 					stocks[ticker]['options_base_price']		= stocks[ticker]['options_orig_base_price']
 					stocks[ticker]['orig_base_price']		= float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+					stocks[ticker]['order_id']			= order_id
 					options_last_price				= float( option_data['ask'] )
 					options_net_change				= 0
 
@@ -4909,7 +5008,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 						stocks[ticker]['roc_exit'] = True
 
 				elif ( cur_roc_ma > prev_roc_ma ):
-					stocks[ticker]['decr_threshold']		= args.decr_threshold - args.threshold / 3
+					stocks[ticker]['decr_threshold']		= args.decr_threshold - args.decr_threshold / 3
 					stocks[ticker]['options_decr_threshold']	= args.options_decr_threshold / 2
 
 			# When using options, we follow the options price when in stoploss mode.
@@ -5166,7 +5265,25 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 
 					# OPTIONS
 					if ( cur_algo['options'] == True ):
-						data = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='sell_to_close', fillwait=True, account_number=tda_account_number, debug=debug)
+						if ( cur_algo['scalp_mode'] == True and stocks[ticker]['order_id'] != None ):
+							# Look up order_id status to see if stock had already hit the stop limit
+							try:
+								data, err = func_timeout(5, tda.get_order, args=(tda_account_number, stocks[ticker]['order_id'], True))
+
+							except Exception as e:
+								print('Caught Exception: tda.get_order(): ' + str(e))
+
+							# FIXME:
+							#  - determine if limit order has been filled already
+							#  - If not, then either use cancel_order or replace_order
+							#  - Also need to determine how many options are left as the limit order may have been partially filled
+							#    - This may be in the get_order details
+							#     data = tda.get_account(args.account_number, options='positions', jsonify=True)
+							# data,err = tda.cancel_order(account_id, order_id, jsonify=True)
+							data = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='sell_to_close', fillwait=True, account_number=tda_account_number, debug=debug)
+
+						else:
+							data = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='sell_to_close', fillwait=True, account_number=tda_account_number, debug=debug)
 
 					# EQUITY
 					else:
@@ -5195,6 +5312,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 				stocks[ticker]['tx_id']				= random.randint(1000, 9999)
 				stocks[ticker]['stock_usd']			= cur_algo['stock_usd']
 				stocks[ticker]['quick_exit']			= cur_algo['quick_exit']
+				stocks[ticker]['order_id']			= None
 				stocks[ticker]['stock_qty']			= 0
 				stocks[ticker]['base_price']			= 0
 				stocks[ticker]['orig_base_price']		= 0
@@ -5228,7 +5346,7 @@ def stochrsi_gobot( cur_algo=None, debug=False ):
 	# END stocks.keys() loop
 
 	# Make the debug messages easier to read
-	if ( debug == True ):
+	if ( debug == True and caller_id != 'level1' ):
 		print("\n------------------------------------------------------------------------\n")
 
 

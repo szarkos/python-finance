@@ -1723,7 +1723,7 @@ def buy_sell_option(contract=None, quantity=None, limit_price=None, instruction=
 	if ( tdalogin(passcode) != True ):
 		print('Error: buy_sell_option(' + str(contract) + '): tdalogin(): login failure', file=sys.stderr)
 
-	# Try to sell the stock num_attempts tries or return False
+	# Try to buy/sell the option num_attempts tries or return False
 	for attempt in range(num_attempts):
 		try:
 			data, err = func_timeout(5, tda.place_order, args=(account_number, order, True))
@@ -1762,11 +1762,11 @@ def buy_sell_option(contract=None, quantity=None, limit_price=None, instruction=
 
 	except Exception as e:
 		print('Caught Exception: buy_sell_option(' + str(contract) + '): tda.get_order_number(): ' + str(e))
-		return data
+		return None
 
 	if ( str(order_id) == '' ):
 		print('Error: buy_sell_option('+ str(contract) + '): tda.get_order_number(): Unable to get order ID', file=sys.stderr)
-		return data
+		return None
 
 	# Get order information to determine if it was filled
 	try:
@@ -1777,7 +1777,7 @@ def buy_sell_option(contract=None, quantity=None, limit_price=None, instruction=
 
 	except Exception as e:
 		print('Caught Exception: buy_sell_option(' + str(contract) + '): tda.get_order(): ' + str(e))
-		return data
+		return order_id
 
 	if ( err != None ):
 		print('Error: buy_sell_option(' + str(contract) + '): tda.get_order(): ' + str(err), file=sys.stderr)
@@ -1803,7 +1803,7 @@ def buy_sell_option(contract=None, quantity=None, limit_price=None, instruction=
 
 		print('buy_sell_option(' + str(contract) + '): Order completed (Order ID:' + str(order_id) + ')')
 
-	return data
+	return order_id
 
 
 # Get option chain information

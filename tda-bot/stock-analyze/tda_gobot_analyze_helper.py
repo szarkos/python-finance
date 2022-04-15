@@ -359,7 +359,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	with_tick			= False		if ('with_tick' not in params) else params['with_tick']
 	tick_ma_type			= 'ema'		if ('tick_ma_type' not in params) else params['tick_ma_type']
-	tick_ma_pricetype		= 'ohlc4'	if ('tick_ma_pricetype' not in params) else params['tick_ma_pricetype']
 	tick_ma_period			= 5		if ('tick_ma_period' not in params) else params['tick_ma_period']
 
 	with_roc			= False		if ('with_roc' not in params) else params['with_roc']
@@ -1219,16 +1218,22 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		#  the datetime value from the current stock's candle.
 		trin_roc	= []
 		trinq_roc	= []
+		trina_roc	= []
+
 		tick_roc	= []
 		try:
 			trin_roc	= tda_algo_helper.get_roc( trin_tick['trin']['pricehistory'], period=trin_roc_period, type=trin_roc_type, calc_percentage=True )
 			trinq_roc	= tda_algo_helper.get_roc( trin_tick['trinq']['pricehistory'], period=trin_roc_period, type=trin_roc_type, calc_percentage=True )
+			trina_roc	= tda_algo_helper.get_roc( trin_tick['trina']['pricehistory'], period=trin_roc_period, type=trin_roc_type, calc_percentage=True )
+
+			# Note: $TICK also uses trin_roc_period and trin_roc_type (usually hlc3 and 1 respectively)
 			tick_roc	= tda_algo_helper.get_roc( trin_tick['tick']['pricehistory'], period=trin_roc_period, type=trin_roc_type, calc_percentage=True )
 
 		except Exception as e:
 			print('Error, unable to calculate rate-of-change for trin_tick: ' + str(e))
 			sys.exit(1)
 
+		# TRIN* data sorted by timestamps
 		for i in range( len(trin_tick['trin']['pricehistory']['candles']) ):
 			dt = trin_tick['trin']['pricehistory']['candles'][i]['datetime']
 			trin_tick['trin']['roc'].update( { dt: trin_roc[i] } )
@@ -1237,6 +1242,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			dt = trin_tick['trinq']['pricehistory']['candles'][i]['datetime']
 			trin_tick['trinq']['roc'].update( { dt: trinq_roc[i] } )
 
+		for i in range( len(trin_tick['trina']['pricehistory']['candles']) ):
+			dt = trin_tick['trina']['pricehistory']['candles'][i]['datetime']
+			trin_tick['trina']['roc'].update( { dt: trina_roc[i] } )
+
+		# TICK data sorted by datetime timestamps
 		for i in range( len(trin_tick['tick']['pricehistory']['candles']) ):
 			dt = trin_tick['tick']['pricehistory']['candles'][i]['datetime']
 			trin_tick['tick']['roc'].update( { dt: tick_roc[i] } )
@@ -1246,12 +1256,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		# When using $TRIN + $TRIN/Q we will average the ROC from each when generating the moving average
 		# However, $TRIN and $TRIN/Q might have some different datetimes, so we need to account for that
 		temp_ph = { 'candles': [] }
-		all_dts = list( trin_tick['trin']['roc'].keys() ) + list( trin_tick['trinq']['roc'].keys() )
+		all_dts = list( trin_tick['trin']['roc'].keys() ) + list( trin_tick['trinq']['roc'].keys() ) + list( trin_tick['trina']['roc'].keys() )
 		all_dts = sorted( list(dict.fromkeys(all_dts)) )
 		for dt in all_dts:
 			trin	= trin_tick['trin']['roc'][dt] if ( dt in trin_tick['trin']['roc'] ) else 0
 			trinq	= trin_tick['trinq']['roc'][dt] if ( dt in trin_tick['trinq']['roc'] ) else 0
-			temp_ph['candles'].append( { 'close': (trin + trinq) / 2 } )
+			trina	= trin_tick['trina']['roc'][dt] if ( dt in trin_tick['trina']['roc'] ) else 0
+
+			temp_ph['candles'].append( { 'close': (trin + trinq + trina) / 3 } )
 
 		tmp_trin_ma = tda_algo_helper.get_alt_ma(pricehistory=temp_ph, ma_type=trin_ma_type, type='close', period=trin_ma_period)
 		for idx,dt in enumerate( all_dts ):
@@ -1259,18 +1271,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 		# TICK ROC
 		temp_ph = { 'candles': [] }
-		for i in range( len(tick_roc) ):
-			temp_ph['candles'].append({ 'open': tick_roc[i], 'high': tick_roc[i], 'low': tick_roc[i], 'close': tick_roc[i] })
+		all_dts = list( trin_tick['tick']['roc'].keys() )
+		all_dts = sorted( list(dict.fromkeys(all_dts)) )
+		for dt in all_dts:
+			tick = trin_tick['tick']['roc'][dt] if ( dt in trin_tick['tick']['roc'] ) else 0
+			temp_ph['candles'].append( { 'close': tick } )
 
-		tmp_tick_ma = tda_algo_helper.get_alt_ma(pricehistory=temp_ph, ma_type=tick_ma_type, type=tick_ma_pricetype, period=tick_ma_period)
-		for i in range( len(trin_tick['tick']['pricehistory']['candles']) ):
-			dt = trin_tick['tick']['pricehistory']['candles'][i]['datetime']
-			trin_tick['tick']['roc_ma'].update( { dt: tmp_tick_ma[i] } )
+		tmp_tick_ma = tda_algo_helper.get_alt_ma(pricehistory=temp_ph, ma_type=tick_ma_type, type='close', period=tick_ma_period)
+		for idx,dt in enumerate( all_dts ):
+			trin_tick['tick']['roc_ma'].update( { dt: tmp_tick_ma[idx] } )
 
-#		tmp_tick_ma = tda_algo_helper.get_alt_ma(pricehistory=trin_tick['tick']['pricehistory'], ma_type=tick_ma_type, type=tick_ma_pricetype, period=tick_ma_period)
-#		for i in range( len(trin_tick['tick']['pricehistory']['candles']) ):
-#			dt = trin_tick['tick']['pricehistory']['candles'][i]['datetime']
-#			trin_tick['tick']['roc_ma'].update( { dt: tmp_tick_ma[i] } )
 
 	# ROC indicator
 	roc = []

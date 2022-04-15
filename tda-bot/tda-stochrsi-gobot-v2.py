@@ -179,12 +179,13 @@ parser.add_argument("--etf_min_natr", help='Minimum intraday NATR of ETF to allo
 parser.add_argument("--trin_roc_type", help='Rate of change candles type to use with $TRIN algorithm (Default: hlc3)', default='hlc3', type=str)
 parser.add_argument("--trin_roc_period", help='Period to use with ROC algorithm (Default: 1)', default=1, type=int)
 parser.add_argument("--trin_ma_type", help='MA type to use with $TRIN algorithm (Default: ema)', default='ema', type=str)
-parser.add_argument("--trin_ma_period", help='Period to use with ROC algorithm (Default: 4)', default=5, type=int)
+parser.add_argument("--trin_ma_period", help='Period to use with ROC algorithm (Default: 5)', default=5, type=int)
 parser.add_argument("--trin_oversold", help='Oversold threshold for $TRIN algorithm (Default: 3)', default=3, type=float)
 parser.add_argument("--trin_overbought", help='Overbought threshold for $TRIN algorithm (Default: -1)', default=-1, type=float)
 
+parser.add_argument("--tick_roc_type", help='Rate of change candles type to use with $TRIN algorithm (Default: hlc3)', default='hlc3', type=str)
+parser.add_argument("--tick_roc_period", help='Period to use with ROC algorithm (Default: 1)', default=1, type=int)
 parser.add_argument("--tick_ma_type", help='MA type to use with $TICK algorithm (Default: ema)', default='ema', type=str)
-parser.add_argument("--tick_ma_pricetype", help='Rate of change candles type to use with $TICK algorithm (Default: ohlc4)', default='ohlc4', type=str)
 parser.add_argument("--tick_ma_period", help='Period to use with ROC algorithm (Default: 4)', default=4, type=int)
 
 parser.add_argument("--roc_type", help='Rate of change candles type to use (Default: hlc3)', default='hlc3', type=str)
@@ -409,8 +410,9 @@ for algo in args.algos:
 	trin_oversold			= args.trin_oversold
 	trin_overbought			= args.trin_overbought
 
+	tick_roc_type			= args.tick_roc_type
+	tick_roc_period			= args.tick_roc_period
 	tick_ma_type			= args.tick_ma_type
-	tick_ma_pricetype		= args.tick_ma_pricetype
 	tick_ma_period			= args.tick_ma_period
 
 	roc_type			= args.roc_type
@@ -630,8 +632,9 @@ for algo in args.algos:
 		if ( re.match('trin_oversold:', a)			!= None ):	trin_oversold			= float( a.split(':')[1] )
 		if ( re.match('trin_overbought:', a)			!= None ):	trin_overbought			= float( a.split(':')[1] )
 
+		if ( re.match('tick_roc_type:', a)			!= None ):	tick_roc_type			= str( a.split(':')[1] )
+		if ( re.match('tick_roc_period:', a)			!= None ):	tick_roc_period			= int( a.split(':')[1] )
 		if ( re.match('tick_ma_type:', a)			!= None ):	tick_ma_type			= str( a.split(':')[1] )
-		if ( re.match('tick_ma_pricetype:', a)			!= None ):	tick_ma_pricetype		= str( a.split(':')[1] )
 		if ( re.match('tick_ma_period:', a)			!= None ):	tick_ma_period			= int( a.split(':')[1] )
 
 		if ( re.match('roc_type:', a)				!= None ):	roc_type			= str( a.split(':')[1] )
@@ -864,8 +867,9 @@ for algo in args.algos:
 			'trin_oversold':			trin_oversold,
 			'trin_overbought':			trin_overbought,
 
+			'tick_roc_type':			tick_roc_type,
+			'tick_roc_period':			tick_roc_period,
 			'tick_ma_type':				tick_ma_type,
-			'tick_ma_pricetype':			tick_ma_pricetype,
 			'tick_ma_period':			tick_ma_period,
 
 			'roc_type':				roc_type,
@@ -915,7 +919,7 @@ del(use_natr_resistance,keylevel_use_daily,keylevel_strict,va_check,min_intra_na
 del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count,bbands_matype,kchan_matype)
 del(use_ha_exit,use_ha_candles,use_trend_exit,use_trend,trend_period,trend_type,use_combined_exit)
 del(check_etf_indicators,check_etf_indicators_strict,etf_tickers,etf_roc_period,etf_min_rs,etf_min_natr)
-del(trin,tick,roc,sp_monitor,trin_roc_type,trin_roc_period,trin_ma_type,trin_ma_period,trin_oversold,trin_overbought,tick_ma_type,tick_ma_pricetype,tick_ma_period)
+del(trin,tick,roc,sp_monitor,trin_roc_type,trin_roc_period,trin_ma_type,trin_ma_period,trin_oversold,trin_overbought,tick_roc_type,tick_roc_period,tick_ma_type,tick_ma_period)
 del(roc_type,roc_period,roc_ma_type,roc_ma_period,roc_threshold,roc_exit)
 del(sp_monitor_tickers,sp_roc_type,sp_roc_period,sp_ma_period)
 del(options,options_usd,near_expiration)
@@ -998,7 +1002,7 @@ for algo in range( len(algos) ):
 
 	# TRIN
 	if ( algos[algo]['primary_trin'] == True or algos[algo]['trin'] == True ):
-		args.stocks = '$TRIN,' + str(args.stocks)
+		args.stocks = '$TRIN,$TRINA,$TRINQ,' + str(args.stocks)
 
 	# TICK
 	if ( algos[algo]['tick'] == True ):
@@ -1242,8 +1246,8 @@ for ticker in stock_list.split(','):
 				   'prev_seq':			0,
 
 				   # Candle data
-				   'pricehistory':		{},
-				   'pricehistory_5m':		{ 'candles': [], 'ticker': ticker },
+				   'pricehistory':		{ 'candles': [], 'symbol': ticker },
+				   'pricehistory_5m':		{ 'candles': [], 'symbol': ticker },
 				   'pricehistory_daily':	{},
 				   'pricehistory_weekly':	{},
 
@@ -1379,12 +1383,22 @@ if ( len(sp_tickers) != 0 ):
 		stocks[ticker]['tradeable'] = False
 
 # $TRIN and $TICK are not tradeable
-if ( '$TRIN' in stocks ):
+try:
 	stocks['$TRIN']['isvalid']	= True
 	stocks['$TRIN']['tradeable']	= False
-if ( '$TICK' in stocks ):
+
+	stocks['$TRINQ']['isvalid']	= True
+	stocks['$TRINQ']['tradeable']	= False
+
+	stocks['$TRINA']['isvalid']	= True
+	stocks['$TRINA']['tradeable']	= False
+
 	stocks['$TICK']['isvalid']	= True
 	stocks['$TICK']['tradeable']	= False
+
+except:
+	pass
+
 
 # Get stock_data info about the stock that we can use later (i.e. shortable)
 try:
@@ -1400,6 +1414,12 @@ tda_gobot_helper.clean_blacklist(debug=False)
 nasdaq_tickers	= []
 nyse_tickers	= []
 for ticker in list(stocks.keys()):
+
+	# Skip ths section if the ticker is an indicator or otherwise not marked as tradeable
+	if ( stocks[ticker]['tradeable'] == False ):
+		continue
+
+	# Invalidate ticker if it is noted in the blacklist file
 	if ( tda_gobot_helper.check_blacklist(ticker) == True and args.force == False ):
 		print('(' + str(ticker) + ') Warning: stock ' + str(ticker) + ' found in blacklist file, removing from the list')
 		stocks[ticker]['isvalid'] = False
@@ -1460,7 +1480,7 @@ for ticker in list(stocks.keys()):
 			nyse_tickers.append( str(ticker) )
 
 		else:
-			print('Warning: ticker ' + str(ticker) + ' not found or not listed on NYSE or NASDAQ (' + str(stock_data[ticker]['exchange']) + '), level2 data will not be available')
+			print('Warning: ticker ' + str(ticker) + ' not found or not listed on NYSE or NASDAQ (Exchange ID: ' + str(stock_data[ticker]['exchange']) + '), level2 data will not be available')
 
 	except:
 		print('Warning: exchange info not returned for ticker ' + str(ticker) + ', level2 data will not be available')
@@ -1661,10 +1681,15 @@ for ticker in list(stocks.keys()):
 	if ( stocks[ticker]['isvalid'] == False ):
 		continue
 
-	# Pull the stock history that we'll use to calculate the Stochastic RSI and other thingies
+	# Pull the stock history that we'll use to calculate various indicators
+	extended_hours = True
+	if ( re.search('^\$', ticker) != None ):
+		# Disable extended hours for indicator tickers
+		extended_hours = False
+
 	data = False
 	while ( isinstance(data, bool) and data == False ):
-		data, epochs = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, needExtendedHoursData=True, debug=False)
+		data, epochs = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, needExtendedHoursData=extended_hours, debug=False)
 		if ( isinstance(data, bool) and data == False ):
 			time.sleep(5)
 			if ( tda_gobot_helper.tdalogin(passcode) != True ):
@@ -1690,6 +1715,10 @@ for ticker in list(stocks.keys()):
 
 	# Translate and add Heiken Ashi candles to pricehistory (will add new array called stocks[ticker]['pricehistory']['hacandles'])
 	stocks[ticker]['pricehistory'] = tda_gobot_helper.translate_heikin_ashi(stocks[ticker]['pricehistory'])
+
+	# Skip the rest of the setup procedure for indicator tickers
+	if ( re.search('^\$', ticker) != None ):
+		continue
 
 	# Key Levels
 	# Use weekly_ifile or download weekly candle data
@@ -1721,7 +1750,8 @@ for ticker in list(stocks.keys()):
 		while ( stocks[ticker]['pricehistory_weekly'] == {} ):
 			stocks[ticker]['pricehistory_weekly'], ep = tda_gobot_helper.get_pricehistory(ticker, wkly_p_type, wkly_f_type, wkly_freq, wkly_period, needExtendedHoursData=False)
 
-			if ( stocks[ticker]['pricehistory_weekly'] == {} or
+			if ( (isinstance(stocks[ticker]['pricehistory_weekly'], bool) and stocks[ticker]['pricehistory_weekly'] == False) or
+					stocks[ticker]['pricehistory_weekly'] == {} or
 					('empty' in stocks[ticker]['pricehistory_weekly'] and str(stocks[ticker]['pricehistory_weekly']['empty']).lower() == 'true') ):
 				time.sleep(5)
 				if ( tda_gobot_helper.tdalogin(passcode) != True ):
@@ -1823,6 +1853,7 @@ for ticker in list(stocks.keys()):
 	# Don't bother processing tickers like $TRIN and $TICK since they have no volume data
 	if ( ticker not in nasdaq_tickers and ticker not in nyse_tickers ):
 		print('INFO: get_market_profile(' + str(ticker) + '): skipping since ticker is not listed in nasdaq_tickers or nyse_tickers')
+
 	else:
 		mprofile = {}
 		try:

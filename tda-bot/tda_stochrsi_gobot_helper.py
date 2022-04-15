@@ -1269,29 +1269,65 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 	# $TRIN
 	if ( cur_algo['primary_trin'] == True or cur_algo['trin'] == True ):
-		trin_roc	= []
-		trin_roc_ma	= []
-		temp_ph		= { 'candles': [] }
 
-		stocks['$TRIN']['isvalid']	= True
-		stocks['$TRIN']['tradeable']	= False
+		try:
+			stocks['$TRIN']['isvalid']	= True
+			stocks['$TRIN']['tradeable']	= False
+
+			stocks['$TRINA']['isvalid']	= True
+			stocks['$TRINA']['tradeable']	= False
+
+			stocks['$TRINQ']['isvalid']	= True
+			stocks['$TRINQ']['tradeable']	= False
+
+		except:
+			pass
 
 		# First, calculate the rate-of-change for $TRIN
+		trin_roc	= []
+		trinq_roc	= []
+		trina_roc	= []
 		try:
-			trin_roc = tda_algo_helper.get_roc( stocks['$TRIN']['pricehistory'], period=cur_algo['trin_roc_period'], type=cur_algo['trin_roc_type'], calc_percentage=True )
+			trin_roc	= tda_algo_helper.get_roc( stocks['$TRIN']['pricehistory'], period=cur_algo['trin_roc_period'], type=cur_algo['trin_roc_type'], calc_percentage=True )
+			trina_roc	= tda_algo_helper.get_roc( stocks['$TRINA']['pricehistory'], period=cur_algo['trin_roc_period'], type=cur_algo['trin_roc_type'], calc_percentage=True )
+			trinq_roc	= tda_algo_helper.get_roc( stocks['$TRINQ']['pricehistory'], period=cur_algo['trin_roc_period'], type=cur_algo['trin_roc_type'], calc_percentage=True )
 
 		except Exception as e:
-			print('Error: stochrsi_gobot(): get_roc($TRIN): ' + str(e))
+			print('Error: stochrsi_gobot(): get_roc($TRIN/$TRINQ/$TRINA): ' + str(e))
 			trin_roc_ma = [0 ,0]
 
-		if ( isinstance(trin_roc, bool) and trin_roc == False ):
-			print('Error: stochrsi_gobot(): get_roc($TRIN) returned False')
+		if ( (isinstance(trin_roc, bool) and trin_roc == False) or (isinstance(trinq_roc, bool) and trinq_roc == False) or (isinstance(trina_roc, bool) and trina_roc == False)):
+			print('Error: stochrsi_gobot(): get_roc($TRIN/$TRINQ/$TRINA) returned False')
 			trin_roc_ma = [0, 0]
 
-		# Next, calculate a moving average of trin_roc_ma to smooth trin_roc
-		for i in range( len(trin_roc) ):
-			temp_ph['candles'].append({ 'open': trin_roc[i], 'high': trin_roc[i], 'low': trin_roc[i], 'close': trin_roc[i] })
+		# TRIN* data sorted by timestamps
+		trin_roc_dt	= {}
+		trinq_roc_dt	= {}
+		trina_roc_dt	= {}
+		for i in range( len(stocks['$TRIN']['pricehistory']['candles']) ):
+			dt = stocks['$TRIN']['pricehistory']['candles'][i]['datetime']
+			trin_roc_dt.update( { dt: trin_roc[i] } )
 
+		for i in range( len(stocks['$TRINQ']['pricehistory']['candles']) ):
+			dt = stocks['$TRINQ']['pricehistory']['candles'][i]['datetime']
+			trinq_roc_dt.update( { dt: trinq_roc[i] } )
+
+		for i in range( len(stocks['$TRINA']['pricehistory']['candles']) ):
+			dt = stocks['$TRINA']['pricehistory']['candles'][i]['datetime']
+			trina_roc_dt.update( { dt: trina_roc[i] } )
+
+		# Next, calculate a moving average of trin_roc_ma to smooth trin_roc
+		temp_ph = { 'candles': [] }
+		all_dts = list( trin_roc_dt.keys() ) + list( trinq_roc_dt.keys() ) + list( trina_roc_dt.keys() )
+		all_dts = sorted( list(dict.fromkeys(all_dts)) )
+		for dt in all_dts:
+			trin	= trin_roc_dt[dt] if ( dt in trin_roc_dt ) else 0
+			trinq	= trinq_roc_dt[dt] if ( dt in trinq_roc_dt ) else 0
+			trina	= trina_roc_dt[dt] if ( dt in trina_roc_dt ) else 0
+
+			temp_ph['candles'].append( { 'close': (trin + trinq + trina) / 3 } )
+
+		trin_roc_ma = []
 		try:
 			trin_roc_ma = tda_algo_helper.get_alt_ma(pricehistory=temp_ph, ma_type=cur_algo['trin_ma_type'], type='close', period=cur_algo['trin_ma_period'])
 
@@ -1312,22 +1348,38 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 		stocks['$TICK']['isvalid']	= True
 		stocks['$TICK']['tradeable']	= False
 
-		# Calculate a moving average of tick to smooth
-		tick_ma	= []
+		tick_roc = []
 		try:
-			tick_ma = tda_algo_helper.get_alt_ma(pricehistory=stocks['$TICK']['pricehistory'], ma_type=cur_algo['tick_ma_type'], type=cur_algo['tick_ma_pricetype'], period=cur_algo['tick_ma_period'])
+			tick_roc = tda_algo_helper.get_roc( stocks['$TICK']['pricehistory'], period=cur_algo['tick_roc_period'], type=cur_algo['tick_roc_type'], calc_percentage=True )
 
 		except Exception as e:
-			print('Error: stochrsi_gobot(): get_alt_ma(tick_ma): ' + str(e))
-			tick_ma = [0, 0]
+			print('Error: stochrsi_gobot(): get_roc($TICK): ' + str(e))
+			tick_roc_ma = [0 ,0]
 
-		if ( isinstance(tick_ma, bool) and tick_ma == False ):
+		if ( isinstance(tick_roc, bool) and tick_roc == False ):
+			print('Error: stochrsi_gobot(): get_roc($TICK) returned False')
+			tick_roc_ma = [0, 0]
+
+		# Calculate a moving average of tick to smooth
+		temp_ph = { 'candles': [] }
+		for i in range( len(tick_roc) ):
+			temp_ph['candles'].append( { 'close': tick_roc[i] } )
+
+		tick_roc_ma = []
+		try:
+			tick_roc_ma = tda_algo_helper.get_alt_ma(pricehistory=temp_ph, ma_type=cur_algo['tick_ma_type'], type='close', period=cur_algo['tick_ma_period'])
+
+		except Exception as e:
+			print('Error: stochrsi_gobot(): get_alt_ma(tick_roc_ma): ' + str(e))
+			tick_roc_ma = [0, 0]
+
+		if ( isinstance(tick_roc_ma, bool) and tick_roc_ma == False ):
 			print('Error: stochrsi_gobot(): get_alt_ma($TICK) returned False')
-			tick_ma = [0, 0]
+			tick_roc_ma = [0, 0]
 
 		for ticker in stocks.keys():
-			stocks[ticker]['cur_tick']      = tick_ma[-1]
-			stocks[ticker]['prev_tick']     = tick_ma[-2]
+			stocks[ticker]['cur_tick']      = tick_roc_ma[-1]
+			stocks[ticker]['prev_tick']     = tick_roc_ma[-2]
 
 	# SP_Monitor
 	# This algorithm measures the price action of the more highly represented stocks in an ETF to help gauge strength and trend.
@@ -1994,7 +2046,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 			# $TRIN
 			if ( cur_algo['primary_trin'] == True or cur_algo['trin'] == True ):
-				print( '(' + str(ticker) + ') Current $TRIN: ' + str(round(stocks[ticker]['cur_trin'], 3)) + ' / ' +
+				print( '(' + str(ticker) + ') Current TRIN_ROC_MA: ' + str(round(stocks[ticker]['cur_trin'], 3)) + ' / ' +
 						'$TRIN Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['trin_signal']) + ' / ' +
 						'Counter: ' + str(stocks[ticker]['algo_signals'][algo_id]['trin_counter']) )
 
@@ -2145,6 +2197,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 		# Set some short variables to improve readability :)
 		signal_mode		= stocks[ticker]['algo_signals'][algo_id]['signal_mode']
+		order_id		= None
 
 		last_open		= stocks[ticker]['pricehistory']['candles'][-1]['open']
 		last_high		= stocks[ticker]['pricehistory']['candles'][-1]['high']
@@ -2495,7 +2548,6 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				if ( stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] == True ):
 					if ( last_ha_close > last_ha_open ):
 						stocks[ticker]['algo_signals'][algo_id]['trin_signal']	= True
-
 					else:
 						stocks[ticker]['algo_signals'][algo_id]['trin_signal']	= False
 						stocks[ticker]['algo_signals'][algo_id]['buy_signal']	= False
@@ -3713,6 +3765,8 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 			if ( (cur_algo['quick_exit'] == True or stocks[ticker]['quick_exit'] == True) and
 					stocks[ticker]['algo_signals'][algo_id]['sell_signal'] == False and stoploss_last_price > stoploss_orig_base ):
 
+				print( str(options_total_percent_change) + ' / ' + str(cur_algo['quick_exit_percent']))
+
 				if ( cur_algo['options'] == True and options_total_percent_change >= cur_algo['quick_exit_percent'] ):
 					print( '(' + str(ticker) + '): quick_exit triggered at ' + str(round(options_total_percent_change, 3)) + '%')
 					stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
@@ -4852,8 +4906,8 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 						print('Warning: get_lastprice(' + str(stocks[ticker]['options_ticker']) + ') returned False')
 						options_last_price = stocks[ticker]['options_base_price']
 
-				options_net_change	= round( (options_last_price - stocks[ticker]['options_orig_base_price']) * stocks[ticker]['options_qty'] * 100, 3 )
-				total_percent_change	= abs( options_last_price / stocks[ticker]['options_orig_base_price'] - 1 ) * 100
+				options_net_change		= round( (options_last_price - stocks[ticker]['options_orig_base_price']) * stocks[ticker]['options_qty'] * 100, 3 )
+				options_total_percent_change	= abs( options_last_price / stocks[ticker]['options_orig_base_price'] - 1 ) * 100
 
 			# Integrate last_price from get_lastprice() into the latest candle from pricehistory.
 			#
@@ -5085,7 +5139,6 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 					if ( percent_change >= stocks[ticker]['options_incr_threshold'] ):
 						stocks[ticker]['options_base_price'] = options_last_price
 						print(str(stoploss_ticker) + ' (PUT) increased above the incr_threshold (' + str(stocks[ticker]['options_incr_threshold']) + '%), resetting base price to '  + str(stoploss_last_price))
-						#stocks[ticker]['options_decr_threshold'] = stocks[ticker]['options_incr_threshold']
 
 				else:
 					# BUY-TO-COVER the shorted equity if we are using a trailing stoploss
@@ -5224,6 +5277,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 			if ( (cur_algo['quick_exit'] == True or stocks[ticker]['quick_exit'] == True) and
 					stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] == False ):
 
+				print( str(options_total_percent_change) + ' / ' + str(cur_algo['quick_exit_percent']))
 				if ( cur_algo['options'] == True and stoploss_last_price > stoploss_orig_base and
 						options_total_percent_change >= cur_algo['quick_exit_percent'] ):
 					print( '(' + str(ticker) + '): quick_exit triggered at ' + str(round(options_total_percent_change, 3)) + '%')

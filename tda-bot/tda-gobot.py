@@ -378,10 +378,21 @@ if ( args.options == True ):
 		input('PURCHASING ' + str(stock_qty) + ' contracts of ' + str(stock) + ' - Press <ENTER> to confirm')
 
 	if ( args.fake == False ):
-		data = tda_gobot_helper.buy_sell_option(contract=stock, quantity=stock_qty, instruction='buy_to_open', fillwait=True, account_number=tda_account_number, debug=debug)
-		if ( isinstance(data, bool) and data == False ):
+		order_id = tda_gobot_helper.buy_sell_option(contract=stock, quantity=stock_qty, instruction='buy_to_open', fillwait=True, account_number=tda_account_number, debug=True)
+		if ( isinstance(order_id, bool) and order_id == False ):
 			print('Error: Unable to purchase option "' + str(stock) + '"', file=sys.stderr)
 			sys.exit(1)
+
+		# Adjust option_price with the mean fill price if available
+		data = False
+		try:
+			data		= tda_gobot_helper.get_order(order_id, tda_account_number, passcode)
+			option_price	= float( data['orderActivityCollection'][0]['executionLegs'][0]['price'] )
+		except:
+			option_price = quote[stock]['askPrice']
+
+		if ( isinstance(data, bool) and data == False ):
+			option_price = quote[stock]['askPrice']
 
 # EQUITY stock, set orig_base_price to the price that we purchased the stock
 else:

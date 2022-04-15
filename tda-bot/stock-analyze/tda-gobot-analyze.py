@@ -66,13 +66,14 @@ parser.add_argument("--etf_emd_type", help='MESA EMD type to use with ETF', defa
 
 parser.add_argument("--with_trin", help='Use $TRIN indicator', action="store_true")
 parser.add_argument("--trin_roc_type", help='Rate of change candles type to use with $TRIN algorithm (Default: hlc3)', default='hlc3', type=str)
+parser.add_argument("--trin_roc_period", help='Rate of change period to use with $TRIN algorithm (Default: 1)', default=1, type=int)
 parser.add_argument("--trin_ma_type", help='MA type to use with $TRIN algorithm (Default: ema)', default='ema', type=str)
+parser.add_argument("--trin_ma_period", help='Period to use with $TRIN moving average (Default: 5)', default=5, type=int)
 parser.add_argument("--trin_oversold", help='Oversold threshold for $TRIN algorithm (Default: 3)', default=3, type=float)
 parser.add_argument("--trin_overbought", help='Overbought threshold for $TRIN algorithm (Default: -1)', default=-1, type=float)
 
 parser.add_argument("--with_tick", help='Use $TICK indicator', action="store_true")
 parser.add_argument("--tick_ma_type", help='MA type to use with $TICK algorithm (Default: ema)', default='ema', type=str)
-parser.add_argument("--tick_ma_pricetype", help='Rate of change candles type to use with $TICK algorithm (Default: hlc3)', default='hlc3', type=str)
 parser.add_argument("--tick_ma_period", help='Period to use with ROC algorithm (Default: 4)', default=4, type=int)
 
 parser.add_argument("--with_roc", help='Use Rate-of-Change (ROC) indicator', action="store_true")
@@ -581,19 +582,23 @@ for algo in args.algo.split(','):
 	# $TRIN and $TICK Indicators
 	trin_tick = {	'trin': {	'pricehistory':		{},
 					'pricehistory_5m':	{},
-					'roc':			{},
+					'roc':			OrderedDict(),
 					'roc_ma':		{}
 				},
 			'trinq': {	'pricehistory':		{},
 					'pricehistory_5m':	{},
-					'roc':			{},
-					'roc_ma':		{}
+					'roc':			OrderedDict(),
 				},
+			'trina': {	'pricehistory':		{},
+					'pricehistory_5m':	{},
+					'roc':			OrderedDict(),
+				},
+
 			'tick': {	'pricehistory':		{},
 					'pricehistory_5m':	{},
-					'roc':			{},
+					'roc':			OrderedDict(),
 					'roc_ma':		{}
-				}
+				},
 	}
 
 	if ( args.with_trin == True or args.primary_stoch_indicator == 'trin' or args.with_tick == True ):
@@ -606,6 +611,7 @@ for algo in args.algo.split(','):
 			ifile		= re.sub('^.*\/' + str(stock), '', args.ifile)
 			trin_ifile	= stock_path + '/TRIN' + ifile
 			trinq_ifile	= stock_path + '/TRINQ' + ifile
+			trina_ifile	= stock_path + '/TRINA' + ifile
 			tick_ifile	= stock_path + '/TICK' + ifile
 
 			try:
@@ -616,6 +622,10 @@ for algo in args.algo.split(','):
 				with open(trinq_ifile, 'rb') as handle:
 					trinq_data = handle.read()
 					trinq_data = pickle.loads(trinq_data)
+
+				with open(trina_ifile, 'rb') as handle:
+					trina_data = handle.read()
+					trina_data = pickle.loads(trina_data)
 
 				with open(tick_ifile, 'rb') as handle:
 					tick_data = handle.read()
@@ -631,6 +641,9 @@ for algo in args.algo.split(','):
 			trin_tick['trinq']['pricehistory']	= trinq_data
 			trin_tick['trinq']['pricehistory_5m']	= tda_gobot_helper.translate_1m( pricehistory=trin_tick['trinq']['pricehistory'], candle_type=5 )
 
+			trin_tick['trina']['pricehistory']	= trina_data
+			trin_tick['trina']['pricehistory_5m']	= tda_gobot_helper.translate_1m( pricehistory=trin_tick['trina']['pricehistory'], candle_type=5 )
+
 			trin_tick['tick']['pricehistory']	= tick_data
 			trin_tick['tick']['pricehistory_5m']	= tda_gobot_helper.translate_1m( pricehistory=trin_tick['tick']['pricehistory'], candle_type=5 )
 
@@ -645,25 +658,43 @@ for algo in args.algo.split(','):
 			if ( int(time_now.strftime('%w')) == 0 or int(time_now.strftime('%w')) == 6 ): # 0=Sunday, 6=Saturday
 				time_now = tda_gobot_helper.fix_timestamp(time_now)
 
-			time_now_epoch = int( time_now.timestamp() * 1000 )
-			time_prev_epoch = int( time_prev.timestamp() * 1000 )
+			time_now_epoch	= int( time_now.timestamp() * 1000 )
+			time_prev_epoch	= int( time_prev.timestamp() * 1000 )
 
-			trin_data = []
-			tick_data = []
+			trin_data	= []
+			trinq_data	= []
+			trina_data	= []
+
+			tick_data	= []
 			try:
 				trin_data, epochs	= tda_gobot_helper.get_pricehistory('$TRIN', p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=False)
 				trinq_data, epochs	= tda_gobot_helper.get_pricehistory('$TRINQ', p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=False)
+				trina_data, epochs	= tda_gobot_helper.get_pricehistory('$TRINA', p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=False)
+
 				tick_data, epochs	= tda_gobot_helper.get_pricehistory('$TICK', p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=False)
 
 			except Exception as e:
 				print('Caught Exception: get_pricehistory(' + str(time_prev_epoch) + ', ' + str(time_now_epoch) + '): ' + str(e))
 				continue
 
+			if ( len(trin_data['candles']) == 0 ):
+				print('Warning: trin_data[] is empty!')
+			if ( len(trinq_data['candles']) == 0 ):
+				print('Warning: trinq_data[] is empty!')
+			if ( len(trina_data['candles']) == 0 ):
+				print('Warning: trina_data[] is empty!')
+
 			trin_tick['trin']['pricehistory']	= trin_data
 			trin_tick['trin']['pricehistory_5m']	= tda_gobot_helper.translate_1m(pricehistory=trin_tick['trin']['pricehistory'], candle_type=5)
 
 			trin_tick['trinq']['pricehistory']	= trinq_data
 			trin_tick['trinq']['pricehistory_5m']	= tda_gobot_helper.translate_1m(pricehistory=trin_tick['trinq']['pricehistory'], candle_type=5)
+
+			trin_tick['trina']['pricehistory']	= trina_data
+			trin_tick['trina']['pricehistory_5m']	= tda_gobot_helper.translate_1m(pricehistory=trin_tick['trina']['pricehistory'], candle_type=5)
+
+			if ( len(tick_data['candles']) == 0 ):
+				print('Warning: tick_data[] is empty!')
 
 			trin_tick['tick']['pricehistory']	= tick_data
 			trin_tick['tick']['pricehistory_5m']	= tda_gobot_helper.translate_1m(pricehistory=trin_tick['tick']['pricehistory'], candle_type=5)
@@ -1102,13 +1133,14 @@ for algo in args.algo.split(','):
 
 					'with_trin':				args.with_trin,
 					'trin_roc_type':			args.trin_roc_type,
+					'trin_roc_period':			args.trin_roc_period,
 					'trin_ma_type':				args.trin_ma_type,
+					'trin_ma_period':			args.trin_ma_period,
 					'trin_oversold':			args.trin_oversold,
 					'trin_overbought':			args.trin_overbought,
 
 					'with_tick':				args.with_tick,
 					'tick_ma_type':				args.tick_ma_type,
-					'tick_ma_pricetype':			args.tick_ma_pricetype,
 					'tick_ma_period':			args.tick_ma_period,
 					'trin_tick':				trin_tick,
 

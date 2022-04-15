@@ -374,6 +374,10 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_f
 			tmp.append(0)
 		ma = tmp + list(ma)
 
+	# Handle inf/-inf data points
+	ma = np.nan_to_num(ma, copy=True)
+
+
 	if ( debug == True ):
 		pd.set_option('display.max_rows', None)
 		pd.set_option('display.max_columns', None)
@@ -2093,7 +2097,7 @@ def get_roc(pricehistory=None, type='hlc3', period=50, calc_percentage=False, de
 			roc[i] = roc[i] * 100
 
 	# Handle inf/-inf data points
-	roc = np.nan_to_num(roc)
+	roc = np.nan_to_num(roc, copy=True)
 
 	# Normalize the size of roc[] to match the input size
 	tmp = []

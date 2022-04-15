@@ -1128,6 +1128,98 @@ def get_pdc(pricehistory=None, debug=False):
 	return float(pdc)
 
 
+# Return information about a previously placed TDA order
+def get_order(order_id=None, account_number=None, passcode=None, debug=False):
+
+	if ( order_id == None or passcode == None ):
+		return False
+
+	if ( account_number == None ):
+		try:
+			account_number = int( tda_account_number )
+		except:
+			print('Error: get_order(' + str(order_id) + '): invalid account number: ' + str(account_number), file=sys.stderr)
+			return False
+	else:
+		try:
+			account_number = int( account_number )
+		except:
+			print('Error: get_order(' + str(order_id) + '): account number must be an integer: ' + str(account_number), file=sys.stderr)
+			return False
+
+	# Make sure we are logged into TDA
+	try:
+		if ( tdalogin(passcode) != True ):
+			print('Error: get_order(' + str(order_id) + '): tdalogin(): login failure', file=sys.stderr)
+
+	except Exception as e:
+		print('Error: get_order(' + str(order_id) + '): tdalogin(): ' + str(e), file=sys.stderr)
+
+	# Get order information to determine if it was filled
+	data	= None
+	err	= None
+	try:
+		data, err = func_timeout(5, tda.get_order, args=(account_number, order_id, True))
+		if ( debug == True ):
+			print( data )
+
+	except Exception as e:
+		print('Caught Exception: get_order(' + str(order_id) + '): tda.get_order(): ' + str(e))
+		return data
+
+	if ( err != None ):
+		print('Error: get_order(' + str(order_id) + '): tda.get_order(): ' + str(err), file=sys.stderr)
+		return False
+
+	return data
+
+
+# Cancel a previously placed TDA order
+def cancel_order(order_id=None, account_number=None, passcode=None, debug=False):
+
+	if ( order_id == None or passcode == None ):
+		return False
+
+	if ( account_number == None ):
+		try:
+			account_number = int( tda_account_number )
+		except:
+			print('Error: cancel_order(' + str(order_id) + '): invalid account number: ' + str(account_number), file=sys.stderr)
+			return False
+	else:
+		try:
+			account_number = int( account_number )
+		except:
+			print('Error: cancel_order(' + str(order_id) + '): account number must be an integer: ' + str(account_number), file=sys.stderr)
+			return False
+
+	# Make sure we are logged into TDA
+	try:
+		if ( tdalogin(passcode) != True ):
+			print('Error: cancel_order(' + str(order_id) + '): tdalogin(): login failure', file=sys.stderr)
+
+	except Exception as e:
+		print('Error: cancel_order(' + str(order_id) + '): tdalogin(): ' + str(e), file=sys.stderr)
+
+	# Get order information to determine if it was filled
+	data	= None
+	err	= None
+	try:
+		data, err = func_timeout(5, tda.cancel_order, args=(account_number, order_id, True))
+		if ( debug == True ):
+			print( data )
+
+	except Exception as e:
+		print('Caught Exception: cancel_order(' + str(order_id) + '): tda.cancel_order(): ' + str(e))
+		return data
+
+	if ( err != None ):
+		print('Error: cancel_order(' + str(order_id) + '): tda.cancel_order(): ' + str(err), file=sys.stderr)
+		return False
+
+	return data
+
+
 # Purchase a stock at Market price
 #  Ticker = stock ticker
 #  Quantity = amount of stock to purchase

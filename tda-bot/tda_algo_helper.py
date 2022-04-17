@@ -170,7 +170,7 @@ def get_ema(pricehistory=None, period=50, type='close', debug=False):
 #	wma	= Weighted Moving Average
 #	zlema	= Zero-Lag Exponential Moving Average
 #
-def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_fastlimit=0.5, mama_slowlimit=0.05, short_period=2, alpha=0.2, debug=False):
+def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_fastlimit=0.5, mama_slowlimit=0.05, short_period=2, alpha=0.2, use_talib=False, debug=False):
 
 	if ( pricehistory == None ):
 		return []
@@ -223,7 +223,10 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_f
 	# Simple moving average
 	if ( ma_type == 'sma' ):
 		try:
-			ma = ti.sma(prices, period=period)
+			if ( use_talib == True ):
+				ma = talib.SMA(prices, timeperiod=period)
+			else:
+				ma = ti.sma(prices, period=period)
 
 		except Exception as e:
 			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.sma(): ' + str(e), file=sys.stderr)
@@ -232,7 +235,10 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_f
 	# Exponential moving average
 	elif ( ma_type == 'ema' ):
 		try:
-			ma = ti.ema(prices, period=period)
+			if ( use_talib == True ):
+				ma = talib.EMA(prices, timeperiod=period)
+			else:
+				ma = ti.ema(prices, period=period)
 
 		except Exception as e:
 			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.ema(): ' + str(e), file=sys.stderr)
@@ -244,7 +250,10 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_f
 	#   average when the market exhibits a lot of noise.
 	elif ( ma_type == 'kama' ):
 		try:
-			ma = ti.kama(prices, period=period)
+			if ( use_talib == True ):
+				ma = talib.KAMA(prices, timeperiod=period)
+			else:
+				ma = ti.kama(prices, period=period)
 
 		except Exception as e:
 			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.kama(): ' + str(e), file=sys.stderr)
@@ -254,7 +263,10 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_f
 	# The Double Exponential Moving Average is similar to the Exponential Moving Average, but provides less lag
 	elif ( ma_type == 'dema' ):
 		try:
-			ma = ti.dema(prices, period=period)
+			if ( use_talib == True ):
+				ma = talib.DEMA(prices, timeperiod=period)
+			else:
+				ma = ti.dema(prices, period=period)
 
 		except Exception as e:
 			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.dema(): ' + str(e), file=sys.stderr)
@@ -273,7 +285,10 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_f
 	#   Moving Average, but provides even less lag
 	elif ( ma_type == 'tema' ):
 		try:
-			ma = ti.tema(prices, period=period)
+			if ( use_talib == True ):
+				ma = talib.TEMA(prices, timeperiod=period)
+			else:
+				ma = ti.tema(prices, period=period)
 
 		except Exception as e:
 			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.tema(): ' + str(e), file=sys.stderr)
@@ -283,7 +298,10 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_f
 	#   middle portion of the smoothing period and less weight on the newest and oldest bars in the period
 	elif ( ma_type == 'trima' ):
 		try:
-			ma = ti.trima(prices, period=period)
+			if ( use_talib == True ):
+				ma = talib.TRIMA(prices, timeperiod=period)
+			else:
+				ma = ti.trima(prices, period=period)
 
 		except Exception as e:
 			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.trima(): ' + str(e), file=sys.stderr)
@@ -293,7 +311,10 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_f
 	#   recent bars in the smoothing period and less weight on the oldest bars in the period
 	elif ( ma_type == 'wma' ):
 		try:
-			ma = ti.wma(prices, period=period)
+			if ( use_talib == True ):
+				ma = talib.WMA(prices, timeperiod=period)
+			else:
+				ma = ti.wma(prices, period=period)
 
 		except Exception as e:
 			print('Caught Exception: get_alt_ma(' + str(ticker) + '): ti.wma(): ' + str(e), file=sys.stderr)
@@ -367,16 +388,15 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_f
 		print('Error: unknown ma_type "' + str(ma_type) + '"', file=sys.stderr)
 		return False
 
+	# Handle inf/-inf data points
+	ma = np.nan_to_num( ma, copy=True )
+
 	# Normalize the size of the result to match the input size
 	if ( len(ma) != len(pricehistory['candles']) ):
 		tmp = []
 		for i in range(0, len(pricehistory['candles']) - len(ma)):
 			tmp.append(0)
 		ma = tmp + list(ma)
-
-	# Handle inf/-inf data points
-	ma = np.nan_to_num(ma, copy=True)
-
 
 	if ( debug == True ):
 		pd.set_option('display.max_rows', None)
@@ -386,6 +406,30 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_f
 		print(ma)
 
 	return ma
+
+
+# Helper function to declare the min/max value of a numpy array or list
+def normalize_vals( arr_data=None, min_val=None, max_val=None, min_default=None, max_default=None ):
+
+	if ( isinstance(arr_data, (list,pd.core.series.Series,np.ndarray)) == False or len(arr_data) == 0 ):
+		return False
+
+	try:
+		for i in range( len(arr_data) ):
+			if ( min_val != None and min_default != None ):
+				if ( arr_data[i] < min_val ):
+					arr_data[i] = min_default
+					continue
+
+			if ( max_val != None and max_default != None ):
+				if ( arr_data[i] > max_val ):
+					arr_data[i] = max_default
+
+	except Exception as e:
+		print('Caught exception: normalize_vals(): ' + str(e))
+		return False
+
+	return arr_data
 
 
 # John Ehlers's Fractal Adaptive Moving Average (FRAMA)

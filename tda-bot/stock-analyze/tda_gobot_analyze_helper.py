@@ -1233,6 +1233,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			print('Error, unable to calculate rate-of-change for trin_tick: ' + str(e))
 			sys.exit(1)
 
+		# It's important to cap the min/max for $TRIN and $TICK because occasionally TDA returns
+		#  some very high values, which can mess with the moving average calculation (particularly EMA)
+		trin_roc	= tda_algo_helper.normalize_vals( arr_data=trin_roc, min_val=-1000, max_val=1000, min_default=-1000, max_default=1000 )
+		trinq_roc	= tda_algo_helper.normalize_vals( arr_data=trinq_roc, min_val=-1000, max_val=1000, min_default=-1000, max_default=1000 )
+		trina_roc	= tda_algo_helper.normalize_vals( arr_data=trina_roc, min_val=-1000, max_val=1000, min_default=-1000, max_default=1000 )
+
+		tick_roc	= tda_algo_helper.normalize_vals( arr_data=tick_roc, min_val=-5000, max_val=5000, min_default=-5000, max_default=5000 )
+
 		# TRIN* data sorted by timestamps
 		for i in range( len(trin_tick['trin']['pricehistory']['candles']) ):
 			dt = trin_tick['trin']['pricehistory']['candles'][i]['datetime']
@@ -1280,7 +1288,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		tmp_tick_ma = tda_algo_helper.get_alt_ma(pricehistory=temp_ph, ma_type=tick_ma_type, type='close', period=tick_ma_period)
 		for idx,dt in enumerate( all_dts ):
 			trin_tick['tick']['roc_ma'].update( { dt: tmp_tick_ma[idx] } )
-
 
 	# ROC indicator
 	roc = []

@@ -74,7 +74,7 @@ parser.add_argument("--trin_overbought", help='Overbought threshold for $TRIN al
 
 parser.add_argument("--with_tick", help='Use $TICK indicator', action="store_true")
 parser.add_argument("--tick_ma_type", help='MA type to use with $TICK algorithm (Default: ema)', default='ema', type=str)
-parser.add_argument("--tick_ma_period", help='Period to use with ROC algorithm (Default: 4)', default=4, type=int)
+parser.add_argument("--tick_ma_period", help='Period to use with ROC algorithm (Default: 5)', default=5, type=int)
 
 parser.add_argument("--with_roc", help='Use Rate-of-Change (ROC) indicator', action="store_true")
 parser.add_argument("--roc_exit", help='Use Rate-of-Change (ROC) indicator to signal an exit', action="store_true")
@@ -648,15 +648,15 @@ for algo in args.algo.split(','):
 			trin_tick['tick']['pricehistory_5m']	= tda_gobot_helper.translate_1m( pricehistory=trin_tick['tick']['pricehistory'], candle_type=5 )
 
 		else:
-			days = 9
-			time_now = datetime.datetime.now( mytimezone )
-			time_prev = time_now - datetime.timedelta( days=days )
+			days = 10
+			time_now	= datetime.datetime.now( mytimezone )
+			time_prev	= time_now - datetime.timedelta( days=days )
 
 			# Make sure start and end dates don't land on a weekend
 			#  or outside market hours
-			time_prev = tda_gobot_helper.fix_timestamp(time_prev)
-			if ( int(time_now.strftime('%w')) == 0 or int(time_now.strftime('%w')) == 6 ): # 0=Sunday, 6=Saturday
-				time_now = tda_gobot_helper.fix_timestamp(time_now)
+			#if ( int(time_now.strftime('%w')) == 0 or int(time_now.strftime('%w')) == 6 ): # 0=Sunday, 6=Saturday
+			time_now	= tda_gobot_helper.fix_timestamp(time_now)
+			time_prev	= tda_gobot_helper.fix_timestamp(time_prev)
 
 			time_now_epoch	= int( time_now.timestamp() * 1000 )
 			time_prev_epoch	= int( time_prev.timestamp() * 1000 )
@@ -667,22 +667,22 @@ for algo in args.algo.split(','):
 
 			tick_data	= []
 			try:
-				trin_data, epochs	= tda_gobot_helper.get_pricehistory('$TRIN', p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=False)
-				trinq_data, epochs	= tda_gobot_helper.get_pricehistory('$TRINQ', p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=False)
-				trina_data, epochs	= tda_gobot_helper.get_pricehistory('$TRINA', p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=False)
+				trin_data, epochs	= tda_gobot_helper.get_pricehistory('$TRIN', p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=False, debug=False)
+				trinq_data, epochs	= tda_gobot_helper.get_pricehistory('$TRINQ', p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=False, debug=False)
+				trina_data, epochs	= tda_gobot_helper.get_pricehistory('$TRINA', p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=False, debug=False)
 
-				tick_data, epochs	= tda_gobot_helper.get_pricehistory('$TICK', p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=True, debug=False)
+				tick_data, epochs	= tda_gobot_helper.get_pricehistory('$TICK', p_type, f_type, freq, period=None, start_date=time_prev_epoch, end_date=time_now_epoch, needExtendedHoursData=False, debug=False)
 
 			except Exception as e:
 				print('Caught Exception: get_pricehistory(' + str(time_prev_epoch) + ', ' + str(time_now_epoch) + '): ' + str(e))
 				continue
 
 			if ( len(trin_data['candles']) == 0 ):
-				print('Warning: trin_data[] is empty!')
+				print('Warning: trin_data[] is empty!', file=sys.stderr)
 			if ( len(trinq_data['candles']) == 0 ):
-				print('Warning: trinq_data[] is empty!')
+				print('Warning: trinq_data[] is empty!', file=sys.stderr)
 			if ( len(trina_data['candles']) == 0 ):
-				print('Warning: trina_data[] is empty!')
+				print('Warning: trina_data[] is empty!', file=sys.stderr)
 
 			trin_tick['trin']['pricehistory']	= trin_data
 			trin_tick['trin']['pricehistory_5m']	= tda_gobot_helper.translate_1m(pricehistory=trin_tick['trin']['pricehistory'], candle_type=5)

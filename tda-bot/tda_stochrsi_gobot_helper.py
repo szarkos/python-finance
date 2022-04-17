@@ -1289,8 +1289,8 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 		trina_roc	= []
 		try:
 			trin_roc	= tda_algo_helper.get_roc( stocks['$TRIN']['pricehistory'], period=cur_algo['trin_roc_period'], type=cur_algo['trin_roc_type'], calc_percentage=True )
-			trina_roc	= tda_algo_helper.get_roc( stocks['$TRINA']['pricehistory'], period=cur_algo['trin_roc_period'], type=cur_algo['trin_roc_type'], calc_percentage=True )
 			trinq_roc	= tda_algo_helper.get_roc( stocks['$TRINQ']['pricehistory'], period=cur_algo['trin_roc_period'], type=cur_algo['trin_roc_type'], calc_percentage=True )
+			trina_roc	= tda_algo_helper.get_roc( stocks['$TRINA']['pricehistory'], period=cur_algo['trin_roc_period'], type=cur_algo['trin_roc_type'], calc_percentage=True )
 
 		except Exception as e:
 			print('Error: stochrsi_gobot(): get_roc($TRIN/$TRINQ/$TRINA): ' + str(e))
@@ -1299,6 +1299,12 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 		if ( (isinstance(trin_roc, bool) and trin_roc == False) or (isinstance(trinq_roc, bool) and trinq_roc == False) or (isinstance(trina_roc, bool) and trina_roc == False)):
 			print('Error: stochrsi_gobot(): get_roc($TRIN/$TRINQ/$TRINA) returned False')
 			trin_roc_ma = [0, 0]
+
+		# It's important to cap the min/max for $TRIN and $TICK because occasionally TDA returns
+		#  some very high values, which can mess with the moving average calculation (particularly EMA)
+		trin_roc	= tda_algo_helper.normalize_vals( arr_data=trin_roc, min_val=-1000, max_val=1000, min_default=-1000, max_default=1000 )
+		trinq_roc	= tda_algo_helper.normalize_vals( arr_data=trinq_roc, min_val=-1000, max_val=1000, min_default=-1000, max_default=1000 )
+		trina_roc	= tda_algo_helper.normalize_vals( arr_data=trina_roc, min_val=-1000, max_val=1000, min_default=-1000, max_default=1000 )
 
 		# TRIN* data sorted by timestamps
 		trin_roc_dt	= {}
@@ -1329,7 +1335,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 		trin_roc_ma = []
 		try:
-			trin_roc_ma = tda_algo_helper.get_alt_ma(pricehistory=temp_ph, ma_type=cur_algo['trin_ma_type'], type='close', period=cur_algo['trin_ma_period'])
+			trin_roc_ma = tda_algo_helper.get_alt_ma( pricehistory=temp_ph, ma_type=cur_algo['trin_ma_type'], type='close', period=cur_algo['trin_ma_period'] )
 
 		except Exception as e:
 			print('Error: stochrsi_gobot(): get_alt_ma(trin_roc): ' + str(e))
@@ -1360,6 +1366,10 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 			print('Error: stochrsi_gobot(): get_roc($TICK) returned False')
 			tick_roc_ma = [0, 0]
 
+		# It's important to cap the min/max for $TRIN and $TICK because occasionally TDA returns
+		#  some very high values, which can mess with the moving average calculation (particularly EMA)
+		tick_roc = tda_algo_helper.normalize_vals( arr_data=tick_roc, min_val=-5000, max_val=5000, min_default=-5000, max_default=5000 )
+
 		# Calculate a moving average of tick to smooth
 		temp_ph = { 'candles': [] }
 		for i in range( len(tick_roc) ):
@@ -1367,7 +1377,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 		tick_roc_ma = []
 		try:
-			tick_roc_ma = tda_algo_helper.get_alt_ma(pricehistory=temp_ph, ma_type=cur_algo['tick_ma_type'], type='close', period=cur_algo['tick_ma_period'])
+			tick_roc_ma = tda_algo_helper.get_alt_ma( pricehistory=temp_ph, ma_type=cur_algo['tick_ma_type'], type='close', period=cur_algo['tick_ma_period'] )
 
 		except Exception as e:
 			print('Error: stochrsi_gobot(): get_alt_ma(tick_roc_ma): ' + str(e))
@@ -2052,7 +2062,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 			# $TICK
 			if ( cur_algo['tick'] == True ):
-				print( '(' + str(ticker) + ') Current $TICK: ' + str(round(stocks[ticker]['cur_tick'], 3)) + ' / ' +
+				print( '(' + str(ticker) + ') Current TICK_ROC_MA: ' + str(round(stocks[ticker]['cur_tick'], 3)) + ' / ' +
 						'$TICK Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['tick_signal']) )
 
 			# ROC

@@ -186,7 +186,7 @@ parser.add_argument("--trin_overbought", help='Overbought threshold for $TRIN al
 parser.add_argument("--tick_roc_type", help='Rate of change candles type to use with $TRIN algorithm (Default: hlc3)', default='hlc3', type=str)
 parser.add_argument("--tick_roc_period", help='Period to use with ROC algorithm (Default: 1)', default=1, type=int)
 parser.add_argument("--tick_ma_type", help='MA type to use with $TICK algorithm (Default: ema)', default='ema', type=str)
-parser.add_argument("--tick_ma_period", help='Period to use with ROC algorithm (Default: 4)', default=4, type=int)
+parser.add_argument("--tick_ma_period", help='Period to use with ROC algorithm (Default: 5)', default=5, type=int)
 
 parser.add_argument("--roc_type", help='Rate of change candles type to use (Default: hlc3)', default='hlc3', type=str)
 parser.add_argument("--roc_exit", help='Use Rate-of-Change (ROC) indicator to signal an exit', action="store_true")
@@ -1471,6 +1471,7 @@ for ticker in list(stocks.keys()):
 	#    AMEX_INDE	 = g
 	#    MUTUAL_FUND = m
 	#    PINK_SHEET	 = 9
+	#    INDICATOR   = i
 	try:
 		stocks[ticker]['exchange'] = stock_data[ticker]['exchange']
 		if ( stock_data[ticker]['exchange'] == 'q' ):
@@ -1700,15 +1701,23 @@ for ticker in list(stocks.keys()):
 			stocks[ticker]['pricehistory'] = data
 
 	if ( len(data['candles']) < int(args.stochrsi_period) * 2 ):
-		print('Warning: stock(' + str(ticker) + '): len(pricehistory[candles]) is less than stochrsi_period*2 (new stock ticker?), removing from the list')
-		stocks[ticker]['isvalid'] = False
 
-		try:
-			del stocks[ticker]
-		except KeyError:
-			print('Warning: failed to delete key "' + str(ticker) + '" from stocks{}')
+		# FIXME: TDA's pricehistory is particularly buggy with $TRINQ for some reason.
+		#  As a workaround, we'll set $TRINQ history to $TRIN, and the equity stream will
+		#  eventually fill in the real-time $TRINQ data.
+		if ( ticker == '$TRINQ' and len(data['candles']) == 0 ):
+			stocks['$TRINQ']['isvalid']		= True
+			stocks['$TRINQ']['pricehistory']	= stocks['$TRIN']['pricehistory']
 
-		continue
+		else:
+			print('Warning: stock(' + str(ticker) + '): len(pricehistory[candles]) is less than stochrsi_period*2 (new stock ticker?), removing from the list')
+			stocks[ticker]['isvalid'] = False
+			try:
+				del stocks[ticker]
+			except KeyError:
+				print('Warning: failed to delete key "' + str(ticker) + '" from stocks{}')
+
+			continue
 
 	# 5-minute candles to calculate things like Average True Range
 	stocks[ticker]['pricehistory_5m'] = tda_gobot_helper.translate_1m( pricehistory=stocks[ticker]['pricehistory'], candle_type=5 )

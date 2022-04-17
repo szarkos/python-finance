@@ -814,6 +814,9 @@ def fix_timestamp(date=None, check_day_only=False, debug=False):
 	elif ( day == 4 and ismarketopen_US(date=date, check_day_only=check_day_only) == False ):
 		# Thanksgiving
 		date = date - timedelta( days=2 )
+	elif ( day == 5 and ismarketopen_US(date=date, check_day_only=check_day_only) == False ):
+		# Good Friday
+		date = date - timedelta( days=1 )
 
 	# Make sure start_end dates aren't outside regular hours
 	# We could use extended hours here, but we assume regular hours

@@ -20,6 +20,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("ifile", help='CSV file to read', type=str)
 parser.add_argument("ofile", help='Pickle file to write (default is ifile with .pickle extension)', nargs='?', default=None, type=str)
 parser.add_argument("--augment_today", help='Augment Alphavantage history with the most recent day of 1min candles using the TDA API', action="store_true")
+parser.add_argument("--date_format", help='Configure the data format manually', default=None, type=str)
 parser.add_argument("--debug", help='Enable debug output (prints entire pricehistory)', action="store_true")
 args = parser.parse_args()
 
@@ -33,9 +34,11 @@ pricehistory = {'candles':	[],
 		'empty':	'False'
 }
 
-date_fmt = '%Y-%m-%d %H:%M:%S'
-if ( re.search('(daily|weekly)', args.ifile) != None ):
-	date_fmt = '%Y-%m-%d'
+date_fmt = args.date_format
+if ( args.date_format == None ):
+	date_fmt = '%Y-%m-%d %H:%M:%S'
+	if ( re.search('(daily|weekly)', args.ifile) != None ):
+		date_fmt = '%Y-%m-%d'
 
 try:
 
@@ -50,6 +53,7 @@ try:
 			# Note: weekly data does not include %H:%M:%S
 			time_t,open,high,low,close,volume = line.split(',')
 
+			time_t = re.sub('"', '', time_t)
 			if ( time_t == 'time' ):
 				continue
 

@@ -2056,13 +2056,27 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 			# $TRIN
 			if ( cur_algo['primary_trin'] == True or cur_algo['trin'] == True ):
-				print( '(' + str(ticker) + ') Current TRIN_ROC_MA: ' + str(round(stocks[ticker]['cur_trin'], 3)) + ' / ' +
+				trin_dt = datetime.datetime.fromtimestamp(stocks['$TRIN']['pricehistory']['candles'][-1]['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S')
+				print( '(' + str(ticker) + ') Current TRIN: ' +
+							str( round(stocks['$TRIN']['pricehistory']['candles'][-1]['open'], 2) ) + '|' +
+							str( round(stocks['$TRIN']['pricehistory']['candles'][-1]['high'], 2) ) + '|' +
+							str( round(stocks['$TRIN']['pricehistory']['candles'][-1]['low'], 2) ) + '|' +
+							str( round(stocks['$TRIN']['pricehistory']['candles'][-1]['close'], 2) ) +
+							' (' + str(trin_dt) + ') / ' +
+						'Current TRIN_ROC_MA: ' + str(round(stocks[ticker]['cur_trin'], 3)) + ' / ' +
 						'$TRIN Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['trin_signal']) + ' / ' +
 						'Counter: ' + str(stocks[ticker]['algo_signals'][algo_id]['trin_counter']) )
 
 			# $TICK
 			if ( cur_algo['tick'] == True ):
-				print( '(' + str(ticker) + ') Current TICK_ROC_MA: ' + str(round(stocks[ticker]['cur_tick'], 3)) + ' / ' +
+				tick_dt = datetime.datetime.fromtimestamp(stocks['$TICK']['pricehistory']['candles'][-1]['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S')
+				print( '(' + str(ticker) + ') Current TICK: ' +
+							str( round(stocks['$TICK']['pricehistory']['candles'][-1]['open'], 2) ) + '|' +
+							str( round(stocks['$TICK']['pricehistory']['candles'][-1]['high'], 2) ) + '|' +
+							str( round(stocks['$TICK']['pricehistory']['candles'][-1]['low'], 2) ) + '|' +
+							str( round(stocks['$TICK']['pricehistory']['candles'][-1]['close'], 2) ) +
+							' (' + str(tick_dt) + ') / ' +
+						'Current TICK_ROC_MA: ' + str(round(stocks[ticker]['cur_tick'], 3)) + ' / ' +
 						'$TICK Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['tick_signal']) )
 
 			# ROC

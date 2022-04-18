@@ -1702,10 +1702,10 @@ for ticker in list(stocks.keys()):
 
 	if ( len(data['candles']) < int(args.stochrsi_period) * 2 ):
 
-		# FIXME: TDA's pricehistory is particularly buggy with $TRINQ for some reason.
+		# BUG: TDA's pricehistory is particularly buggy with $TRINQ for some reason.
 		#  As a workaround, we'll set $TRINQ history to $TRIN, and the equity stream will
 		#  eventually fill in the real-time $TRINQ data.
-		if ( ticker == '$TRINQ' and len(data['candles']) == 0 ):
+		if ( ticker == '$TRINQ' ):
 			stocks['$TRINQ']['isvalid']		= True
 			stocks['$TRINQ']['pricehistory']	= stocks['$TRIN']['pricehistory']
 

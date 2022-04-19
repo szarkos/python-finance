@@ -3249,8 +3249,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 					option_data = search_options(ticker=ticker, option_type='CALL', near_expiration=cur_algo['near_expiration'], debug=True)
 					if ( isinstance(option_data, bool) and option_data == False ):
 						print('Error: Unable to look up options for stock "' + str(ticker) + '"', file=sys.stderr)
-						stocks[ticker]['options_usd']	= cur_algo['options_usd']
-						#stocks[ticker]['isvalid']	= False
+						stocks[ticker]['options_usd'] = cur_algo['options_usd']
 						reset_signals(ticker)
 						continue
 
@@ -3261,8 +3260,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 						option_data = search_options(ticker=ticker, option_type='CALL', near_expiration=False, debug=True)
 						if ( isinstance(option_data, bool) and option_data == False ):
 							print('Error: Unable to look up options for stock "' + str(ticker) + '"', file=sys.stderr)
-							stocks[ticker]['options_usd']	= cur_algo['options_usd']
-							#stocks[ticker]['isvalid']	= False
+							stocks[ticker]['options_usd'] = cur_algo['options_usd']
 							reset_signals(ticker)
 							continue
 
@@ -3271,6 +3269,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 					# Buy the options
 					print( 'Purchasing ' + str(stocks[ticker]['options_qty']) + ' contracts of ' + str(stocks[ticker]['options_ticker']) + ' (' + str(cur_algo['algo_id'])  + ')' )
+					order_data = {}
 					if ( args.fake == False ):
 						order_id = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='buy_to_open', fillwait=True, account_number=tda_account_number, debug=debug)
 						if ( isinstance(order_id, bool) and order_id == False ):
@@ -3280,22 +3279,42 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 							reset_signals(ticker)
 							continue
 
-						if ( cur_algo['scalp_mode'] == True ):
-							scalp_price	= float( option_data['ask'] ) * ( cur_algo['scalp_mode_pct'] / 100 + 1 )
-							scalp_price	= round( scale_price, 2 )
-							order_id	= tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], limit_price=scalp_price, instruction='sell_to_close', fillwait=False, account_number=tda_account_number, debug=debug)
-							if ( isinstance(order_id, bool) and order_id == False ):
-								print('Error: Unable to create limit order for "' + str(stocks[ticker]['options_ticker']) + '"', file=sys.stderr)
-								continue
+						# Check the order to find the final mean fill price, if available
+						order_data = tda_gobot_helper.get_order(order_id=order_id, account_number=tda_account_number, passcode=passcode)
+						if ( isinstance(order_data, bool) and order_data == False ):
+							order_data					= {}
+							stocks[ticker]['options_orig_base_price']	= float( option_data['ask'] )
 
-							print( 'Successfully placed limit order for ' + str(stocks[ticker]['options_ticker']) + ' at ' + str(scalp_price) )
+						stocks[ticker]['order_id'] = order_id
 
-					stocks[ticker]['options_orig_base_price']	= float( option_data['ask'] )
-					stocks[ticker]['options_base_price']		= stocks[ticker]['options_orig_base_price']
-					stocks[ticker]['orig_base_price']		= float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
-					stocks[ticker]['order_id']			= order_id
-					options_last_price				= float( option_data['ask'] )
-					options_net_change				= 0
+					# Set options_last_price and options_orig_base_price to the mean fill price, if available, otherwise
+					#  default to the original 'ask' price
+					try:
+						options_last_price				= float( order_data['orderActivityCollection'][0]['executionLegs'][0]['price'] )
+						stocks[ticker]['options_orig_base_price']	= float( order_data['orderActivityCollection'][0]['executionLegs'][0]['price'] )
+					except:
+						options_last_price				= float( option_data['ask'] )
+						stocks[ticker]['options_orig_base_price']	= float( option_data['ask'] )
+
+					stocks[ticker]['options_base_price']	= stocks[ticker]['options_orig_base_price']
+					stocks[ticker]['orig_base_price']	= float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+					options_net_change			= 0
+
+					# When working in scalp mode, immediately place a LIMIT order that will hopefully be filled later
+					if ( cur_algo['scalp_mode'] == True and args.fake == False ):
+						scalp_price	= stocks[ticker]['options_orig_base_price'] * ( cur_algo['scalp_mode_pct'] / 100 + 1 )
+						scalp_price	= round( scalp_price, 2 )
+						order_id	= tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], limit_price=scalp_price, instruction='sell_to_close', fillwait=False, account_number=tda_account_number, debug=debug)
+						if ( isinstance(order_id, bool) and order_id == False ):
+							print('Error: Unable to create limit order for "' + str(stocks[ticker]['options_ticker']) + '"', file=sys.stderr)
+
+							# This could be bad - so in this case let's immediately jump to sell mode and set the sell_signal=True
+							reset_signals(ticker, signal_mode='sell', exclude_bbands_kchan=True)
+							stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
+							continue
+
+						print( 'Successfully placed limit order for ' + str(stocks[ticker]['options_ticker']) + ' at ' + str(scalp_price) )
+						stocks[ticker]['order_id'] = order_id
 
 				# PURCHASE EQUITY
 				else:
@@ -3332,9 +3351,10 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 						stocks[ticker]['stock_qty'] = 0
 						continue
 
-				stocks[ticker]['base_price']	= stocks[ticker]['orig_base_price']
 				stocks[ticker]['primary_algo']	= cur_algo['algo_id']
+				stocks[ticker]['base_price']	= stocks[ticker]['orig_base_price']
 				net_change			= 0
+				exit_passthrough		= False
 
 				if ( cur_algo['options'] == True ):
 					tda_gobot_helper.log_monitor(stocks[ticker]['options_ticker'], 0, options_last_price, options_net_change, stocks[ticker]['options_base_price'], stocks[ticker]['options_orig_base_price'], stocks[ticker]['options_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, sold=False)
@@ -3825,31 +3845,67 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
+			# When in scalp mode, check to see if previous LIMIT order has been set
+			if ( cur_algo['scalp_mode'] == True and stocks[ticker]['order_id'] != None and (caller_id != None and caller_id == 'chart_equity') and
+					stocks[ticker]['algo_signals'][algo_id]['sell_signal'] == False ):
+
+				# Look up order_id status to see if stock had already hit the stop limit
+				order_data = tda_gobot_helper.get_order(order_id=stocks[ticker]['order_id'], account_number=tda_account_number, passcode=passcode)
+				if ( isinstance(order_data, bool) and order_data == False ):
+					print('Error: Unable to look up order data for "' + str(stocks[ticker]['options_ticker']) + '", order ID: ' + str(stocks[ticker]['order_id']), file=sys.stderr)
+
+				# Check if the existing LIMIT order has been filled, and if not then cancel it
+				try:
+					quantity_remaining = float( order_data['remainingQuantity'] )
+				except:
+					quantity_remaining = stocks[ticker]['options_qty']
+
+				# If LIMIT order has been filled, try to set options_last_price to the last price from get_order()
+				#  and move to exit out of sell mode
+				if ( quantity_remaining == 0 ):
+					try:
+						float( order_data['orderActivityCollection'][0]['executionLegs'][0]['price'] )
+					except:
+						pass
+					else:
+						options_last_price = order_data['orderActivityCollection'][0]['executionLegs'][0]['price']
+
+				stocks[ticker]['algo_signals'][algo_id]['sell_signal']	= True
+				exit_passthrough					= True
+
 
 			# SELL THE STOCK
 			if ( stocks[ticker]['algo_signals'][algo_id]['sell_signal'] == True ):
-				if ( args.fake == False ):
+				if ( args.fake == False or exit_passthrough == True ):
 
 					# Ensure we are logged in
 					tda_gobot_helper.tdalogin(passcode)
 
 					# OPTIONS
 					if ( cur_algo['options'] == True ):
-						if ( cur_algo['scalp_mode'] == True ):
+						if ( cur_algo['scalp_mode'] == True and stocks[ticker]['order_id'] != None ):
+
 							# Look up order_id status to see if stock had already hit the stop limit
-							if ( stocks[ticker]['order_id'] != None ):
-								try:
-									data, err = func_timeout(5, tda.get_order, args=(tda_account_number, stocks[ticker]['order_id'], True))
+							order_data = tda_gobot_helper.get_order(order_id=stocks[ticker]['order_id'], account_number=tda_account_number, passcode=passcode)
+							if ( isinstance(order_data, bool) and order_data == False ):
+								print('Error: Unable to look up order data for "' + str(stocks[ticker]['options_ticker']) + '", order ID: ' + str(stocks[ticker]['order_id']), file=sys.stderr)
 
-								except Exception as e:
-									print('Caught Exception: tda.get_order(): ' + str(e))
+							# Check if the existing LIMIT order has been filled, and if not then cancel it
+							try:
+								quantity_remaining = float( order_data['remainingQuantity'] )
+							except:
+								quantity_remaining = stocks[ticker]['options_qty']
 
-								# FIXME: determine if limit order has been filled already
-								data = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='sell_to_close', fillwait=True, account_number=tda_account_number, debug=debug)
+							if ( quantity_remaining > 0 ):
+								print('Canceling limit order for "' + str(stocks[ticker]['options_ticker']) + '", order ID: ' + str(stocks[ticker]['order_id']) + ', remaining options: ' + str(quantity_remaining))
+								order_data = tda_gobot_helper.cancel_order(order_id=stocks[ticker]['order_id'], account_number=tda_account_number, passcode=passcode)
+								if ( isinstance(order_data, bool) and order_data == False ):
+									print('Error: Unable to cancel limit order for "' + str(stocks[ticker]['options_ticker']) + '", order ID: ' + str(stocks[ticker]['order_id']), file=sys.stderr)
+
+								stocks[ticker]['options_qty'] = quantity_remaining
 
 						# Place market order to sell option
-						else:
-							data = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='sell_to_close', fillwait=True, account_number=tda_account_number, debug=debug)
+						order_data = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='sell_to_close', fillwait=True, account_number=tda_account_number, debug=debug)
 
 					# EQUITY
 					else:
@@ -3898,6 +3954,8 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				stocks[ticker]['options_incr_threshold']	= args.options_incr_threshold
 				stocks[ticker]['options_decr_threshold']	= args.options_decr_threshold
 				stocks[ticker]['options_exit_percent']		= args.options_exit_percent
+
+				exit_passthrough				= False
 
 				reset_signals(ticker)
 				if ( args.short == True and stocks[ticker]['shortable'] == True ):
@@ -4728,11 +4786,12 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 				# PURCHASE OPTIONS
 				if ( cur_algo['options'] == True ):
+
+					# Lookup the option to purchase
 					option_data = search_options(ticker=ticker, option_type='PUT', near_expiration=cur_algo['near_expiration'], debug=True)
 					if ( isinstance(option_data, bool) and option_data == False ):
 						print('Error: Unable to look up options for stock "' + str(ticker) + '"', file=sys.stderr)
-						stocks[ticker]['options_usd']	= cur_algo['options_usd']
-						#stocks[ticker]['isvalid']	= False
+						stocks[ticker]['options_usd'] = cur_algo['options_usd']
 						reset_signals(ticker)
 						continue
 
@@ -4743,15 +4802,16 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 						option_data = search_options(ticker=ticker, option_type='PUT', near_expiration=False, debug=True)
 						if ( isinstance(option_data, bool) and option_data == False ):
 							print('Error: Unable to look up options for stock "' + str(ticker) + '"', file=sys.stderr)
-							stocks[ticker]['options_usd']	= cur_algo['options_usd']
-							#stocks[ticker]['isvalid']	= False
+							stocks[ticker]['options_usd'] = cur_algo['options_usd']
 							reset_signals(ticker)
 							continue
 
 					stocks[ticker]['options_ticker']	= option_data['ticker']
 					stocks[ticker]['options_qty']		= int( stocks[ticker]['options_usd'] / (option_data['ask'] * 100) )
 
+					# Buy the options
 					print( 'Purchasing ' + str(stocks[ticker]['options_qty']) + ' contracts of ' + str(stocks[ticker]['options_ticker']) + ' (' + str(cur_algo['algo_id'])  + ')' )
+					order_data = {}
 					if ( args.fake == False ):
 						order_id = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='buy_to_open', fillwait=True, account_number=tda_account_number, debug=debug)
 						if ( isinstance(order_id, bool) and order_id == False ):
@@ -4761,30 +4821,49 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 							reset_signals(ticker)
 							continue
 
-						if ( cur_algo['scalp_mode'] == True ):
-							scalp_price	= float( option_data['ask'] ) * ( cur_algo['scalp_mode_pct'] / 100 + 1 )
-							scalp_price	= round( scale_price, 2 )
-							order_id	= tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], limit_price=scalp_price, instruction='sell_to_close', fillwait=False, account_number=tda_account_number, debug=debug)
-							if ( isinstance(order_id, bool) and order_id == False ):
-								print('Error: Unable to create limit order for "' + str(stocks[ticker]['options_ticker']) + '"', file=sys.stderr)
-								continue
+						# Check the order to find the final mean fill price, if available
+						order_data = tda_gobot_helper.get_order(order_id=order_id, account_number=tda_account_number, passcode=passcode)
+						if ( isinstance(order_data, bool) and order_data == False ):
+							order_data					= {}
+							stocks[ticker]['options_orig_base_price']	= float( option_data['ask'] )
 
-							print( 'Successfully placed limit order for ' + str(stocks[ticker]['options_ticker']) + ' at ' + str(scalp_price) )
+						stocks[ticker]['order_id'] = order_id
 
-					# FIXME: pull the final purchase price from the returned debug data
-					stocks[ticker]['options_orig_base_price']	= float( option_data['ask'] )
-					stocks[ticker]['options_base_price']		= stocks[ticker]['options_orig_base_price']
-					stocks[ticker]['orig_base_price']		= float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
-					stocks[ticker]['order_id']			= order_id
-					options_last_price				= float( option_data['ask'] )
-					options_net_change				= 0
+					# Set options_last_price and options_orig_base_price to the mean fill price, if available, otherwise
+					#  default to the original 'ask' price
+					try:
+						options_last_price				= float( order_data['orderActivityCollection'][0]['executionLegs'][0]['price'] )
+						stocks[ticker]['options_orig_base_price']	= float( order_data['orderActivityCollection'][0]['executionLegs'][0]['price'] )
+					except:
+						options_last_price				= float( option_data['ask'] )
+						stocks[ticker]['options_orig_base_price']	= float( option_data['ask'] )
+
+					stocks[ticker]['options_base_price']	= stocks[ticker]['options_orig_base_price']
+					stocks[ticker]['orig_base_price']	= float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+					options_net_change			= 0
+
+					# When working in scalp mode, immediately place a LIMIT order that will hopefully be filled later
+					if ( cur_algo['scalp_mode'] == True and args.fake == False ):
+						scalp_price	= stocks[ticker]['options_orig_base_price'] * ( cur_algo['scalp_mode_pct'] / 100 + 1 )
+						scalp_price	= round( scalp_price, 2 )
+						order_id	= tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], limit_price=scalp_price, instruction='sell_to_close', fillwait=False, account_number=tda_account_number, debug=debug)
+						if ( isinstance(order_id, bool) and order_id == False ):
+							print('Error: Unable to create limit order for "' + str(stocks[ticker]['options_ticker']) + '"', file=sys.stderr)
+
+							# This could be bad - so in this case let's immediately jump to buy_to_cover mode and set the buy_to_cover_signal=True
+							reset_signals(ticker, signal_mode='buy_to_cover', exclude_bbands_kchan=True)
+							stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
+							continue
+
+						print( 'Successfully placed limit order for ' + str(stocks[ticker]['options_ticker']) + ' at $' + str(scalp_price) )
+						stocks[ticker]['order_id'] = order_id
 
 				# PURCHASE EQUITY
 				else:
 
 					# Calculate stock quantity from investment amount
-					last_price = float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
-					stocks[ticker]['stock_qty'] = int( stocks[ticker]['stock_usd'] / float(last_price) )
+					last_price			= float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+					stocks[ticker]['stock_qty']	= int( stocks[ticker]['stock_usd'] / float(last_price) )
 
 					# Short the stock
 					if ( tda_gobot_helper.ismarketopen_US(safe_open=cur_algo['safe_open']) == True ):
@@ -4829,9 +4908,10 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 						continue
 
-				stocks[ticker]['base_price']	= stocks[ticker]['orig_base_price']
 				stocks[ticker]['primary_algo']	= cur_algo['algo_id']
+				stocks[ticker]['base_price']	= stocks[ticker]['orig_base_price']
 				net_change			= 0
+				exit_passthrough		= False
 
 				if ( cur_algo['options'] == True ):
 					tda_gobot_helper.log_monitor(stocks[ticker]['options_ticker'], 0, options_last_price, options_net_change, stocks[ticker]['options_base_price'], stocks[ticker]['options_orig_base_price'], stocks[ticker]['options_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=False, sold=False)
@@ -5334,9 +5414,38 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
+			# When in scalp mode, check to see if previous LIMIT order has been set
+			if ( cur_algo['scalp_mode'] == True and stocks[ticker]['order_id'] != None and (caller_id != None and caller_id == 'chart_equity') and
+					stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] == False ):
+
+				# Look up order_id status to see if stock had already hit the stop limit
+				order_data = tda_gobot_helper.get_order(order_id=stocks[ticker]['order_id'], account_number=tda_account_number, passcode=passcode)
+				if ( isinstance(order_data, bool) and order_data == False ):
+					print('Error: Unable to look up order data for "' + str(stocks[ticker]['options_ticker']) + '", order ID: ' + str(stocks[ticker]['order_id']), file=sys.stderr)
+
+				# Check if the existing LIMIT order has been filled, and if not then cancel it
+				try:
+					quantity_remaining = float( order_data['remainingQuantity'] )
+				except:
+					quantity_remaining = stocks[ticker]['options_qty']
+
+				# If LIMIT order has been filled, try to set options_last_price to the last price from get_order()
+				#  and move to exit out of sell mode
+				if ( quantity_remaining == 0 ):
+					try:
+						float( order_data['orderActivityCollection'][0]['executionLegs'][0]['price'] )
+					except:
+						pass
+					else:
+						options_last_price = order_data['orderActivityCollection'][0]['executionLegs'][0]['price']
+
+				stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal']	= True
+				exit_passthrough						= True
+
+
 			# BUY-TO-COVER THE STOCK
 			if ( stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] == True ):
-				if ( args.fake == False ):
+				if ( args.fake == False or exit_passthrough == True ):
 
 					# Ensure we are logged in
 					tda_gobot_helper.tdalogin(passcode)
@@ -5344,24 +5453,28 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 					# OPTIONS
 					if ( cur_algo['options'] == True ):
 						if ( cur_algo['scalp_mode'] == True and stocks[ticker]['order_id'] != None ):
+
 							# Look up order_id status to see if stock had already hit the stop limit
+							order_data = tda_gobot_helper.get_order(order_id=stocks[ticker]['order_id'], account_number=tda_account_number, passcode=passcode)
+							if ( isinstance(order_data, bool) and order_data == False ):
+								print('Error: Unable to look up order data for "' + str(stocks[ticker]['options_ticker']) + '", order ID: ' + str(stocks[ticker]['order_id']), file=sys.stderr)
+
+							# Check if the existing LIMIT order has been filled, and if not then cancel it
 							try:
-								data, err = func_timeout(5, tda.get_order, args=(tda_account_number, stocks[ticker]['order_id'], True))
+								quantity_remaining = float( order_data['remainingQuantity'] )
+							except:
+								quantity_remaining = stocks[ticker]['options_qty']
 
-							except Exception as e:
-								print('Caught Exception: tda.get_order(): ' + str(e))
+							if ( quantity_remaining > 0 ):
+								print('Canceling limit order for "' + str(stocks[ticker]['options_ticker']) + '", order ID: ' + str(stocks[ticker]['order_id']) + ', remaining options: ' + str(quantity_remaining))
+								order_data = tda_gobot_helper.cancel_order(order_id=stocks[ticker]['order_id'], account_number=tda_account_number, passcode=passcode)
+								if ( isinstance(order_data, bool) and order_data == False ):
+									print('Error: Unable to cancel limit order for "' + str(stocks[ticker]['options_ticker']) + '", order ID: ' + str(stocks[ticker]['order_id']), file=sys.stderr)
 
-							# FIXME:
-							#  - determine if limit order has been filled already
-							#  - If not, then either use cancel_order or replace_order
-							#  - Also need to determine how many options are left as the limit order may have been partially filled
-							#    - This may be in the get_order details
-							#     data = tda.get_account(args.account_number, options='positions', jsonify=True)
-							# data,err = tda.cancel_order(account_id, order_id, jsonify=True)
-							data = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='sell_to_close', fillwait=True, account_number=tda_account_number, debug=debug)
+								stocks[ticker]['options_qty'] = quantity_remaining
 
-						else:
-							data = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='sell_to_close', fillwait=True, account_number=tda_account_number, debug=debug)
+						# Place market order to sell option
+						order_data = tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], instruction='sell_to_close', fillwait=True, account_number=tda_account_number, debug=debug)
 
 					# EQUITY
 					else:

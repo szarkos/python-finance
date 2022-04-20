@@ -183,8 +183,7 @@ parser.add_argument("--trin_ma_period", help='Period to use with ROC algorithm (
 parser.add_argument("--trin_oversold", help='Oversold threshold for $TRIN algorithm (Default: 3)', default=3, type=float)
 parser.add_argument("--trin_overbought", help='Overbought threshold for $TRIN algorithm (Default: -1)', default=-1, type=float)
 
-parser.add_argument("--tick_roc_type", help='Rate of change candles type to use with $TRIN algorithm (Default: hlc3)', default='hlc3', type=str)
-parser.add_argument("--tick_roc_period", help='Period to use with ROC algorithm (Default: 1)', default=1, type=int)
+parser.add_argument("--tick_threshold", help='+/- threshold level before triggering a signal (Default: 50)', default=50, type=int)
 parser.add_argument("--tick_ma_type", help='MA type to use with $TICK algorithm (Default: ema)', default='ema', type=str)
 parser.add_argument("--tick_ma_period", help='Period to use with ROC algorithm (Default: 5)', default=5, type=int)
 
@@ -196,6 +195,7 @@ parser.add_argument("--roc_ma_period", help='MA period to use with ROC algorithm
 parser.add_argument("--roc_threshold", help='Threshold to cancel the ROC algorithm (Default: 0.15)', default=0.15, type=float)
 
 parser.add_argument("--sp_monitor_tickers", help='List of tickers and their weighting (in %) to use with --with_sp_monitor, comma-delimited (Example: MSFT:1.2,AAPL:1.0,...', default=None, type=str)
+parser.add_argument("--sp_monitor_threshold", help='+/- threshold before triggering final signal (Default: 2)', default=2, type=float)
 parser.add_argument("--sp_roc_type", help='Rate of change candles type to use with sp_monitor (Default: hlc3)', default='hlc3', type=str)
 parser.add_argument("--sp_roc_period", help='Period to use with ROC algorithm for sp_monitor (Default: 1)', default=1, type=int)
 parser.add_argument("--sp_ma_period", help='Moving average period to use with the RoC values for sp_monitor (Default: 4)', default=4, type=int)
@@ -319,7 +319,7 @@ for algo in args.algos:
 				break
 
 	# Indicators
-	primary_stochrsi = primary_stochmfi = primary_stacked_ma = primary_mama_fama = primary_mesa_sine = primary_trin = False
+	primary_stochrsi = primary_stochmfi = primary_stacked_ma = primary_mama_fama = primary_mesa_sine = primary_trin = primary_sp_monitor = False
 	stacked_ma = stacked_ma_secondary = mama_fama = stochrsi_5m = stochmfi = stochmfi_5m = False
 	rsi = mfi = adx = dmi = dmi_simple = macd = macd_simple = aroonosc = False
 	chop_index = chop_simple = supertrend = bbands_kchannel = False
@@ -410,8 +410,7 @@ for algo in args.algos:
 	trin_oversold			= args.trin_oversold
 	trin_overbought			= args.trin_overbought
 
-	tick_roc_type			= args.tick_roc_type
-	tick_roc_period			= args.tick_roc_period
+	tick_threshold			= args.tick_threshold
 	tick_ma_type			= args.tick_ma_type
 	tick_ma_period			= args.tick_ma_period
 
@@ -423,6 +422,7 @@ for algo in args.algos:
 	roc_threshold			= args.roc_threshold
 
 	sp_monitor_tickers		= args.sp_monitor_tickers
+	sp_monitor_threshold		= args.sp_monitor_threshold
 	sp_roc_type			= args.sp_roc_type
 	sp_roc_period			= args.sp_roc_period
 	sp_ma_period			= args.sp_ma_period
@@ -489,6 +489,7 @@ for algo in args.algos:
 		if ( a == 'primary_mama_fama' ):	primary_mama_fama	= True
 		if ( a == 'primary_mesa_sine' ):	primary_mesa_sine	= True
 		if ( a == 'primary_trin' ):		primary_trin		= True
+		if ( a == 'primary_sp_monitor' ):	primary_sp_monitor	= True
 		if ( a == 'trin'):			trin			= True
 		if ( a == 'tick'):			tick			= True
 		if ( a == 'roc'):			roc			= True
@@ -632,8 +633,7 @@ for algo in args.algos:
 		if ( re.match('trin_oversold:', a)			!= None ):	trin_oversold			= float( a.split(':')[1] )
 		if ( re.match('trin_overbought:', a)			!= None ):	trin_overbought			= float( a.split(':')[1] )
 
-		if ( re.match('tick_roc_type:', a)			!= None ):	tick_roc_type			= str( a.split(':')[1] )
-		if ( re.match('tick_roc_period:', a)			!= None ):	tick_roc_period			= int( a.split(':')[1] )
+		if ( re.match('tick_threshold:', a)			!= None ):	tick_threshold			= float( a.split(':')[1] )
 		if ( re.match('tick_ma_type:', a)			!= None ):	tick_ma_type			= str( a.split(':')[1] )
 		if ( re.match('tick_ma_period:', a)			!= None ):	tick_ma_period			= int( a.split(':')[1] )
 
@@ -645,6 +645,7 @@ for algo in args.algos:
 		if ( re.match('roc_threshold:', a)			!= None ):	roc_threshold			= float( a.split(':')[1] )
 
 		if ( re.match('sp_monitor_tickers:', a)			!= None ):	sp_monitor_tickers		= str( a.split(':', 1)[1] )
+		if ( re.match('sp_monitor_threshold:', a)		!= None ):	sp_monitor_threshold		= float( a.split(':')[1] )
 		if ( re.match('sp_roc_type:', a)			!= None ):	sp_roc_type			= str( a.split(':')[1] )
 		if ( re.match('sp_roc_period:', a)			!= None ):	sp_roc_period			= int( a.split(':')[1] )
 		if ( re.match('sp_ma_period:', a)			!= None ):	sp_ma_period			= int( a.split(':')[1] )
@@ -667,7 +668,7 @@ for algo in args.algos:
 		print('Error: you can only use primary_stochrsi or primary_stochmfi, but not both. Exiting.')
 		sys.exit(1)
 	elif ( primary_stochrsi == False and primary_stochmfi == False and primary_stacked_ma == False and
-			primary_mama_fama == False and primary_mesa_sine == False and primary_trin == False ):
+			primary_mama_fama == False and primary_mesa_sine == False and primary_trin == False and primary_sp_monitor == False ):
 		print('Error: you must use one of primary_stochrsi, primary_stochmfi, primary_stacked_ma, primary_mama_fama or primary_mesa_sine. Exiting.')
 		sys.exit(1)
 
@@ -740,6 +741,7 @@ for algo in args.algos:
 			'primary_mama_fama':			primary_mama_fama,
 			'primary_mesa_sine':			primary_mesa_sine,
 			'primary_trin':				primary_trin,
+			'primary_sp_monitor':			primary_sp_monitor,
 
 			'trin':					trin,
 			'tick':					tick,
@@ -867,8 +869,7 @@ for algo in args.algos:
 			'trin_oversold':			trin_oversold,
 			'trin_overbought':			trin_overbought,
 
-			'tick_roc_type':			tick_roc_type,
-			'tick_roc_period':			tick_roc_period,
+			'tick_threshold':			tick_threshold,
 			'tick_ma_type':				tick_ma_type,
 			'tick_ma_period':			tick_ma_period,
 
@@ -880,6 +881,7 @@ for algo in args.algos:
 			'roc_threshold':			roc_threshold,
 
 			'sp_monitor_tickers':			sp_monitor_tickers,
+			'sp_monitor_threshold':			sp_monitor_threshold,
 			'sp_roc_type':				sp_roc_type,
 			'sp_roc_period':			sp_roc_period,
 			'sp_ma_period':				sp_ma_period,
@@ -905,7 +907,7 @@ for algo in args.algos:
 # Clean up this mess
 # All the stuff above should be put into a function to avoid this cleanup stuff. I know it. It'll happen eventually.
 del(stock_usd,quick_exit,quick_exit_percent,trend_quick_exit,qe_stacked_ma_periods,qe_stacked_ma_type,scalp_mode,scalp_mode_pct)
-del(primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,primary_mesa_sine,primary_trin)
+del(primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,primary_mesa_sine,primary_trin,primary_sp_monitor)
 del(stacked_ma,stacked_ma_secondary,mama_fama,stochrsi_5m,stochmfi,stochmfi_5m)
 del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,vwap,vpt,support_resistance,use_keylevel)
 del(rsi_high_limit,rsi_low_limit,rsi_period,stochrsi_period,stochrsi_5m_period,rsi_k_period,rsi_k_5m_period,rsi_d_period,rsi_slow,stochrsi_offset,stochrsi_5m_offset)
@@ -919,9 +921,9 @@ del(use_natr_resistance,keylevel_use_daily,keylevel_strict,va_check,min_intra_na
 del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count,bbands_matype,kchan_matype)
 del(use_ha_exit,use_ha_candles,use_trend_exit,use_trend,trend_period,trend_type,use_combined_exit)
 del(check_etf_indicators,check_etf_indicators_strict,etf_tickers,etf_roc_period,etf_min_rs,etf_min_natr)
-del(trin,tick,roc,sp_monitor,trin_roc_type,trin_roc_period,trin_ma_type,trin_ma_period,trin_oversold,trin_overbought,tick_roc_type,tick_roc_period,tick_ma_type,tick_ma_period)
+del(trin,tick,roc,sp_monitor,trin_roc_type,trin_roc_period,trin_ma_type,trin_ma_period,trin_oversold,trin_overbought,tick_threshold,tick_ma_type,tick_ma_period)
 del(roc_type,roc_period,roc_ma_type,roc_ma_period,roc_threshold,roc_exit)
-del(sp_monitor_tickers,sp_roc_type,sp_roc_period,sp_ma_period)
+del(sp_monitor_tickers,sp_monitor_threshold,sp_roc_type,sp_roc_period,sp_ma_period)
 del(options,options_usd,near_expiration)
 
 # Set valid tickers for each algo, if configured
@@ -1006,7 +1008,7 @@ for algo in range( len(algos) ):
 
 	# TICK
 	if ( algos[algo]['tick'] == True ):
-		args.stocks = '$TICK,' + str(args.stocks)
+		args.stocks = '$TICK,$TICKA,' + str(args.stocks)
 
 if ( len(sp_tickers) > 0 ):
 	args.stocks = ','.join(sp_tickers) + ',' + str(args.stocks)
@@ -1173,8 +1175,10 @@ for ticker in stock_list.split(','):
 				   # $TRIN, $TICK and ROC
 				   'cur_trin':			0,
 				   'prev_trin':			0,
+
 				   'cur_tick':			0,
 				   'prev_tick':			0,
+
 				   'cur_roc_ma':		0,
 				   'prev_roc_ma':		0,
 
@@ -1342,6 +1346,8 @@ for ticker in stock_list.split(','):
 						'trin_counter':				0,
 						'tick_signal':				False,
 						'roc_signal':				False,
+
+						'sp_monitor_init_signal':		False,
 						'sp_monitor_signal':			False,
 
 						# Relative Strength
@@ -1392,10 +1398,15 @@ try:
 
 	stocks['$TRINA']['isvalid']	= True
 	stocks['$TRINA']['tradeable']	= False
+except:
+	pass
 
+try:
 	stocks['$TICK']['isvalid']	= True
 	stocks['$TICK']['tradeable']	= False
 
+	stocks['$TICKA']['isvalid']	= True
+	stocks['$TICKA']['tradeable']	= False
 except:
 	pass
 

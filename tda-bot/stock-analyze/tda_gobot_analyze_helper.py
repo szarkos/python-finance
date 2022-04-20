@@ -103,6 +103,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 		nonlocal tick_signal			; tick_signal			= False
 		nonlocal roc_signal			; roc_signal			= False
+		nonlocal sp_monitor_init_signal		; sp_monitor_init_signal	= False
 		nonlocal sp_monitor_signal		; sp_monitor_signal		= False
 		nonlocal vix_signal			; vix_signal			= False
 
@@ -358,6 +359,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	trin_overbought			= -1		if ('trin_overbought' not in params) else params['trin_overbought']
 
 	with_tick			= False		if ('with_tick' not in params) else params['with_tick']
+	tick_threshold			= 50		if ('tick_threshold' not in params) else params['tick_threshold']
 	tick_ma_type			= 'ema'		if ('tick_ma_type' not in params) else params['tick_ma_type']
 	tick_ma_period			= 5		if ('tick_ma_period' not in params) else params['tick_ma_period']
 
@@ -371,6 +373,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	default_roc_exit		= roc_exit
 
 	with_sp_monitor			= False		if ('with_sp_monitor' not in params) else params['with_sp_monitor']
+	sp_monitor_threshold		= 2		if ('sp_monitor_threshold' not in params) else params['sp_monitor_threshold']
 	sp_monitor_tickers		= None		if ('sp_monitor_tickers' not in params) else params['sp_monitor_tickers']
 	sp_roc_type			= 'hlc3'	if ('sp_roc_type' not in params) else params['sp_roc_type']
 	sp_roc_period			= 1		if ('sp_roc_period' not in params) else params['sp_roc_period']
@@ -1213,21 +1216,31 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	# $TRIN and $TICK
 	if ( primary_stoch_indicator == 'trin' or with_trin == True or with_tick == True ):
 
+#		import matplotlib.pyplot as plt
+#
+#		last = trin_tick['trin']['pricehistory']['candles'][-700:]
+#		foo = []
+#		for i in range(len(last)):
+#			#foo.append( (last[i]['high'] + last[i]['low'] + last[i]['close']) / 3 )
+#			foo.append( last[i]['close'] )
+#
+#		print( datetime.fromtimestamp(last[-0]['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S') )
+#		print( datetime.fromtimestamp(last[-1]['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S') )
+#		plt.plot(foo)
+#		plt.show()
+#		exit()
+
+
 		# Calculate the MA for the rate-of-change, for both $TRIN and $TICK
 		# ROC values need to be squared up with the timestamp so they can be matched properly with
 		#  the datetime value from the current stock's candle.
 		trin_roc	= []
 		trinq_roc	= []
 		trina_roc	= []
-
-		tick_roc	= []
 		try:
 			trin_roc	= tda_algo_helper.get_roc( trin_tick['trin']['pricehistory'], period=trin_roc_period, type=trin_roc_type, calc_percentage=True )
-			trinq_roc	= tda_algo_helper.get_roc( trin_tick['trinq']['pricehistory'], period=trin_roc_period, type=trin_roc_type, calc_percentage=True )
+			#trinq_roc	= tda_algo_helper.get_roc( trin_tick['trinq']['pricehistory'], period=trin_roc_period, type=trin_roc_type, calc_percentage=True )
 			trina_roc	= tda_algo_helper.get_roc( trin_tick['trina']['pricehistory'], period=trin_roc_period, type=trin_roc_type, calc_percentage=True )
-
-			# Note: $TICK also uses trin_roc_period and trin_roc_type (usually hlc3 and 1 respectively)
-			tick_roc	= tda_algo_helper.get_roc( trin_tick['tick']['pricehistory'], period=trin_roc_period, type=trin_roc_type, calc_percentage=True )
 
 		except Exception as e:
 			print('Error, unable to calculate rate-of-change for trin_tick: ' + str(e))
@@ -1236,58 +1249,107 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		# It's important to cap the min/max for $TRIN and $TICK because occasionally TDA returns
 		#  some very high values, which can mess with the moving average calculation (particularly EMA)
 		trin_roc	= tda_algo_helper.normalize_vals( arr_data=trin_roc, min_val=-1000, max_val=1000, min_default=-1000, max_default=1000 )
-		trinq_roc	= tda_algo_helper.normalize_vals( arr_data=trinq_roc, min_val=-1000, max_val=1000, min_default=-1000, max_default=1000 )
+		#trinq_roc	= tda_algo_helper.normalize_vals( arr_data=trinq_roc, min_val=-1000, max_val=1000, min_default=-1000, max_default=1000 )
 		trina_roc	= tda_algo_helper.normalize_vals( arr_data=trina_roc, min_val=-1000, max_val=1000, min_default=-1000, max_default=1000 )
-
-		tick_roc	= tda_algo_helper.normalize_vals( arr_data=tick_roc, min_val=-5000, max_val=5000, min_default=-5000, max_default=5000 )
 
 		# TRIN* data sorted by timestamps
 		for i in range( len(trin_tick['trin']['pricehistory']['candles']) ):
 			dt = trin_tick['trin']['pricehistory']['candles'][i]['datetime']
 			trin_tick['trin']['roc'].update( { dt: trin_roc[i] } )
 
-		for i in range( len(trin_tick['trinq']['pricehistory']['candles']) ):
-			dt = trin_tick['trinq']['pricehistory']['candles'][i]['datetime']
-			trin_tick['trinq']['roc'].update( { dt: trinq_roc[i] } )
+		#for i in range( len(trin_tick['trinq']['pricehistory']['candles']) ):
+		#	dt = trin_tick['trinq']['pricehistory']['candles'][i]['datetime']
+		#	trin_tick['trinq']['roc'].update( { dt: trinq_roc[i] } )
 
 		for i in range( len(trin_tick['trina']['pricehistory']['candles']) ):
 			dt = trin_tick['trina']['pricehistory']['candles'][i]['datetime']
 			trin_tick['trina']['roc'].update( { dt: trina_roc[i] } )
-
-		# TICK data sorted by datetime timestamps
-		for i in range( len(trin_tick['tick']['pricehistory']['candles']) ):
-			dt = trin_tick['tick']['pricehistory']['candles'][i]['datetime']
-			trin_tick['tick']['roc'].update( { dt: tick_roc[i] } )
 
 		# Calculate the MA for the rate-of-change, for both $TRIN and $TICK
 		#
 		# When using $TRIN + $TRIN/Q we will average the ROC from each when generating the moving average
 		# However, $TRIN and $TRIN/Q might have some different datetimes, so we need to account for that
 		temp_ph = { 'candles': [] }
-		all_dts = list( trin_tick['trin']['roc'].keys() ) + list( trin_tick['trinq']['roc'].keys() ) + list( trin_tick['trina']['roc'].keys() )
+		#all_dts = list( trin_tick['trin']['roc'].keys() ) + list( trin_tick['trinq']['roc'].keys() ) + list( trin_tick['trina']['roc'].keys() )
+		all_dts = list( trin_tick['trin']['roc'].keys() ) + list( trin_tick['trina']['roc'].keys() )
 		all_dts = sorted( list(dict.fromkeys(all_dts)) )
 		for dt in all_dts:
 			trin	= trin_tick['trin']['roc'][dt] if ( dt in trin_tick['trin']['roc'] ) else 0
-			trinq	= trin_tick['trinq']['roc'][dt] if ( dt in trin_tick['trinq']['roc'] ) else 0
+			#trinq	= trin_tick['trinq']['roc'][dt] if ( dt in trin_tick['trinq']['roc'] ) else 0
 			trina	= trin_tick['trina']['roc'][dt] if ( dt in trin_tick['trina']['roc'] ) else 0
 
-			temp_ph['candles'].append( { 'close': (trin + trinq + trina) / 3 } )
+			# SAZ - 2022-04-18 - deprecate $TRINQ, unreliable
+			#temp_ph['candles'].append( { 'close': (trin + trinq + trina) / 3 } )
+			temp_ph['candles'].append( { 'close': (trin + trina) / 2 } )
 
 		tmp_trin_ma = tda_algo_helper.get_alt_ma(pricehistory=temp_ph, ma_type=trin_ma_type, type='close', period=trin_ma_period)
 		for idx,dt in enumerate( all_dts ):
 			trin_tick['trin']['roc_ma'].update( { dt: tmp_trin_ma[idx] } )
 
-		# TICK ROC
-		temp_ph = { 'candles': [] }
-		all_dts = list( trin_tick['tick']['roc'].keys() )
+		# TICK
+		all_dts = []
+		for i in range(len(trin_tick['tick']['pricehistory']['candles'])):
+			all_dts.append( trin_tick['tick']['pricehistory']['candles'][i]['datetime'] )
+		for i in range(len(trin_tick['ticka']['pricehistory']['candles'])):
+			all_dts.append( trin_tick['ticka']['pricehistory']['candles'][i]['datetime'] )
+
 		all_dts = sorted( list(dict.fromkeys(all_dts)) )
-		for dt in all_dts:
-			tick = trin_tick['tick']['roc'][dt] if ( dt in trin_tick['tick']['roc'] ) else 0
-			temp_ph['candles'].append( { 'close': tick } )
+
+		# It's important to cap the min/max for $TRIN and $TICK because occasionally TDA returns
+		#  some very high values, which can mess with the moving average calculation (particularly EMA)
+		#
+		# Since we're not using ROC, then we need to do this manually here *before* we calculate the
+		#   moving averages. This is a pain.
+
+		# $TICK
+		temp_arr = []
+		for i in range( len(trin_tick['tick']['pricehistory']['candles']) ):
+			tick_hlc3 = (	trin_tick['tick']['pricehistory']['candles'][i]['high'] +
+					trin_tick['tick']['pricehistory']['candles'][i]['low'] +
+					trin_tick['tick']['pricehistory']['candles'][i]['close'] ) / 3
+			temp_arr.append( tick_hlc3 )
+
+		temp_arr = tda_algo_helper.normalize_vals( arr_data=temp_arr, min_val=-5000, max_val=5000, min_default=-5000, max_default=5000 )
+
+		temp_ph = { 'candles': [] }
+		for i in range( len(temp_arr) ):
+			temp_ph['candles'].append( { 'close': temp_arr[i] } )
 
 		tmp_tick_ma = tda_algo_helper.get_alt_ma(pricehistory=temp_ph, ma_type=tick_ma_type, type='close', period=tick_ma_period)
-		for idx,dt in enumerate( all_dts ):
-			trin_tick['tick']['roc_ma'].update( { dt: tmp_tick_ma[idx] } )
+
+		# $TICKA
+		temp_arr = []
+		for i in range( len(trin_tick['ticka']['pricehistory']['candles']) ):
+			tick_hlc3 = (	trin_tick['ticka']['pricehistory']['candles'][i]['high'] +
+					trin_tick['ticka']['pricehistory']['candles'][i]['low'] +
+					trin_tick['ticka']['pricehistory']['candles'][i]['close'] ) / 3
+			temp_arr.append( tick_hlc3 )
+
+		temp_arr = tda_algo_helper.normalize_vals( arr_data=temp_arr, min_val=-5000, max_val=5000, min_default=-5000, max_default=5000 )
+
+		temp_ph = { 'candles': [] }
+		for i in range( len(temp_arr) ):
+			temp_ph['candles'].append( { 'close': temp_arr[i] } )
+
+		tmp_ticka_ma = tda_algo_helper.get_alt_ma(pricehistory=temp_ph, ma_type=tick_ma_type, type='close', period=tick_ma_period)
+
+		# Put this all together now in an array with dt:val
+		tick_ma_dict = {}
+		for i in range(len(trin_tick['tick']['pricehistory']['candles'])):
+			dt			= trin_tick['tick']['pricehistory']['candles'][i]['datetime']
+			tick_ma_dict[dt]	= tmp_tick_ma[i]
+
+		ticka_ma_dict = {}
+		for i in range(len(trin_tick['ticka']['pricehistory']['candles'])):
+			dt			= trin_tick['ticka']['pricehistory']['candles'][i]['datetime']
+			ticka_ma_dict[dt]	= tmp_ticka_ma[i]
+
+		for dt in all_dts:
+			tick	= tick_ma_dict[dt] if ( dt in tick_ma_dict ) else 0
+			ticka	= ticka_ma_dict[dt] if ( dt in ticka_ma_dict ) else 0
+
+			trin_tick['tick']['roc_ma'].update( { dt: (tick + ticka) / 2 } )
+
 
 	# ROC indicator
 	roc = []
@@ -1311,7 +1373,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			sys.exit(1)
 
 	# SP monitor
-	if ( with_sp_monitor == True ):
+	if ( with_sp_monitor == True or primary_stoch_indicator == 'sp_monitor' ):
 
 		# This is a little convoluted, but really all we want to do is take the *weighted* average of the *weighted*
 		#  rate-of-change for each ticker in sp_monitor_tickers, and then calculate the EMA for the final
@@ -1585,7 +1647,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	tick_signal			= False
 	roc_signal			= False
+
+	sp_monitor_init_signal		= False
 	sp_monitor_signal		= False
+
 	vix_signal			= False
 
 	rsi_signal			= False
@@ -2370,7 +2435,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			cur_roc_ma	= roc_ma[idx]
 			prev_roc_ma	= roc_ma[idx-1]
 
-		if ( with_sp_monitor == True ):
+		if ( with_sp_monitor == True or primary_stoch_indicator == 'sp_monitor' ):
 			try:
 				cur_sp_monitor	= sp_monitor['roc_ma'][cur_dt]
 				prev_sp_monitor	= sp_monitor['roc_ma'][prev_dt]
@@ -2713,6 +2778,31 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( trin_init_signal == True and trin_signal == True ):
 					buy_signal = True
 
+			# ETF SP primary indicator
+			elif ( primary_stoch_indicator == 'sp_monitor' ):
+				if ( cur_sp_monitor < 0 ):
+					reset_signals()
+					signal_mode['primary'] = 'short'
+
+					if ( cur_sp_monitor <= -1.5 ):
+						sp_monitor_init_signal = True
+
+					if ( cur_sp_monitor <= -sp_monitor_threshold ):
+						short_signal = True
+
+					continue
+
+				elif ( cur_sp_monitor > 1.5 and cur_sp_monitor < sp_monitor_threshold ):
+					sp_monitor_init_signal = True
+
+				elif ( cur_sp_monitor >= sp_monitor_threshold and sp_monitor_init_signal == True ):
+					sp_monitor_init_signal	= False
+					buy_signal		= True
+
+				else:
+					sp_monitor_init_signal	= False
+					buy_signal		= False
+
 			# Unknown primary indicator
 			else:
 				print('Error: primary_stoch_indicator "' + str(primary_stoch_indicator) + '" unknown, exiting.')
@@ -2749,10 +2839,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Bearish action when indicator is below zero and heading downward
 			# Bullish action when indicator is above zero and heading upward
 			if ( with_tick == True ):
-				if ( cur_tick > prev_tick and cur_tick > 0 ):
+				tick_signal = False
+				if ( cur_tick > prev_tick and cur_tick > tick_threshold ):
 					tick_signal = True
-				else:
-					tick_signal = False
 
 			# Rate-of-Change (ROC) indicator
 			if ( with_roc == True ):
@@ -2766,7 +2855,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			if ( with_sp_monitor == True ):
 				if ( cur_sp_monitor < 0 ):
 					sp_monitor_signal = False
-				elif ( cur_sp_monitor > 0 and cur_sp_monitor > prev_sp_monitor ):
+				elif ( cur_sp_monitor > 0 and cur_sp_monitor >= 2 ):
 					sp_monitor_signal = True
 
 			# VIX stacked MA
@@ -4290,6 +4379,31 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( trin_init_signal == True and trin_signal == True ):
 					short_signal = True
 
+			# ETF SP indicator
+			elif ( primary_stoch_indicator == 'sp_monitor' ):
+				if ( cur_sp_monitor > 0 ):
+					reset_signals()
+					signal_mode['primary'] = 'long'
+
+					if ( cur_sp_monitor >= 1.5 ):
+						sp_monitor_init_signal = True
+
+					if ( cur_sp_monitor >= sp_monitor_threshold ):
+						buy_signal = True
+
+					continue
+
+				elif ( cur_sp_monitor < -1.5 and cur_sp_monitor > -sp_monitor_threshold ):
+					sp_monitor_init_signal = True
+
+				elif ( cur_sp_monitor <= -sp_monitor_threshold and sp_monitor_init_signal == True ):
+					sp_monitor_init_signal	= False
+					short_signal		= True
+
+				else:
+					sp_monitor_init_signal	= False
+					short_signal		= False
+
 			# Unknown primary indicator
 			else:
 				print('Error: primary_stoch_indicator "' + str(primary_stoch_indicator) + '" unknown, exiting.')
@@ -4326,10 +4440,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# Bearish action when indicator is below zero and heading downward
 			# Bullish action when indicator is above zero and heading upward
 			if ( with_tick == True ):
-				if ( cur_tick < prev_tick and cur_tick < 0 ):
+				tick_signal = False
+				if ( cur_tick < prev_tick and cur_tick < -tick_threshold ):
 					tick_signal = True
-				else:
-					tick_signal = False
 
 			# Rate-of-Change (ROC) indicator
 			if ( with_roc == True ):
@@ -4343,7 +4456,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			if ( with_sp_monitor == True ):
 				if ( cur_sp_monitor > 0 ):
 					sp_monitor_signal = False
-				elif ( cur_sp_monitor < 0 and cur_sp_monitor < prev_sp_monitor ):
+				elif ( cur_sp_monitor < 0 and cur_sp_monitor <= -2 ):
 					sp_monitor_signal = True
 
 			# VIX stacked MA

@@ -65,6 +65,11 @@ def gobot_run(stream=None, algos=None, debug=False):
 
 		stocks[ticker]['cur_seq'] = int( idx['SEQUENCE'] )
 
+		# First check that the last candle is not a temporary candle added via Level 1 stream
+		if ( stocks[ticker]['pricehistory']['candles'][-1]['datetime'] == 9999999999999 ):
+			del stocks[ticker]['pricehistory']['candles'][-1]
+
+		# Add new candle
 		candle_data = {	'open':		float( idx['OPEN_PRICE'] ),
 				'high':		float( idx['HIGH_PRICE'] ),
 				'low':		float( idx['LOW_PRICE'] ),
@@ -545,6 +550,8 @@ def reset_signals(ticker=None, id=None, signal_mode=None, exclude_bbands_kchan=F
 
 		stocks[ticker]['algo_signals'][algo_id]['tick_signal']			= False
 		stocks[ticker]['algo_signals'][algo_id]['roc_signal']			= False
+
+		stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal']	= False
 		stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal']		= False
 
 		stocks[ticker]['algo_signals'][algo_id]['plus_di_crossover']		= False
@@ -1354,42 +1361,69 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 		stocks['$TICK']['isvalid']	= True
 		stocks['$TICK']['tradeable']	= False
 
-		tick_roc = []
-		try:
-			tick_roc = tda_algo_helper.get_roc( stocks['$TICK']['pricehistory'], period=cur_algo['tick_roc_period'], type=cur_algo['tick_roc_type'], calc_percentage=True )
-
-		except Exception as e:
-			print('Error: stochrsi_gobot(): get_roc($TICK): ' + str(e))
-			tick_roc_ma = [0 ,0]
-
-		if ( isinstance(tick_roc, bool) and tick_roc == False ):
-			print('Error: stochrsi_gobot(): get_roc($TICK) returned False')
-			tick_roc_ma = [0, 0]
-
+		# Normalize $TICK and $TICKA values
 		# It's important to cap the min/max for $TRIN and $TICK because occasionally TDA returns
 		#  some very high values, which can mess with the moving average calculation (particularly EMA)
-		tick_roc = tda_algo_helper.normalize_vals( arr_data=tick_roc, min_val=-5000, max_val=5000, min_default=-5000, max_default=5000 )
 
-		# Calculate a moving average of tick to smooth
+		# $TICK
+		tick_vals = []
+		for i in range( len(stocks['$TICK']['pricehistory']['candles']) ):
+			tick_vals.append(  ( stocks['$TICK']['pricehistory']['candles'][i]['high'] +
+					     stocks['$TICK']['pricehistory']['candles'][i]['low'] +
+					     stocks['$TICK']['pricehistory']['candles'][i]['close'] ) / 3 )
+
+		tick_vals = tda_algo_helper.normalize_vals( arr_data=tick_vals, min_val=-5000, max_val=5000, min_default=-5000, max_default=5000 )
+
+		tick_dict = {}
+		for i in range( len(tick_vals) ):
+			dt = stocks['$TICK']['pricehistory']['candles'][i]['datetime']
+			tick_dict[dt] = tick_vals[i]
+
+		# $TICKA
+		ticka_vals = []
+		for i in range( len(stocks['$TICKA']['pricehistory']['candles']) ):
+			ticka_vals.append(  ( stocks['$TICKA']['pricehistory']['candles'][i]['high'] +
+					      stocks['$TICKA']['pricehistory']['candles'][i]['low'] +
+					      stocks['$TICKA']['pricehistory']['candles'][i]['close'] ) / 3 )
+
+		ticka_vals = tda_algo_helper.normalize_vals( arr_data=ticka_vals, min_val=-5000, max_val=5000, min_default=-5000, max_default=5000 )
+
+		ticka_dict = {}
+		for i in range( len(ticka_vals) ):
+			dt = stocks['$TICKA']['pricehistory']['candles'][i]['datetime']
+			ticka_dict[dt] = ticka_vals[i]
+
+		# Collect and sort all the datetime values to ensure the final data are aligned
+		all_dts = []
+		for i in range( len(stocks['$TICK']['pricehistory']['candles']) ):
+			all_dts.append( stocks['$TICK']['pricehistory']['candles'][i]['datetime'] )
+		for i in range( len(stocks['$TICKA']['pricehistory']['candles']) ):
+			all_dts.append( stocks['$TICKA']['pricehistory']['candles'][i]['datetime'] )
+
+		all_dts = sorted( list(dict.fromkeys(all_dts)) )
+
 		temp_ph = { 'candles': [] }
-		for i in range( len(tick_roc) ):
-			temp_ph['candles'].append( { 'close': tick_roc[i] } )
+		for i in range( len(all_dts) ):
+			tick	= tick_dict[dt] if ( dt in tick_dict ) else 0
+			ticka	= ticka_dict[dt] if ( dt in ticka_dict ) else 0
 
-		tick_roc_ma = []
+			temp_ph['candles'].append( { 'close': (tick + ticka) / 2 } )
+
+		tick_ma = []
 		try:
-			tick_roc_ma = tda_algo_helper.get_alt_ma( pricehistory=temp_ph, ma_type=cur_algo['tick_ma_type'], type='close', period=cur_algo['tick_ma_period'] )
+			tick_ma = tda_algo_helper.get_alt_ma( pricehistory=temp_ph, ma_type=cur_algo['tick_ma_type'], type='close', period=cur_algo['tick_ma_period'] )
 
 		except Exception as e:
-			print('Error: stochrsi_gobot(): get_alt_ma(tick_roc_ma): ' + str(e))
-			tick_roc_ma = [0, 0]
+			print('Error: stochrsi_gobot(): get_alt_ma(tick_ma): ' + str(e))
+			tick_ma = [0, 0]
 
-		if ( isinstance(tick_roc_ma, bool) and tick_roc_ma == False ):
+		if ( isinstance(tick_ma, bool) and tick_ma == False ):
 			print('Error: stochrsi_gobot(): get_alt_ma($TICK) returned False')
-			tick_roc_ma = [0, 0]
+			tick_ma = [0, 0]
 
 		for ticker in stocks.keys():
-			stocks[ticker]['cur_tick']      = tick_roc_ma[-1]
-			stocks[ticker]['prev_tick']     = tick_roc_ma[-2]
+			stocks[ticker]['cur_tick']      = tick_ma[-1]
+			stocks[ticker]['prev_tick']     = tick_ma[-2]
 
 	# SP_Monitor
 	# This algorithm measures the price action of the more highly represented stocks in an ETF to help gauge strength and trend.
@@ -1412,7 +1446,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 	#
 	#	ema(total_roc, N)
 	#
-	if ( cur_algo['sp_monitor'] == True ):
+	if ( cur_algo['primary_sp_monitor'] == True or cur_algo['sp_monitor'] == True ):
 
 		# First collect all the datetime values for all candles in sp_monitor tickers
 		sp_mon_dt = OrderedDict()
@@ -1427,6 +1461,30 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 			stocks[sp_t]['isvalid'] = True
 
+			# Integrate last_price into a new candle to ensure we can make use of the latest Level 1 data
+			#  when calculate the ROC and MA
+			if ( caller_id != None and caller_id == 'level1' and stocks[sp_t]['last_price'] != 0 ):
+				if ( stocks[sp_t]['pricehistory']['candles'][-1]['datetime'] != 9999999999999 ):
+
+					stocks[sp_t]['pricehistory']['candles'].append( {
+						'open':		stocks[sp_t]['pricehistory']['candles'][-1]['open'],
+						'high':		stocks[sp_t]['pricehistory']['candles'][-1]['high'],
+						'low':		stocks[sp_t]['pricehistory']['candles'][-1]['low'],
+						'close':	stocks[sp_t]['pricehistory']['candles'][-1]['close'],
+						'datetime':	9999999999999 } )
+
+				if ( stocks[sp_t]['last_price'] >= stocks[sp_t]['pricehistory']['candles'][-1]['high'] ):
+					stocks[sp_t]['pricehistory']['candles'][-1]['high']	= stocks[sp_t]['last_price']
+					stocks[sp_t]['pricehistory']['candles'][-1]['close']	= stocks[sp_t]['last_price']
+
+				elif ( stocks[sp_t]['last_price'] <= stocks[sp_t]['pricehistory']['candles'][-1]['low'] ):
+					stocks[sp_t]['pricehistory']['candles'][-1]['low']	= stocks[sp_t]['last_price']
+					stocks[sp_t]['pricehistory']['candles'][-1]['close']	= stocks[sp_t]['last_price']
+
+				else:
+					stocks[sp_t]['pricehistory']['candles'][-1]['close']	= stocks[sp_t]['last_price']
+
+			# Initialize sp_mon_dt{}
 			for i in range( len(stocks[sp_t]['pricehistory']['candles']) ):
 				dt = stocks[sp_t]['pricehistory']['candles'][i]['datetime']
 				sp_mon_dt[dt] = { 'total_roc_prelim': 0, 'prev_cndl_sum': 0, 'total_roc': 0 }
@@ -1454,7 +1512,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 			for i in range( len(stocks[sp_t]['pricehistory']['candles']) ):
 				dt = stocks[sp_t]['pricehistory']['candles'][i]['datetime']
 
-				# Next, calculate the denominator which is thre previous_candle's HLC3 value, multiply
+				# Next, calculate the denominator which is the previous_candle's HLC3 value, multiply
 				#  it by sp_pct and add it to prev_cndl_sum
 				if ( i == 0 ):
 					prev_cndl_hlc3 = 0
@@ -1540,9 +1598,12 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 		# If called from gobot_level1() and the stock is in sell or buy_to_cover mode, then we
 		#  will use this opportunity to check last_price and determine exit_criteria.
+		#
+		# SAZ - Make an exception when using primary_sp_monitor
 		if ( caller_id != None and caller_id == 'level1' ):
-			if ( stocks[ticker]['algo_signals'][algo_id]['signal_mode'] == 'long' or
-				stocks[ticker]['algo_signals'][algo_id]['signal_mode'] == 'short' ):
+			if ( (stocks[ticker]['algo_signals'][algo_id]['signal_mode'] == 'long' or
+					stocks[ticker]['algo_signals'][algo_id]['signal_mode'] == 'short') and
+					cur_algo['primary_sp_monitor'] == False ):
 				continue
 
 		# Skip this ticker if it conflicts with a per-algo min/max_daily_natr configuration
@@ -2076,7 +2137,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 							str( round(stocks['$TICK']['pricehistory']['candles'][-1]['low'], 2) ) + '|' +
 							str( round(stocks['$TICK']['pricehistory']['candles'][-1]['close'], 2) ) +
 							' (' + str(tick_dt) + ') / ' +
-						'Current TICK_ROC_MA: ' + str(round(stocks[ticker]['cur_tick'], 3)) + ' / ' +
+						'Current TICK_MA: ' + str(round(stocks[ticker]['cur_tick'], 3)) + ' / ' +
 						'$TICK Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['tick_signal']) )
 
 			# ROC
@@ -2085,7 +2146,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 						'ROC Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['roc_signal']) )
 
 			# SP_Monitor
-			if ( cur_algo['sp_monitor'] == True ):
+			if ( cur_algo['primary_sp_monitor'] == True or cur_algo['sp_monitor'] == True ):
 				print('(' + str(ticker) + ') Current SP_Monitor: ' + str(round(stocks[ticker]['cur_sp_monitor'], 6)) + ' / ' +
 						'SP Monitor Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal']) )
 
@@ -2586,6 +2647,31 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				if ( stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] == True and stocks[ticker]['algo_signals'][algo_id]['trin_signal'] == True ):
 					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = True
 
+			# SP Monitor Primary Algo
+			elif ( cur_algo['primary_sp_monitor'] == True ):
+				if ( cur_sp_monitor < 0 and args.short == True and stocks[ticker]['shortable'] == True ):
+					reset_signals(ticker, id=algo_id, signal_mode='short', exclude_bbands_kchan=True)
+
+					if ( cur_sp_monitor <= -1.5 ):
+						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = True
+
+					if ( cur_sp_monitor <= -cur_algo['sp_monitor_threshold'] ):
+						stocks[ticker]['algo_signals'][algo_id]['short_signal'] = True
+
+					continue
+
+				elif ( cur_sp_monitor > 1.5 and cur_sp_monitor < cur_algo['sp_monitor_threshold'] ):
+					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = True
+
+				elif ( cur_sp_monitor >= cur_algo['sp_monitor_threshold'] and
+						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] == True ):
+					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = False
+					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = True
+
+				else:
+					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = False
+					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = False
+
 			## END PRIMARY ALGOS
 
 
@@ -2617,10 +2703,9 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 			# Bearish action when indicator is below zero and heading downward
 			# Bullish action when indicator is above zero and heading upward
 			if ( cur_algo['tick'] == True ):
-				if ( cur_tick > prev_tick and cur_tick > 0 ):
+				stocks[ticker]['algo_signals'][algo_id]['tick_signal'] = False
+				if ( cur_tick > prev_tick and cur_tick > cur_algo['tick_threshold'] ):
 					stocks[ticker]['algo_signals'][algo_id]['tick_signal'] = True
-				else:
-					stocks[ticker]['algo_signals'][algo_id]['tick_signal'] = False
 
 			# Rate-of-Change (ROC) indicator
 			if ( cur_algo['roc'] == True ):
@@ -3846,7 +3931,9 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 			# When in scalp mode, check to see if previous LIMIT order has been set
-			if ( cur_algo['scalp_mode'] == True and stocks[ticker]['order_id'] != None and (caller_id != None and caller_id == 'chart_equity') and
+			exit_passthrough = False
+			if ( cur_algo['scalp_mode'] == True and stocks[ticker]['order_id'] != None and args.fake == False and
+					(caller_id != None and caller_id == 'chart_equity') and
 					stocks[ticker]['algo_signals'][algo_id]['sell_signal'] == False ):
 
 				# Look up order_id status to see if stock had already hit the stop limit
@@ -3876,7 +3963,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 			# SELL THE STOCK
 			if ( stocks[ticker]['algo_signals'][algo_id]['sell_signal'] == True ):
-				if ( args.fake == False or exit_passthrough == True ):
+				if ( args.fake == False or (args.fake == False and exit_passthrough == False) ):
 
 					# Ensure we are logged in
 					tda_gobot_helper.tdalogin(passcode)
@@ -4129,6 +4216,31 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				if ( stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] == True and stocks[ticker]['algo_signals'][algo_id]['trin_signal'] == True ):
 					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = True
 
+			# SP Monitor Primary Algo
+			elif ( cur_algo['primary_sp_monitor'] == True ):
+				if ( cur_sp_monitor > 0 and args.shortonly == False ):
+					reset_signals(ticker, id=algo_id, signal_mode='long', exclude_bbands_kchan=True)
+
+					if ( cur_sp_monitor >= 1.5 ):
+						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = True
+
+					if ( cur_sp_monitor >= cur_algo['sp_monitor_threshold'] ):
+						stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = True
+
+					continue
+
+				elif ( cur_sp_monitor < -1.5 and cur_sp_monitor > -cur_algo['sp_monitor_threshold'] ):
+					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = True
+
+				elif ( cur_sp_monitor <= -cur_algo['sp_monitor_threshold'] and
+						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] == True ):
+					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal']	= False
+					stocks[ticker]['algo_signals'][algo_id]['short_signal']			= True
+
+				else:
+					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal']	= False
+					stocks[ticker]['algo_signals'][algo_id]['short_signal']			= False
+
 			## END PRIMARY ALGOS
 
 
@@ -4160,10 +4272,9 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 			# Bearish action when indicator is below zero and heading downward
 			# Bullish action when indicator is above zero and heading upward
 			if ( cur_algo['tick'] == True ):
-				if ( cur_tick < prev_tick and cur_tick < 0 ):
+				stocks[ticker]['algo_signals'][algo_id]['tick_signal'] = False
+				if ( cur_tick < prev_tick and cur_tick < -cur_algo['tick_threshold'] ):
 					stocks[ticker]['algo_signals'][algo_id]['tick_signal'] = True
-				else:
-					stocks[ticker]['algo_signals'][algo_id]['tick_signal'] = False
 
 			# Rate-of-Change (ROC) indicator
 			if ( cur_algo['roc'] == True ):
@@ -5415,7 +5526,9 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 			# When in scalp mode, check to see if previous LIMIT order has been set
-			if ( cur_algo['scalp_mode'] == True and stocks[ticker]['order_id'] != None and (caller_id != None and caller_id == 'chart_equity') and
+			exit_passthrough = True
+			if ( cur_algo['scalp_mode'] == True and stocks[ticker]['order_id'] != None and args.fake == False and
+					(caller_id != None and caller_id == 'chart_equity') and
 					stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] == False ):
 
 				# Look up order_id status to see if stock had already hit the stop limit
@@ -5445,7 +5558,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 			# BUY-TO-COVER THE STOCK
 			if ( stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] == True ):
-				if ( args.fake == False or exit_passthrough == True ):
+				if ( args.fake == False or (args.fake == False and exit_passthrough == False) ):
 
 					# Ensure we are logged in
 					tda_gobot_helper.tdalogin(passcode)

@@ -724,11 +724,11 @@ while True:
 					exit_signal	= True
 					stopout_signal	= True
 
-		# Handle quick_exit and quick_exit_percent
-		if ( args.quick_exit == True and exit_signal == False ):
-			if ( total_percent_change >= args.quick_exit_percent ):
-				exit_signal	= True
-				stopout_signal	= True
+	# Handle quick_exit and quick_exit_percent
+	if ( args.quick_exit == True and exit_signal == False ):
+		if ( total_percent_change >= args.quick_exit_percent ):
+			exit_signal	= True
+			stopout_signal	= True
 
 	# Sell/buy_to_cover the security
 	if ( exit_signal == True ):

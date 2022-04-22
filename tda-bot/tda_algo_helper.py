@@ -2244,7 +2244,7 @@ def get_momentum(pricehistory=None, type='hl2', period=12, debug=False):
 
 
 # Momentum indicator
-def get_trix_altma(pricehistory=None, ma_type='kama', type='hl2', period=24, signal_ma='ema', signal_period=3, debug=False):
+def get_trix_altma(pricehistory=None, ma_type='kama', type='hl2', period=24, signal_ma='ema', signal_period=3, skip_log=False, debug=False):
 
 	ticker = ''
 	try:
@@ -2301,8 +2301,13 @@ def get_trix_altma(pricehistory=None, ma_type='kama', type='hl2', period=24, sig
 	trix		= []
 	trix_signal	= []
 	try:
-		prices	= np.array( prices )
-		prices	= np.log( prices )
+		prices = np.array( prices )
+
+		# Some formulas suggest first taking a logarithm of the input prices before
+		#  proceeding to the triple-ema calculation, however this won't work in some
+		#  cases (processing negative numbers), so it's optional.
+		if ( skip_log == False ):
+			prices = np.log( prices )
 
 		# Step 1 - get the moving average of the log() of the prices
 		ph = { 'candles': [] }
@@ -2825,11 +2830,11 @@ def get_market_profile(pricehistory=None, close_type='hl2', mp_mode='vol', tick_
 		dt		= int( key['datetime'] / 1000 )
 
 		if ( close_type == 'hl2' ):
-			close = (high + low) / 2
+			close = ( high + low) / 2
 		elif ( close_type == 'hlc3' ):
-			close = (high + low + close ) / 3
+			close = ( high + low + close ) / 3
 		elif ( close_type == 'ohlc4' ):
-			close = (open + high + low + close ) / 4
+			close = ( open + high + low + close ) / 4
 		elif ( close_type == 'close' ):
 			pass
 		else:

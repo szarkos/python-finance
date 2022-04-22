@@ -198,11 +198,19 @@ parser.add_argument("--sp_monitor_tickers", help='List of tickers and their weig
 parser.add_argument("--sp_monitor_threshold", help='+/- threshold before triggering final signal (Default: 2)', default=2, type=float)
 parser.add_argument("--sp_roc_type", help='Rate of change candles type to use with sp_monitor (Default: hlc3)', default='hlc3', type=str)
 parser.add_argument("--sp_roc_period", help='Period to use with ROC algorithm for sp_monitor (Default: 1)', default=1, type=int)
-parser.add_argument("--sp_ma_period", help='Moving average period to use with the RoC values for sp_monitor (Default: 4)', default=4, type=int)
+parser.add_argument("--sp_ma_period", help='Moving average period to use with the RoC values for sp_monitor (Default: 5)', default=5, type=int)
+parser.add_argument("--sp_monitor_stacked_ma_type", help='Moving average type to use with sp_monitor stacked_ma (Default: vidya)', default='vidya', type=str)
+parser.add_argument("--sp_monitor_stacked_ma_periods", help='Moving average periods to use with sp_monitor stacked_ma (Default: 8,13,21)', default='8,13,21', type=str)
+parser.add_argument("--sp_monitor_use_trix", help='Use TRIX algorithm instead of stacked_ma to help gauge strength/direction of sp_monitor', action="store_true")
+parser.add_argument("--sp_monitor_trix_ma_type", help='Moving average type to use with sp_monitor TRIX (Default: ema)', default='ema', type=str)
+parser.add_argument("--sp_monitor_trix_ma_period", help='Moving average period to use with sp_monitor TRIX (Default: 8)', default=8, type=int)
+parser.add_argument("--sp_monitor_strict", help='Enable some stricter checks when entering trades', action="store_true")
 
 parser.add_argument("--daily_ifile", help='Use pickle file for daily pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--weekly_ifile", help='Use pickle file for weekly pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (default=False)', action="store_true")
+parser.add_argument("--use_vwap", help='Use vwap resistance checks to enter trades (Default: True if --no_use_resistance=False)', action="store_true")
+parser.add_argument("--use_pdc", help='Use previous day close resistance level checks to enter trades (Default: True if --no_use_resistance=False)', action="store_true")
 parser.add_argument("--use_keylevel", help='Use keylevel resistance to avoid possibly bad trades (default=False, True if --no_use_resistance is False)', action="store_true")
 parser.add_argument("--keylevel_use_daily", help='Use daily candles as well as weeklies to determine key levels (Default: False)', action="store_true")
 parser.add_argument("--keylevel_strict", help='Use strict key level checks to enter trades (Default: False)', action="store_true")
@@ -323,7 +331,7 @@ for algo in args.algos:
 	stacked_ma = stacked_ma_secondary = mama_fama = stochrsi_5m = stochmfi = stochmfi_5m = False
 	rsi = mfi = adx = dmi = dmi_simple = macd = macd_simple = aroonosc = False
 	chop_index = chop_simple = supertrend = bbands_kchannel = False
-	vwap = vpt = support_resistance = use_keylevel = False
+	vwap = vpt = support_resistance = False
 	trin = tick = roc = sp_monitor = False
 
 	# Per-algo entry limit
@@ -426,6 +434,12 @@ for algo in args.algos:
 	sp_roc_type			= args.sp_roc_type
 	sp_roc_period			= args.sp_roc_period
 	sp_ma_period			= args.sp_ma_period
+	sp_monitor_stacked_ma_type	= args.sp_monitor_stacked_ma_type
+	sp_monitor_stacked_ma_periods	= args.sp_monitor_stacked_ma_periods
+	sp_monitor_use_trix		= args.sp_monitor_use_trix
+	sp_monitor_trix_ma_type		= args.sp_monitor_trix_ma_type
+	sp_monitor_trix_ma_period	= args.sp_monitor_trix_ma_period
+	sp_monitor_strict		= args.sp_monitor_strict
 
 	# MFI
 	mfi_high_limit			= args.mfi_high_limit
@@ -463,10 +477,14 @@ for algo in args.algos:
 	supertrend_atr_period		= args.supertrend_atr_period
 	supertrend_min_natr		= args.supertrend_min_natr
 
+	use_keylevel			= args.use_keylevel
+	use_vwap			= args.use_vwap
+	use_pdc				= args.use_pdc
+	lod_hod_check			= args.lod_hod_check
 	use_natr_resistance		= args.use_natr_resistance
+	va_check			= args.va_check
 	keylevel_use_daily		= args.keylevel_use_daily
 	keylevel_strict			= args.keylevel_strict
-	va_check			= args.va_check
 	price_resistance_pct		= args.price_resistance_pct
 	price_support_pct		= args.price_support_pct
 	resist_pct_dynamic		= args.resist_pct_dynamic
@@ -514,8 +532,15 @@ for algo in args.algos:
 		if ( a == 'bbands_kchannel' ):		bbands_kchannel		= True
 		if ( a == 'vwap' ):			vwap			= True
 		if ( a == 'vpt' ):			vpt			= True
+
+		# Support / Resistance
 		if ( a == 'support_resistance' ):	support_resistance	= True
 		if ( a == 'use_keylevel' ):		use_keylevel		= True
+		if ( a == 'use_vwap' ):			use_vwap		= True
+		if ( a == 'use_pdc' ):			use_pdc			= True
+		if ( a == 'use_natr_resistance' ):	use_natr_resistance	= True
+		if ( a == 'va_check' ):			va_check		= True
+		if ( a == 'lod_hod_check' ):		lod_hod_check		= True
 
 		# Entry limit
 		if ( re.match('stock_usd:', a)				!= None ):	stock_usd			= float( a.split(':')[1] )
@@ -649,11 +674,15 @@ for algo in args.algos:
 		if ( re.match('sp_roc_type:', a)			!= None ):	sp_roc_type			= str( a.split(':')[1] )
 		if ( re.match('sp_roc_period:', a)			!= None ):	sp_roc_period			= int( a.split(':')[1] )
 		if ( re.match('sp_ma_period:', a)			!= None ):	sp_ma_period			= int( a.split(':')[1] )
+		if ( re.match('sp_monitor_stacked_ma_type:', a)		!= None ):	sp_monitor_stacked_ma_type	= str( a.split(':')[1] )
+		if ( re.match('sp_monitor_stacked_ma_periods:', a)	!= None ):	sp_monitor_stacked_ma_periods	= str( a.split(':')[1] )
+		if ( re.match('sp_monitor_use_trix', a)			!= None ):	sp_monitor_use_trix		= True
+		if ( re.match('sp_monitor_trix_ma_type:', a)		!= None ):	sp_monitor_trix_ma_type		= str( a.split(':')[1] )
+		if ( re.match('sp_monitor_trix_ma_period:', a)		!= None ):	sp_monitor_trix_ma_period	= int( a.split(':')[1] )
+		if ( re.match('sp_monitor_strict', a)			!= None ):	sp_monitor_strict		= True
 
-		if ( re.match('use_natr_resistance', a)			!= None ):	use_natr_resistance		= True
 		if ( re.match('keylevel_use_daily', a)			!= None ):	keylevel_use_daily		= True
 		if ( re.match('keylevel_strict', a)			!= None ):	keylevel_strict			= True
-		if ( re.match('va_check', a)				!= None ):	va_check			= True
 		if ( re.match('price_support_pct', a)			!= None ):	price_support_pct		= float( a.split(':')[1] )
 		if ( re.match('price_resistance_pct', a)		!= None ):	price_resistance_pct		= float( a.split(':')[1] )
 		if ( re.match('resist_pct_dynamic', a)			!= None ):	resist_pct_dynamic		= True
@@ -669,7 +698,7 @@ for algo in args.algos:
 		sys.exit(1)
 	elif ( primary_stochrsi == False and primary_stochmfi == False and primary_stacked_ma == False and
 			primary_mama_fama == False and primary_mesa_sine == False and primary_trin == False and primary_sp_monitor == False ):
-		print('Error: you must use one of primary_stochrsi, primary_stochmfi, primary_stacked_ma, primary_mama_fama or primary_mesa_sine. Exiting.')
+		print('Error: you must use one of primary_stochrsi, primary_stochmfi, primary_stacked_ma, primary_mama_fama, primary_mesa_sine, primary_trin or primary_sp_monitor. Exiting.')
 		sys.exit(1)
 
 	# Stacked MA periods expect to be comma-delimited, but the --algos line is already comma-delimited. So MA
@@ -679,17 +708,22 @@ for algo in args.algos:
 	if ( stacked_ma_periods_secondary != args.stacked_ma_periods_secondary ):	stacked_ma_periods_secondary	= re.sub( '\.', ',', stacked_ma_periods_secondary )
 
 	if ( qe_stacked_ma_periods != args.qe_stacked_ma_periods ):			qe_stacked_ma_periods		= re.sub( '\.', ',', qe_stacked_ma_periods )
+	if ( sp_monitor_stacked_ma_periods != args.sp_monitor_stacked_ma_periods ):	sp_monitor_stacked_ma_periods	= re.sub( '\.', ',', sp_monitor_stacked_ma_periods )
 
 	# Similar to above, convert the etf_tickers using a period delimiter to comma-delimited
 	if ( etf_tickers != args.etf_tickers ):						etf_tickers			= re.sub( '\.', ',', etf_tickers )
 	args.etf_tickers = str(args.etf_tickers) + ',' + str(etf_tickers)
 
-	# sp_monitor_tickers are dot '.' delimited
+	# sp_monitor_tickers are '+' delimited
 	if ( sp_monitor_tickers != args.sp_monitor_tickers ):				sp_monitor_tickers		= re.sub( '\+', ',', sp_monitor_tickers )
 
 	# support_resistance==True implies that use_keylevel==True
 	if ( support_resistance == True):
-		use_keylevel = True
+		#use_natr_resistance	= True # Optional
+		#lod_hod_check		= True # Optional
+		use_keylevel		= True
+		use_vwap		= True
+		use_pdc			= True
 
 	# DMI/MACD overrides the simple variant of the algorithm
 	if ( dmi == True and dmi_simple == True ):
@@ -767,8 +801,14 @@ for algo in args.algos:
 			'supertrend':				supertrend,
 			'vwap':					vwap,
 			'vpt':					vpt,
+
 			'support_resistance':			support_resistance,
 			'use_keylevel':				use_keylevel,
+			'use_vwap':				use_vwap,
+			'use_pdc':				use_pdc,
+			'lod_hod_check':			lod_hod_check,
+			'use_natr_resistance':			use_natr_resistance,
+			'va_check':				va_check,
 
 			# Algo modifiers
 			'rsi_high_limit':			rsi_high_limit,
@@ -885,11 +925,15 @@ for algo in args.algos:
 			'sp_roc_type':				sp_roc_type,
 			'sp_roc_period':			sp_roc_period,
 			'sp_ma_period':				sp_ma_period,
+			'sp_monitor_stacked_ma_type':		sp_monitor_stacked_ma_type,
+			'sp_monitor_stacked_ma_periods':	sp_monitor_stacked_ma_periods,
+			'sp_monitor_use_trix':			sp_monitor_use_trix,
+			'sp_monitor_trix_ma_type':		sp_monitor_trix_ma_type,
+			'sp_monitor_trix_ma_period':		sp_monitor_trix_ma_period,
+			'sp_monitor_strict':			sp_monitor_strict,
 
-			'use_natr_resistance':			use_natr_resistance,
 			'keylevel_use_daily':			keylevel_use_daily,
 			'keylevel_strict':			keylevel_strict,
-			'va_check':				va_check,
 			'price_resistance_pct':			price_resistance_pct,
 			'price_support_pct':			price_support_pct,
 			'resist_pct_dynamic':			resist_pct_dynamic,
@@ -909,7 +953,8 @@ for algo in args.algos:
 del(stock_usd,quick_exit,quick_exit_percent,trend_quick_exit,qe_stacked_ma_periods,qe_stacked_ma_type,scalp_mode,scalp_mode_pct)
 del(primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,primary_mesa_sine,primary_trin,primary_sp_monitor)
 del(stacked_ma,stacked_ma_secondary,mama_fama,stochrsi_5m,stochmfi,stochmfi_5m)
-del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,vwap,vpt,support_resistance,use_keylevel)
+del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,vwap,vpt)
+del(support_resistance,use_keylevel,lod_hod_check,use_natr_resistance,use_vwap,use_pdc)
 del(rsi_high_limit,rsi_low_limit,rsi_period,stochrsi_period,stochrsi_5m_period,rsi_k_period,rsi_k_5m_period,rsi_d_period,rsi_slow,stochrsi_offset,stochrsi_5m_offset)
 del(mfi_high_limit,mfi_low_limit,mfi_period,stochmfi_period,stochmfi_5m_period,mfi_k_period,mfi_k_5m_period,mfi_d_period,mfi_slow,stochmfi_offset,stochmfi_5m_offset)
 del(adx_threshold,adx_period,macd_long_period,macd_short_period,macd_signal_period,macd_offset,aroonosc_period,di_period,atr_period,vpt_sma_period)
@@ -917,13 +962,13 @@ del(chop_period,chop_low_limit,chop_high_limit,supertrend_atr_period,supertrend_
 del(bbands_kchannel_offset,bbands_kchan_squeeze_count,bbands_period,kchannel_period,kchannel_atr_period,max_squeeze_natr,bbands_roc_threshold,bbands_roc_count,bbands_roc_strict)
 del(bbands_kchan_ma_check,bbands_kchan_ma_type,bbands_kchan_ma_ptype,bbands_kchan_ma_period)
 del(stacked_ma_type_primary,stacked_ma_periods_primary,stacked_ma_type,stacked_ma_periods,stacked_ma_type_secondary,stacked_ma_periods_secondary,mesa_sine_period,mesa_sine_type,mesa_sine_strict)
-del(use_natr_resistance,keylevel_use_daily,keylevel_strict,va_check,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr,price_resistance_pct,price_support_pct,resist_pct_dynamic)
+del(keylevel_use_daily,keylevel_strict,va_check,min_intra_natr,max_intra_natr,min_daily_natr,max_daily_natr,price_resistance_pct,price_support_pct,resist_pct_dynamic)
 del(use_bbands_kchannel_5m,use_bbands_kchannel_xover_exit,bbands_kchannel_xover_exit_count,bbands_matype,kchan_matype)
 del(use_ha_exit,use_ha_candles,use_trend_exit,use_trend,trend_period,trend_type,use_combined_exit)
 del(check_etf_indicators,check_etf_indicators_strict,etf_tickers,etf_roc_period,etf_min_rs,etf_min_natr)
 del(trin,tick,roc,sp_monitor,trin_roc_type,trin_roc_period,trin_ma_type,trin_ma_period,trin_oversold,trin_overbought,tick_threshold,tick_ma_type,tick_ma_period)
 del(roc_type,roc_period,roc_ma_type,roc_ma_period,roc_threshold,roc_exit)
-del(sp_monitor_tickers,sp_monitor_threshold,sp_roc_type,sp_roc_period,sp_ma_period)
+del(sp_monitor_tickers,sp_monitor_threshold,sp_roc_type,sp_roc_period,sp_ma_period,sp_monitor_stacked_ma_type,sp_monitor_stacked_ma_periods,sp_monitor_use_trix,sp_monitor_trix_ma_type,sp_monitor_trix_ma_period,sp_monitor_strict)
 del(options,options_usd,near_expiration)
 
 # Set valid tickers for each algo, if configured
@@ -1008,7 +1053,7 @@ for algo in range( len(algos) ):
 
 	# TICK
 	if ( algos[algo]['tick'] == True ):
-		args.stocks = '$TICK,$TICKA,' + str(args.stocks)
+		args.stocks = '$TICK,' + str(args.stocks)
 
 if ( len(sp_tickers) > 0 ):
 	args.stocks = ','.join(sp_tickers) + ',' + str(args.stocks)
@@ -1405,8 +1450,6 @@ try:
 	stocks['$TICK']['isvalid']	= True
 	stocks['$TICK']['tradeable']	= False
 
-	stocks['$TICKA']['isvalid']	= True
-	stocks['$TICKA']['tradeable']	= False
 except:
 	pass
 
@@ -1427,7 +1470,8 @@ nyse_tickers	= []
 for ticker in list(stocks.keys()):
 
 	# Skip ths section if the ticker is an indicator or otherwise not marked as tradeable
-	if ( stocks[ticker]['tradeable'] == False ):
+#	if ( stocks[ticker]['tradeable'] == False ):
+	if ( re.search('^\$', ticker) != None ):
 		continue
 
 	# Invalidate ticker if it is noted in the blacklist file

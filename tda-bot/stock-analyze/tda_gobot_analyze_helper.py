@@ -319,14 +319,20 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	price_resistance_pct		= 1		if ('price_resistance_pct' not in params) else params['price_resistance_pct']
 	price_support_pct		= 1		if ('price_support_pct' not in params) else params['price_support_pct']
 	resist_pct_dynamic		= False		if ('resist_pct_dynamic' not in params) else params['resist_pct_dynamic']
+	use_pdc				= False		if ('use_pdc' not in params) else params['use_pdc']
+	use_vwap			= False		if ('use_vwap' not in params) else params['use_vwap']
 	use_natr_resistance		= False		if ('use_natr_resistance' not in params) else params['use_natr_resistance']
 	use_pivot_resistance		= False		if ('use_pivot_resistance' not in params) else params['use_pivot_resistance']
 	lod_hod_check			= False		if ('lod_hod_check' not in params) else params['lod_hod_check']
 	use_keylevel			= False		if ('use_keylevel' not in params) else params['use_keylevel']
-	use_keylevel			= True		if ( no_use_resistance == False ) else use_keylevel
 	keylevel_strict			= False		if ('keylevel_strict' not in params) else params['keylevel_strict']
 	keylevel_use_daily		= False		if ('keylevel_use_daily' not in params) else params['keylevel_use_daily']
 	va_check			= False		if ('va_check' not in params) else params['va_check']
+
+	# Enable some default resistance indicators
+	use_pdc				= True		if ( no_use_resistance == False ) else use_pdc
+	use_vwap			= True		if ( no_use_resistance == False ) else use_vwap
+	use_keylevel			= True		if ( no_use_resistance == False ) else use_keylevel
 
 	check_etf_indicators		= False		if ('check_etf_indicators' not in params) else params['check_etf_indicators']
 	check_etf_indicators_strict	= False		if ('check_etf_indicators_strict' not in params) else params ['check_etf_indicators_strict']
@@ -378,6 +384,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	sp_roc_type			= 'hlc3'	if ('sp_roc_type' not in params) else params['sp_roc_type']
 	sp_roc_period			= 1		if ('sp_roc_period' not in params) else params['sp_roc_period']
 	sp_ma_period			= 5		if ('sp_ma_period' not in params) else params['sp_ma_period']
+	sp_monitor_stacked_ma_type	= 'vidya'	if ('sp_monitor_stacked_ma_type' not in params) else params['sp_monitor_stacked_ma_type']
+	sp_monitor_stacked_ma_periods	= '13,21'	if ('sp_monitor_stacked_ma_periods' not in params) else params['sp_monitor_stacked_ma_periods']
+	sp_monitor_use_trix		= False		if ('sp_monitor_use_trix' not in params) else params['sp_monitor_use_trix']
+	sp_monitor_trix_ma_type		= 'ema'		if ('sp_monitor_trix_ma_type' not in params) else params['sp_monitor_trix_ma_type']
+	sp_monitor_trix_ma_period	= '8'		if ('sp_monitor_trix_ma_period' not in params) else params['sp_monitor_trix_ma_period']
+	sp_monitor_strict		= False		if ('sp_monitor_strict' not in params) else params['sp_monitor_strict']
 	sp_monitor			= {}		if ('sp_monitor' not in params) else params['sp_monitor']
 
 	with_vix			= False		if ('with_vix' not in params) else params['with_vix']
@@ -612,7 +624,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			return False
 
 	# MFI
-	if ( with_mfi == True ):
+	if ( with_mfi == True or with_mfi_simple == True ):
 		mfi = []
 		try:
 			mfi = tda_algo_helper.get_mfi(pricehistory, period=mfi_period)
@@ -762,7 +774,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				return False
 
 	# MESA sine wave
-	if ( with_mesa_sine == True or primary_stoch_indicator == 'mesa_sine' ):
+	if ( with_mesa_sine == True or primary_stoch_indicator == 'mesa_sine' or use_mesa_sine_exit == True ):
 		sine = []
 		lead = []
 		try:
@@ -878,7 +890,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	# End earnings blacklist
 
 	# Calculate vwap
-	if ( with_vwap == True or no_use_resistance == False ):
+	if ( with_vwap == True or use_vwap == True or no_use_resistance == False ):
 		vwap_vals = OrderedDict()
 		days = OrderedDict()
 
@@ -925,7 +937,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						} )
 
 	# Resistance / Support
-	if ( no_use_resistance == False ):
+	if ( no_use_resistance == False or use_pdc == True or use_natr_resistance == True or lod_hod_check == True ):
 
 		# Find the first day from the 1-min pricehistory. We might need this to warn if the PDC
 		#  is not available within the test timeframe.
@@ -1092,15 +1104,16 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		# If keylevel_use_daily is True then use those daily values as well, but only those that
 		#  have been hit more than once
 		if ( keylevel_use_daily == True ):
+			daily_threshold = 8
 			long_support_full, long_resistance_full = tda_algo_helper.get_keylevels( daily_ph, filter=False )
 
 			kl = dt = count = 0
 			for kl,dt,count in long_support_full:
-				if ( count > 1 and (kl, dt, count) not in long_support ):
+				if ( count >= daily_threshold and (kl, dt, count) not in long_support ):
 					long_support.append( (kl, dt, count) )
 
 			for kl,dt,count in long_resistance_full:
-				if ( count > 1 and (kl, dt, count) not in long_resistance ):
+				if ( count >= daily_threshold and (kl, dt, count) not in long_resistance ):
 					long_resistance.append( (kl, dt, count) )
 
 	# VAH/VAL levels
@@ -1216,21 +1229,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	# $TRIN and $TICK
 	if ( primary_stoch_indicator == 'trin' or with_trin == True or with_tick == True ):
 
-#		import matplotlib.pyplot as plt
-#
-#		last = trin_tick['trin']['pricehistory']['candles'][-700:]
-#		foo = []
-#		for i in range(len(last)):
-#			#foo.append( (last[i]['high'] + last[i]['low'] + last[i]['close']) / 3 )
-#			foo.append( last[i]['close'] )
-#
-#		print( datetime.fromtimestamp(last[-0]['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S') )
-#		print( datetime.fromtimestamp(last[-1]['datetime']/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S') )
-#		plt.plot(foo)
-#		plt.show()
-#		exit()
-
-
 		# Calculate the MA for the rate-of-change, for both $TRIN and $TICK
 		# ROC values need to be squared up with the timestamp so they can be matched properly with
 		#  the datetime value from the current stock's candle.
@@ -1302,14 +1300,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		#   moving averages. This is a pain.
 
 		# $TICK
+		# TDA API does not provide perfectly accurate $TICK data, but hl2 is the only possibly usable variant of this data
 		temp_arr = []
 		for i in range( len(trin_tick['tick']['pricehistory']['candles']) ):
-			tick_hlc3 = (	trin_tick['tick']['pricehistory']['candles'][i]['high'] +
-					trin_tick['tick']['pricehistory']['candles'][i]['low'] +
-					trin_tick['tick']['pricehistory']['candles'][i]['close'] ) / 3
-			temp_arr.append( tick_hlc3 )
+			tick_hl2 = (	trin_tick['tick']['pricehistory']['candles'][i]['high'] +
+					trin_tick['tick']['pricehistory']['candles'][i]['low'] ) / 2
+			temp_arr.append( tick_hl2 )
 
-		temp_arr = tda_algo_helper.normalize_vals( arr_data=temp_arr, min_val=-5000, max_val=5000, min_default=-5000, max_default=5000 )
+		temp_arr = tda_algo_helper.normalize_vals( arr_data=temp_arr, min_val=-2000, max_val=2000, min_default=0, max_default=0 )
 
 		temp_ph = { 'candles': [] }
 		for i in range( len(temp_arr) ):
@@ -1318,14 +1316,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		tmp_tick_ma = tda_algo_helper.get_alt_ma(pricehistory=temp_ph, ma_type=tick_ma_type, type='close', period=tick_ma_period)
 
 		# $TICKA
+		# TDA API does not provide perfectly accurate $TICKA data, but hl2 is the only possibly usable variant of this data
 		temp_arr = []
 		for i in range( len(trin_tick['ticka']['pricehistory']['candles']) ):
-			tick_hlc3 = (	trin_tick['ticka']['pricehistory']['candles'][i]['high'] +
-					trin_tick['ticka']['pricehistory']['candles'][i]['low'] +
-					trin_tick['ticka']['pricehistory']['candles'][i]['close'] ) / 3
-			temp_arr.append( tick_hlc3 )
+			tick_hl2 = (	trin_tick['ticka']['pricehistory']['candles'][i]['high'] +
+					trin_tick['ticka']['pricehistory']['candles'][i]['low'] ) / 2
+			temp_arr.append( tick_hl2 )
 
-		temp_arr = tda_algo_helper.normalize_vals( arr_data=temp_arr, min_val=-5000, max_val=5000, min_default=-5000, max_default=5000 )
+		temp_arr = tda_algo_helper.normalize_vals( arr_data=temp_arr, min_val=-2000, max_val=2000, min_default=0, max_default=0 )
 
 		temp_ph = { 'candles': [] }
 		for i in range( len(temp_arr) ):
@@ -1442,7 +1440,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		# At this point datetime keys have been added by various tickers, but since different tickers will have varying
 		#  number of candles, we'll need to sort and re-create roc_total{}.
 		roc_t = OrderedDict()
-		for i in sorted(roc_total):
+		for i in sorted( roc_total ):
 			roc_t[i] = roc_total[i]
 		roc_total = roc_t
 
@@ -1470,15 +1468,31 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		tmp_ph = { 'candles': [] }
 		sp_monitor_roc_ma = []
 		for dt in roc_total:
-			tmp_ph['candles'].append( { 'close': roc_total[dt] } )
+			tmp_ph['candles'].append( { 'high': roc_total[dt], 'low': roc_total[dt], 'close': roc_total[dt] } )
 
 		sp_monitor_roc_ma = tda_algo_helper.get_alt_ma(pricehistory=tmp_ph, ma_type='ema', period=sp_ma_period, type='close')
+
+		#tmp_ph = { 'candles': [] }
+		#for i in range(len(sp_monitor_roc_ma)):
+		#	tmp_ph['candles'].append( { 'high': sp_monitor_roc_ma[i], 'low': sp_monitor_roc_ma[i], 'close': sp_monitor_roc_ma[i] } )
+		if ( sp_monitor_use_trix == True ):
+			sp_monitor_trix, sp_monitor_trix_signal	= tda_algo_helper.get_trix_altma( pricehistory=tmp_ph, ma_type=sp_monitor_trix_ma_type, period=sp_monitor_trix_ma_period,
+													type='close', signal_ma='ema', signal_period=3, skip_log=True )
+		else:
+			sp_monitor_stacked_ma			= get_stackedma( tmp_ph, sp_monitor_stacked_ma_periods, sp_monitor_stacked_ma_type )
 
 		# Finally, each element in roc_ma needs to be separated by timestamp. roc_ma[] will have the same length
 		#  as the source data, so we can just iterate over roc_total.keys() and separate each moving average value
 		#  based on its timestamp.
 		for idx,dt in enumerate( roc_total ):
-			sp_monitor['roc_ma'][dt] = sp_monitor_roc_ma[idx]
+			sp_monitor['roc_ma'][dt]		= sp_monitor_roc_ma[idx]
+
+			if ( sp_monitor_use_trix == True ):
+				sp_monitor['trix'][dt]		= sp_monitor_trix[idx]
+				sp_monitor['trix_signal'][dt]	= sp_monitor_trix_signal[idx]
+
+			else:
+				sp_monitor['stacked_ma'][dt]	= sp_monitor_stacked_ma[idx]
 
 		del(roc_total, roc_t)
 
@@ -1588,7 +1602,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	if ( with_rsi == True or with_rsi_simple == True ):
 		rsi_idx = len(pricehistory['candles']) - len(rsi)
 
-	if ( with_mfi == True ):
+	if ( with_mfi == True or with_mfi_simple == True ):
 		mfi_idx = len(pricehistory['candles']) - len(mfi)
 
 	if ( with_aroonosc == True or with_aroonosc_simple == True ):
@@ -2437,11 +2451,30 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 		if ( with_sp_monitor == True or primary_stoch_indicator == 'sp_monitor' ):
 			try:
-				cur_sp_monitor	= sp_monitor['roc_ma'][cur_dt]
-				prev_sp_monitor	= sp_monitor['roc_ma'][prev_dt]
+				cur_sp_monitor			= sp_monitor['roc_ma'][cur_dt]
+				prev_sp_monitor			= sp_monitor['roc_ma'][prev_dt]
+
+				if ( sp_monitor_use_trix == True ):
+					cur_sp_monitor_trix		= sp_monitor['trix'][cur_dt]
+					prev_sp_monitor_trix		= sp_monitor['trix'][prev_dt]
+
+					cur_sp_monitor_trix_signal	= sp_monitor['trix_signal'][cur_dt]
+					prev_sp_monitor_trix_signal	= sp_monitor['trix_signal'][prev_dt]
+
+				else:
+					cur_sp_monitor_stacked_ma	= sp_monitor['stacked_ma'][cur_dt]
+
 			except:
-				cur_sp_monitor	= 0
-				prev_sp_monitor	= 0
+				cur_sp_monitor			= 0
+				prev_sp_monitor			= 0
+
+				cur_sp_monitor_trix		= 0
+				prev_sp_monitor_trix		= 0
+
+				cur_sp_monitor_trix_signal	= 0
+				prev_sp_monitor_trix_signal	= 0
+
+				cur_sp_monitor_stacked_ma	= (0,0,0)
 
 		if ( with_vix == True ):
 			try:
@@ -2468,7 +2501,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			cur_rsi			= rsi[idx - rsi_idx]
 			prev_rsi		= rsi[idx - rsi_idx - 1]
 
-		if ( with_mfi == True ):
+		if ( with_mfi == True or with_mfi_simple == True ):
 			cur_mfi			= mfi[idx - mfi_idx]
 			prev_mfi		= mfi[idx - mfi_idx - 1]
 
@@ -2780,6 +2813,25 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# ETF SP primary indicator
 			elif ( primary_stoch_indicator == 'sp_monitor' ):
+
+				# Use either stacked_ma or trix to help verify sp_monitor direction
+				sp_monitor_bull = sp_monitor_bear = False
+				if ( sp_monitor_use_trix == True ):
+#					if ( cur_sp_monitor_trix > prev_sp_monitor_trix and cur_sp_monitor_trix > cur_sp_monitor_trix_signal and cur_sp_monitor_trix > 0 ):
+					if ( cur_sp_monitor_trix > prev_sp_monitor_trix and cur_sp_monitor_trix > cur_sp_monitor_trix_signal ):
+						sp_monitor_bull = True
+						sp_monitor_bear = False
+
+#					elif ( cur_sp_monitor_trix < prev_sp_monitor_trix and cur_sp_monitor_trix < cur_sp_monitor_trix_signal and cur_sp_monitor_trix < 0 ):
+					elif ( cur_sp_monitor_trix < prev_sp_monitor_trix and cur_sp_monitor_trix < cur_sp_monitor_trix_signal ):
+						sp_monitor_bull = False
+						sp_monitor_bear = True
+
+				else:
+					sp_monitor_bear	= check_stacked_ma(cur_sp_monitor_stacked_ma, 'bear')
+					sp_monitor_bull	= check_stacked_ma(cur_sp_monitor_stacked_ma, 'bull')
+
+				# Jump to short mode if sp_monitor is negativ
 				if ( cur_sp_monitor < 0 ):
 					reset_signals()
 					signal_mode['primary'] = 'short'
@@ -2787,17 +2839,24 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					if ( cur_sp_monitor <= -1.5 ):
 						sp_monitor_init_signal = True
 
-					if ( cur_sp_monitor <= -sp_monitor_threshold ):
+					if ( cur_sp_monitor <= -sp_monitor_threshold and sp_monitor_bull == False ):
 						short_signal = True
 
 					continue
 
-				elif ( cur_sp_monitor > 1.5 and cur_sp_monitor < sp_monitor_threshold ):
+				elif ( cur_sp_monitor >= 1.5 and cur_sp_monitor < sp_monitor_threshold ):
 					sp_monitor_init_signal = True
 
 				elif ( cur_sp_monitor >= sp_monitor_threshold and sp_monitor_init_signal == True ):
-					sp_monitor_init_signal	= False
-					buy_signal		= True
+					if ( (sp_monitor_strict == True and sp_monitor_bull == True) or sp_monitor_strict == False ):
+						sp_monitor_init_signal	= False
+						buy_signal		= True
+
+				# Reset signals if sp_monitor starts to fade
+				elif ( cur_sp_monitor < sp_monitor_threshold or sp_monitor_bear == True ):
+					buy_signal = False
+					if ( cur_sp_monitor < 1.5 ):
+						sp_monitor_init_signal = False
 
 				else:
 					sp_monitor_init_signal	= False
@@ -2853,10 +2912,44 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# ETF SP indicator
 			if ( with_sp_monitor == True ):
+
+				# Use either stacked_ma or trix to help verify sp_monitor direction
+				sp_monitor_bull = sp_monitor_bear = False
+				if ( sp_monitor_use_trix == True ):
+					if ( cur_sp_monitor_trix > prev_sp_monitor_trix and cur_sp_monitor_trix > cur_sp_monitor_trix_signal ):
+						sp_monitor_bull = True
+						sp_monitor_bear = False
+
+					elif ( cur_sp_monitor_trix < prev_sp_monitor_trix and cur_sp_monitor_trix < cur_sp_monitor_trix_signal ):
+						sp_monitor_bull = False
+						sp_monitor_bear = True
+
+				else:
+					sp_monitor_bear	= check_stacked_ma(cur_sp_monitor_stacked_ma, 'bear')
+					sp_monitor_bull	= check_stacked_ma(cur_sp_monitor_stacked_ma, 'bull')
+
 				if ( cur_sp_monitor < 0 ):
+					sp_monitor_init_signal	= False
+					sp_monitor_signal	= True
+
+				elif ( cur_sp_monitor >= 1.5 and cur_sp_monitor < sp_monitor_threshold ):
+					sp_monitor_init_signal = True
+
+				elif ( cur_sp_monitor >= sp_monitor_threshold and sp_monitor_init_signal == True ):
+					if ( (sp_monitor_strict == True and sp_monitor_bull == True) or
+							(sp_monitor_strict == False and sp_monitor_bear == False) ):
+						sp_monitor_init_signal	= False
+						sp_monitor_signal	= True
+
+				# Reset signals if sp_monitor starts to fade
+				elif ( cur_sp_monitor < sp_monitor_threshold or sp_monitor_bear == True ):
 					sp_monitor_signal = False
-				elif ( cur_sp_monitor > 0 and cur_sp_monitor >= 2 ):
-					sp_monitor_signal = True
+					if ( cur_sp_monitor < 1.5 ):
+						sp_monitor_init_signal = False
+
+				else:
+					sp_monitor_init_signal	= False
+					sp_monitor_signal	= False
 
 			# VIX stacked MA
 			# The SP 500 and the VIX often show inverse price action - when the S&P falls sharply, the VIX rises—and vice-versa
@@ -3131,12 +3224,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						supertrend[idx] < float(pricehistory['candles'][idx]['close']) ):
 						supertrend_signal = True
 
-			# Resistance Levels
-			resistance_signal = True
-			if ( no_use_resistance == False and buy_signal == True ):
-				today = date.strftime('%Y-%m-%d')
 
-				# PDC
+			# SUPPORT / RESISTANCE LEVELS
+			resistance_signal = True
+			today = date.strftime('%Y-%m-%d')
+
+			# PDC
+			if ( use_pdc == True and buy_signal == True and resistance_signal == True ):
 				prev_day_close = -1
 				if ( today in day_stats ):
 					prev_day_close = day_stats[today]['pdc']
@@ -3157,157 +3251,136 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						if ( avg < prev_day_close ):
 							resistance_signal = False
 
-				# NATR resistance
-				if ( use_natr_resistance == True ):
-					if ( cur_close > prev_day_close ):
-						natr_mod = 1
-						if ( cur_natr_daily >= 8 ):
-							natr_mod = 2
+			# NATR resistance
+			if ( use_natr_resistance == True and buy_signal == True and resistance_signal == True ):
+				prev_day_close = -1
+				if ( today in day_stats ):
+					prev_day_close = day_stats[today]['pdc']
 
-						natr_resistance = ((cur_natr_daily / natr_mod) / 100 + 1) * prev_day_close
-						if ( cur_close > natr_resistance and buy_signal == True ):
-							if ( primary_stoch_indicator == 'stochrsi' or primary_stoch_indicator == 'stochmfi' ):
-								if ( cur_rsi_k > cur_rsi_d and cur_rsi_k - cur_rsi_d < 12 ):
-									resistance_signal = False
-							else:
+				if ( cur_close > prev_day_close ):
+					natr_mod = 1
+					if ( cur_natr_daily >= 8 ):
+						natr_mod = 2
+
+					natr_resistance = ((cur_natr_daily / natr_mod) / 100 + 1) * prev_day_close
+					if ( cur_close > natr_resistance and buy_signal == True ):
+						if ( primary_stoch_indicator == 'stochrsi' or primary_stoch_indicator == 'stochmfi' ):
+							if ( cur_rsi_k > cur_rsi_d and cur_rsi_k - cur_rsi_d < 12 ):
 								resistance_signal = False
-
-						if ( abs((cur_close / natr_resistance - 1) * 100) <= price_resistance_pct and buy_signal == True ):
-							if ( primary_stoch_indicator == 'stochrsi' or primary_stoch_indicator == 'stochmfi' ):
-								if ( cur_rsi_k > cur_rsi_d and cur_rsi_k - cur_rsi_d < 10 ):
-									resistance_signal = False
-							else:
-								resistance_signal = False
-
-				# VWAP
-				if ( resistance_signal == True ):
-					cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
-					if ( abs((cur_vwap / cur_close - 1) * 100) <= price_resistance_pct ):
-
-						# Current price is very close to VWAP
-						# Next check average of last 15 (1-minute) candles
-						avg = 0
-						for i in range(15, 0, -1):
-							avg += float( pricehistory['candles'][idx-i]['close'] )
-						avg = avg / 15
-
-						# If average was below VWAP then VWAP is resistance
-						# If average was above VWAP then VWAP is support
-						if ( avg < cur_vwap ):
+						else:
 							resistance_signal = False
 
-				# High of the day (HOD)
-				# Skip this check for the first few hours of the day. The reason for this is
-				#  the first hours of trading can create small hod/lods, but they often won't
-				#  persist. Also, we are more concerned about the slow, low volume creeps toward
-				#  HOD/LOD that are often permanent for the day.
-				if ( resistance_signal == True and lod_hod_check == True ):
+					if ( abs((cur_close / natr_resistance - 1) * 100) <= price_resistance_pct and buy_signal == True ):
+						if ( primary_stoch_indicator == 'stochrsi' or primary_stoch_indicator == 'stochmfi' ):
+							if ( cur_rsi_k > cur_rsi_d and cur_rsi_k - cur_rsi_d < 10 ):
+								resistance_signal = False
+						else:
+							resistance_signal = False
 
-					# Check for current-day HOD after 1PM Eastern
-					cur_hour = int( date.strftime('%-H') )
-					if ( cur_hour >= 13 ):
+			# VWAP
+			if ( use_vwap == True and buy_signal == True and resistance_signal == True ):
+				cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
+				if ( abs((cur_vwap / cur_close - 1) * 100) <= price_resistance_pct ):
 
-						cur_day_start	= datetime.strptime(today + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
-						cur_day_start	= mytimezone.localize(cur_day_start)
+					# Current price is very close to VWAP
+					# Next check average of last 15 (1-minute) candles
+					avg = 0
+					for i in range(15, 0, -1):
+						avg += float( pricehistory['candles'][idx-i]['close'] )
+					avg = avg / 15
 
-						delta = date - cur_day_start
-						delta = int( delta.total_seconds() / 60 )
+					# If average was below VWAP then VWAP is resistance
+					# If average was above VWAP then VWAP is support
+					if ( avg < cur_vwap ):
+						resistance_signal = False
 
-						# Find HOD
-						hod = 0
-						for i in range (delta, 0, -1):
-							if ( float(pricehistory['candles'][idx-i]['close']) > hod ):
-								hod = float( pricehistory['candles'][idx-i]['close'] )
+			# High of the day (HOD)
+			# Skip this check for the first few hours of the day. The reason for this is
+			#  the first hours of trading can create small hod/lods, but they often won't
+			#  persist. Also, we are more concerned about the slow, low volume creeps toward
+			#  HOD/LOD that are often permanent for the day.
+			if ( lod_hod_check == True and buy_signal == True and resistance_signal == True ):
 
-						# If the stock has already hit a high of the day, the next rise will likely be
-						#  below HOD. If we are below HOD and less than price_resistance_pct from it
-						#  then we should not enter the trade.
-						if ( cur_close < hod ):
-							if ( abs((cur_close / hod - 1) * 100) <= price_resistance_pct ):
+				# Check for current-day HOD after 1PM Eastern
+				cur_hour = int( date.strftime('%-H') )
+				if ( cur_hour >= 13 ):
+
+					cur_day_start	= datetime.strptime(today + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
+					cur_day_start	= mytimezone.localize(cur_day_start)
+
+					delta = date - cur_day_start
+					delta = int( delta.total_seconds() / 60 )
+
+					# Find HOD
+					hod = 0
+					for i in range (delta, 0, -1):
+						if ( float(pricehistory['candles'][idx-i]['close']) > hod ):
+							hod = float( pricehistory['candles'][idx-i]['close'] )
+
+					# If the stock has already hit a high of the day, the next rise will likely be
+					#  below HOD. If we are below HOD and less than price_resistance_pct from it
+					#  then we should not enter the trade.
+					if ( cur_close < hod ):
+						if ( abs((cur_close / hod - 1) * 100) <= price_resistance_pct ):
+							resistance_signal = False
+
+				# If stock opened below PDH, then those can become additional resistance lines for long entry,
+				# typically later in the day when volume decreases
+				if ( today in day_stats ):
+					if ( cur_hour >= 12 and day_stats[today]['open_idx'] != None ):
+						if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] < day_stats[today]['pdh'] ):
+
+							# Check PDH/PDL resistance
+							avg = 0
+							for i in range(15, 0, -1):
+								avg += float( pricehistory['candles'][idx-i]['close'] )
+								avg = avg / 15
+
+							if ( avg < day_stats[today]['pdh'] and abs((cur_close / day_stats[today]['pdh'] - 1) * 100) <= price_resistance_pct ):
 								resistance_signal = False
 
+					# If stock has been sinking for a couple days, then oftentimes the 2-day previous day high will be long resistance,
+					#  but also check pdh2_touch and pdh2_xover. If price has touched PDH2 multiple times and not crossed over more than
+					#  1% then it's stronger resistance.
+					if ( day_stats[today]['pdh'] < day_stats[today]['pdh2'] and day_stats[today]['pdc'] < day_stats[today]['pdh2'] and
+						(day_stats[today]['open_idx'] != None and pricehistory['candles'][day_stats[today]['open_idx']]['open'] < day_stats[today]['pdh2']) ):
 
-					# If stock opened below PDH, then those can become additional resistance lines for long entry,
-					# typically later in the day when volume decreases
-					if ( today in day_stats ):
-						if ( cur_hour >= 12 and day_stats[today]['open_idx'] != None ):
-							if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] < day_stats[today]['pdh'] ):
+						if ( resistance_signal == True and
+							abs((cur_high / day_stats[today]['pdh2'] - 1) * 100) <= price_resistance_pct ):
 
-								# Check PDH/PDL resistance
-								avg = 0
-								for i in range(15, 0, -1):
-									avg += float( pricehistory['candles'][idx-i]['close'] )
-									avg = avg / 15
+							# Count the number of times over the last two days where the price has touched
+							#  PDH/PDL and failed to break through
+							#
+							# Walk through the 1-min candles for the previous two-days, but be sure to take
+							#  into account after-hours trading two-days prior as PDH2/PDL2 is only calculate
+							#  using the daily candles (which use standard open hours only)
+							twoday_dt		= date - timedelta(days=2)
+							twoday_dt		= tda_gobot_helper.fix_timestamp(twoday_dt, check_day_only=True)
+							twoday			= twoday_dt.strftime('%Y-%m-%d')
 
-								if ( avg < day_stats[today]['pdh'] and abs((cur_close / day_stats[today]['pdh'] - 1) * 100) <= price_resistance_pct ):
-									resistance_signal = False
+							yesterday_timestamp	= datetime.strptime(twoday + ' 16:00:00', '%Y-%m-%d %H:%M:%S')
+							yesterday_timestamp	= mytimezone.localize(yesterday_timestamp).timestamp() * 1000
 
-						# If stock has been sinking for a couple days, then oftentimes the 2-day previous day high will be long resistance,
-						#  but also check pdh2_touch and pdh2_xover. If price has touched PDH2 multiple times and not crossed over more than
-						#  1% then it's stronger resistance.
-						if ( day_stats[today]['pdh'] < day_stats[today]['pdh2'] and day_stats[today]['pdc'] < day_stats[today]['pdh2'] and
-							(day_stats[today]['open_idx'] != None and pricehistory['candles'][day_stats[today]['open_idx']]['open'] < day_stats[today]['pdh2']) ):
+							pdh2_touch		= 0
+							pdh2_xover		= 0
+							for m_key in pricehistory['candles']:
+								if ( m_key['datetime'] < yesterday_timestamp ):
+									continue
+								elif ( m_key['datetime'] > pricehistory['candles'][idx]['datetime'] ):
+									break
 
-							if ( resistance_signal == True and
-								abs((cur_high / day_stats[today]['pdh2'] - 1) * 100) <= price_resistance_pct ):
+								if ( m_key['high'] >= day_stats[today]['pdh2'] ):
+									pdh2_touch += 1
 
-								# Count the number of times over the last two days where the price has touched
-								#  PDH/PDL and failed to break through
-								#
-								# Walk through the 1-min candles for the previous two-days, but be sure to take
-								#  into account after-hours trading two-days prior as PDH2/PDL2 is only calculate
-								#  using the daily candles (which use standard open hours only)
-								twoday_dt		= date - timedelta(days=2)
-								twoday_dt		= tda_gobot_helper.fix_timestamp(twoday_dt, check_day_only=True)
-								twoday			= twoday_dt.strftime('%Y-%m-%d')
+									# Price crossed over PDH2, check if it exceeded that level by > 1%
+									if ( m_key['high'] > day_stats[today]['pdh2'] ):
+										if ( abs(day_stats[today]['pdh2'] / m_key['high'] - 1) * 100 > 1 ):
+											pdh2_xover += 1
 
-								yesterday_timestamp	= datetime.strptime(twoday + ' 16:00:00', '%Y-%m-%d %H:%M:%S')
-								yesterday_timestamp	= mytimezone.localize(yesterday_timestamp).timestamp() * 1000
+							if ( pdh2_touch > 0 and pdh2_xover < 1 ):
+								resistance_signal = False
 
-								pdh2_touch		= 0
-								pdh2_xover		= 0
-								for m_key in pricehistory['candles']:
-									if ( m_key['datetime'] < yesterday_timestamp ):
-										continue
-									elif ( m_key['datetime'] > pricehistory['candles'][idx]['datetime'] ):
-										break
-
-									if ( m_key['high'] >= day_stats[today]['pdh2'] ):
-										pdh2_touch += 1
-
-										# Price crossed over PDH2, check if it exceeded that level by > 1%
-										if ( m_key['high'] > day_stats[today]['pdh2'] ):
-											if ( abs(day_stats[today]['pdh2'] / m_key['high'] - 1) * 100 > 1 ):
-												pdh2_xover += 1
-
-								if ( pdh2_touch > 0 and pdh2_xover < 1 ):
-									resistance_signal = False
-
-				# END HOD/LOD/PDH/PDL Check
-
-#				# Pivot points resistance
-#				if ( use_pivot_resistance == True and resistance_signal == True and today in day_stats ):
-#					if ( day_stats[today]['open_idx'] != None ):
-#						if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] < day_stats[today]['pivot'] ):
-#						if ( abs((cur_close / day_stats[today]['pivot'] - 1) * 100) <= price_resistance_pct ):
-#							resistance_signal = False
-#
-#					# Pivot point R1/R2 are resistance
-#					if ( abs((cur_close / day_stats[today]['pivot_r1'] - 1) * 100) <= price_resistance_pct or
-#							abs((cur_close / day_stats[today]['pivot_r2'] - 1) * 100) <= price_resistance_pct):
-#						resistance_signal = False
-
-
-				# 20-week high
-#				purchase_price = float(pricehistory['candles'][idx]['close'])
-#				if ( purchase_price >= twenty_week_high ):
-#					# This is not a good bet
-#					twenty_week_high = float(purchase_price)
-#					resistance_signal = False
-#
-#				elif ( ( abs(float(purchase_price) / float(twenty_week_high) - 1) * 100 ) < price_resistance_pct ):
-#					# Current high is within price_resistance_pct of 20-week high, not a good bet
-#					resistance_signal = False
+			# END HOD/LOD/PDH/PDL Check
 
 			# Key Levels
 			# Check if price is near historic key level
@@ -3351,42 +3424,69 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# VAH/VAL Check
 			if ( va_check == True and buy_signal == True and resistance_signal == True ):
-				cur_day = date.strftime('%Y-%m-%d')
-
 				try:
-					prev_day = mprofile[cur_day]['prev_day']
+					prev_day = mprofile[today]['prev_day']
 
 				except Exception as e:
 					print('Caught Exception: "prev_day" value does not exist in mprofile[' + str(cur_day) + ']')
 					sys.exit(1)
 
+				cur_vah = cur_val = 0
+				if ( int(date.strftime('%-H')) > 10 ):
+					cur_vah = mprofile[today]['vah']
+					cur_val = mprofile[today]['vah']
+
+				prev_vah = prev_val = 0
 				if ( prev_day in mprofile ):
-					vah = mprofile[prev_day]['vah']
-					val = mprofile[prev_day]['val']
-
-					for lvl in [vah,val]:
-						if ( abs((lvl / cur_close - 1) * 100) <= price_support_pct ):
-
-							# Current price is very close to a vah/val
-							# Next check average of last 15 (1-minute) candles
-							#
-							# If last 15 candles average above key level, then key level is support
-							# otherwise it is resistance
-							avg = 0
-							for i in range(15, 0, -1):
-								avg += float( pricehistory['candles'][idx-i]['close'] )
-							avg = avg / 15
-
-							# If average was below key level then key level is resistance
-							# Therefore this is not a great buy
-							if ( avg < lvl ):
-								resistance_signal = False
-								break
-
+					prev_vah = mprofile[prev_day]['vah']
+					prev_val = mprofile[prev_day]['val']
 				else:
 					print('Warning: market_profile(): ' + str(prev_day) + ' not in mprofile, skipping check')
 
+				for lvl in [prev_vah,prev_val,cur_vah,cur_val]:
+					if ( abs((lvl / cur_close - 1) * 100) <= price_support_pct ):
+
+						# Current price is very close to a vah/val
+						# Next check average of last 15 (1-minute) candles
+						#
+						# If last 15 candles average above key level, then key level is support
+						# otherwise it is resistance
+						avg = 0
+						for i in range(15, 0, -1):
+							avg += float( pricehistory['candles'][idx-i]['close'] )
+						avg = avg / 15
+
+						# If average was below key level then key level is resistance
+						# Therefore this is not a great buy
+						if ( avg < lvl ):
+							resistance_signal = False
+							break
+
 			# End VAH/VAL Check
+
+#			# Pivot points resistance
+#			if ( use_pivot_resistance == True and resistance_signal == True and today in day_stats ):
+#				if ( day_stats[today]['open_idx'] != None ):
+#					if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] < day_stats[today]['pivot'] ):
+#					if ( abs((cur_close / day_stats[today]['pivot'] - 1) * 100) <= price_resistance_pct ):
+#						resistance_signal = False
+#
+#				# Pivot point R1/R2 are resistance
+#				if ( abs((cur_close / day_stats[today]['pivot_r1'] - 1) * 100) <= price_resistance_pct or
+#						abs((cur_close / day_stats[today]['pivot_r2'] - 1) * 100) <= price_resistance_pct):
+#					resistance_signal = False
+
+			# 20-week high
+#			purchase_price = float(pricehistory['candles'][idx]['close'])
+#			if ( purchase_price >= twenty_week_high ):
+#				# This is not a good bet
+#				twenty_week_high = float(purchase_price)
+#				resistance_signal = False
+#
+#			elif ( ( abs(float(purchase_price) / float(twenty_week_high) - 1) * 100 ) < price_resistance_pct ):
+#				# Current high is within price_resistance_pct of 20-week high, not a good bet
+#				resistance_signal = False
+
 
 			# Relative Strength vs. an ETF indicator (i.e. SPY)
 			if ( check_etf_indicators == True ):
@@ -3563,7 +3663,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( with_vix == True and vix_signal != True ):
 					final_buy_signal = False
 
-				if ( with_mfi == True and mfi_signal != True ):
+				if ( (with_mfi == True or with_mfi_simple == True) and mfi_signal != True ):
 					final_buy_signal = False
 
 				if ( with_adx == True and adx_signal != True ):
@@ -3705,7 +3805,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						str(cur_mfi_k) + '/' + str(cur_mfi_d) + ',' +
 						str(round(cur_natr,3)) + ',' + str(round(cur_natr_daily,2)) + ',' +
 						str(round(bbands_natr['natr'], 3)) + ',' + str(round(bbands_natr['squeeze_natr'], 3)) + ',' +
-						str(tmp_roc) + ',' + str(round(cur_rs, 3)) + ',' +
+						str(round(cur_sp_monitor, 3)) + ',' + str(round(cur_rs, 3)) + ',' +
 						str(round(cur_adx,2)) + ',' + str(purchase_time) )
 
 				reset_signals( exclude_bbands_kchan=True )
@@ -4379,8 +4479,27 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( trin_init_signal == True and trin_signal == True ):
 					short_signal = True
 
-			# ETF SP indicator
+			# ETF SP primary indicator
 			elif ( primary_stoch_indicator == 'sp_monitor' ):
+
+				# Use either stacked_ma or trix to help verify sp_monitor direction
+				sp_monitor_bull = sp_monitor_bear = False
+				if ( sp_monitor_use_trix == True ):
+#					if ( cur_sp_monitor_trix > prev_sp_monitor_trix and cur_sp_monitor_trix > cur_sp_monitor_trix_signal and cur_sp_monitor_trix > 0 ):
+					if ( cur_sp_monitor_trix > prev_sp_monitor_trix and cur_sp_monitor_trix > cur_sp_monitor_trix_signal ):
+						sp_monitor_bull = True
+						sp_monitor_bear = False
+
+#					elif ( cur_sp_monitor_trix < prev_sp_monitor_trix and cur_sp_monitor_trix < cur_sp_monitor_trix_signal and cur_sp_monitor_trix < 0 ):
+					elif ( cur_sp_monitor_trix < prev_sp_monitor_trix and cur_sp_monitor_trix < cur_sp_monitor_trix_signal ):
+						sp_monitor_bull = False
+						sp_monitor_bear = True
+
+				else:
+					sp_monitor_bear	= check_stacked_ma(cur_sp_monitor_stacked_ma, 'bear')
+					sp_monitor_bull	= check_stacked_ma(cur_sp_monitor_stacked_ma, 'bull')
+
+				# Jump to long mode if sp_monitor is positive
 				if ( cur_sp_monitor > 0 ):
 					reset_signals()
 					signal_mode['primary'] = 'long'
@@ -4388,17 +4507,24 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					if ( cur_sp_monitor >= 1.5 ):
 						sp_monitor_init_signal = True
 
-					if ( cur_sp_monitor >= sp_monitor_threshold ):
+					if ( cur_sp_monitor >= sp_monitor_threshold and sp_monitor_bear == False ):
 						buy_signal = True
 
 					continue
 
-				elif ( cur_sp_monitor < -1.5 and cur_sp_monitor > -sp_monitor_threshold ):
+				elif ( cur_sp_monitor <= -1.5 and cur_sp_monitor > -sp_monitor_threshold ):
 					sp_monitor_init_signal = True
 
 				elif ( cur_sp_monitor <= -sp_monitor_threshold and sp_monitor_init_signal == True ):
-					sp_monitor_init_signal	= False
-					short_signal		= True
+					if ( (sp_monitor_strict == True and sp_monitor_bear == True) or sp_monitor_strict == False ):
+						sp_monitor_init_signal	= False
+						short_signal		= True
+
+				# Reset signals if sp_monitor starts to fade
+				elif ( cur_sp_monitor > -sp_monitor_threshold or sp_monitor_bull == True ):
+					short_signal = False
+					if ( cur_sp_monitor > -1.5 ):
+						sp_monitor_init_signal = False
 
 				else:
 					sp_monitor_init_signal	= False
@@ -4454,10 +4580,44 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# ETF SP indicator
 			if ( with_sp_monitor == True ):
+
+				# Use either stacked_ma or trix to help verify sp_monitor direction
+				sp_monitor_bull = sp_monitor_bear = False
+				if ( sp_monitor_use_trix == True ):
+					if ( cur_sp_monitor_trix > prev_sp_monitor_trix and cur_sp_monitor_trix > cur_sp_monitor_trix_signal ):
+						sp_monitor_bull = True
+						sp_monitor_bear = False
+
+					elif ( cur_sp_monitor_trix < prev_sp_monitor_trix and cur_sp_monitor_trix < cur_sp_monitor_trix_signal ):
+						sp_monitor_bull = False
+						sp_monitor_bear = True
+
+				else:
+					sp_monitor_bear	= check_stacked_ma(cur_sp_monitor_stacked_ma, 'bear')
+					sp_monitor_bull	= check_stacked_ma(cur_sp_monitor_stacked_ma, 'bull')
+
 				if ( cur_sp_monitor > 0 ):
+					sp_monitor_init_signal	= False
+					sp_monitor_signal	= False
+
+				elif ( cur_sp_monitor <= -1.5 and cur_sp_monitor > -sp_monitor_threshold ):
+					sp_monitor_init_signal = True
+
+				elif ( cur_sp_monitor <= -sp_monitor_threshold and sp_monitor_init_signal == True ):
+					if ( (sp_monitor_strict == True and sp_monitor_bear == True) or
+							(sp_monitor_strict == False and sp_monitor_bull == False) ):
+						sp_monitor_init_signal	= False
+						sp_monitor_signal	= True
+
+				# Reset signals if sp_monitor starts to fade
+				elif ( cur_sp_monitor > -sp_monitor_threshold or sp_monitor_bull == True ):
 					sp_monitor_signal = False
-				elif ( cur_sp_monitor < 0 and cur_sp_monitor <= -2 ):
-					sp_monitor_signal = True
+					if ( cur_sp_monitor > -1.5 ):
+						sp_monitor_init_signal = False
+
+				else:
+					sp_monitor_init_signal	= False
+					sp_monitor_signal	= False
 
 			# VIX stacked MA
 			# The SP 500 and the VIX often show inverse price action - when the S&P falls sharply, the VIX rises—and vice-versa
@@ -4721,12 +4881,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						supertrend[idx] < float(pricehistory['candles'][idx]['close']) ):
 						supertrend_signal = False
 
-			# Resistance
-			resistance_signal = True
-			if ( no_use_resistance == False and short_signal == True ):
-				today = datetime.fromtimestamp(float(key['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d')
 
-				# PDC
+			# SUPPORT / RESISTANCE LEVELS
+			resistance_signal = True
+			today = date.strftime('%Y-%m-%d')
+
+			# PDC
+			if ( use_pdc == True and short_signal == True and resistance_signal == True ):
 				prev_day_close = -1
 				if ( today in day_stats ):
 					prev_day_close = day_stats[today]['pdc']
@@ -4747,157 +4908,138 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						if ( avg > prev_day_close ):
 							resistance_signal = False
 
-				# NATR resistance
-				if ( use_natr_resistance == True ):
-					if ( cur_close < prev_day_close ):
-						natr_mod = 1
-						if ( cur_natr_daily > 8 ):
-							natr_mod = 2
+			# NATR resistance
+			if ( use_natr_resistance == True and short_signal == True and resistance_signal == True ):
+				prev_day_close = -1
+				if ( today in day_stats ):
+					prev_day_close = day_stats[today]['pdc']
 
-						natr_resistance = ((cur_natr_daily / natr_mod) / 100 + 1) * prev_day_close - prev_day_close
-						natr_resistance = prev_day_close - natr_resistance
+				if ( cur_close < prev_day_close ):
+					natr_mod = 1
+					if ( cur_natr_daily > 8 ):
+						natr_mod = 2
 
-						if ( cur_close < natr_resistance and short_signal == True ):
-							if ( primary_stoch_indicator == 'stochrsi' or primary_stoch_indicator == 'stochmfi' ):
-								if ( cur_rsi_k < cur_rsi_d and cur_rsi_d - cur_rsi_k < 12 ):
-									resistance_signal = False
-							else:
+					natr_resistance = ((cur_natr_daily / natr_mod) / 100 + 1) * prev_day_close - prev_day_close
+					natr_resistance = prev_day_close - natr_resistance
+					if ( cur_close < natr_resistance and short_signal == True ):
+						if ( primary_stoch_indicator == 'stochrsi' or primary_stoch_indicator == 'stochmfi' ):
+							if ( cur_rsi_k < cur_rsi_d and cur_rsi_d - cur_rsi_k < 12 ):
 								resistance_signal = False
-
-						if ( abs((cur_close / natr_resistance - 1) * 100) <= price_resistance_pct and short_signal == True ):
-							if ( primary_stoch_indicator == 'stochrsi' or primary_stoch_indicator == 'stochmfi' ):
-								if ( cur_rsi_k < cur_rsi_d and cur_rsi_d - cur_rsi_k < 10 ):
-									resistance_signal = False
-							else:
-								resistance_signal = False
-
-				# VWAP
-				if ( resistance_signal == True ):
-					cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
-					if ( abs((cur_vwap / cur_close - 1) * 100) <= price_resistance_pct ):
-
-						# Current price is very close to VWAP
-						# Next check average of last 15 (1-minute) candles
-						avg = 0
-						for i in range(15, 0, -1):
-							avg += float( pricehistory['candles'][idx-i]['close'] )
-						avg = avg / 15
-
-						# If average was below VWAP then VWAP is resistance (good for short)
-						# If average was above VWAP then VWAP is support (bad for short)
-						if ( avg > cur_vwap ):
+						else:
 							resistance_signal = False
 
-				# Low of the day (LOD)
-				# Skip this check for the first few hours of the day. The reason for this is
-				#  the first hours of trading can create small hod/lods, but they often won't
-				#  persist. Also, we are more concerned about the slow, low volume creeps toward
-				#  HOD/LOD that are often permanent for the day.
-				if ( resistance_signal == True and lod_hod_check == True ):
+					if ( abs((cur_close / natr_resistance - 1) * 100) <= price_resistance_pct and short_signal == True ):
+						if ( primary_stoch_indicator == 'stochrsi' or primary_stoch_indicator == 'stochmfi' ):
+							if ( cur_rsi_k < cur_rsi_d and cur_rsi_d - cur_rsi_k < 10 ):
+								resistance_signal = False
+						else:
+							resistance_signal = False
 
-					# Check for current-day LOD after 1PM Eastern
-					cur_hour = int( date.strftime('%-H') )
-					if ( cur_hour >= 13 ):
+			# VWAP
+			if ( use_vwap == True and short_signal == True and resistance_signal == True ):
+				cur_vwap = vwap_vals[pricehistory['candles'][idx]['datetime']]['vwap']
+				if ( abs((cur_vwap / cur_close - 1) * 100) <= price_resistance_pct ):
 
-						cur_day_start	= datetime.strptime(today + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
-						cur_day_start	= mytimezone.localize(cur_day_start)
+					# Current price is very close to VWAP
+					# Next check average of last 15 (1-minute) candles
+					avg = 0
+					for i in range(15, 0, -1):
+						avg += float( pricehistory['candles'][idx-i]['close'] )
+					avg = avg / 15
 
-						delta = date - cur_day_start
-						delta = int( delta.total_seconds() / 60 )
+					# If average was below VWAP then VWAP is resistance (good for short)
+					# If average was above VWAP then VWAP is support (bad for short)
+					if ( avg > cur_vwap ):
+						resistance_signal = False
 
-						# Find LOD
-						lod = 9999
-						for i in range (delta, 0, -1):
-							if ( float(pricehistory['candles'][idx-i]['close']) < lod ):
-								lod = float( pricehistory['candles'][idx-i]['close'] )
 
-						# If the stock has already hit a low of the day, the next decrease will likely be
-						#  above LOD. If we are above LOD and less than price_resistance_pct from it
-						#  then we should not enter the trade.
-						if ( cur_close > lod ):
-							if ( abs((lod / cur_close - 1) * 100) <= price_resistance_pct ):
+			# Low of the day (LOD)
+			# Skip this check for the first few hours of the day. The reason for this is
+			#  the first hours of trading can create small hod/lods, but they often won't
+			#  persist. Also, we are more concerned about the slow, low volume creeps toward
+			#  HOD/LOD that are often permanent for the day.
+			if ( lod_hod_check == True and short_signal == True and resistance_signal == True ):
+
+				# Check for current-day LOD after 1PM Eastern
+				cur_hour = int( date.strftime('%-H') )
+				if ( cur_hour >= 13 ):
+
+					cur_day_start	= datetime.strptime(today + ' 09:30:00', '%Y-%m-%d %H:%M:%S')
+					cur_day_start	= mytimezone.localize(cur_day_start)
+
+					delta = date - cur_day_start
+					delta = int( delta.total_seconds() / 60 )
+
+					# Find LOD
+					lod = 9999
+					for i in range (delta, 0, -1):
+						if ( float(pricehistory['candles'][idx-i]['close']) < lod ):
+							lod = float( pricehistory['candles'][idx-i]['close'] )
+
+					# If the stock has already hit a low of the day, the next decrease will likely be
+					#  above LOD. If we are above LOD and less than price_resistance_pct from it
+					#  then we should not enter the trade.
+					if ( cur_close > lod ):
+						if ( abs((lod / cur_close - 1) * 100) <= price_resistance_pct ):
+							resistance_signal = False
+
+				# If stock opened above PDL, then those can become additional resistance lines for short entry
+				# typically later in the day when volume decreases
+				if ( today in day_stats ):
+					if ( cur_hour >= 12 and day_stats[today]['open_idx'] != None ):
+						if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] > day_stats[today]['pdl'] ):
+
+							# Check PDH/PDL resistance
+							avg = 0
+							for i in range(15, 0, -1):
+								avg += float( pricehistory['candles'][idx-i]['close'] )
+								avg = avg / 15
+
+							if ( avg > day_stats[today]['pdl'] and abs((cur_close / day_stats[today]['pdl'] - 1) * 100) <= price_resistance_pct ):
 								resistance_signal = False
 
-					# If stock opened above PDL, then those can become additional resistance lines for short entry
-					# typically later in the day when volume decreases
-					if ( today in day_stats ):
-						if ( cur_hour >= 12 and day_stats[today]['open_idx'] != None ):
-							if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] > day_stats[today]['pdl'] ):
+					# If stock has been rising for a couple days, then oftentimes the 2-day previous day low will be short resistance,
+					#  but also check pdl2_touch and pdl2_xover. If price has touched PDL2 multiple times and not crossed over more than
+					#  1% then it's stronger resistance
+					if ( day_stats[today]['pdl'] > day_stats[today]['pdl2'] and day_stats[today]['pdc'] > day_stats[today]['pdl2'] and
+						(day_stats[today]['open_idx'] != None and pricehistory['candles'][day_stats[today]['open_idx']]['open'] > day_stats[today]['pdl2']) ):
 
-								# Check PDH/PDL resistance
-								avg = 0
-								for i in range(15, 0, -1):
-									avg += float( pricehistory['candles'][idx-i]['close'] )
-									avg = avg / 15
+						if ( resistance_signal == True and
+							abs((cur_low / day_stats[today]['pdl2'] - 1) * 100) <= price_resistance_pct ):
 
-								if ( avg > day_stats[today]['pdl'] and abs((cur_close / day_stats[today]['pdl'] - 1) * 100) <= price_resistance_pct ):
-									resistance_signal = False
+							# Count the number of times over the last two days where the price has touched
+							#  PDH/PDL and failed to break through
+							#
+							# Walk through the 1-min candles for the previous two-days, but be sure to take
+							#  into account after-hours trading two-days prior as PDH2/PDL2 is only calculate
+							#  using the daily candles (which use standard open hours only)
+							twoday_dt		= date - timedelta(days=2)
+							twoday_dt		= tda_gobot_helper.fix_timestamp(twoday_dt, check_day_only=True)
+							twoday			= twoday_dt.strftime('%Y-%m-%d')
 
-						# If stock has been rising for a couple days, then oftentimes the 2-day previous day low will be short resistance,
-						#  but also check pdl2_touch and pdl2_xover. If price has touched PDL2 multiple times and not crossed over more than
-						#  1% then it's stronger resistance
-						if ( day_stats[today]['pdl'] > day_stats[today]['pdl2'] and day_stats[today]['pdc'] > day_stats[today]['pdl2'] and
-							(day_stats[today]['open_idx'] != None and pricehistory['candles'][day_stats[today]['open_idx']]['open'] > day_stats[today]['pdl2']) ):
+							yesterday_timestamp	= datetime.strptime(twoday + ' 16:00:00', '%Y-%m-%d %H:%M:%S')
+							yesterday_timestamp	= mytimezone.localize(yesterday_timestamp).timestamp() * 1000
 
-							if ( resistance_signal == True and
-								abs((cur_low / day_stats[today]['pdl2'] - 1) * 100) <= price_resistance_pct ):
+							pdl2_touch		= 0
+							pdl2_xover		= 0
+							for m_key in pricehistory['candles']:
+								if ( m_key['datetime'] < yesterday_timestamp ):
+									continue
+								elif ( m_key['datetime'] > pricehistory['candles'][idx]['datetime'] ):
+									break
 
-								# Count the number of times over the last two days where the price has touched
-								#  PDH/PDL and failed to break through
-								#
-								# Walk through the 1-min candles for the previous two-days, but be sure to take
-								#  into account after-hours trading two-days prior as PDH2/PDL2 is only calculate
-								#  using the daily candles (which use standard open hours only)
-								twoday_dt		= date - timedelta(days=2)
-								twoday_dt		= tda_gobot_helper.fix_timestamp(twoday_dt, check_day_only=True)
-								twoday			= twoday_dt.strftime('%Y-%m-%d')
+								if ( m_key['low'] <= day_stats[today]['pdl2'] ):
+									pdl2_touch += 1
 
-								yesterday_timestamp	= datetime.strptime(twoday + ' 16:00:00', '%Y-%m-%d %H:%M:%S')
-								yesterday_timestamp	= mytimezone.localize(yesterday_timestamp).timestamp() * 1000
+									# Price crossed over PDL2 and exceeded that level by > 1%
+									if ( m_key['low'] < day_stats[today]['pdl2'] ):
+										if ( abs(m_key['low'] / day_stats[today]['pdl2'] - 1) * 100 > 1 ):
+											pdl2_xover += 1
 
-								pdl2_touch		= 0
-								pdl2_xover		= 0
-								for m_key in pricehistory['candles']:
-									if ( m_key['datetime'] < yesterday_timestamp ):
-										continue
-									elif ( m_key['datetime'] > pricehistory['candles'][idx]['datetime'] ):
-										break
+							if ( pdl2_touch > 0 and pdl2_xover < 1 ):
+								resistance_signal = False
 
-									if ( m_key['low'] <= day_stats[today]['pdl2'] ):
-										pdl2_touch += 1
-
-										# Price crossed over PDL2 and exceeded that level by > 1%
-										if ( m_key['low'] < day_stats[today]['pdl2'] ):
-											if ( abs(m_key['low'] / day_stats[today]['pdl2'] - 1) * 100 > 1 ):
-												pdl2_xover += 1
-
-								if ( pdl2_touch > 0 and pdl2_xover < 1 ):
-									resistance_signal = False
-
-				# END HOD/LOD/PDH/PDL Check
-
-#				# Pivot points resistance
-#				if ( use_pivot_resistance == True and resistance_signal == True and today in day_stats):
-#						if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] > day_stats[today]['pivot'] ):
-#							if ( abs((cur_close / day_stats[today]['pivot'] - 1) * 100) <= price_resistance_pct ):
-#								resistance_signal = False
-#
-#					# Pivot points S1 and S2 are short resistance
-#					if ( abs((cur_close / day_stats[today]['pivot_s1'] - 1) * 100) <= price_resistance_pct or
-#							abs((cur_close / day_stats[today]['pivot_s2'] - 1) * 100) <= price_resistance_pct):
-#						resistance_signal = False
-
-
-				# High / low resistance
-#				short_price = float(pricehistory['candles'][idx]['close'])
-#				if ( float(short_price) <= float(twenty_week_low) ):
-#					# This is not a good bet
-#					twenty_week_low = float(short_price)
-#					resistance_signal = False
-#
-#				elif ( ( abs(float(twenty_week_low) / float(short_price) - 1) * 100 ) < price_support_pct ):
-#					# Current low is within price_support_pct of 20-week low, not a good bet
-#					resistance_signal = False
+			# END HOD/LOD/PDH/PDL Check
 
 			# Key Levels
 			# Check if price is near historic key level
@@ -4941,42 +5083,69 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# VAH/VAL Check
 			if ( va_check == True and short_signal == True and resistance_signal == True ):
-				cur_day = date.strftime('%Y-%m-%d')
-
 				try:
-					prev_day = mprofile[cur_day]['prev_day']
+					prev_day = mprofile[today]['prev_day']
 
 				except Exception as e:
-					print('Caught Exception: "prev_day" value does not exist in mprofile[' + str(cur_day) + ']')
+					print('Caught Exception: "prev_day" value does not exist in mprofile[' + str(today) + ']')
 					sys.exit(1)
 
+				cur_vah = cur_val = 0
+				if ( int(date.strftime('%-H')) > 10 ):
+					cur_vah = mprofile[today]['vah']
+					cur_val = mprofile[today]['vah']
+
+				prev_vah = prev_val = 0
 				if ( prev_day in mprofile ):
-					vah = mprofile[prev_day]['vah']
-					val = mprofile[prev_day]['val']
-
-					for lvl in [vah,val]:
-						if ( abs((lvl / cur_close - 1) * 100) <= price_support_pct ):
-
-							# Current price is very close to a vah/val
-							# Next check average of last 15 (1-minute) candles
-							#
-							# If last 15 candles average above key level, then key level is support
-							# otherwise it is resistance
-							avg = 0
-							for i in range(15, 0, -1):
-								avg += float( pricehistory['candles'][idx-i]['close'] )
-							avg = avg / 15
-
-							# If average was below key level then key level is resistance
-							# Therefore this is not a great buy
-							if ( avg > lvl ):
-								resistance_signal = False
-								break
-
+					prev_vah = mprofile[prev_day]['vah']
+					prev_val = mprofile[prev_day]['val']
 				else:
 					print('Warning: market_profile(): ' + str(prev_day) + ' not in mprofile, skipping check')
 
+				for lvl in [prev_vah,prev_val,cur_vah,cur_val]:
+					if ( abs((lvl / cur_close - 1) * 100) <= price_support_pct ):
+
+						# Current price is very close to a vah/val
+						# Next check average of last 15 (1-minute) candles
+						#
+						# If last 15 candles average above key level, then key level is support
+						# otherwise it is resistance
+						avg = 0
+						for i in range(15, 0, -1):
+							avg += float( pricehistory['candles'][idx-i]['close'] )
+						avg = avg / 15
+
+						# If average was below key level then key level is resistance
+						# Therefore this is not a great buy
+						if ( avg > lvl ):
+							resistance_signal = False
+							break
+
 			# End VAH/VAL Check
+
+#			# Pivot points resistance
+#			if ( use_pivot_resistance == True and resistance_signal == True and today in day_stats):
+#					if ( pricehistory['candles'][day_stats[today]['open_idx']]['open'] > day_stats[today]['pivot'] ):
+#						if ( abs((cur_close / day_stats[today]['pivot'] - 1) * 100) <= price_resistance_pct ):
+#							resistance_signal = False
+#
+#				# Pivot points S1 and S2 are short resistance
+#				if ( abs((cur_close / day_stats[today]['pivot_s1'] - 1) * 100) <= price_resistance_pct or
+#						abs((cur_close / day_stats[today]['pivot_s2'] - 1) * 100) <= price_resistance_pct):
+#					resistance_signal = False
+
+
+			# High / low resistance
+#			short_price = float(pricehistory['candles'][idx]['close'])
+#			if ( float(short_price) <= float(twenty_week_low) ):
+#				# This is not a good bet
+#				twenty_week_low = float(short_price)
+#				resistance_signal = False
+#
+#			elif ( ( abs(float(twenty_week_low) / float(short_price) - 1) * 100 ) < price_support_pct ):
+#				# Current low is within price_support_pct of 20-week low, not a good bet
+#				resistance_signal = False
+
 
 			# Relative Strength vs. an ETF indicator (i.e. SPY)
 			if ( check_etf_indicators == True ):
@@ -5148,7 +5317,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( with_vix == True and vix_signal != True ):
 					final_short_signal = False
 
-				if ( with_mfi == True and mfi_signal != True ):
+				if ( (with_mfi == True or with_mfi_simple == True) and mfi_signal != True ):
 					final_short_signal = False
 
 				if ( with_adx == True and adx_signal != True ):
@@ -5290,7 +5459,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						str(cur_mfi_k) + '/' + str(cur_mfi_d) + ',' +
 						str(round(cur_natr, 3)) + ',' + str(round(cur_natr_daily, 3)) + ',' +
 						str(round(bbands_natr['natr'], 3)) + ',' + str(round(bbands_natr['squeeze_natr'], 3)) + ',' +
-						str(tmp_roc) + ',' + str(round(cur_rs, 3)) + ',' +
+						str(round(cur_sp_monitor, 3)) + ',' + str(round(cur_rs, 3)) + ',' +
 						str(round(cur_adx, 2)) + ',' + str(short_time) )
 
 				reset_signals( exclude_bbands_kchan=True )

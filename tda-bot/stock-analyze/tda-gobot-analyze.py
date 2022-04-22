@@ -39,6 +39,8 @@ parser.add_argument("--unsafe", help='Allow trading between 9:30-10:15AM where v
 parser.add_argument("--hold_overnight", help='Allow algorithm to hold stocks across multiple days', action="store_true")
 
 parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (Default: False)', action="store_true")
+parser.add_argument("--use_vwap", help='Use vwap resistance checks to enter trades (Default: True if --no_use_resistance=False)', action="store_true")
+parser.add_argument("--use_pdc", help='Use previous day close resistance level checks to enter trades (Default: True if --no_use_resistance=False)', action="store_true")
 parser.add_argument("--use_keylevel", help='Use key level checks to enter trades (Default: True if --no_use_resistance=False)', action="store_true")
 parser.add_argument("--keylevel_strict", help='Use strict key level checks to enter trades (Default: False)', action="store_true")
 parser.add_argument("--keylevel_use_daily", help='Use daily candles as well as weeklies to determine key levels (Default: False)', action="store_true")
@@ -91,6 +93,12 @@ parser.add_argument("--sp_monitor_tickers", help='List of tickers and their weig
 parser.add_argument("--sp_roc_type", help='Rate of change candles type to use with sp_monitor (Default: hlc3)', default='hlc3', type=str)
 parser.add_argument("--sp_roc_period", help='Period to use with ROC algorithm for sp_monitor (Default: 1)', default=1, type=int)
 parser.add_argument("--sp_ma_period", help='Moving average period to use with the RoC values for sp_monitor (Default: 5)', default=5, type=int)
+parser.add_argument("--sp_monitor_stacked_ma_type", help='Moving average type to use with sp_monitor stacked_ma (Default: vidya)', default='vidya', type=str)
+parser.add_argument("--sp_monitor_stacked_ma_periods", help='Moving average periods to use with sp_monitor stacked_ma (Default: 8,13,21)', default='8,13,21', type=str)
+parser.add_argument("--sp_monitor_use_trix", help='Use TRIX algorithm instead of stacked_ma to help gauge strength/direction of sp_monitor', action="store_true")
+parser.add_argument("--sp_monitor_trix_ma_type", help='Moving average type to use with sp_monitor TRIX (Default: ema)', default='ema', type=str)
+parser.add_argument("--sp_monitor_trix_ma_period", help='Moving average period to use with sp_monitor TRIX (Default: 8)', default=8, type=int)
+parser.add_argument("--sp_monitor_strict", help='Enable some stricter checks when entering trades', action="store_true")
 
 parser.add_argument("--with_vix", help='Use the VIX volatility index ticker as an indicator', action="store_true")
 parser.add_argument("--vix_stacked_ma_periods", help='Moving average periods to use when calculating VIX stacked MA (Default: 5,8,13)', default='5,8,13', type=str)
@@ -654,6 +662,9 @@ for algo in args.algo.split(','):
 			trin_tick['tick']['pricehistory']	= tick_data
 			trin_tick['tick']['pricehistory_5m']	= tda_gobot_helper.translate_1m( pricehistory=trin_tick['tick']['pricehistory'], candle_type=5 )
 
+			# FIXME: disabling ticka for now
+			trin_tick['ticka']['pricehistory']	= tick_data
+
 		else:
 			days = 10
 			time_now	= datetime.datetime.now( mytimezone )
@@ -707,12 +718,17 @@ for algo in args.algo.split(','):
 
 			trin_tick['tick']['pricehistory']	= tick_data
 			trin_tick['tick']['pricehistory_5m']	= tda_gobot_helper.translate_1m(pricehistory=trin_tick['tick']['pricehistory'], candle_type=5)
-			trin_tick['ticka']['pricehistory']	= ticka_data
-			trin_tick['ticka']['pricehistory_5m']	= tda_gobot_helper.translate_1m(pricehistory=trin_tick['tick']['pricehistory'], candle_type=5)
+
+			trin_tick['ticka']['pricehistory']	= tick_data
+#			trin_tick['ticka']['pricehistory']	= ticka_data
+#			trin_tick['ticka']['pricehistory_5m']	= tda_gobot_helper.translate_1m(pricehistory=trin_tick['tick']['pricehistory'], candle_type=5)
 
 	# ETF SP monitor
-	sp_monitor_tickers = args.sp_monitor_tickers.split(',')
-	sp_monitor		= { 'roc_ma': OrderedDict() }
+	sp_monitor_tickers	= args.sp_monitor_tickers.split(',')
+	sp_monitor		= {	'roc_ma':	OrderedDict(),
+					'stacked_ma':	OrderedDict(),
+					'trix':		OrderedDict(),
+					'trix_signal':	OrderedDict() }
 	for t in sp_monitor_tickers:
 		try:
 			sp_t = str(t.split(':')[0])
@@ -1118,6 +1134,8 @@ for algo in args.algo.split(','):
 					'price_resistance_pct':			args.price_resistance_pct,
 					'price_support_pct':			args.price_support_pct,
 					'resist_pct_dynamic':			args.resist_pct_dynamic,
+					'use_pdc':				args.use_pdc,
+					'use_vwap':				args.use_vwap,
 					'lod_hod_check':			args.lod_hod_check,
 					'use_keylevel':				args.use_keylevel,
 					'keylevel_strict':			args.keylevel_strict,
@@ -1169,6 +1187,12 @@ for algo in args.algo.split(','):
 					'sp_roc_type':				args.sp_roc_type,
 					'sp_roc_period':			args.sp_roc_period,
 					'sp_ma_period':				args.sp_ma_period,
+					'sp_monitor_stacked_ma_type':		args.sp_monitor_stacked_ma_type,
+					'sp_monitor_stacked_ma_periods':	args.sp_monitor_stacked_ma_periods,
+					'sp_monitor_use_trix':			args.sp_monitor_use_trix,
+					'sp_monitor_trix_ma_type':		args.sp_monitor_trix_ma_type,
+					'sp_monitor_trix_ma_period':		args.sp_monitor_trix_ma_period,
+					'sp_monitor_strict':			args.sp_monitor_strict,
 					'sp_monitor_tickers':			sp_monitor_tickers,
 					'sp_monitor':				sp_monitor,
 

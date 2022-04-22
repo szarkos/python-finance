@@ -1127,14 +1127,21 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			sys.exit(1)
 
 		for day in mprofile:
-			cur_day = datetime.strptime(day, '%Y-%m-%d')
-			cur_day = mytimezone.localize(cur_day)
+			cur_day		= datetime.strptime(day, '%Y-%m-%d')
+			cur_day		= mytimezone.localize(cur_day)
 
-			prev_day = cur_day - timedelta( days=1 )
-			prev_day = tda_gobot_helper.fix_timestamp( prev_day )
-			prev_day = prev_day.strftime('%Y-%m-%d')
+			prev_day	= cur_day - timedelta( days=1 )
+			prev_day	= tda_gobot_helper.fix_timestamp( prev_day )
 
-			mprofile[day]['prev_day'] = prev_day
+			prev_prev_day	= prev_day - timedelta( days=1 )
+			prev_prev_day	= tda_gobot_helper.fix_timestamp( prev_prev_day )
+
+			cur_day		= cur_day.strftime('%Y-%m-%d')
+			prev_day	= prev_day.strftime('%Y-%m-%d')
+			prev_prev_day	= prev_prev_day.strftime('%Y-%m-%d')
+
+			mprofile[day]['prev_day']	= prev_day
+			mprofile[day]['prev_prev_day']	= prev_prev_day
 
 	# Intraday stacked moving averages
 	def get_stackedma(pricehistory=None, stacked_ma_periods=None, stacked_ma_type=None, use_ha_candles=False):
@@ -3425,25 +3432,34 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# VAH/VAL Check
 			if ( va_check == True and buy_signal == True and resistance_signal == True ):
 				try:
-					prev_day = mprofile[today]['prev_day']
+					prev_day	= mprofile[today]['prev_day']
+					prev_prev_day	= mprofile[today]['prev_prev_day']
 
 				except Exception as e:
 					print('Caught Exception: "prev_day" value does not exist in mprofile[' + str(cur_day) + ']')
 					sys.exit(1)
 
+				# Enable current VAH/VAL checks later in the day
 				cur_vah = cur_val = 0
-				if ( int(date.strftime('%-H')) > 10 ):
+				if ( int(date.strftime('%-H')) > 11 ):
 					cur_vah = mprofile[today]['vah']
-					cur_val = mprofile[today]['vah']
+					cur_val = mprofile[today]['val']
 
 				prev_vah = prev_val = 0
 				if ( prev_day in mprofile ):
 					prev_vah = mprofile[prev_day]['vah']
 					prev_val = mprofile[prev_day]['val']
 				else:
-					print('Warning: market_profile(): ' + str(prev_day) + ' not in mprofile, skipping check')
+					print('Warning: market_profile(): ' + str(mprofile[today]['prev_day']) + ' not in mprofile, skipping check')
 
-				for lvl in [prev_vah,prev_val,cur_vah,cur_val]:
+				prev_prev_vah = prev_prev_val = 0
+				if ( prev_prev_day in mprofile ):
+					prev_prev_vah = mprofile[prev_prev_day]['vah']
+					prev_prev_val = mprofile[prev_prev_day]['val']
+				else:
+					print('Warning: market_profile(): ' + str(mprofile[today]['prev_prev_day']) + ' not in mprofile, skipping check')
+
+				for lvl in [cur_vah, cur_val, prev_vah, prev_val, prev_prev_vah, prev_prev_val]:
 					if ( abs((lvl / cur_close - 1) * 100) <= price_support_pct ):
 
 						# Current price is very close to a vah/val
@@ -5084,25 +5100,34 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			# VAH/VAL Check
 			if ( va_check == True and short_signal == True and resistance_signal == True ):
 				try:
-					prev_day = mprofile[today]['prev_day']
+					prev_day	= mprofile[today]['prev_day']
+					prev_prev_day	= mprofile[today]['prev_prev_day']
 
 				except Exception as e:
 					print('Caught Exception: "prev_day" value does not exist in mprofile[' + str(today) + ']')
 					sys.exit(1)
 
+				# Enable current VAH/VAL checks later in the day
 				cur_vah = cur_val = 0
-				if ( int(date.strftime('%-H')) > 10 ):
+				if ( int(date.strftime('%-H')) > 11 ):
 					cur_vah = mprofile[today]['vah']
-					cur_val = mprofile[today]['vah']
+					cur_val = mprofile[today]['val']
 
 				prev_vah = prev_val = 0
 				if ( prev_day in mprofile ):
 					prev_vah = mprofile[prev_day]['vah']
 					prev_val = mprofile[prev_day]['val']
 				else:
-					print('Warning: market_profile(): ' + str(prev_day) + ' not in mprofile, skipping check')
+					print('Warning: market_profile(): ' + str(mprofile[today]['prev_prev_day']) + ' not in mprofile, skipping check')
 
-				for lvl in [prev_vah,prev_val,cur_vah,cur_val]:
+				prev_prev_vah = prev_prev_val = 0
+				if ( prev_prev_day in mprofile ):
+					prev_prev_vah = mprofile[prev_prev_day]['vah']
+					prev_prev_val = mprofile[prev_prev_day]['val']
+				else:
+					print('Warning: market_profile(): ' + str(mprofile[today]['prev_prev_day']) + ' not in mprofile, skipping check')
+
+				for lvl in [ cur_vah, cur_val, prev_vah, prev_val, prev_prev_vah, prev_prev_val ]:
 					if ( abs((lvl / cur_close - 1) * 100) <= price_support_pct ):
 
 						# Current price is very close to a vah/val

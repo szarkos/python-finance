@@ -1273,6 +1273,8 @@ for ticker in stock_list.split(','):
 				   # Volume Area High (VAH) and Volume Area Low (VAL)
 				   'vah':			0,
 				   'val':			0,
+				   'vah_1':			0,
+				   'val_1':			0,
 				   'vah_2':			0,
 				   'val_2':			0,
 
@@ -1927,27 +1929,35 @@ for ticker in list(stocks.keys()):
 			print('Exception caught: get_market_profile(' + str(ticker) + '): ' + str(e) + '. VAH/VAL will not be used.')
 
 		# Get the previous day's and 2-day VAH/VAL
-		cur_day	 = datetime.datetime.now( mytimezone )
-		prev_day = cur_day - datetime.timedelta( days=1 )
-		prev_day = tda_gobot_helper.fix_timestamp( prev_day )
-		prev_day = prev_day.strftime('%Y-%m-%d')
+		cur_day		= datetime.datetime.now( mytimezone )
 
-		if ( prev_day not in mprofile ):
-			print('Warning: get_market_profile(' + str(ticker) + '): previous day (' + str(prev_day) + ') not returned in mprofile{}. VAH/VAL will not be used.')
+		prev_day	= cur_day - datetime.timedelta( days=1 )
+		prev_day	= tda_gobot_helper.fix_timestamp( prev_day )
+
+		prev_prev_day	= prev_day - datetime.timedelta( days=1 )
+		prev_prev_day	= tda_gobot_helper.fix_timestamp( prev_prev_day )
+
+		cur_day		= cur_day.strftime('%Y-%m-%d')
+		prev_day	= prev_day.strftime('%Y-%m-%d')
+		prev_prev_day	= prev_prev_day.strftime('%Y-%m-%d')
+
+		if ( cur_day in mprofile ):
+			stocks[ticker]['vah']	= mprofile[cur_day]['vah']
+			stocks[ticker]['val']	= mprofile[cur_day]['val']
 		else:
-			stocks[ticker]['vah'] = mprofile[prev_day]['vah']
-			stocks[ticker]['val'] = mprofile[prev_day]['val']
+			print('Warning: get_market_profile(' + str(ticker) + '): current day (' + str(cur_day) + ') not returned in mprofile{}. VAH/VAL will not be used.')
 
-		prev_day = cur_day - datetime.timedelta( days=2 )
-		prev_day = tda_gobot_helper.fix_timestamp( prev_day )
-		prev_day = prev_day.strftime('%Y-%m-%d')
-
-		if ( prev_day not in mprofile ):
+		if ( prev_day in mprofile ):
+			stocks[ticker]['vah_1']	= mprofile[prev_day]['vah']
+			stocks[ticker]['val_1']	= mprofile[prev_day]['val']
+		else:
 			print('Warning: get_market_profile(' + str(ticker) + '): previous day (' + str(prev_day) + ') not returned in mprofile{}. VAH/VAL will not be used.')
 
+		if ( prev_prev_day in mprofile ):
+			stocks[ticker]['vah_2']	= mprofile[prev_prev_day]['vah']
+			stocks[ticker]['val_2']	= mprofile[prev_prev_day]['val']
 		else:
-			stocks[ticker]['vah_2']	= mprofile[prev_day]['vah']
-			stocks[ticker]['val_2']	= mprofile[prev_day]['val']
+			print('Warning: get_market_profile(' + str(ticker) + '): previous 2-day (' + str(prev_prev_day) + ') not returned in mprofile{}. VAH/VAL will not be used.')
 
 	# End Volume Profile
 

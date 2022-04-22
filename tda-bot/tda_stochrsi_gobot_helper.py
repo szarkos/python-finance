@@ -1546,10 +1546,10 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 		# Use stacked MA ot TRIX for total_roc to better gauge certainty of movement
 		if ( cur_algo['sp_monitor_use_trix'] == True ):
-			sp_monitor_trix, sp_monitor_trix_signal = tda_algo_helper.get_trix_altma( pricehistory=tmp_ph, ma_type=cur_algo['sp_monitor_trix_ma_type'], period=cur_algo['sp_monitor_trix_ma_period'],
+			sp_monitor_trix, sp_monitor_trix_signal = tda_algo_helper.get_trix_altma( pricehistory=temp_ph, ma_type=cur_algo['sp_monitor_trix_ma_type'], period=cur_algo['sp_monitor_trix_ma_period'],
 													type='close', signal_ma='ema', signal_period=3, skip_log=True )
 		else:
-			sp_monitor_stacked_ma = get_stackedma( tmp_ph, sp_monitor_stacked_ma_periods, sp_monitor_stacked_ma_type )
+			sp_monitor_stacked_ma = get_stackedma( temp_ph, sp_monitor_stacked_ma_periods, sp_monitor_stacked_ma_type )
 
 		# Update cur_sp_monitor and prev_sp_monitor for all tickers
 		for ticker in stocks.keys():
@@ -2016,12 +2016,12 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				continue
 
 			# Calculate the moving average to smooth the rate-of-change values
-			tmp_ph = { 'candles': [] }
+			temp_ph = { 'candles': [] }
 			for i in range( len(roc) ):
-				tmp_ph['candles'].append( { 'close': roc[i] } )
+				temp_ph['candles'].append( { 'close': roc[i] } )
 
 			try:
-				roc_ma = tda_algo_helper.get_alt_ma( pricehistory=tmp_ph, period=cur_algo['roc_ma_period'], ma_type=cur_algo['roc_ma_type'], type='close' )
+				roc_ma = tda_algo_helper.get_alt_ma( pricehistory=temp_ph, period=cur_algo['roc_ma_period'], ma_type=cur_algo['roc_ma_type'], type='close' )
 
 			except Exception as e:
 				print('Error: stochrsi_gobot(' + str(ticker) + '): get_alt_ma(roc_ma): ' + str(e))
@@ -3291,7 +3291,13 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 					stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and
 					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
 
-				levels = [ stocks[ticker]['vah'], stocks[ticker]['val'] ] # stocks[ticker]['vah_2'], stocks[ticker]['val_2']
+				cur_vah = cur_val = 0
+				dt_today = datetime.datetime.now(mytimezone)
+				if ( int(dt_today.strftime('%-H')) > 11 ):
+					cur_vah = stocks[ticker]['vah']
+					cur_val = stocks[ticker]['val']
+
+				levels = [ cur_vah, cur_val, stocks[ticker]['vah_1'], stocks[ticker]['val_1'], stocks[ticker]['vah_2'], stocks[ticker]['val_2'] ] # stocks[ticker]['vah_2'], stocks[ticker]['val_2']
 				for lvl in levels:
 					if ( abs((lvl / last_close - 1) * 100) <= cur_algo['price_resistance_pct'] ):
 
@@ -4934,7 +4940,13 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 					stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and
 					stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True ):
 
-				levels = [ stocks[ticker]['vah'], stocks[ticker]['val'] ] # stocks[ticker]['vah_2'], stocks[ticker]['val_2']
+				cur_vah = cur_val = 0
+				dt_today = datetime.datetime.now(mytimezone)
+				if ( int(dt_today.strftime('%-H')) > 11 ):
+					cur_vah = stocks[ticker]['vah']
+					cur_val = stocks[ticker]['val']
+
+				levels = [ cur_vah, cur_val, stocks[ticker]['vah_1'], stocks[ticker]['val_1'], stocks[ticker]['vah_2'], stocks[ticker]['val_2'] ]
 				for lvl in levels:
 					if ( abs((lvl / last_close - 1) * 100) <= cur_algo['price_resistance_pct'] ):
 

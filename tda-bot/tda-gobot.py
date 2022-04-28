@@ -8,8 +8,10 @@
 
 import robin_stocks.tda as tda
 import os, sys, time, random
+import threading
 import argparse
 import datetime, pytz
+import math
 
 import tda_gobot_helper
 
@@ -23,11 +25,14 @@ parser.add_argument("--options", help='Purchase CALL/PUT options instead of equi
 parser.add_argument("--option_type", help='Type of options to purchase (CALL|PUT)', default=None, type=str)
 parser.add_argument("--near_expiration", help='Choose an option contract with the earliest expiration date', action="store_true")
 parser.add_argument("--strike_price", help='The desired strike price', default=None, type=float)
+parser.add_argument("--otm_level", help='Out-of-the-money strike price to choose (Default: 1)', default=1, type=int)
 
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
 parser.add_argument("--prompt", help='Print out action but wait for confirmation before entering trade', action="store_true")
+parser.add_argument("--print_only", help='Print out action and exit', action="store_true")
 parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX_LOGS-GOBOTv1', default='TX_LOGS-GOBOTv1', type=str)
+parser.add_argument("--listen_cmd", help='Listen for manual input during main loop', action="store_true")
 
 parser.add_argument("--incr_threshold", help="Reset base_price if stock increases by this percent", default=1, type=float)
 parser.add_argument("--decr_threshold", help="Max allowed drop percentage of the stock price", default=1, type=float)
@@ -142,6 +147,67 @@ if ( tda_gobot_helper.check_blacklist(stock) == True ):
 
 #############################################################
 # Functions we may need later
+def check_input():
+	print('Starting listener thread...')
+
+	while True:
+
+		in_cmd = input()
+		in_cmd = str(in_cmd).lower()
+		print( "Received Command: ", end='' )
+
+		global stock_qty
+		global total_stock_qty
+		global exit_signal
+		global stopout_signal
+
+		if ( total_stock_qty == 1 and (in_cmd == 'h' or in_cmd == '1' or in_cmd == '2' or in_cmd == '3')):
+			print('Selling qty: ' + str(total_stock_qty) + ', remaining: 0')
+			stock_qty	= 1
+			exit_signal	= True
+			stopout_signal	= True
+			break
+
+		elif ( in_cmd == 's' ):
+			print('SELL')
+			exit_signal	= True
+			stopout_signal	= True
+			break
+
+		elif ( in_cmd == 'h' ):
+			stock_qty = math.ceil( total_stock_qty / 2 )
+
+			print('SELL HALF')
+			print('Selling qty: ' + str(stock_qty) + ', remaining: ' + str(total_stock_qty - stock_qty))
+			exit_signal = True
+
+		elif ( in_cmd == '1' ):
+			stock_qty = math.ceil( total_stock_qty * 0.1 )
+
+			print('SELL 10%')
+			print('Selling qty: ' + str(stock_qty) + ', remaining: ' + str(total_stock_qty - stock_qty))
+			exit_signal = True
+
+		elif ( in_cmd == '2' ):
+			stock_qty = math.ceil( total_stock_qty * 0.2 )
+
+			print('SELL 20%')
+			print('Selling qty: ' + str(stock_qty) + ', remaining: ' + str(total_stock_qty - stock_qty))
+			exit_signal = True
+
+		elif ( in_cmd == '3' ):
+			stock_qty = math.ceil( total_stock_qty * 0.3 )
+
+			print('SELL 30%')
+			print('Selling qty: ' + str(stock_qty) + ', remaining: ' + str(total_stock_qty - stock_qty))
+			exit_signal = True
+
+		else:
+			print('Unknown command (' + str(in_cmd) + '), ignoring')
+
+
+# Get the pricehistory of the stock
+# This is needed for --combined_exit strategy
 def get_ph(stock=None):
 
 	# tda.get_pricehistory() variables
@@ -205,7 +271,6 @@ def price_trend(candles=None, type='hl2', period=5, affinity=None):
 
 	return False
 
-## End sub functions
 
 # Find the right option contract to purchase
 def search_options(ticker=None, option_type=None, near_expiration=False, strike_price=None, debug=False):
@@ -240,6 +305,8 @@ def search_options(ticker=None, option_type=None, near_expiration=False, strike_
 		range_val	= 'ALL'
 		strike_price	= float( args.strike_price )
 		strike_count	= 999
+	elif ( args.otm_level > 1 ):
+		strike_count += args.otm_level * 2
 
 	try:
 		option_chain = tda_gobot_helper.get_option_chains( ticker=ticker, contract_type=option_type, strike_count=strike_count, range_value=range_val, strike_price=strike_price,
@@ -265,6 +332,7 @@ def search_options(ticker=None, option_type=None, near_expiration=False, strike_
 	if ( option_type == 'PUT' ):
 		iter = reversed(option_chain[ExpDateMap][exp_date].keys())
 
+	otm_level_count = 1
 	for key in iter:
 		try:
 			strike = int( float(key) )
@@ -283,8 +351,13 @@ def search_options(ticker=None, option_type=None, near_expiration=False, strike_
 		#  have different offerings for each strike price.
 		key = key[0]
 
-		# Find the first OTM option or follow --strike_price
+		# Find the first OTM (or otm_level) option or follow --strike_price
 		if ( key['inTheMoney'] == False or strike_price != None ):
+			if ( args.otm_level > 1 and strike_price == None ):
+				if ( otm_level_count < args.otm_level ):
+					otm_level_count += 1
+					continue
+
 			if ( stock_usd < key['ask'] * 100 ):
 				print('(' + str(key['symbol']) + '): Available stock_usd (' + str(stock_usd) + ') is less than the ask for this option (' + str(key['ask'] * 100) + ')')
 				continue
@@ -319,6 +392,8 @@ def search_options(ticker=None, option_type=None, near_expiration=False, strike_
 
 	return stock, float(key['ask'])
 
+## End sub functions
+
 
 # Find the right option to purchase
 if ( args.options == True ):
@@ -341,7 +416,6 @@ if ( args.options == True ):
 			print('Error: Unable to look up options for stock "' + str(args.stock) + '"', file=sys.stderr)
 			sys.exit(1)
 
-
 # Loop until the entry price is achieved.
 if ( args.entry_price != None ):
 
@@ -362,6 +436,8 @@ if ( args.entry_price != None ):
 else:
 	last_price = tda_gobot_helper.get_lastprice( stock, WarnDelayed=False )
 
+
+# Purchase the option or equity
 # OPTIONS
 if ( args.options == True ):
 
@@ -374,7 +450,9 @@ if ( args.options == True ):
 		print(str(stock) + ': Error: Unable to lookup option price')
 		sys.exit(1)
 
-	if ( args.prompt == True ):
+	if ( args.print_only == True ):
+		sys.exit(0)
+	elif ( args.prompt == True ):
 		input('PURCHASING ' + str(stock_qty) + ' contracts of ' + str(stock) + ' - Press <ENTER> to confirm')
 
 	if ( args.fake == False ):
@@ -393,6 +471,9 @@ if ( args.options == True ):
 
 		if ( isinstance(data, bool) and data == False ):
 			option_price = quote[stock]['askPrice']
+			print("\nFill price not in order data, using ask price ($" + str(option_price) + ')')
+		else:
+			print("\nMean fill price ($" + str(option_price) + ')')
 
 # EQUITY stock, set orig_base_price to the price that we purchased the stock
 else:
@@ -432,8 +513,14 @@ total_stock_qty	= stock_qty
 percent_change	= 0
 time.sleep(5)
 
+# Start input thread if needed
+if ( args.listen_cmd == True ):
+	cmd_thread = threading.Thread(target=check_input, args=())
+	cmd_thread.start()
 
 # Main loop
+# Watch the performance of the option or equity and make decisions
+#  about exit strategy
 while True:
 
 	last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=True)
@@ -473,9 +560,9 @@ while True:
 
 	# Log the post/pre market pricing, but skip the rest of the loop if the market is closed.
 	# This should only happen if args.multiday == True
-	if ( tda_gobot_helper.ismarketopen_US() == False ):
-		time.sleep(loopt * 6)
-		continue
+#	if ( tda_gobot_helper.ismarketopen_US() == False ):
+#		time.sleep(loopt * 6)
+#		continue
 
 	# Sell the security if we're getting close to market close
 	if ( tda_gobot_helper.isendofday() == True and args.multiday == False ):
@@ -734,8 +821,11 @@ while True:
 	if ( exit_signal == True ):
 		text_color = green
 
+		total_stock_qty = total_stock_qty - stock_qty
+		if ( total_stock_qty == 0 ):
+			stopout_signal = True
 		if ( args.partial_exit_strat != None ):
-			print( '(' + str(stock) + '): exiting ' + str(stock_qty) + ' shares/options, (Total: ' + str(total_stock_qty) + ')' )
+			print( '(' + str(stock) + '): exiting ' + str(stock_qty) + ' shares/options, (Remaining: ' + str(total_stock_qty) + ')' )
 
 		# OPTIONS
 		if ( args.options == True ):
@@ -771,9 +861,16 @@ while True:
 
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short, sold=True)
 
+
+		exit_signal = False
 		if ( stopout_signal == True ):
-			sys.exit(0)
+			break
 
 	time.sleep(loopt)
 
+
+if ( args.listen_cmd == True ):
+	cmd_thread.join()
+
 sys.exit(0)
+

@@ -33,6 +33,7 @@ parser.add_argument("--prompt", help='Print out action but wait for confirmation
 parser.add_argument("--print_only", help='Print out action and exit', action="store_true")
 parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX_LOGS-GOBOTv1', default='TX_LOGS-GOBOTv1', type=str)
 parser.add_argument("--listen_cmd", help='Listen for manual input during main loop', action="store_true")
+parser.add_argument("--test_mode", help='Test-only mode', action="store_true")
 
 parser.add_argument("--incr_threshold", help="Reset base_price if stock increases by this percent", default=1, type=float)
 parser.add_argument("--decr_threshold", help="Max allowed drop percentage of the stock price", default=1, type=float)
@@ -63,6 +64,8 @@ if args.incr_threshold:
 if ( args.stock_usd == None ):
 	print('Error: please enter stock amount (USD) to invest', file=sys.stderr)
 	sys.exit(1)
+if ( args.test_mode == True ):
+	args.fake = True
 
 if ( args.quick_exit == True ):
 	if ( args.quick_exit_percent == None and args.exit_percent == None ):
@@ -141,9 +144,9 @@ if ( tda_gobot_helper.check_blacklist(stock) == True ):
 	else:
 		print('(' + str(stock) + ') Warning: stock ' + str(stock) + ' found in blacklist file.')
 
-#if ( tda_gobot_helper.ismarketopen_US() != True ):
-#	print(str(stock) + ' transaction cancelled because market is closed, exiting.')
-#	sys.exit(1)
+if ( tda_gobot_helper.ismarketopen_US() != True and args.multiday == False and args.test_mode == False ):
+	print(str(stock) + ' transaction cancelled because market is closed, exiting.')
+	sys.exit(1)
 
 #############################################################
 # Functions we may need later
@@ -161,7 +164,10 @@ def check_input():
 		global exit_signal
 		global stopout_signal
 
-		if ( total_stock_qty == 1 and (in_cmd == 'h' or in_cmd == '1' or in_cmd == '2' or in_cmd == '3')):
+		if ( total_stock_qty == 0 ):
+			break
+
+		elif ( total_stock_qty == 1 and (in_cmd == 'h' or in_cmd == '1' or in_cmd == '2' or in_cmd == '3')):
 			print('Selling qty: ' + str(total_stock_qty) + ', remaining: 0')
 			stock_qty	= 1
 			exit_signal	= True
@@ -169,7 +175,10 @@ def check_input():
 			break
 
 		elif ( in_cmd == 's' ):
-			print('SELL')
+			stock_qty = total_stock_qty
+
+			print('Sell All')
+			print('Selling qty: ' + str(total_stock_qty) + ', remaining: 0')
 			exit_signal	= True
 			stopout_signal	= True
 			break
@@ -560,9 +569,9 @@ while True:
 
 	# Log the post/pre market pricing, but skip the rest of the loop if the market is closed.
 	# This should only happen if args.multiday == True
-#	if ( tda_gobot_helper.ismarketopen_US() == False ):
-#		time.sleep(loopt * 6)
-#		continue
+	if ( tda_gobot_helper.ismarketopen_US() == False and args.test_mode == False ):
+		time.sleep(loopt * 6)
+		continue
 
 	# Sell the security if we're getting close to market close
 	if ( tda_gobot_helper.isendofday() == True and args.multiday == False ):
@@ -833,19 +842,30 @@ while True:
 				text_color = red
 
 			if ( args.fake == False ):
-				data = tda_gobot_helper.buy_sell_option(contract=stock, quantity=stock_qty, instruction='sell_to_close', fillwait=True, account_number=tda_account_number, debug=debug)
+
+				# If only filling part, then let's submit the order and get back to the loop quicker
+				fillwait = True
+				if ( stopout_signal == False ):
+					fillwait = False
+
+				data = tda_gobot_helper.buy_sell_option(contract=stock, quantity=stock_qty, instruction='sell_to_close', fillwait=fillwait, account_number=tda_account_number, debug=debug)
 
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short, sold=True)
 
 		# EQUITY stock
 		else:
+			# If only filling part, then let's submit the order and get back to the loop quicker
+			fillwait = True
+			if ( stopout_signal == False ):
+				fillwait = False
+
 			if ( args.short == False ):
 				if ( net_change < 0 ):
 					text_color = red
 
 				print('SELLING: net change (' + str(stock) + '): ' + str(text_color) + str(net_change) + ' USD' + str(reset_color))
 				if ( args.fake == False ):
-					data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=True, account_number=tda_account_number, debug=debug)
+					data = tda_gobot_helper.sell_stock_marketprice(stock, stock_qty, fillwait=fillwait, account_number=tda_account_number, debug=debug)
 
 			else:
 				if ( net_change > 0 ):
@@ -857,7 +877,7 @@ while True:
 
 				print('BUY_TO_COVER: net change (' + str(stock) + '): ' + str(text_color) + str(net_change) + ' USD' + str(reset_color))
 				if ( args.fake == False ):
-					data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=True, account_number=tda_account_number, debug=debug)
+					data = tda_gobot_helper.buytocover_stock_marketprice(stock, stock_qty, fillwait=fillwait, account_number=tda_account_number, debug=debug)
 
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short, sold=True)
 

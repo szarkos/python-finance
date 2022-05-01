@@ -9,6 +9,7 @@
 import robin_stocks.tda as tda
 import os, sys, time, random
 import threading
+import re
 import argparse
 import datetime, pytz
 import math
@@ -52,6 +53,8 @@ parser.add_argument("--multiday", help="Watch stock until decr_threshold is reac
 parser.add_argument("--notmarketclosed", help="Cancel order and exit if US stock market is closed", action="store_true")
 parser.add_argument("--short", help='Enable short selling of stock', action="store_true")
 parser.add_argument("-d", "--debug", help="Enable debug output", action="store_true")
+
+global args
 args = parser.parse_args()
 
 debug = True			# Should default to 0 eventually, testing for now
@@ -150,6 +153,8 @@ if ( tda_gobot_helper.ismarketopen_US() != True and args.multiday == False and a
 
 #############################################################
 # Functions we may need later
+
+# Listener thread to allow modification of order while process is running
 def check_input():
 	print('Starting listener thread...')
 
@@ -161,12 +166,17 @@ def check_input():
 
 		global stock_qty
 		global total_stock_qty
+		global orig_base_price
+		global last_price
+		global decr_percent_threshold
 		global exit_signal
 		global stopout_signal
 
+		# Quit loop and thread if we reduce our stock_qty to zero
 		if ( total_stock_qty == 0 ):
 			break
 
+		# If only 1 stock share or option is left, just sell it and exit
 		elif ( total_stock_qty == 1 and (in_cmd == 'h' or in_cmd == '1' or in_cmd == '2' or in_cmd == '3')):
 			print('Selling qty: ' + str(total_stock_qty) + ', remaining: 0')
 			stock_qty	= 1
@@ -174,6 +184,7 @@ def check_input():
 			stopout_signal	= True
 			break
 
+		# Sell all remaining stock/options
 		elif ( in_cmd == 's' ):
 			stock_qty = total_stock_qty
 
@@ -183,6 +194,7 @@ def check_input():
 			stopout_signal	= True
 			break
 
+		# Sell half of stock/options
 		elif ( in_cmd == 'h' ):
 			stock_qty = math.ceil( total_stock_qty / 2 )
 
@@ -190,6 +202,7 @@ def check_input():
 			print('Selling qty: ' + str(stock_qty) + ', remaining: ' + str(total_stock_qty - stock_qty))
 			exit_signal = True
 
+		# Sell 10% of stock/options
 		elif ( in_cmd == '1' ):
 			stock_qty = math.ceil( total_stock_qty * 0.1 )
 
@@ -197,6 +210,7 @@ def check_input():
 			print('Selling qty: ' + str(stock_qty) + ', remaining: ' + str(total_stock_qty - stock_qty))
 			exit_signal = True
 
+		# Sell 20% of stock/options
 		elif ( in_cmd == '2' ):
 			stock_qty = math.ceil( total_stock_qty * 0.2 )
 
@@ -204,12 +218,41 @@ def check_input():
 			print('Selling qty: ' + str(stock_qty) + ', remaining: ' + str(total_stock_qty - stock_qty))
 			exit_signal = True
 
+		# Sell 30% of stock/options
 		elif ( in_cmd == '3' ):
 			stock_qty = math.ceil( total_stock_qty * 0.3 )
 
 			print('SELL 30%')
 			print('Selling qty: ' + str(stock_qty) + ', remaining: ' + str(total_stock_qty - stock_qty))
 			exit_signal = True
+
+		# Set stoploss to cost basis
+		elif ( in_cmd == 'cb' ):
+			print('SET STOPLOSS TO COST BASIS')
+
+			# We cannot set a stoploss if we are already below cost basis
+			if ( (args.short == False and last_price < orig_base_price) or
+					(args.short == True and last_price > orig_base_price)):
+				print('Error: last_price ($' + str(round(last_price, 2)) + ') is already below cost basis ($' + str(round(orig_base_price, 2)) + '), ignoring stoploss command')
+
+			else:
+				decr_percent_threshold = ((orig_base_price / last_price) - 1) * 100
+				print('Setting stoploss to ' + str(round(decr_percent_threshold, 2)) + '%, orig_base_price: $' + str(round(orig_base_price, 2)) + ' / last_price: $' + str(round(last_price, 2)))
+
+		# Enable quick_exit and set a quick_exit_percent from current last_price
+		elif ( re.match('qe:', in_cmd) != None ):
+
+			try:
+				qe_pct = float( in_cmd.split(':')[1] )
+			except:
+				print('Error: bad format: ' + str(in_cmd) + ', ignoring')
+
+			else:
+				args.quick_exit		= True
+				qe_price		= last_price + (last_price * (qe_pct / 100))
+				args.quick_exit_percent	= ((qe_price / orig_base_price) - 1) * 100
+
+				print('SET QUICK EXIT: ' + str(round(args.quick_exit_percent, 2)) + '% ($' + str(round(qe_price, 2)) + ')')
 
 		else:
 			print('Unknown command (' + str(in_cmd) + '), ignoring')
@@ -516,10 +559,13 @@ try:
 except:
 	orig_base_price = last_price
 
-open_time	= datetime.datetime.now( mytimezone )
-base_price	= orig_base_price
-total_stock_qty	= stock_qty
-percent_change	= 0
+open_time		= datetime.datetime.now( mytimezone )
+base_price		= orig_base_price
+last_price		= orig_base_price
+total_stock_qty		= stock_qty
+percent_change		= 0
+total_percent_change	= 0
+
 time.sleep(5)
 
 # Start input thread if needed

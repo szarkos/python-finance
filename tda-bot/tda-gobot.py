@@ -27,6 +27,7 @@ parser.add_argument("--option_type", help='Type of options to purchase (CALL|PUT
 parser.add_argument("--near_expiration", help='Choose an option contract with the earliest expiration date', action="store_true")
 parser.add_argument("--strike_price", help='The desired strike price', default=None, type=float)
 parser.add_argument("--otm_level", help='Out-of-the-money strike price to choose (Default: 1)', default=1, type=int)
+parser.add_argument("--start_day_offset", help='Use start_day_offset to push start day of option search +N days out (Default: 0)', default=0, type=int)
 
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
@@ -257,6 +258,8 @@ def check_input():
 		else:
 			print('Unknown command (' + str(in_cmd) + '), ignoring')
 
+	return True
+
 
 # Get the pricehistory of the stock
 # This is needed for --combined_exit strategy
@@ -325,7 +328,7 @@ def price_trend(candles=None, type='hl2', period=5, affinity=None):
 
 
 # Find the right option contract to purchase
-def search_options(ticker=None, option_type=None, near_expiration=False, strike_price=None, debug=False):
+def search_options(ticker=None, option_type=None, near_expiration=False, strike_price=None, otm_level=1, start_day_offset=0, debug=False):
 
 	if ( ticker == None or option_type == None ):
 		return False
@@ -335,17 +338,21 @@ def search_options(ticker=None, option_type=None, near_expiration=False, strike_
 		return False
 
 	# Search for options that expire either this week or next week
-	#
-	# If near_expiration=False, then push the search date out at least one-day.
-	#  This is useful for stocks like SPY that have options expiring on Mon/Wed/Fri.
-	#
-	# In addition, if the day of the week is Wednesday or later, then search for an
-	#  option expiring in the following week or more.
+	# Use start_day_offset to push start day of option search +N days out
 	dt		= datetime.datetime.now(mytimezone)
 	start_day	= dt
-	end_day		= dt + datetime.timedelta(days=7)
+	if ( start_day_offset > 0 ):
+		start_day = dt + datetime.timedelta(days=start_day_offset)
+
+	end_day = dt + datetime.timedelta(days=7)
+
+	# If near_expiration=False, then push the search date out at least one-day.
+	#  This is useful for stocks like SPY that have options expiring on Mon/Wed/Fri.
 	if ( near_expiration == False ):
 		start_day = dt + datetime.timedelta(days=1)
+		if ( start_day_offset > 0 ):
+			start_day = dt + datetime.timedelta(days=start_day_offset)
+
 		if ( int(dt.strftime('%w')) >= 3 ):
 			start_day	= dt + datetime.timedelta(days=6)
 			end_day		= dt + datetime.timedelta(days=12)
@@ -353,12 +360,12 @@ def search_options(ticker=None, option_type=None, near_expiration=False, strike_
 	range_val	= 'NTM'
 	strike_price	= None
 	strike_count	= 5
-	if ( args.strike_price != None ):
+	if ( strike_price != None ):
 		range_val	= 'ALL'
 		strike_price	= float( args.strike_price )
 		strike_count	= 999
-	elif ( args.otm_level > 1 ):
-		strike_count += args.otm_level * 2
+	elif ( otm_level > 1 ):
+		strike_count += otm_level * 2
 
 	try:
 		option_chain = tda_gobot_helper.get_option_chains( ticker=ticker, contract_type=option_type, strike_count=strike_count, range_value=range_val, strike_price=strike_price,
@@ -405,8 +412,8 @@ def search_options(ticker=None, option_type=None, near_expiration=False, strike_
 
 		# Find the first OTM (or otm_level) option or follow --strike_price
 		if ( key['inTheMoney'] == False or strike_price != None ):
-			if ( args.otm_level > 1 and strike_price == None ):
-				if ( otm_level_count < args.otm_level ):
+			if ( otm_level > 1 and strike_price == None ):
+				if ( otm_level_count < otm_level ):
 					otm_level_count += 1
 					continue
 
@@ -453,7 +460,9 @@ if ( args.options == True ):
 		print('Error: --option_type (CALL|PUT) is required, exiting', file=sys.stderr)
 		sys.exit(1)
 
-	stock, option_price = search_options(ticker=args.stock, option_type=args.option_type, near_expiration=args.near_expiration, strike_price=args.strike_price, debug=False)
+	stock, option_price = search_options(	ticker=args.stock, option_type=args.option_type,
+						near_expiration=args.near_expiration, start_day_offset=args.start_day_offset,
+						strike_price=args.strike_price, otm_level=args.otm_level, debug=False )
 	if ( isinstance(stock, bool) and stock == False ):
 		print('Error: Unable to look up options for stock "' + str(args.stock) + '"', file=sys.stderr)
 		sys.exit(1)
@@ -463,7 +472,9 @@ if ( args.options == True ):
 	if ( option_price < 1 and args.near_expiration == True and args.force == False ):
 		print('Notice: ' + str(stock) + ' price (' + str(option_price) + ') is below $1, setting near_expiration to False (you can use --force to avoid this check)')
 
-		stock, option_price = search_options(ticker=args.stock, option_type=args.option_type, near_expiration=False, strike_price=args.strike_price, debug=False)
+		stock, option_price = search_options(	ticker=args.stock, option_type=args.option_type,
+							near_expiration=False, start_day_offset=args.start_day_offset,
+							strike_price=args.strike_price, otm_level=args.otm_level, debug=False )
 		if ( isinstance(stock, bool) and stock == False ):
 			print('Error: Unable to look up options for stock "' + str(args.stock) + '"', file=sys.stderr)
 			sys.exit(1)
@@ -566,12 +577,13 @@ total_stock_qty		= stock_qty
 percent_change		= 0
 total_percent_change	= 0
 
-time.sleep(5)
+time.sleep(3)
 
 # Start input thread if needed
 if ( args.listen_cmd == True ):
 	cmd_thread = threading.Thread(target=check_input, args=())
 	cmd_thread.start()
+
 
 # Main loop
 # Watch the performance of the option or equity and make decisions
@@ -935,8 +947,11 @@ while True:
 	time.sleep(loopt)
 
 
+# Use os._exit(0) if listener thread is blocked on input()
 if ( args.listen_cmd == True ):
-	cmd_thread.join()
+	total_stock_qty = 0
+	cmd_thread.join(timeout=0.1)
+	os._exit(0)
 
 sys.exit(0)
 

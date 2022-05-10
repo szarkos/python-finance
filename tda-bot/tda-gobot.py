@@ -7,7 +7,7 @@
 # drops below (or above, for shorting) some % threshold, then sell the shares immediately.
 
 import robin_stocks.tda as tda
-import os, sys, time, random
+import os, sys, signal, time, random
 import threading
 import re
 import argparse
@@ -160,6 +160,7 @@ def check_input():
 	print('Starting listener thread...')
 
 	while True:
+		exit_loop = False
 
 		in_cmd = input()
 		in_cmd = str(in_cmd).lower()
@@ -175,25 +176,28 @@ def check_input():
 
 		# Quit loop and thread if we reduce our stock_qty to zero
 		if ( total_stock_qty == 0 ):
-			break
+			exit_signal	= True
+			stopout_signal	= True
+			exit_loop	= True
 
 		# If only 1 stock share or option is left, just sell it and exit
 		elif ( total_stock_qty == 1 and (in_cmd == 'h' or in_cmd == '1' or in_cmd == '2' or in_cmd == '3')):
 			print('Selling qty: ' + str(total_stock_qty) + ', remaining: 0')
 			stock_qty	= 1
+
 			exit_signal	= True
 			stopout_signal	= True
-			break
+			exit_loop	= True
 
 		# Sell all remaining stock/options
 		elif ( in_cmd == 's' ):
+			print('SELL ALL')
+			print('Selling qty: ' + str(total_stock_qty) + ', remaining: 0')
 			stock_qty = total_stock_qty
 
-			print('Sell All')
-			print('Selling qty: ' + str(total_stock_qty) + ', remaining: 0')
 			exit_signal	= True
 			stopout_signal	= True
-			break
+			exit_loop	= True
 
 		# Sell half of stock/options
 		elif ( in_cmd == 'h' ):
@@ -237,7 +241,7 @@ def check_input():
 				print('Error: last_price ($' + str(round(last_price, 2)) + ') is already below cost basis ($' + str(round(orig_base_price, 2)) + '), ignoring stoploss command')
 
 			else:
-				decr_percent_threshold = ((orig_base_price / last_price) - 1) * 100
+				decr_percent_threshold = abs( ((orig_base_price / last_price) - 1) * 100 )
 				print('Setting stoploss to ' + str(round(decr_percent_threshold, 2)) + '%, orig_base_price: $' + str(round(orig_base_price, 2)) + ' / last_price: $' + str(round(last_price, 2)))
 
 		# Enable quick_exit and set a quick_exit_percent from current last_price
@@ -257,6 +261,12 @@ def check_input():
 
 		else:
 			print('Unknown command (' + str(in_cmd) + '), ignoring')
+
+		# Unblock the main thread to interrupt sleep
+		main_event.set()
+
+		if ( exit_loop == True ):
+			break
 
 	return True
 
@@ -451,6 +461,20 @@ def search_options(ticker=None, option_type=None, near_expiration=False, strike_
 
 	return stock, float(key['ask'])
 
+
+# Signal handler, mostly to quit all threads
+def graceful_exit(signum=None, frame=None):
+	print("\nNOTICE: graceful_exit(): received signal: " + str(signum))
+	if ( args.listen_cmd == True ):
+		total_stock_qty = 0
+		cmd_thread.join(timeout=0.1)
+		os._exit(0)
+
+	sys.exit(0)
+
+signal.signal(signal.SIGINT, graceful_exit)
+signal.signal(signal.SIGTERM, graceful_exit)
+
 ## End sub functions
 
 
@@ -577,9 +601,8 @@ total_stock_qty		= stock_qty
 percent_change		= 0
 total_percent_change	= 0
 
-time.sleep(3)
-
 # Start input thread if needed
+main_event = threading.Event()
 if ( args.listen_cmd == True ):
 	cmd_thread = threading.Thread(target=check_input, args=())
 	cmd_thread.start()
@@ -590,49 +613,62 @@ if ( args.listen_cmd == True ):
 #  about exit strategy
 while True:
 
-	last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=True)
-	if ( isinstance(last_price, bool) and last_price == False ):
-		print('Error: get_lastprice() returned False', file=sys.stderr)
-		time.sleep(5)
+	# Clear main_event.set() if set from the cmd_thread
+	main_event.clear()
 
-		# Try logging in again
-		if ( tda_gobot_helper.tdalogin(passcode) != True ):
-			print('Error: Login failure', file=sys.stderr)
+	# Skip the overhead of these API calls if we're carrying an exit_signal from the cmd_thread
+	if ( exit_signal == False ):
 
-		continue
+		# Use get_quote() to retrieve the latest pricing information
+		last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=True)
+		if ( isinstance(last_price, bool) and last_price == False ):
+			print('Error: get_lastprice() returned False', file=sys.stderr)
+			main_event.wait(loopt)
 
-	stock_last_price = 0
-	if ( args.options == True ):
-		stock_last_price = tda_gobot_helper.get_lastprice(args.stock, WarnDelayed=True)
+			# Try logging in again
+			if ( tda_gobot_helper.tdalogin(passcode) != True ):
+				print('Error: Login failure', file=sys.stderr)
 
-	# Using last_price for now to approximate gain/loss
-	net_change		= round( (last_price - orig_base_price) * stock_qty, 3 )
-	total_percent_change	= abs( last_price / orig_base_price - 1 ) * 100
-	percent_change		= abs( last_price / base_price - 1 ) * 100
+			continue
 
-	if ( debug == True ):
-		text_color = green
-		if ( args.short == False and last_price < orig_base_price or
-			args.short == True and last_price > orig_base_price ):
-				text_color		= red
-				total_percent_change	= -total_percent_change
-
+		stock_last_price = 0
 		if ( args.options == True ):
-			print('(' +  str(stock) + '): Total Change: ' + str(text_color) + str(round(total_percent_change, 2)) + '% (' + str(last_price) + ')' + str(reset_color) + ' / ' + str(args.stock) + ': ' + str(stock_last_price))
-		else:
-			print('(' +  str(stock) + '): Total Change: ' + str(text_color) + str(round(total_percent_change, 2)) + '% (' + str(last_price) + ')' + str(reset_color))
+			stock_last_price = tda_gobot_helper.get_lastprice(args.stock, WarnDelayed=True)
 
-	# Log format - stock:%change:last_price:net_change:base_price:orig_base_price:stock_qty:proc_id:short
-	tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short)
+		# Using last_price for now to approximate gain/loss
+		net_change		= round( (last_price - orig_base_price) * stock_qty, 3 )
+		total_percent_change	= abs( last_price / orig_base_price - 1 ) * 100
+		percent_change		= abs( last_price / base_price - 1 ) * 100
+
+		if ( debug == True ):
+			text_color = green
+			if ( args.short == False and last_price < orig_base_price or
+				args.short == True and last_price > orig_base_price ):
+					text_color		= red
+					total_percent_change	= -total_percent_change
+
+			# Options
+			if ( args.options == True ):
+				print('(' +  str(stock) + ' +' + str(total_stock_qty) + '): Total Change: ' + str(text_color) + str(round(total_percent_change, 2)) + '% (' + str(last_price) + ')' + str(reset_color) + ' / ' + str(args.stock) + ': ' + str(stock_last_price))
+
+			# Equity
+			else:
+				if ( args.short == False ):
+					print('(' +  str(stock) + ' +' + str(total_stock_qty) + '): Total Change: ' + str(text_color) + str(round(total_percent_change, 2)) + '% (' + str(last_price) + ')' + str(reset_color))
+				else:
+					print('(' +  str(stock) + ' -' + str(total_stock_qty) + '): Total Change: ' + str(text_color) + str(round(total_percent_change, 2)) + '% (' + str(last_price) + ')' + str(reset_color))
+
+		# Log format - stock:%change:last_price:net_change:base_price:orig_base_price:stock_qty:proc_id:short
+		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short)
 
 	# Log the post/pre market pricing, but skip the rest of the loop if the market is closed.
 	# This should only happen if args.multiday == True
 	if ( tda_gobot_helper.ismarketopen_US() == False and args.test_mode == False ):
-		time.sleep(loopt * 6)
+		main_event.wait(loopt * 6)
 		continue
 
 	# Sell the security if we're getting close to market close
-	if ( tda_gobot_helper.isendofday() == True and args.multiday == False ):
+	elif ( tda_gobot_helper.isendofday() == True and args.multiday == False ):
 		print('Market closing, selling stock ' + str(stock))
 		exit_signal	= True
 		stopout_signal	= True
@@ -747,7 +783,7 @@ while True:
 						if ( debug == True ):
 							print('(' + str(stock) + '): exit_percent_signal triggered')
 
-						time.sleep(loopt)
+						main_event.wait(loopt)
 						continue
 
 			# SHORT
@@ -763,7 +799,7 @@ while True:
 						if ( debug == True ):
 							print('(' + str(stock) + '): exit_percent_signal triggered')
 
-						time.sleep(loopt)
+						main_event.wait(loopt)
 						continue
 
 			# If exit_percent_signal is triggered very quickly then get_pricehistory candles
@@ -777,7 +813,7 @@ while True:
 					if ( debug == True ):
 						print('(' + str(stock) + '): waiting ' + str(delta+loopt) + ' seconds before triggering exit_percent_signal')
 
-					time.sleep( delta + loopt )
+					main_event.wait( delta + loopt)
 
 		# Once exit_percent_signal is triggered we need to move to use candles so we can analyze
 		#  price movement.
@@ -799,7 +835,7 @@ while True:
 
 			if ( isinstance(pricehistory, bool) and pricehistory == False ):
 				print('(' + str(stock) + '): get_ph returned False')
-				time.sleep(5)
+				main_event.wait(5)
 				continue
 
 			# Integrate the latest last_price from get_quote() into the latest candle from pricehistory
@@ -939,12 +975,14 @@ while True:
 
 			tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short, sold=True)
 
-
 		exit_signal = False
 		if ( stopout_signal == True ):
 			break
 
-	time.sleep(loopt)
+		# Skip main_event.wait() to expedite the loop around after exiting part of our position
+		continue
+
+	main_event.wait(loopt)
 
 
 # Use os._exit(0) if listener thread is blocked on input()

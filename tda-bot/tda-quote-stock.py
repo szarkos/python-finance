@@ -24,6 +24,10 @@ group = parser.add_mutually_exclusive_group(required=False)
 group.add_argument("stock", help='Stock ticker to check', nargs='?', default='', type=str)
 group.add_argument("--stocks", help='Stock tickers to check, comma delimited', default='', type=str)
 
+parser.add_argument("--account_number", help='Account number to use (default: None)', default=None, type=int)
+parser.add_argument("--passcode_prefix", help='Environment variable name that contains passcode for the account (default: None)', default=None, type=str)
+parser.add_argument("--token_fname", help='Filename containing the account token (default: None)', default=None, type=str)
+
 parser.add_argument("-c", "--checkticker", help="Check if ticker is valid", action="store_true")
 parser.add_argument("-p", "--pretty", help="Pretty print the stock data", action="store_true")
 parser.add_argument("-n", "--lines", help="Number of lines to output (relevant for indicators like vwap, etc.)", default=10, type=int)
@@ -92,14 +96,32 @@ if ( skip_login == False ):
 		print('Error: unable to load .env file')
 		exit(1)
 
-	tda_account_number			= int( os.environ["tda_account_number"] )
-	passcode				= os.environ["tda_encryption_passcode"]
+	# Account Number
+	try:
+		if ( args.account_number != None ):
+			tda_account_number = args.account_number
+		else:
+			tda_account_number = int( os.environ["tda_account_number"] )
+
+	except:
+		print('Error: account number not found, exiting', file=sys.stderr)
+		sys.exit(1)
+
+	# Passcode
+	passcode_prefix = 'tda_encryption_passcode'
+	if ( args.passcode_prefix != None ):
+		passcode_prefix = str(args.passcode_prefix) + '_tda_encryption_passcode'
+	try:
+		passcode = os.environ[passcode_prefix]
+	except:
+		print('Error: invalid passcode, exiting', file=sys.stderr)
+		sys.exit(1)
 
 	tda_gobot_helper.tda			= tda
 	tda_gobot_helper.tda_account_number	= tda_account_number
 	tda_gobot_helper.passcode		= passcode
 
-	if ( tda_gobot_helper.tdalogin(passcode) != True ):
+	if ( tda_gobot_helper.tdalogin(passcode, args.token_fname) != True ):
 		print('Error: Login failure')
 		exit(1)
 

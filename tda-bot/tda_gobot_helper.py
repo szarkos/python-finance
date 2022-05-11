@@ -8,11 +8,14 @@ from func_timeout import func_timeout, FunctionTimedOut
 
 
 # Login to tda using a passcode
-def tdalogin(passcode=None):
+def tdalogin(passcode=None, token_fname=None):
 
 	if ( passcode == None ):
 		print('Error: tdalogin(): passcode is empty', file=sys.stderr)
 		return False
+
+	if ( token_fname != None ):
+		tda.authentication.PICKLE_NAME = token_fname
 
 	try:
 		enc = func_timeout(5, tda.login, args=(passcode,))
@@ -1977,5 +1980,4 @@ def get_option_chains(ticker=None, contract_type='ALL', strike_count='10', inclu
 		return False
 
 	return data
-
 

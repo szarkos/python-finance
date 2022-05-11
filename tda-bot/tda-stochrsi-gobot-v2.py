@@ -44,7 +44,11 @@ import tulipy as ti
 parser = argparse.ArgumentParser()
 parser.add_argument("--stocks", help='Stock ticker(s) to watch (comma delimited). Max supported tickers supported by TDA: 300', required=True, type=str)
 parser.add_argument("--stock_usd", help='Amount of money (USD) to invest per trade', default=1000, type=float)
+
 parser.add_argument("--account_number", help='Account number to use (default: use .env file)', default=None, type=int)
+parser.add_argument("--passcode_prefix", help='Environment variable name that contains passcode for the account (default: None)', default=None, type=str)
+parser.add_argument("--token_fname", help='Filename containing the account token (default: None)', default=None, type=str)
+
 parser.add_argument("--algos", help='Algorithms to use, comma delimited. Supported options: stochrsi, rsi, adx, dmi, macd, aroonosc, vwap, vpt, support_resistance (Example: --algos=stochrsi,adx --algos=stochrsi,macd)', required=True, nargs="*", action='append', type=str)
 parser.add_argument("--algo_valid_tickers", help='Tickers to use with a particular algorithm (Example: --algo_valid_tickers=algo_id:MSFT,AAPL). If unset all tickers will be used for all algos. Also requires setting "algo_id:algo_name" with --algos=.', action='append', default=None, type=str)
 parser.add_argument("--algo_exclude_tickers", help='Tickers to exclude with a particular algorithm (Example: --algo_exclude_tickers=algo_id:GME,AMC). If unset all tickers will be used for all algos. Also requires setting "algo_id:algo_name" with --algos=.', action='append', default=None, type=str)
@@ -55,6 +59,7 @@ parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX
 parser.add_argument("--multiday", help='Run and monitor stock continuously across multiple days (but will not trade after hours) - see also --hold_overnight', action="store_true")
 parser.add_argument("--singleday", help='Allows bot to start (but not trade) before market opens. Bot will revert to non-multiday behavior after the market opens.', action="store_true")
 parser.add_argument("--unsafe", help='Allow trading between 9:30-10:15AM where volatility is high', action="store_true")
+parser.add_argument("--ph_only", help='Allow trading only between 9:30-10:30AM and 3:00PM-4:00PM when volatility is high', action="store_true")
 parser.add_argument("--hold_overnight", help='Hold stocks overnight when --multiday is in use (default: False) - Warning: implies --unsafe', action="store_true")
 
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
@@ -64,6 +69,8 @@ parser.add_argument("--last_hour_threshold", help='Sell the stock if net gain is
 parser.add_argument("--options", help='Purchase CALL/PUT options instead of equities', action="store_true")
 parser.add_argument("--options_usd", help='Amount of money (USD) to invest per options trade', default=1000, type=float)
 parser.add_argument("--near_expiration", help='Choose an option contract with the earliest expiration date', action="store_true")
+parser.add_argument("--otm_level", help='Out-of-the-money strike price to choose (Default: 1)', default=1, type=int)
+parser.add_argument("--start_day_offset", help='Use start_day_offset to push start day of option search +N days out (Default: 0)', default=0, type=int)
 parser.add_argument("--options_incr_threshold", help='Reset base_price if stock increases by this percent', default=2, type=float)
 parser.add_argument("--options_decr_threshold", help='Max allowed drop percentage of the stock price', default=5, type=float)
 parser.add_argument("--options_exit_percent", help='Sell security if price improves by this percentile', default=None, type=float)
@@ -265,11 +272,21 @@ if ( load_dotenv() != True ):
         sys.exit(1)
 
 try:
-	passcode = os.environ["tda_encryption_passcode"]
+	# Account Number
 	if ( args.account_number != None ):
 		tda_account_number = args.account_number
 	else:
 		tda_account_number = int( os.environ["tda_account_number"] )
+
+	# Passcode
+	passcode_prefix = 'tda_encryption_passcode'
+	if ( args.passcode_prefix != None ):
+		passcode_prefix = str(args.passcode_prefix) + '_tda_encryption_passcode'
+
+	passcode = os.environ[passcode_prefix]
+
+	# Token filename
+	token_fname = args.token_fname
 
 except Exception as e:
 	print('Error: a valid TDA account number and passcode are required: ' + str(e))
@@ -284,7 +301,10 @@ tda_stochrsi_gobot_helper.tda_account_number	= tda_account_number
 tda_gobot_helper.passcode			= passcode
 tda_stochrsi_gobot_helper.passcode		= passcode
 
-if ( tda_gobot_helper.tdalogin(passcode) != True ):
+tda_gobot_helper.token_fname			= token_fname
+tda_stochrsi_gobot_helper.token_fname		= token_fname
+
+if ( tda_gobot_helper.tdalogin(passcode, token_fname) != True ):
 	print('Error: Login failure', file=sys.stderr)
 	sys.exit(1)
 
@@ -339,6 +359,9 @@ for algo in args.algos:
 	options				= args.options
 	options_usd			= args.options_usd
 	near_expiration			= args.near_expiration
+	otm_level			= args.otm_level
+	start_day_offset		= args.start_day_offset
+	ph_only				= args.ph_only
 	safe_open			= not args.unsafe
 
 	quick_exit			= args.quick_exit
@@ -544,6 +567,7 @@ for algo in args.algos:
 
 		# Entry limit
 		if ( re.match('stock_usd:', a)				!= None ):	stock_usd			= float( a.split(':')[1] )
+		if ( re.match('ph_only', a)				!= None ):	ph_only				= True
 		if ( re.match('safe_open', a)				!= None ):	safe_open			= True
 		if ( re.match('unsafe', a)				!= None ):	safe_open			= False
 
@@ -559,6 +583,8 @@ for algo in args.algos:
 		if ( re.match('options', a)				!= None ):	options				= True
 		if ( re.match('options_usd:', a)			!= None ):	options_usd			= float( a.split(':')[1] )
 		if ( re.match('near_expiration', a)			!= None ):	near_expiration			= True
+		if ( re.match('otm_level:', a)				!= None ):	otm_level			= int( a.split(':')[1] )
+		if ( re.match('start_day_offset:', a)			!= None ):	start_day_offset		= int( a.split(':')[1] )
 
 		# Modifiers
 		if ( re.match('rsi_high_limit:', a)			!= None ):	rsi_high_limit			= float( a.split(':')[1] )
@@ -751,11 +777,15 @@ for algo in args.algos:
 		quick_exit		= True
 		quick_exit_percent	= scalp_mode_pct
 
+	if ( ph_only == True ):
+		safe_open = False
+
 	# Populate the algo{} dict with all the options parsed above
 	algo_list = {   'algo_id':				algo_id,
 
 			'stock_usd':				stock_usd,
 			'safe_open':				safe_open,
+			'ph_only':				ph_only,
 
 			'quick_exit':				quick_exit,
 			'quick_exit_percent':			quick_exit_percent,
@@ -768,6 +798,8 @@ for algo in args.algos:
 			'options':				options,
 			'options_usd':				options_usd,
 			'near_expiration':			near_expiration,
+			'otm_level':				otm_level,
+			'start_day_offset':			start_day_offset,
 
 			'primary_stochrsi':			primary_stochrsi,
 			'primary_stochmfi':			primary_stochmfi,
@@ -950,7 +982,7 @@ for algo in args.algos:
 
 # Clean up this mess
 # All the stuff above should be put into a function to avoid this cleanup stuff. I know it. It'll happen eventually.
-del(stock_usd,quick_exit,quick_exit_percent,trend_quick_exit,qe_stacked_ma_periods,qe_stacked_ma_type,scalp_mode,scalp_mode_pct)
+del(stock_usd,quick_exit,quick_exit_percent,trend_quick_exit,qe_stacked_ma_periods,qe_stacked_ma_type,scalp_mode,scalp_mode_pct,ph_only)
 del(primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,primary_mesa_sine,primary_trin,primary_sp_monitor)
 del(stacked_ma,stacked_ma_secondary,mama_fama,stochrsi_5m,stochmfi,stochmfi_5m)
 del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,vwap,vpt)
@@ -969,7 +1001,7 @@ del(check_etf_indicators,check_etf_indicators_strict,etf_tickers,etf_roc_period,
 del(trin,tick,roc,sp_monitor,trin_roc_type,trin_roc_period,trin_ma_type,trin_ma_period,trin_oversold,trin_overbought,tick_threshold,tick_ma_type,tick_ma_period)
 del(roc_type,roc_period,roc_ma_type,roc_ma_period,roc_threshold,roc_exit)
 del(sp_monitor_tickers,sp_monitor_threshold,sp_roc_type,sp_roc_period,sp_ma_period,sp_monitor_stacked_ma_type,sp_monitor_stacked_ma_periods,sp_monitor_use_trix,sp_monitor_trix_ma_type,sp_monitor_trix_ma_period,sp_monitor_strict)
-del(options,options_usd,near_expiration)
+del(options,options_usd,near_expiration,otm_level,start_day_offset)
 
 # Set valid tickers for each algo, if configured
 if ( args.algo_valid_tickers != None ):
@@ -1563,7 +1595,7 @@ for ticker in list(stocks.keys()):
 				stocks[ticker]['isvalid'] = False
 				continue
 
-			if ( tda_gobot_helper.tdalogin(passcode) != True ):
+			if ( tda_gobot_helper.tdalogin(passcode, token_fname) != True ):
 				print('Error: (' + str(ticker) + '): Login failure')
 			time.sleep(5)
 
@@ -1590,7 +1622,7 @@ for ticker in list(stocks.keys()):
 				stocks[ticker]['isvalid'] = False
 				continue
 
-			if ( tda_gobot_helper.tdalogin(passcode) != True ):
+			if ( tda_gobot_helper.tdalogin(passcode, token_fname) != True ):
 				print('Error: (' + str(ticker) + '): Login failure')
 			time.sleep(5)
 
@@ -1716,7 +1748,7 @@ else:
 	time.sleep(len(stocks))
 
 # Log in again - avoids failing later and we can call this as often as we want
-if ( tda_gobot_helper.tdalogin(passcode) != True ):
+if ( tda_gobot_helper.tdalogin(passcode, token_fname) != True ):
 	print('Error: tdalogin(): Login failure', file=sys.stderr)
 
 # tda.get_pricehistory() variables
@@ -1750,7 +1782,7 @@ for ticker in list(stocks.keys()):
 		data, epochs = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, needExtendedHoursData=extended_hours, debug=False)
 		if ( isinstance(data, bool) and data == False ):
 			time.sleep(5)
-			if ( tda_gobot_helper.tdalogin(passcode) != True ):
+			if ( tda_gobot_helper.tdalogin(passcode, token_fname) != True ):
 				print('Error: (' + str(ticker) + '): Login failure')
 			continue
 
@@ -1820,7 +1852,7 @@ for ticker in list(stocks.keys()):
 					stocks[ticker]['pricehistory_weekly'] == {} or
 					('empty' in stocks[ticker]['pricehistory_weekly'] and str(stocks[ticker]['pricehistory_weekly']['empty']).lower() == 'true') ):
 				time.sleep(5)
-				if ( tda_gobot_helper.tdalogin(passcode) != True ):
+				if ( tda_gobot_helper.tdalogin(passcode, token_fname) != True ):
 					print('Error: (' + str(ticker) + '): Login failure')
 
 				continue
@@ -1864,7 +1896,7 @@ for ticker in list(stocks.keys()):
 
 				time.sleep(5)
 				stocks[ticker]['pricehistory_daily'] = {}
-				if ( tda_gobot_helper.tdalogin(passcode) != True ):
+				if ( tda_gobot_helper.tdalogin(passcode, token_fname) != True ):
 					print('Error: (' + str(ticker) + '): Login failure')
 				continue
 
@@ -2037,8 +2069,21 @@ for ticker in list(stocks.keys()):
 
 
 # MAIN: Log into tda-api and run the stream client
-tda_api_key	= os.environ['tda_consumer_key']
-tda_pickle	= os.environ['HOME'] + '/.tokens/tda2.pickle'
+try:
+	# tda_api.auth.client_from_token_file() requires the consumer key and token file
+	# StreamClient() also requires an account_number, but that was set above in tda_account_number
+
+	# API Key
+	tda_api_key = os.environ['tda_consumer_key']
+
+	# TDA token (.pickle) file
+	tda_pickle = os.environ['HOME'] + '/.tokens/tda2.pickle'
+	if ( token_fname != None ):
+		tda_pickle = os.environ['HOME'] + '/.tokens/' + str(token_fname)
+
+except Exception as e:
+	print('Error: a valid TDA consumer key and token file are required: ' + str(e))
+	sys.exit(1)
 
 # Initializes and reads from TDA stream API
 async def read_stream():

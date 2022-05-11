@@ -357,7 +357,7 @@ def gobot_ets(stream=None, debug=False):
 
 
 # Find the right option contract to purchase
-def search_options(ticker=None, option_type=None, near_expiration=False, debug=False):
+def search_options(ticker=None, option_type=None, near_expiration=False, otm_level=1, start_day_offset=0, debug=False):
 
 	if ( ticker == None or option_type == None ):
 		return False
@@ -380,16 +380,28 @@ def search_options(ticker=None, option_type=None, near_expiration=False, debug=F
 			'iv':		0 }
 
 	# Search for options that expire either this week or next week
+	# Use start_day_offset to push start day of option search +N days out
 	dt		= datetime.datetime.now(mytimezone)
 	start_day	= dt
-	end_day		= dt + datetime.timedelta(days=7)
+	if ( start_day_offset > 0 ):
+		start_day = dt + datetime.timedelta(days=start_day_offset)
+	end_day = dt + datetime.timedelta(days=7)
+
+	# If near_expiration=False, then push the search date out at least one-day.
+	#  This is useful for stocks like SPY that have options expiring on Mon/Wed/Fri.
 	if ( near_expiration == False ):
 		start_day = dt + datetime.timedelta(days=1)
+		if ( start_day_offset > 0 ):
+			start_day = dt + datetime.timedelta(days=start_day_offset)
+
 		if ( int(dt.strftime('%w')) >= 3 ):
 			start_day	= dt + datetime.timedelta(days=6)
 			end_day		= dt + datetime.timedelta(days=12)
 
 	strike_count = 5
+	if ( otm_level > 1 ):
+		strike_count += otm_level * 2
+
 	try:
 		option_chain = tda_gobot_helper.get_option_chains( ticker=ticker, contract_type=option_data['type'], strike_count=strike_count, range_value=option_data['range_val'],
 									from_date=start_day.strftime('%Y-%m-%d'), to_date=end_day.strftime('%Y-%m-%d') )
@@ -413,6 +425,7 @@ def search_options(ticker=None, option_type=None, near_expiration=False, debug=F
 	if ( option_data['type'] == 'PUT' ):
 		iter = reversed(option_chain[ExpDateMap][exp_date].keys())
 
+	otm_level_count = 1
 	for key in iter:
 		try:
 			option_data['strike'] = float( key )
@@ -430,8 +443,12 @@ def search_options(ticker=None, option_type=None, near_expiration=False, debug=F
 		#  have different offerings for each strike price.
 		key = key[0]
 
-		# Find the first OTM option
+		# Find the first OTM (or otm_level) option
 		if ( key['inTheMoney'] == False ):
+			if ( otm_level > 1 ):
+				if ( otm_level_count < otm_level ):
+					otm_level_count += 1
+					continue
 
 			option_data['ticker']	= str( key['symbol' ])
 			option_data['bid']	= float( key['bid'] )
@@ -1534,7 +1551,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 		# Now calculate the MA for total_roc
 		temp_ph	= { 'candles': [] }
 		for i in range( len(total_roc) ):
-			temp_ph['candles'].append({ 'close': total_roc[i] })
+			temp_ph['candles'].append({ 'open': total_roc[i], 'high': total_roc[i], 'low': total_roc[i], 'close': total_roc[i] })
 
 		sp_monitor_roc_ma = []
 		try:
@@ -1549,7 +1566,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 			sp_monitor_trix, sp_monitor_trix_signal = tda_algo_helper.get_trix_altma( pricehistory=temp_ph, ma_type=cur_algo['sp_monitor_trix_ma_type'], period=cur_algo['sp_monitor_trix_ma_period'],
 													type='close', signal_ma='ema', signal_period=3, skip_log=True )
 		else:
-			sp_monitor_stacked_ma = get_stackedma( temp_ph, sp_monitor_stacked_ma_periods, sp_monitor_stacked_ma_type )
+			sp_monitor_stacked_ma = get_stackedma( temp_ph, cur_algo['sp_monitor_stacked_ma_periods'], cur_algo['sp_monitor_stacked_ma_type'] )
 
 		# Update cur_sp_monitor and prev_sp_monitor for all tickers
 		for ticker in stocks.keys():
@@ -2462,15 +2479,32 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 			# If --multiday isn't set then we do not want to start trading if the market is closed.
 			# Also if --multiday isn't set we should avoid buying any securities if it's within
 			#  1-hour from market close. Otherwise we may be forced to sell too early.
-			if ( (tda_gobot_helper.isendofday(75) == True or tda_gobot_helper.ismarketopen_US(safe_open=cur_algo['safe_open']) == False) and args.multiday == False ):
+			if ( (tda_gobot_helper.isendofday(75) == True or tda_gobot_helper.ismarketopen_US(safe_open=cur_algo['safe_open']) == False) and
+					cur_algo['ph_only'] == False and args.multiday == False ):
 				print('(' + str(ticker) + ') Market is closed or near closing.')
 				reset_signals(ticker)
 				continue
 
 			# If args.hold_overnight=False and args.multiday==True, we won't enter any new trades 1-hour before market close
-			if ( args.multiday == True and args.hold_overnight == False and tda_gobot_helper.isendofday(75) ):
+			if ( args.multiday == True and args.hold_overnight == False and cur_algo['ph_only'] == False and
+					tda_gobot_helper.isendofday(75) ):
 				reset_signals(ticker)
 				continue
+
+			# If ph_only is set then only trade during high-volume periods
+			#  9:30AM - 11:00AM
+			#  2:30PM - 4:00PM
+			if ( cur_algo['ph_only'] == True ):
+				cur_time	= datetime.datetime.now(mytimezone)
+				cur_hour	= int( cur_time.strftime('%-H') )
+				cur_min		= int( cur_time.strftime('%-M') )
+
+				if ( cur_hour >= 11 and cur_hour < 14 ):
+					continue
+				elif ( cur_hour == 10 and cur_min > 30 ):
+					continue
+				elif ( cur_hour == 14 and cur_min < 30 ):
+					continue
 
 			# Extra check to make sure the signals are in the right position based on global short-sell args
 			if ( args.shortonly == True ):
@@ -2692,36 +2726,33 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 					sp_monitor_bear = check_stacked_ma(cur_sp_monitor_stacked_ma, 'bear')
 					sp_monitor_bull = check_stacked_ma(cur_sp_monitor_stacked_ma, 'bull')
 
-				# Jump to short mode if sp_monitor is negativ
+				# Jump to short mode if sp_monitor is negative
 				if ( cur_sp_monitor < 0 and args.short == True and stocks[ticker]['shortable'] == True ):
 					reset_signals(ticker, id=algo_id, signal_mode='short', exclude_bbands_kchan=True)
+
 					if ( cur_sp_monitor <= -1.5 ):
 						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = True
 
-					if ( cur_sp_monitor <= -cur_algo['sp_monitor_threshold'] and sp_monitor_bull == False ):
-						stocks[ticker]['algo_signals'][algo_id]['short_signal'] = True
+					if ( cur_sp_monitor <= -cur_algo['sp_monitor_threshold'] ):
+						if ( (cur_algo['sp_monitor_strict'] == True and sp_monitor_bear == True) or cur_algo['sp_monitor_strict'] == False ):
+							stocks[ticker]['algo_signals'][algo_id]['short_signal'] = True
 
 					continue
 
 				elif ( cur_sp_monitor > 1.5 and cur_sp_monitor < cur_algo['sp_monitor_threshold'] ):
 					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = True
 
-				elif ( cur_sp_monitor >= cur_algo['sp_monitor_threshold'] and
-						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] == True ):
-
+				#elif ( cur_sp_monitor >= cur_algo['sp_monitor_threshold'] and stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] == True ):
+				elif ( cur_sp_monitor >= cur_algo['sp_monitor_threshold'] ):
 					if ( (cur_algo['sp_monitor_strict'] == True and sp_monitor_bull == True) or cur_algo['sp_monitor_strict'] == False ):
 						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal']	= False
 						stocks[ticker]['algo_signals'][algo_id]['buy_signal']			= True
 
 				# Reset signals if sp_monitor starts to fade
-				elif ( cur_sp_monitor < cur_algo['sp_monitor_threshold'] or sp_monitor_bear == True ):
+				if ( cur_sp_monitor < cur_algo['sp_monitor_threshold'] or (cur_algo['sp_monitor_strict'] == True and sp_monitor_bull == False) ):
 					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = False
-					if ( cur_sp_monitor < 1.5 ):
-						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = False
-
-				else:
-					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal']	= False
-					stocks[ticker]['algo_signals'][algo_id]['buy_signal']			= False
+				if ( cur_sp_monitor < 1.5 ):
+					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = False
 
 			## END PRIMARY ALGOS
 
@@ -3431,13 +3462,14 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 			if ( stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True and stocks[ticker]['final_buy_signal'] == True ):
 
 				# Ensure we are logged in
-				tda_gobot_helper.tdalogin(passcode)
+				tda_gobot_helper.tdalogin(passcode, token_fname)
 
 				# PURCHASE OPTIONS
 				if ( cur_algo['options'] == True ):
 
 					# Lookup the option to purchase
-					option_data = search_options(ticker=ticker, option_type='CALL', near_expiration=cur_algo['near_expiration'], debug=True)
+					option_data = search_options( ticker=ticker, option_type='CALL', near_expiration=cur_algo['near_expiration'],
+									otm_level=cur_algo['otm_level'], start_day_offset=cur_algo['start_day_offset'], debug=True )
 					if ( isinstance(option_data, bool) and option_data == False ):
 						print('Error: Unable to look up options for stock "' + str(ticker) + '"', file=sys.stderr)
 						stocks[ticker]['options_usd'] = cur_algo['options_usd']
@@ -3448,7 +3480,8 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 					#  then try to disable to find an option with a later expiration date.
 					if ( cur_algo['near_expiration'] == True and float(option_data['ask']) < 1 ):
 						print('Notice: ' + str(option_data['ticker']) + ' price (' + str(option_data['ask']) + ') is below $1, setting near_expiration to False')
-						option_data = search_options(ticker=ticker, option_type='CALL', near_expiration=False, debug=True)
+						option_data = search_options( ticker=ticker, option_type='CALL', near_expiration=False,
+										otm_level=cur_algo['otm_level'], start_day_offset=cur_algo['start_day_offset'], debug=True )
 						if ( isinstance(option_data, bool) and option_data == False ):
 							print('Error: Unable to look up options for stock "' + str(ticker) + '"', file=sys.stderr)
 							stocks[ticker]['options_usd'] = cur_algo['options_usd']
@@ -3620,7 +3653,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				if ( isinstance(options_last_price, bool) and options_last_price == False ):
 
 					# Try again
-					tda_gobot_helper.tdalogin(passcode)
+					tda_gobot_helper.tdalogin(passcode, token_fname)
 					options_last_price = tda_gobot_helper.get_lastprice(stocks[ticker]['options_ticker'], WarnDelayed=False)
 					if ( isinstance(options_last_price, bool) and options_last_price == False ):
 						print('Warning: get_lastprice(' + str(stocks[ticker]['options_ticker']) + ') returned False')
@@ -3645,7 +3678,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 					# This happens often enough that it's worth just trying again before falling back
 					#  to the latest candle
-					tda_gobot_helper.tdalogin(passcode)
+					tda_gobot_helper.tdalogin(passcode, token_fname)
 					last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
 					if ( isinstance(last_price, bool) and last_price == False ):
 						print('Warning: get_lastprice(' + str(ticker) + ') returned False, falling back to latest candle')
@@ -3704,7 +3737,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 			# The last trading hour is a bit unpredictable. If --hold_overnight is false we want
 			#  to sell the stock at a more conservative exit percentage.
-			elif ( tda_gobot_helper.isendofday(60) == True and args.hold_overnight == False ):
+			elif ( tda_gobot_helper.isendofday(60) == True and cur_algo['ph_only'] == False and args.hold_overnight == False ):
 				if ( cur_algo['options'] == True ):
 					if ( options_last_price > stocks[ticker]['options_orig_base_price'] ):
 						percent_change = abs( stocks[ticker]['options_orig_base_price'] / options_last_price - 1 ) * 100
@@ -4074,7 +4107,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				if ( args.fake == False or (args.fake == False and exit_passthrough == False) ):
 
 					# Ensure we are logged in
-					tda_gobot_helper.tdalogin(passcode)
+					tda_gobot_helper.tdalogin(passcode, token_fname)
 
 					# OPTIONS
 					if ( cur_algo['options'] == True ):
@@ -4342,36 +4375,33 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 					sp_monitor_bear = check_stacked_ma(cur_sp_monitor_stacked_ma, 'bear')
 					sp_monitor_bull = check_stacked_ma(cur_sp_monitor_stacked_ma, 'bull')
 
-				# Jump to short mode if sp_monitor is negativ
+				# Jump to long mode if sp_monitor is negativ
 				if ( cur_sp_monitor > 0 and args.shortonly == False ):
 					reset_signals(ticker, id=algo_id, signal_mode='long', exclude_bbands_kchan=True)
+
 					if ( cur_sp_monitor >= 1.5 ):
 						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = True
 
-					if ( cur_sp_monitor >= cur_algo['sp_monitor_threshold'] and sp_monitor_bear == False ):
-						stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = True
+					if ( cur_sp_monitor >= cur_algo['sp_monitor_threshold'] ):
+						if ( (cur_algo['sp_monitor_strict'] == True and sp_monitor_bull == True) or cur_algo['sp_monitor_strict'] == False ):
+							stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = True
 
 					continue
 
 				elif ( cur_sp_monitor <= -1.5 and cur_sp_monitor > -cur_algo['sp_monitor_threshold'] ):
 					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = True
 
-				elif ( cur_sp_monitor <= -cur_algo['sp_monitor_threshold'] and
-						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] == True ):
-
+				#elif ( cur_sp_monitor <= -cur_algo['sp_monitor_threshold'] and stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] == True ):
+				elif ( cur_sp_monitor <= -cur_algo['sp_monitor_threshold'] ):
 					if ( (cur_algo['sp_monitor_strict'] == True and sp_monitor_bear == True) or cur_algo['sp_monitor_strict'] == False ):
 						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal']	= False
 						stocks[ticker]['algo_signals'][algo_id]['short_signal']			= True
 
 				# Reset signals if sp_monitor starts to fade
-				elif ( cur_sp_monitor > -cur_algo['sp_monitor_threshold'] or sp_monitor_bull == True ):
+				if ( cur_sp_monitor > -cur_algo['sp_monitor_threshold'] or (cur_algo['sp_monitor_strict'] == True and sp_monitor_bear == False) ):
 					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = False
-					if ( cur_sp_monitor > -1.5 ):
-						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = False
-
-				else:
-					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal']	= False
-					stocks[ticker]['algo_signals'][algo_id]['short_signal']			= False
+				if ( cur_sp_monitor > -1.5 ):
+					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = False
 
 			## END PRIMARY ALGOS
 
@@ -5080,7 +5110,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 			if ( stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True and stocks[ticker]['final_short_signal'] == True ):
 
 				# Ensure we are logged in
-				tda_gobot_helper.tdalogin(passcode)
+				tda_gobot_helper.tdalogin(passcode, token_fname)
 
 				# PURCHASE OPTIONS
 				if ( cur_algo['options'] == True ):
@@ -5287,7 +5317,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				if ( isinstance(options_last_price, bool) and options_last_price == False ):
 
 					# Try again
-					tda_gobot_helper.tdalogin(passcode)
+					tda_gobot_helper.tdalogin(passcode, token_fname)
 					options_last_price = tda_gobot_helper.get_lastprice(stocks[ticker]['options_ticker'], WarnDelayed=False)
 					if ( isinstance(options_last_price, bool) and options_last_price == False ):
 						print('Warning: get_lastprice(' + str(stocks[ticker]['options_ticker']) + ') returned False')
@@ -5312,7 +5342,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 					# This happens often enough that it's worth just trying again before falling back
 					#  to the latest candle
-					tda_gobot_helper.tdalogin(passcode)
+					tda_gobot_helper.tdalogin(passcode, token_fname)
 					last_price = tda_gobot_helper.get_lastprice(ticker, WarnDelayed=False)
 					if ( isinstance(last_price, bool) and last_price == False ):
 						print('Warning: get_lastprice(' + str(ticker) + ') returned False, falling back to latest candle')
@@ -5371,7 +5401,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 			# The last trading hour is a bit unpredictable. If --hold_overnight is false we want
 			#  to sell the stock at a more conservative exit percentage.
-			elif ( tda_gobot_helper.isendofday(60) == True and args.hold_overnight == False ):
+			elif ( tda_gobot_helper.isendofday(60) == True and cur_algo['ph_only'] == False and args.hold_overnight == False ):
 				if ( cur_algo['options'] == True ):
 					if ( options_last_price > stocks[ticker]['options_orig_base_price'] ):
 						percent_change = abs( stocks[ticker]['options_orig_base_price'] / options_last_price - 1 ) * 100
@@ -5760,7 +5790,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				if ( args.fake == False or (args.fake == False and exit_passthrough == False) ):
 
 					# Ensure we are logged in
-					tda_gobot_helper.tdalogin(passcode)
+					tda_gobot_helper.tdalogin(passcode, token_fname)
 
 					# OPTIONS
 					if ( cur_algo['options'] == True ):
@@ -5860,7 +5890,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 def sell_stocks():
 
 	# Make sure we are logged into TDA
-	if ( tda_gobot_helper.tdalogin(passcode) != True ):
+	if ( tda_gobot_helper.tdalogin(passcode, token_fname) != True ):
 		print('Error: sell_stocks(): tdalogin(): login failure', file=sys.stderr)
 		return False
 

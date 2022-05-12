@@ -2,9 +2,15 @@
 
 # Command-line options:
 #  ./tda-gobot.py <ticker> <investment-in-usd> [--short] [--multiday]
-
+#
 # The goal of this bot is to purchase or short some shares and ride it until the price
 # drops below (or above, for shorting) some % threshold, then sell the shares immediately.
+#
+# Example - purchase $1000 worth of SPY call options that are 2-levels out of the money and
+#  expire next week. Bot will determine the best option to purchase and prompt for confirmation.
+#
+#   $ ./tda-gobot.py --options --decr_threshold=15 --incr_threshold=2.5 \
+#                    --otm_level=2 --listen_cmd --option_type=CALL SPY 1000
 
 import robin_stocks.tda as tda
 import os, sys, signal, time, random
@@ -31,7 +37,7 @@ parser.add_argument("--start_day_offset", help='Use start_day_offset to push sta
 
 parser.add_argument("--force", help='Force bot to purchase the stock even if it is listed in the stock blacklist', action="store_true")
 parser.add_argument("--fake", help='Paper trade only - disables buy/sell functions', action="store_true")
-parser.add_argument("--prompt", help='Print out action but wait for confirmation before entering trade', action="store_true")
+parser.add_argument("--noprompt", help='Do not wait for confirmation before entering trade', action="store_true")
 parser.add_argument("--print_only", help='Print out action and exit', action="store_true")
 parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX_LOGS-GOBOTv1', default='TX_LOGS-GOBOTv1', type=str)
 parser.add_argument("--listen_cmd", help='Listen for manual input during main loop', action="store_true")
@@ -537,10 +543,14 @@ if ( args.options == True ):
 		print(str(stock) + ': Error: Unable to lookup option price')
 		sys.exit(1)
 
+	# Only print out the chosen option information and then exit
 	if ( args.print_only == True ):
 		sys.exit(0)
-	elif ( args.prompt == True ):
+
+	if ( args.noprompt == False ):
 		input('PURCHASING ' + str(stock_qty) + ' contracts of ' + str(stock) + ' - Press <ENTER> to confirm')
+	else:
+		print('PURCHASING ' + str(stock_qty) + ' contracts of ' + str(stock))
 
 	if ( args.fake == False ):
 		order_id = tda_gobot_helper.buy_sell_option(contract=stock, quantity=stock_qty, instruction='buy_to_open', fillwait=True, account_number=tda_account_number, debug=True)
@@ -566,7 +576,7 @@ if ( args.options == True ):
 else:
 	stock_qty = int( stock_usd / last_price )
 	if ( args.short == True ):
-		if ( args.prompt == True ):
+		if ( args.noprompt == False ):
 			input('SHORTING ' + str(stock_qty) + ' shares of ' + str(stock) + ' - Press <ENTER> to confirm')
 		else:
 			print('SHORTING ' + str(stock_qty) + ' shares of ' + str(stock))
@@ -578,7 +588,7 @@ else:
 				sys.exit(1)
 
 	else:
-		if ( args.prompt == True ):
+		if ( args.noprompt == False ):
 			input('PURCHASING ' + str(stock_qty) + ' shares of ' + str(stock) + ' - Press <ENTER> to confirm')
 		else:
 			print('PURCHASING ' + str(stock_qty) + ' shares of ' + str(stock))

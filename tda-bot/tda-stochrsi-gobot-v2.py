@@ -213,6 +213,11 @@ parser.add_argument("--sp_monitor_trix_ma_type", help='Moving average type to us
 parser.add_argument("--sp_monitor_trix_ma_period", help='Moving average period to use with sp_monitor TRIX (Default: 8)', default=8, type=int)
 parser.add_argument("--sp_monitor_strict", help='Enable some stricter checks when entering trades', action="store_true")
 
+parser.add_argument("--time_sales_algo", help='Enable monitors for time and sales algo behavior', action="store_true")
+parser.add_argument("--time_sales_use_keylevel", help='Add key levels at major absorption areas when using --time_sales_algo', action="store_true")
+parser.add_argument("--time_sales_size_threshold", help='Trade size threshold for use with time and sales monitor', default=3000, type=int)
+parser.add_argument("--time_sales_kl_size_threshold", help='Trade size threshold for use with time and sales monitor', default=6000, type=int)
+
 parser.add_argument("--daily_ifile", help='Use pickle file for daily pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--weekly_ifile", help='Use pickle file for weekly pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (default=False)', action="store_true")
@@ -464,6 +469,11 @@ for algo in args.algos:
 	sp_monitor_trix_ma_period	= args.sp_monitor_trix_ma_period
 	sp_monitor_strict		= args.sp_monitor_strict
 
+	time_sales_algo			= args.time_sales_algo
+	time_sales_use_keylevel		= args.time_sales_use_keylevel
+	time_sales_size_threshold	= args.time_sales_size_threshold
+	time_sales_kl_size_threshold	= args.time_sales_kl_size_threshold
+
 	# MFI
 	mfi_high_limit			= args.mfi_high_limit
 	mfi_low_limit			= args.mfi_low_limit
@@ -706,6 +716,11 @@ for algo in args.algos:
 		if ( re.match('sp_monitor_trix_ma_type:', a)		!= None ):	sp_monitor_trix_ma_type		= str( a.split(':')[1] )
 		if ( re.match('sp_monitor_trix_ma_period:', a)		!= None ):	sp_monitor_trix_ma_period	= int( a.split(':')[1] )
 		if ( re.match('sp_monitor_strict', a)			!= None ):	sp_monitor_strict		= True
+
+		if ( re.match('time_sales_algo', a)			!= None ):	time_sales_algo			= True
+		if ( re.match('time_sales_use_keylevel', a)		!= None ):	time_sales_use_keylevel		= True
+		if ( re.match('time_sales_size_threshold:', a)		!= None ):	time_sales_size_threshold	= int( a.split(':')[1] )
+		if ( re.match('time_sales_kl_size_threshold:', a)	!= None ):	time_sales_kl_size_threshold	= int( a.split(':')[1] )
 
 		if ( re.match('keylevel_use_daily', a)			!= None ):	keylevel_use_daily		= True
 		if ( re.match('keylevel_strict', a)			!= None ):	keylevel_strict			= True
@@ -964,6 +979,11 @@ for algo in args.algos:
 			'sp_monitor_trix_ma_period':		sp_monitor_trix_ma_period,
 			'sp_monitor_strict':			sp_monitor_strict,
 
+			'time_sales_algo':			time_sales_algo,
+			'time_sales_use_keylevel':		time_sales_use_keylevel,
+			'time_sales_size_threshold':		time_sales_size_threshold,
+			'time_sales_kl_size_threshold':		time_sales_kl_size_threshold,
+
 			'keylevel_use_daily':			keylevel_use_daily,
 			'keylevel_strict':			keylevel_strict,
 			'price_resistance_pct':			price_resistance_pct,
@@ -1001,6 +1021,7 @@ del(check_etf_indicators,check_etf_indicators_strict,etf_tickers,etf_roc_period,
 del(trin,tick,roc,sp_monitor,trin_roc_type,trin_roc_period,trin_ma_type,trin_ma_period,trin_oversold,trin_overbought,tick_threshold,tick_ma_type,tick_ma_period)
 del(roc_type,roc_period,roc_ma_type,roc_ma_period,roc_threshold,roc_exit)
 del(sp_monitor_tickers,sp_monitor_threshold,sp_roc_type,sp_roc_period,sp_ma_period,sp_monitor_stacked_ma_type,sp_monitor_stacked_ma_periods,sp_monitor_use_trix,sp_monitor_trix_ma_type,sp_monitor_trix_ma_period,sp_monitor_strict)
+del(time_sales_algo,time_sales_use_keylevel,time_sales_size_threshold,time_sales_kl_size_threshold)
 del(options,options_usd,near_expiration,otm_level,start_day_offset)
 
 # Set valid tickers for each algo, if configured
@@ -1363,8 +1384,15 @@ for ticker in stock_list.split(','):
 								  'history':	{} }, # end level2{}
 
 				   # Equity time and sale data
-				   'ets':			[],
+				   'ets':			{ 'cumulative_vol':	0,
+								  'downtick_vol':	0,
+								  'uptick_vol':		0,
 
+								  'cumulative_delta':	{},
+								  'keylevels':		{},
+								  'tx_data':		{},
+
+								  'history':		[] }, # end ets (time/sales)
 			}} )
 
 	# Per algo signals
@@ -1429,6 +1457,9 @@ for ticker in stock_list.split(','):
 						'sp_monitor_init_signal':		False,
 						'sp_monitor_signal':			False,
 
+						# Time and Sales monitor
+						'ts_monitor_signal':			False,
+
 						# Relative Strength
 						'rs_signal':				False,
 
@@ -1438,6 +1469,11 @@ for ticker in stock_list.split(','):
 						'macd_avg_crossover':			False }}
 
 		stocks[ticker]['algo_signals'].update( signals )
+
+		# Support time_sales_algo
+		stocks[ticker]['ets']['cumulative_delta'][algo['algo_id']]	= 0
+		stocks[ticker]['ets']['keylevels'][algo['algo_id']]		= []
+		stocks[ticker]['ets']['tx_data'][algo['algo_id']]		= {}
 
 if ( len(stocks) == 0 ):
 	print('Error: no valid stock tickers provided, exiting.')
@@ -1676,7 +1712,7 @@ def graceful_exit(signum=None, frame=None):
 	except:
 		pass
 
-	sys.exit(0)
+	os._exit(0)
 
 # Initialize SIGUSR1 signal handler to dump stocks on signal
 # Calls sell_stocks() to immediately sell or buy_to_cover any open positions
@@ -2140,7 +2176,7 @@ async def read_stream():
 	# Note: we subscribe to nyse_tickers+nasdaq_tickers here to be sure we have valid equity tickers.
 	#  Some tickers in stocks.keys(), i.e. indicators like $TICK or $TRIN, will not have time/sale data.
 	stream_client.add_timesale_equity_handler(
-		lambda msg: tda_stochrsi_gobot_helper.gobot_ets(msg, False) )
+		lambda msg: tda_stochrsi_gobot_helper.gobot_ets(msg, algos, False) )
 	await asyncio.wait_for( stream_client.timesale_equity_subs(nyse_tickers+nasdaq_tickers), 10 )
 
 

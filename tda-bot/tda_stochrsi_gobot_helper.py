@@ -1,6 +1,7 @@
 #!/usr/bin/python3 -u
 
 import os, sys, signal
+import re
 import time, datetime, pytz, random
 from collections import OrderedDict
 import pickle
@@ -340,18 +341,89 @@ def gobot_level2(stream=None, debug=False):
 
 
 # Equity Time and Sales
-def gobot_ets(stream=None, debug=False):
+def gobot_ets(stream=None, algos=None, debug=False):
 
 	if not isinstance(stream, dict):
 		print('Error: gobot_ets() called without valid stream{} data.', file=sys.stderr)
 		return False
 
-	for idx in stream['content']:
-		ticker = idx['key']
-		stocks[ticker]['ets'].append(idx)
+	if not isinstance(algos, list):
+		print('Error: gobot_ets() called without valid algos[] list', file=sys.stderr)
+		return False
 
+	# Process the stream
+	for idx in stream['content']:
 		if ( debug == True ):
 			print(idx)
+
+		ticker = idx['key']
+
+		# Log the data here for archiving later (see export_pricehistory())
+		stocks[ticker]['ets']['history'].append(idx)
+
+		# Parse out the transaction and determine if the tx was made closer
+		#  to the bid or ask, or neutral.
+		last_tx_price	= float( idx['LAST_PRICE'] )
+		last_tx_size	= int( idx['LAST_SIZE'] )
+		last_dt		= int( idx['TRADE_TIME'] )
+		cur_bid_price	= stocks[ticker]['level2']['cur_bid']['bid_price']
+		cur_ask_price	= stocks[ticker]['level2']['cur_ask']['ask_price']
+
+		at_bid = at_ask = 0
+		uptick_vol = downtick_vol = 0
+		if ( last_tx_price <= cur_bid_price ):
+			downtick_vol	= last_tx_size
+			at_bid		= 1
+
+		elif ( last_tx_price >= cur_ask_price ):
+			uptick_vol	= last_tx_size
+			at_ask		= 1
+
+		# Log the uptick/downtick volume, and the cumulative volume
+		stocks[ticker]['ets']['uptick_vol']		+= uptick_vol
+		stocks[ticker]['ets']['downtick_vol']		+= downtick_vol
+		stocks[ticker]['ets']['cumulative_vol']		+= uptick_vol - downtick_vol
+
+		# To support the time_sales_algo, we want to identify large volume transactions
+		#  and make them available to the algos below. If we don't do this here then the
+		#  algos below will need to process the whole history to find large txs. The issue
+		#  is that we have params time_sales_size_threshold and time_sales_kl_size_threshold
+		#  which are algo-specific.
+		#
+		# So to support this we will iterate through each algo, and if time_sales_algo is True
+		#  then we will process the TX independently for each algo.
+		for cur_algo in algos:
+			if ( cur_algo['time_sales_algo'] == False ):
+				continue
+
+			algo_id = cur_algo['algo_id']
+
+			# Large size txs are larger institutions buying/selling.
+			# Large size txs with neat round numbers are typically persistent algos
+			#  buying/selling at key absorption areas, which they will continue to do
+			#  until they are done with their buy/sell actions. These are the algos
+			#  we want to pay attention to.
+			if ( re.search('.*00$', str(last_tx_size)) != None and last_tx_size >= cur_algo['time_sales_size_threshold'] ):
+
+				# Large neutral trades typically happen at absorption areas
+				# Add these as resistance lines as we find them.
+				if ( at_bid == 0 and at_ask == 0 and
+						last_tx_size >= cur_algo['time_sales_kl_size_threshold'] ):
+					stocks[ticker]['ets']['keylevels'][algo_id].append( (last_tx_price, last_dt, 999) )
+
+				# Persistent aggressive bearish action
+				elif ( at_bid == 1 and at_ask == 0 ):
+					stocks[ticker]['ets']['cumulative_delta'][algo_id] += -last_tx_size
+
+				# Persistent aggressive bullish action
+				elif ( at_bid == 0 and at_ask == 1 ):
+					stocks[ticker]['ets']['cumulative_delta'][algo_id] += last_tx_size
+
+				stocks[ticker]['ets']['tx_data'][algo_id][last_dt] = []
+				stocks[ticker]['ets']['tx_data'][algo_id][last_dt].append( {	'size':		last_tx_size,
+												'price':	last_tx_price,
+												'at_bid':	at_bid,
+												'at_ask':	at_ask } )
 
 	return True
 
@@ -572,6 +644,8 @@ def reset_signals(ticker=None, id=None, signal_mode=None, exclude_bbands_kchan=F
 		stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal']	= False
 		stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal']		= False
 
+		stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal']		= False
+
 		stocks[ticker]['algo_signals'][algo_id]['plus_di_crossover']		= False
 		stocks[ticker]['algo_signals'][algo_id]['minus_di_crossover']		= False
 		stocks[ticker]['algo_signals'][algo_id]['macd_crossover']		= False
@@ -652,7 +726,7 @@ def export_pricehistory():
 		try:
 			fname = base_dir + str(ticker) + '_ets-' + str(dt_today) + '.pickle.xz'
 			with lzma.open(fname, 'wb') as handle:
-				pickle.dump(stocks[ticker]['ets'], handle)
+				pickle.dump(stocks[ticker]['ets']['history'], handle)
 				handle.flush()
 
 		except Exception as e:
@@ -2119,6 +2193,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 			if ( stocks[ticker]['last_price'] != 0 ):
 				print( '(' + str(ticker) + ') Last Price: ' + str(stocks[ticker]['last_price']) )
 
+			print( '(' + str(ticker) + ') T/S Algo Cumulative Delta: ' + str(stocks[ticker]['ets']['cumulative_delta'][algo_id]) )
 
 			# StochRSI
 			if ( cur_algo['primary_stochrsi'] == True or cur_algo['stochrsi_5m'] == True ):
@@ -2839,6 +2914,38 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal']	= False
 					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal']		= False
 
+
+			# Time and Sales monitor
+			if ( cur_algo['time_sales_algo'] == True ):
+				# Reference:
+				# stocks[ticker]['ets']['tx_data'][algo_id] = [ {	'size':		last_tx_size,
+				#							'price':	last_tx_price,
+				#							'at_bid':	at_bid,
+				#							'at_ask':	at_ask } , {}... ]
+
+				# Transactions are ordered by timestamp. If the most recent large
+				#  transaction was bullish, then that is a positive signal.
+				tx_dts = stocks[ticker]['ets']['tx_data'][algo_id].keys()
+				if ( len(tx_dts) == 0 ):
+					continue
+
+				last_tx	= max( tx_dts )
+				at_bid	= stocks[ticker]['ets']['tx_data'][algo_id][last_tx]['at_bid']
+				at_ask	= stocks[ticker]['ets']['tx_data'][algo_id][last_tx]['at_ask']
+
+				# Persistent aggressive bearish action
+				if ( at_bid == 1 and at_ask == 0 ):
+					stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = False
+
+				# Persistent aggressive bullish action
+				elif ( at_bid == 0 and at_ask == 1 ):
+					stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = True
+
+				# The cumulative delta for the algo-related transactions should be greater
+				#  than zero, this helps us avoid trading against the overall trend.
+				if ( stocks[ticker]['ets']['cumulative_delta'][algo_id] < 0 ):
+					stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = False
+
 			# MESA Adaptive Moving Average
 			if ( cur_algo['mama_fama'] == True ):
 
@@ -3271,16 +3378,21 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 			# Key Levels
 			# Check if price is near historic key level
-			if ( cur_algo['use_keylevel'] == True and
+			if ( (cur_algo['use_keylevel'] == True or cur_algo['time_sales_use_keylevel'] == True) and
 					stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and
 					stocks[ticker]['algo_signals'][algo_id]['buy_signal'] == True ):
 
 				# Use daily keylevels as well if keylevel_use_daily was configured
-				if ( cur_algo['keylevel_use_daily'] == True ):
-					kl_all_support_levels = ( stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance'] +
-									stocks[ticker]['kl_long_support_daily'] + stocks[ticker]['kl_long_resistance_daily'] )
-				else:
+				kl_all_support_levels = []
+				if ( cur_algo['use_keylevel'] == True ):
 					kl_all_support_levels = stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']
+
+					if ( cur_algo['keylevel_use_daily'] == True ):
+						kl_all_support_levels += stocks[ticker]['kl_long_support_daily'] + stocks[ticker]['kl_long_resistance_daily']
+
+				# Include the keylevels determined via time/sales large txs
+				if ( cur_algo['time_sales_use_keylevel'] == True ):
+					kl_all_support_levels += stocks[ticker]['ets']['keylevels'][algo_id]
 
 				near_keylevel = False
 				for lvl,dt,count in kl_all_support_levels:
@@ -3365,6 +3477,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				tick_signal			= stocks[ticker]['algo_signals'][algo_id]['tick_signal']
 				roc_signal			= stocks[ticker]['algo_signals'][algo_id]['roc_signal']
 				sp_monitor_signal		= stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal']
+				ts_monitor_signal		= stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal']
 				mama_fama_signal		= stocks[ticker]['algo_signals'][algo_id]['mama_fama_signal']
 				stochrsi_5m_signal		= stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_final_signal']
 				stochmfi_signal			= stocks[ticker]['algo_signals'][algo_id]['stochmfi_final_signal']
@@ -3399,6 +3512,9 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 					stocks[ticker]['final_buy_signal'] = False
 
 				if ( cur_algo['sp_monitor'] == True and sp_monitor_signal != True ):
+					stocks[ticker]['final_buy_signal'] = False
+
+				if ( cur_algo['time_sales_algo'] == True and ts_monitor_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
 				if ( cur_algo['mama_fama'] == True and mama_fama_signal != True ):
@@ -4487,6 +4603,39 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal']	= False
 					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal']		= False
 
+
+
+			# Time and Sales monitor
+			if ( cur_algo['time_sales_algo'] == True ):
+				# Reference:
+				# stocks[ticker]['ets']['tx_data'][algo_id] = [ {	'size':		last_tx_size,
+				#							'price':	last_tx_price,
+				#							'at_bid':	at_bid,
+				#							'at_ask':	at_ask } , {}... ]
+
+				# Transactions are ordered by timestamp. If the most recent large
+				#  transaction was bullish, then that is a positive signal.
+				tx_dts = stocks[ticker]['ets']['tx_data'][algo_id].keys()
+				if ( len(tx_dts) == 0 ):
+					continue
+
+				last_tx	= max( tx_dts )
+				at_bid	= stocks[ticker]['ets']['tx_data'][algo_id][last_tx]['at_bid']
+				at_ask	= stocks[ticker]['ets']['tx_data'][algo_id][last_tx]['at_ask']
+
+				# Persistent aggressive bearish action
+				if ( at_bid == 1 and at_ask == 0 ):
+					stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = True
+
+				# Persistent aggressive bullish action
+				elif ( at_bid == 0 and at_ask == 1 ):
+					stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = False
+
+				# The cumulative delta for the algo-related transactions should be greater
+				#  than zero, this helps us avoid trading against the overall trend.
+				if ( stocks[ticker]['ets']['cumulative_delta'][algo_id] > 0 ):
+					stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = False
+
 			# MESA Adaptive Moving Average
 			if ( cur_algo['mama_fama'] == True ):
 
@@ -4919,16 +5068,21 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 			# Key Levels
 			# Check if price is near historic key level
-			if ( cur_algo['use_keylevel'] == True and
+			if ( (cur_algo['use_keylevel'] == True or cur_algo['time_sales_use_keylevel'] == True) and
 					stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] == True and
 					stocks[ticker]['algo_signals'][algo_id]['short_signal'] == True ):
 
 				# Use daily keylevels as well if keylevel_use_daily was configured
-				if ( cur_algo['keylevel_use_daily'] == True ):
-					kl_all_support_levels = ( stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance'] +
-									stocks[ticker]['kl_long_support_daily'] + stocks[ticker]['kl_long_resistance_daily'] )
-				else:
+				kl_all_support_levels = []
+				if ( cur_algo['use_keylevel'] == True ):
 					kl_all_support_levels = stocks[ticker]['kl_long_support'] + stocks[ticker]['kl_long_resistance']
+
+					if ( cur_algo['keylevel_use_daily'] == True ):
+						kl_all_support_levels += stocks[ticker]['kl_long_support_daily'] + stocks[ticker]['kl_long_resistance_daily']
+
+				# Include the keylevels determined via time/sales large txs
+				if ( cur_algo['time_sales_use_keylevel'] == True ):
+					kl_all_support_levels += stocks[ticker]['ets']['keylevels'][algo_id]
 
 				near_keylevel = False
 				for lvl,dt,count in kl_all_support_levels:
@@ -5013,6 +5167,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				tick_signal			= stocks[ticker]['algo_signals'][algo_id]['tick_signal']
 				roc_signal			= stocks[ticker]['algo_signals'][algo_id]['roc_signal']
 				sp_monitor_signal		= stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal']
+				ts_monitor_signal		= stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal']
 				mama_fama_signal		= stocks[ticker]['algo_signals'][algo_id]['mama_fama_signal']
 				stochrsi_5m_signal		= stocks[ticker]['algo_signals'][algo_id]['stochrsi_5m_final_signal']
 				stochmfi_signal			= stocks[ticker]['algo_signals'][algo_id]['stochmfi_final_signal']
@@ -5047,6 +5202,9 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 					stocks[ticker]['final_short_signal'] = False
 
 				if ( cur_algo['sp_monitor'] == True and sp_monitor_signal != True ):
+					stocks[ticker]['final_short_signal'] = False
+
+				if ( cur_algo['time_sales_algo'] == True and ts_monitor_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
 
 				if ( cur_algo['mama_fama'] == True and mama_fama_signal != True ):

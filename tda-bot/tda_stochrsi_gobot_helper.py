@@ -2905,15 +2905,10 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal'] = True
 
 				# Reset signals if sp_monitor starts to fade
-				elif ( cur_sp_monitor < cur_algo['sp_monitor_threshold'] or sp_monitor_bear == True ):
+				if ( cur_sp_monitor < cur_algo['sp_monitor_threshold'] or (cur_algo['sp_monitor_strict'] == True and sp_monitor_bull == False) ):
 					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal'] = False
-					if ( cur_sp_monitor < 1.5 ):
-						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = False
-
-				else:
-					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal']	= False
-					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal']		= False
-
+				if ( cur_sp_monitor < 1.5 ):
+					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = False
 
 			# Time and Sales monitor
 			if ( cur_algo['time_sales_algo'] == True ):
@@ -4594,16 +4589,10 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal']		= True
 
 				# Reset signals if sp_monitor starts to fade
-				elif ( cur_sp_monitor > -cur_algo['sp_monitor_threshold'] or sp_monitor_bull == True ):
+				if ( cur_sp_monitor > -cur_algo['sp_monitor_threshold'] or (cur_algo['sp_monitor_strict'] == True and sp_monitor_bear == False) ):
 					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal'] = False
-					if ( cur_sp_monitor > -1.5 ):
-						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = False
-
-				else:
-					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal']	= False
-					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal']		= False
-
-
+				if ( cur_sp_monitor > -1.5 ):
+					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = False
 
 			# Time and Sales monitor
 			if ( cur_algo['time_sales_algo'] == True ):

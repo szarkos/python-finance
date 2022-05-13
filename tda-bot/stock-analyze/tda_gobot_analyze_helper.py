@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -u
 
-import os, sys, time
+import os, sys, time, re
 from collections import OrderedDict
 
 from datetime import datetime, timedelta
@@ -106,6 +106,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		nonlocal sp_monitor_init_signal		; sp_monitor_init_signal	= False
 		nonlocal sp_monitor_signal		; sp_monitor_signal		= False
 		nonlocal vix_signal			; vix_signal			= False
+		nonlocal ts_monitor_signal		; ts_monitor_signal		= False
 
 		nonlocal experimental_signal		; experimental_signal		= False
 
@@ -124,7 +125,10 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	start_date 			= None		if ('start_date' not in params) else params['start_date']
 	stop_date			= None		if ('stop_date' not in params) else params['stop_date']
+	ph_only				= False		if ('ph_only' not in params) else params['ph_only']
 	safe_open			= True		if ('safe_open' not in params) else params['safe_open']
+	safe_open			= False		if (ph_only == True) else safe_open
+
 	weekly_ph			= None		if ('weekly_ph' not in params) else params['weekly_ph']
 	daily_ph			= None		if ('daily_ph' not in params) else params['daily_ph']
 
@@ -387,8 +391,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	sp_monitor_stacked_ma_type	= 'vidya'	if ('sp_monitor_stacked_ma_type' not in params) else params['sp_monitor_stacked_ma_type']
 	sp_monitor_stacked_ma_periods	= '13,21'	if ('sp_monitor_stacked_ma_periods' not in params) else params['sp_monitor_stacked_ma_periods']
 	sp_monitor_use_trix		= False		if ('sp_monitor_use_trix' not in params) else params['sp_monitor_use_trix']
-	sp_monitor_trix_ma_type		= 'ema'		if ('sp_monitor_trix_ma_type' not in params) else params['sp_monitor_trix_ma_type']
-	sp_monitor_trix_ma_period	= '8'		if ('sp_monitor_trix_ma_period' not in params) else params['sp_monitor_trix_ma_period']
+	sp_monitor_trix_ma_type		= 'hma'		if ('sp_monitor_trix_ma_type' not in params) else params['sp_monitor_trix_ma_type']
+	sp_monitor_trix_ma_period	= '5'		if ('sp_monitor_trix_ma_period' not in params) else params['sp_monitor_trix_ma_period']
 	sp_monitor_strict		= False		if ('sp_monitor_strict' not in params) else params['sp_monitor_strict']
 	sp_monitor			= {}		if ('sp_monitor' not in params) else params['sp_monitor']
 
@@ -397,6 +401,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	vix_stacked_ma_type		= 'ema'		if ('vix_stacked_ma_type' not in params) else params['vix_stacked_ma_type']
 	vix_use_ha_candles		= False		if ('vix_use_ha_candles' not in params) else params['vix_use_ha_candles']
 	vix				= {}		if ('vix' not in params) else params['vix']
+
+	time_sales_algo			= False		if ('time_sales_algo' not in params) else params['time_sales_algo']
+	time_sales_use_keylevel		= False		if ('time_sales_use_keylevel' not in params) else params['time_sales_use_keylevel']
+	time_sales_size_threshold	= 5000		if ('time_sales_size_threshold' not in params) else params['time_sales_size_threshold']
+	time_sales_kl_size_threshold	= 7500		if ('time_sales_kl_size_threshold' not in params) else params['time_sales_kl_size_threshold']
+	ts_data				= {}		if ('ts_data' not in params) else params['ts_data']
 
 	experimental			= False		if ('experimental' not in params) else params['experimental']
 	# End params{} configuration
@@ -1366,12 +1376,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			print('Error, unable to calculate rate-of-change for roc indicator: ' + str(e))
 			sys.exit(1)
 
-		tmp_ph = { 'candles': [] }
+		temp_ph = { 'candles': [] }
 		for i in range( len(roc) ):
-			tmp_ph['candles'].append({ 'close': roc[i] })
+			temp_ph['candles'].append({ 'close': roc[i] })
 
 		try:
-			roc_ma = tda_algo_helper.get_alt_ma( pricehistory=tmp_ph, period=roc_ma_period, ma_type=roc_ma_type, type='close' )
+			roc_ma = tda_algo_helper.get_alt_ma( pricehistory=temp_ph, period=roc_ma_period, ma_type=roc_ma_type, type='close' )
 
 		except Exception as e:
 			print('Error, unable to calculate the moving average from the rate-of-change for the roc indicator: ' + str(e))
@@ -1471,28 +1481,31 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# These values are incredibly small - so multiply by 10000000 to make them useful
 				roc_total[dt] = ( roc_total[dt] / prev_cndl_total ) * 10000000
 
-		# Populate a temporary pricehistory from roc_total and calculate the EMA
-		tmp_ph = { 'candles': [] }
+		# Populate a temporary pricehistory from roc_total and calculate the EMA and Impulse
+		# The EMA will just help smooth the ROC, the Impulse will help determine the change
+		#  in the rate of change over time.
+		temp_ph = { 'candles': [] }
 		sp_monitor_roc_ma = []
 		for dt in roc_total:
-			tmp_ph['candles'].append( { 'high': roc_total[dt], 'low': roc_total[dt], 'close': roc_total[dt] } )
+			temp_ph['candles'].append( { 'high': roc_total[dt], 'low': roc_total[dt], 'close': roc_total[dt] } )
 
-		sp_monitor_roc_ma = tda_algo_helper.get_alt_ma(pricehistory=tmp_ph, ma_type='ema', period=sp_ma_period, type='close')
+		sp_monitor_roc_roc	= tda_algo_helper.get_roc(pricehistory=temp_ph, period=1, type='close', calc_percentage=True )
+		sp_monitor_roc_ma	= tda_algo_helper.get_alt_ma(pricehistory=temp_ph, ma_type='ema', period=sp_ma_period, type='close')
 
-		#tmp_ph = { 'candles': [] }
-		#for i in range(len(sp_monitor_roc_ma)):
-		#	tmp_ph['candles'].append( { 'high': sp_monitor_roc_ma[i], 'low': sp_monitor_roc_ma[i], 'close': sp_monitor_roc_ma[i] } )
+		# Use TRIX or stacked_ma as indicator to ensure sp_monitor is moving in the right direction and
+		#  not just chopping up and down
 		if ( sp_monitor_use_trix == True ):
-			sp_monitor_trix, sp_monitor_trix_signal	= tda_algo_helper.get_trix_altma( pricehistory=tmp_ph, ma_type=sp_monitor_trix_ma_type, period=sp_monitor_trix_ma_period,
+			sp_monitor_trix, sp_monitor_trix_signal	= tda_algo_helper.get_trix_altma( pricehistory=temp_ph, ma_type=sp_monitor_trix_ma_type, period=sp_monitor_trix_ma_period,
 													type='close', signal_ma='ema', signal_period=3, skip_log=True )
 		else:
-			sp_monitor_stacked_ma			= get_stackedma( tmp_ph, sp_monitor_stacked_ma_periods, sp_monitor_stacked_ma_type )
+			sp_monitor_stacked_ma			= get_stackedma( temp_ph, sp_monitor_stacked_ma_periods, sp_monitor_stacked_ma_type )
 
 		# Finally, each element in roc_ma needs to be separated by timestamp. roc_ma[] will have the same length
 		#  as the source data, so we can just iterate over roc_total.keys() and separate each moving average value
 		#  based on its timestamp.
 		for idx,dt in enumerate( roc_total ):
 			sp_monitor['roc_ma'][dt]		= sp_monitor_roc_ma[idx]
+			sp_monitor['roc_roc'][dt]		= sp_monitor_roc_roc[idx]
 
 			if ( sp_monitor_use_trix == True ):
 				sp_monitor['trix'][dt]		= sp_monitor_trix[idx]
@@ -1511,6 +1524,42 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		for i in range( len(vix['pricehistory']['candles']) ):
 			dt = vix['pricehistory']['candles'][i]['datetime']
 			vix['ma'][dt] = vix_ma[i]
+
+	# Time and sales algo monitor
+	if ( time_sales_algo == True ):
+		ts_days		= []
+		ts_tx_data	= {}
+		ts_cum_delta	= 0
+
+		for dt in ts_data.keys():
+			dt_obj	= datetime.fromtimestamp(dt/1000, tz=mytimezone)
+			day	= dt_obj.strftime('%Y-%m-%d')
+			t_stamp	= dt_obj.strftime('%Y-%m-%d %H:%M')
+
+			# We need to know for which days we actually have time/sales data
+			if ( day not in ts_days ):
+				ts_days.append( day )
+
+			# Populate ts_tx_data with the transaction information, organized in 1-minute increments,
+			#  but each 1-minute timestamp key contains an array to each of the transactions.
+			if ( ts_data[dt]['size'] >= time_sales_size_threshold ):
+				if ( ts_data[dt]['at_ask'] <= 1 and ts_data[dt]['at_bid'] <= 1 ):
+					tmp_hl2 = ( ts_data[dt]['high_price'] + ts_data[dt]['low_price'] ) / 2
+
+					if ( t_stamp not in ts_tx_data ):
+						ts_tx_data[t_stamp] = []
+
+					ts_tx_data[t_stamp].append( {	'size':		ts_data[dt]['size'],
+									'price':	tmp_hl2,
+									'at_bid':	ts_data[dt]['at_bid'],
+									'at_ask':	ts_data[dt]['at_ask'] } )
+
+		# If use_keylevel is disabled and time_sales_use_keylevel is enabled, then enable use_keylevel,
+		#  but it will be populated with only the keylevels found via time/sales data
+		if ( time_sales_use_keylevel == True and use_keylevel == False ):
+			use_keylevel	= True
+			long_support	= []
+			long_resistance = []
 
 	# Quick exit when entering counter-trend moves
 	if ( trend_quick_exit == True ):
@@ -1673,6 +1722,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 	sp_monitor_signal		= False
 
 	vix_signal			= False
+
+	ts_monitor_signal		= False
 
 	rsi_signal			= False
 	mfi_signal			= False
@@ -2414,11 +2465,19 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			cur_s_ma_ha		= s_ma_ha[idx]
 			prev_s_ma_ha		= s_ma_ha[idx-1]
 
+			if ( use_ha_candles == True ):
+				cur_s_ma		= cur_s_ma_ha
+				prev_s_ma		= prev_s_ma_ha
+
 			if ( with_stacked_ma_secondary == True ):
 				cur_s_ma_secondary	= s_ma_secondary[idx]
 				prev_s_ma_secondary	= s_ma_secondary[idx-1]
 				cur_s_ma_ha_secondary	= s_ma_ha_secondary[idx]
 				prev_s_ma_ha_secondary	= s_ma_ha_secondary[idx-1]
+
+				if ( use_ha_candles == True ):
+					cur_s_ma_secondary	= cur_s_ma_ha_secondary
+					prev_s_ma_secondary	= prev_s_ma_ha_secondary
 
 		if ( primary_stoch_indicator == 'stacked_ma' ):
 			cur_s_ma_primary	= s_ma_primary[idx]
@@ -2456,10 +2515,14 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			cur_roc_ma	= roc_ma[idx]
 			prev_roc_ma	= roc_ma[idx-1]
 
+		cur_sp_monitor_impulse = 0
 		if ( with_sp_monitor == True or primary_stoch_indicator == 'sp_monitor' ):
 			try:
 				cur_sp_monitor			= sp_monitor['roc_ma'][cur_dt]
 				prev_sp_monitor			= sp_monitor['roc_ma'][prev_dt]
+
+				cur_sp_monitor_impulse		= sp_monitor['roc_roc'][cur_dt]
+				prev_sp_monitor_impulse		= sp_monitor['roc_roc'][prev_dt]
 
 				if ( sp_monitor_use_trix == True ):
 					cur_sp_monitor_trix		= sp_monitor['trix'][cur_dt]
@@ -2474,6 +2537,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			except:
 				cur_sp_monitor			= 0
 				prev_sp_monitor			= 0
+
+				cur_sp_monitor_impulse		= 0
+				prev_sp_monitor_impulse		= 0
 
 				cur_sp_monitor_trix		= 0
 				prev_sp_monitor_trix		= 0
@@ -2577,6 +2643,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		elif ( stop_date != None and date >= stop_date ):
 			return results
 
+		# If time and sales algo monitor is enabled, then only
+		#  process days for which we have ts data available
+		if ( time_sales_algo == True ):
+			if ( date.strftime('%Y-%m-%d') not in ts_days ):
+				continue
+
 		# Skip the week before/after earnings if --blacklist_earnings was set
 		if ( blacklist_earnings == True ):
 			blackout = False
@@ -2598,6 +2670,20 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		if ( tda_gobot_helper.ismarketopen_US(date, safe_open=safe_open) != True ):
 			continue
 
+		# If ph_only is set then only trade during high-volume periods
+		#  9:30AM - 11:00AM
+		#  3:30PM - 4:00PM
+		if ( ph_only == True and (signal_mode['primary'] == 'long' or signal_mode['primary'] == 'short') ):
+			cur_hour	= int( date.strftime('%-H') )
+			cur_min		= int( date.strftime('%-M') )
+
+			if ( cur_hour >= 11 and cur_hour < 14 ):
+				continue
+			elif ( cur_hour == 10 and cur_min > 30 ):
+				continue
+			elif ( cur_hour == 14 and cur_min < 30 ):
+				continue
+
 		# Ignore days where cur_daily_natr is below min_daily_natr or above max_daily_natr, if configured
 		if ( min_daily_natr != None and cur_natr_daily < min_daily_natr ):
 			continue
@@ -2609,7 +2695,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		if ( signal_mode['primary'] == 'long' ):
 
 			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
-			if ( hold_overnight == False and tda_gobot_helper.isendofday(75, date) ):
+			if ( hold_overnight == False and ph_only == False and tda_gobot_helper.isendofday(75, date) == True ):
 				reset_signals()
 				continue
 
@@ -2824,13 +2910,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# Use either stacked_ma or trix to help verify sp_monitor direction
 				sp_monitor_bull = sp_monitor_bear = False
 				if ( sp_monitor_use_trix == True ):
-#					if ( cur_sp_monitor_trix > prev_sp_monitor_trix and cur_sp_monitor_trix > cur_sp_monitor_trix_signal and cur_sp_monitor_trix > 0 ):
-					if ( cur_sp_monitor_trix > prev_sp_monitor_trix and cur_sp_monitor_trix > cur_sp_monitor_trix_signal ):
+					if ( cur_sp_monitor_trix > prev_sp_monitor_trix and cur_sp_monitor_trix > 0 and
+							cur_sp_monitor_trix > cur_sp_monitor_trix_signal ):
 						sp_monitor_bull = True
 						sp_monitor_bear = False
 
-#					elif ( cur_sp_monitor_trix < prev_sp_monitor_trix and cur_sp_monitor_trix < cur_sp_monitor_trix_signal and cur_sp_monitor_trix < 0 ):
-					elif ( cur_sp_monitor_trix < prev_sp_monitor_trix and cur_sp_monitor_trix < cur_sp_monitor_trix_signal ):
+					elif ( cur_sp_monitor_trix < prev_sp_monitor_trix and cur_sp_monitor_trix < 0 and
+							cur_sp_monitor_trix < cur_sp_monitor_trix_signal ):
 						sp_monitor_bull = False
 						sp_monitor_bear = True
 
@@ -2838,7 +2924,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					sp_monitor_bear	= check_stacked_ma(cur_sp_monitor_stacked_ma, 'bear')
 					sp_monitor_bull	= check_stacked_ma(cur_sp_monitor_stacked_ma, 'bull')
 
-				# Jump to short mode if sp_monitor is negativ
+				# Jump to short mode if sp_monitor is negative
 				if ( cur_sp_monitor < 0 ):
 					reset_signals()
 					signal_mode['primary'] = 'short'
@@ -2846,28 +2932,26 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					if ( cur_sp_monitor <= -1.5 ):
 						sp_monitor_init_signal = True
 
-					if ( cur_sp_monitor <= -sp_monitor_threshold and sp_monitor_bull == False ):
-						short_signal = True
+					elif ( cur_sp_monitor <= -sp_monitor_threshold ):
+						if ( (sp_monitor_strict == True and sp_monitor_bear == True) or sp_monitor_strict == False ):
+							short_signal = True
 
 					continue
 
-				elif ( cur_sp_monitor >= 1.5 and cur_sp_monitor < sp_monitor_threshold ):
+				elif ( cur_sp_monitor > 1.5 and cur_sp_monitor < sp_monitor_threshold ):
 					sp_monitor_init_signal = True
 
-				elif ( cur_sp_monitor >= sp_monitor_threshold and sp_monitor_init_signal == True ):
+#				elif ( cur_sp_monitor >= sp_monitor_threshold and sp_monitor_init_signal == True ):
+				elif ( cur_sp_monitor >= sp_monitor_threshold ):
 					if ( (sp_monitor_strict == True and sp_monitor_bull == True) or sp_monitor_strict == False ):
 						sp_monitor_init_signal	= False
 						buy_signal		= True
 
 				# Reset signals if sp_monitor starts to fade
-				elif ( cur_sp_monitor < sp_monitor_threshold or sp_monitor_bear == True ):
+				if ( cur_sp_monitor < sp_monitor_threshold or (sp_monitor_strict == True and sp_monitor_bull == False) ):
 					buy_signal = False
-					if ( cur_sp_monitor < 1.5 ):
-						sp_monitor_init_signal = False
-
-				else:
-					sp_monitor_init_signal	= False
-					buy_signal		= False
+				if ( cur_sp_monitor < 1.5 ):
+					sp_monitor_init_signal = False
 
 			# Unknown primary indicator
 			else:
@@ -2923,11 +3007,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# Use either stacked_ma or trix to help verify sp_monitor direction
 				sp_monitor_bull = sp_monitor_bear = False
 				if ( sp_monitor_use_trix == True ):
-					if ( cur_sp_monitor_trix > prev_sp_monitor_trix and cur_sp_monitor_trix > cur_sp_monitor_trix_signal ):
+					if ( cur_sp_monitor_trix > prev_sp_monitor_trix and cur_sp_monitor_trix > 0 and
+							cur_sp_monitor_trix > cur_sp_monitor_trix_signal ):
 						sp_monitor_bull = True
 						sp_monitor_bear = False
 
-					elif ( cur_sp_monitor_trix < prev_sp_monitor_trix and cur_sp_monitor_trix < cur_sp_monitor_trix_signal ):
+					elif ( cur_sp_monitor_trix < prev_sp_monitor_trix and cur_sp_monitor_trix < 0 and
+							cur_sp_monitor_trix < cur_sp_monitor_trix_signal ):
 						sp_monitor_bull = False
 						sp_monitor_bear = True
 
@@ -2935,28 +3021,24 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					sp_monitor_bear	= check_stacked_ma(cur_sp_monitor_stacked_ma, 'bear')
 					sp_monitor_bull	= check_stacked_ma(cur_sp_monitor_stacked_ma, 'bull')
 
+				# Jump to short mode if sp_monitor is negative
 				if ( cur_sp_monitor < 0 ):
 					sp_monitor_init_signal	= False
-					sp_monitor_signal	= True
+					sp_monitor_signal	= False
 
-				elif ( cur_sp_monitor >= 1.5 and cur_sp_monitor < sp_monitor_threshold ):
+				elif ( cur_sp_monitor > 1.5 and cur_sp_monitor < sp_monitor_threshold ):
 					sp_monitor_init_signal = True
 
-				elif ( cur_sp_monitor >= sp_monitor_threshold and sp_monitor_init_signal == True ):
-					if ( (sp_monitor_strict == True and sp_monitor_bull == True) or
-							(sp_monitor_strict == False and sp_monitor_bear == False) ):
+				elif ( cur_sp_monitor >= sp_monitor_threshold ):
+					if ( (sp_monitor_strict == True and sp_monitor_bull == True) or sp_monitor_strict == False ):
 						sp_monitor_init_signal	= False
 						sp_monitor_signal	= True
 
 				# Reset signals if sp_monitor starts to fade
-				elif ( cur_sp_monitor < sp_monitor_threshold or sp_monitor_bear == True ):
+				if ( cur_sp_monitor < sp_monitor_threshold or (sp_monitor_strict == True and sp_monitor_bull == False) ):
 					sp_monitor_signal = False
-					if ( cur_sp_monitor < 1.5 ):
-						sp_monitor_init_signal = False
-
-				else:
-					sp_monitor_init_signal	= False
-					sp_monitor_signal	= False
+				if ( cur_sp_monitor < 1.5 ):
+					sp_monitor_init_signal = False
 
 			# VIX stacked MA
 			# The SP 500 and the VIX often show inverse price action - when the S&P falls sharply, the VIX rises—and vice-versa
@@ -2972,6 +3054,42 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				elif ( (vix_stacked_ma_bull_affinity == False and vix_stacked_ma_bear_affinity == False) or
 						vix_stacked_ma_bull_affinity == True ):
 					vix_signal = False
+
+			# Time and sales algo monitor
+			if ( time_sales_algo == True ):
+				cur_tstamp = date.strftime('%Y-%m-%d %H:%M')
+				if ( cur_tstamp in ts_tx_data ):
+					for key in ts_tx_data[cur_tstamp]:
+
+						# ts_tx_data[t_stamp].append( {	'size':		ts_data[dt]['size'],
+						#				'price':	tmp_hl2,
+						#				'at_bid':	ts_data[dt]['at_bid'],
+						#				'at_ask':	ts_data[dt]['at_ask'] } )
+						#
+						# Large size values are larger institutions buying/selling.
+						# Large size values with neat round numbers are typically persistent algos
+						#  buying/selling at key absorption areas, which they will continue to do
+						#  until they are done with their buy/sell actions.
+						if ( re.search('.*00$', str(int(key['size']))) != None ):
+
+							# Large neutral trades typically happen at absorption areas
+							# Add these to long_resistance as we find them.
+							if ( time_sales_use_keylevel == True and key['at_bid'] == 0 and key['at_ask'] == 0 and
+									key['size'] >= time_sales_kl_size_threshold ):
+								long_resistance.append( (key['price'], cur_dt, 999) )
+
+							# Persistent aggressive bearish action
+							elif ( key['at_bid'] == 1 and key['at_ask'] == 0 ):
+								ts_cum_delta		+= -key['size']
+								ts_monitor_signal	= False
+
+							# Persistent aggressive bullish action
+							elif ( key['at_bid'] == 0 and key['at_ask'] == 1 ):
+								ts_cum_delta		+= key['size']
+								ts_monitor_signal	= True
+
+				if ( ts_cum_delta < 0 ):
+					ts_monitor_signal = False
 
 			# StochRSI with 5-minute candles
 			if ( with_stochrsi_5m == True ):
@@ -3402,7 +3520,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						#  or newer KL when iterating through the backtest data.
 						dt = datetime.fromtimestamp(int(dt)/1000, tz=mytimezone)
 						if ( date < dt + timedelta(days=6) or (date >= dt and date <= dt + timedelta(days=6)) ):
-							continue
+							if ( time_sales_use_keylevel == False or (time_sales_use_keylevel == True and count != 999) ):
+								continue
 
 						# Current price is very close to a key level
 						# Next check average of last 15 (1-minute) candles
@@ -3679,6 +3798,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( with_vix == True and vix_signal != True ):
 					final_buy_signal = False
 
+				if ( time_sales_algo == True and ts_monitor_signal != True ):
+					final_buy_signal = False
+
 				if ( (with_mfi == True or with_mfi_simple == True) and mfi_signal != True ):
 					final_buy_signal = False
 
@@ -3821,7 +3943,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						str(cur_mfi_k) + '/' + str(cur_mfi_d) + ',' +
 						str(round(cur_natr,3)) + ',' + str(round(cur_natr_daily,2)) + ',' +
 						str(round(bbands_natr['natr'], 3)) + ',' + str(round(bbands_natr['squeeze_natr'], 3)) + ',' +
-						str(round(cur_sp_monitor, 3)) + ',' + str(round(cur_rs, 3)) + ',' +
+						str(round(cur_sp_monitor_impulse, 3)) + ',' + str(round(cur_rs, 3)) + ',' +
 						str(round(cur_adx,2)) + ',' + str(purchase_time) )
 
 				reset_signals( exclude_bbands_kchan=True )
@@ -3890,13 +4012,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		if ( signal_mode['primary'] == 'sell' or (signal_mode['straddle'] == True and signal_mode['secondary'] == 'sell') ):
 
 			# hold_overnight=False - drop the stock before market close
-			if ( hold_overnight == False and tda_gobot_helper.isendofday(5, date) ):
+			if ( hold_overnight == False and tda_gobot_helper.isendofday(5, date) == True ):
 				sell_signal		= True
 				end_of_day_exits	+= 1
 
 			# The last trading hour is a bit unpredictable. If --hold_overnight is false we want
 			#  to sell the stock at a more conservative exit percentage.
-			elif ( tda_gobot_helper.isendofday(60, date) == True and hold_overnight == False ):
+			elif ( tda_gobot_helper.isendofday(60, date) == True and ph_only == False and hold_overnight == False ):
 				if ( cur_close > purchase_price ):
 					percent_change = abs( purchase_price / cur_close - 1 ) * 100
 					if ( percent_change >= last_hour_threshold ):
@@ -4110,8 +4232,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							decr_threshold_long = incr_threshold_long
 							incr_threshold_long = incr_threshold_long / 2
 
-					else:
-						decr_threshold_long = incr_threshold_long / 2
+#					else:
+#						decr_threshold_long = incr_threshold_long / 2
 
 			# End cost basis / stoploss monitor
 
@@ -4298,7 +4420,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		if ( signal_mode['primary'] == 'short' ):
 
 			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
-			if ( hold_overnight == False and tda_gobot_helper.isendofday(75, date) ):
+			if ( hold_overnight == False and ph_only == False and tda_gobot_helper.isendofday(75, date) == True ):
 				reset_signals()
 				continue
 
@@ -4501,13 +4623,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# Use either stacked_ma or trix to help verify sp_monitor direction
 				sp_monitor_bull = sp_monitor_bear = False
 				if ( sp_monitor_use_trix == True ):
-#					if ( cur_sp_monitor_trix > prev_sp_monitor_trix and cur_sp_monitor_trix > cur_sp_monitor_trix_signal and cur_sp_monitor_trix > 0 ):
-					if ( cur_sp_monitor_trix > prev_sp_monitor_trix and cur_sp_monitor_trix > cur_sp_monitor_trix_signal ):
+					if ( cur_sp_monitor_trix > prev_sp_monitor_trix and cur_sp_monitor_trix > 0 and
+							cur_sp_monitor_trix > cur_sp_monitor_trix_signal ):
 						sp_monitor_bull = True
 						sp_monitor_bear = False
 
-#					elif ( cur_sp_monitor_trix < prev_sp_monitor_trix and cur_sp_monitor_trix < cur_sp_monitor_trix_signal and cur_sp_monitor_trix < 0 ):
-					elif ( cur_sp_monitor_trix < prev_sp_monitor_trix and cur_sp_monitor_trix < cur_sp_monitor_trix_signal ):
+					elif ( cur_sp_monitor_trix < prev_sp_monitor_trix and cur_sp_monitor_trix < 0 and
+							cur_sp_monitor_trix < cur_sp_monitor_trix_signal ):
 						sp_monitor_bull = False
 						sp_monitor_bear = True
 
@@ -4523,28 +4645,26 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					if ( cur_sp_monitor >= 1.5 ):
 						sp_monitor_init_signal = True
 
-					if ( cur_sp_monitor >= sp_monitor_threshold and sp_monitor_bear == False ):
-						buy_signal = True
+					if ( cur_sp_monitor >= sp_monitor_threshold ):
+						if ( (sp_monitor_strict == True and sp_monitor_bull == True) or sp_monitor_strict == False ):
+							buy_signal = True
 
 					continue
 
-				elif ( cur_sp_monitor <= -1.5 and cur_sp_monitor > -sp_monitor_threshold ):
+				if ( cur_sp_monitor < -1.5 and cur_sp_monitor > -sp_monitor_threshold ):
 					sp_monitor_init_signal = True
 
-				elif ( cur_sp_monitor <= -sp_monitor_threshold and sp_monitor_init_signal == True ):
+#				elif ( cur_sp_monitor <= -sp_monitor_threshold and sp_monitor_init_signal == True ):
+				elif ( cur_sp_monitor <= -sp_monitor_threshold ):
 					if ( (sp_monitor_strict == True and sp_monitor_bear == True) or sp_monitor_strict == False ):
 						sp_monitor_init_signal	= False
 						short_signal		= True
 
 				# Reset signals if sp_monitor starts to fade
-				elif ( cur_sp_monitor > -sp_monitor_threshold or sp_monitor_bull == True ):
+				if ( cur_sp_monitor > -sp_monitor_threshold or (sp_monitor_strict == True and sp_monitor_bear == False) ):
 					short_signal = False
-					if ( cur_sp_monitor > -1.5 ):
-						sp_monitor_init_signal = False
-
-				else:
-					sp_monitor_init_signal	= False
-					short_signal		= False
+				if ( cur_sp_monitor > -1.5 ):
+					sp_monitor_init_signal = False
 
 			# Unknown primary indicator
 			else:
@@ -4600,11 +4720,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				# Use either stacked_ma or trix to help verify sp_monitor direction
 				sp_monitor_bull = sp_monitor_bear = False
 				if ( sp_monitor_use_trix == True ):
-					if ( cur_sp_monitor_trix > prev_sp_monitor_trix and cur_sp_monitor_trix > cur_sp_monitor_trix_signal ):
+					if ( cur_sp_monitor_trix > prev_sp_monitor_trix and cur_sp_monitor_trix > 0 and
+							cur_sp_monitor_trix > cur_sp_monitor_trix_signal ):
 						sp_monitor_bull = True
 						sp_monitor_bear = False
 
-					elif ( cur_sp_monitor_trix < prev_sp_monitor_trix and cur_sp_monitor_trix < cur_sp_monitor_trix_signal ):
+					elif ( cur_sp_monitor_trix < prev_sp_monitor_trix and cur_sp_monitor_trix < 0 and
+							cur_sp_monitor_trix < cur_sp_monitor_trix_signal ):
 						sp_monitor_bull = False
 						sp_monitor_bear = True
 
@@ -4612,28 +4734,24 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					sp_monitor_bear	= check_stacked_ma(cur_sp_monitor_stacked_ma, 'bear')
 					sp_monitor_bull	= check_stacked_ma(cur_sp_monitor_stacked_ma, 'bull')
 
+				# Jump to long mode if sp_monitor is positive
 				if ( cur_sp_monitor > 0 ):
 					sp_monitor_init_signal	= False
 					sp_monitor_signal	= False
 
-				elif ( cur_sp_monitor <= -1.5 and cur_sp_monitor > -sp_monitor_threshold ):
+				if ( cur_sp_monitor < -1.5 and cur_sp_monitor > -sp_monitor_threshold ):
 					sp_monitor_init_signal = True
 
-				elif ( cur_sp_monitor <= -sp_monitor_threshold and sp_monitor_init_signal == True ):
-					if ( (sp_monitor_strict == True and sp_monitor_bear == True) or
-							(sp_monitor_strict == False and sp_monitor_bull == False) ):
+				elif ( cur_sp_monitor <= -sp_monitor_threshold ):
+					if ( (sp_monitor_strict == True and sp_monitor_bear == True) or sp_monitor_strict == False ):
 						sp_monitor_init_signal	= False
 						sp_monitor_signal	= True
 
 				# Reset signals if sp_monitor starts to fade
-				elif ( cur_sp_monitor > -sp_monitor_threshold or sp_monitor_bull == True ):
+				if ( cur_sp_monitor > -sp_monitor_threshold or (sp_monitor_strict == True and sp_monitor_bear == False) ):
 					sp_monitor_signal = False
-					if ( cur_sp_monitor > -1.5 ):
-						sp_monitor_init_signal = False
-
-				else:
-					sp_monitor_init_signal	= False
-					sp_monitor_signal	= False
+				if ( cur_sp_monitor > -1.5 ):
+					sp_monitor_init_signal = False
 
 			# VIX stacked MA
 			# The SP 500 and the VIX often show inverse price action - when the S&P falls sharply, the VIX rises—and vice-versa
@@ -4649,6 +4767,42 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				elif ( (vix_stacked_ma_bull_affinity == False and vix_stacked_ma_bear_affinity == False) or
 						vix_stacked_ma_bear_affinity == True ):
 					vix_signal = False
+
+			# Time and sales algo monitor
+			if ( time_sales_algo == True ):
+				cur_tstamp = date.strftime('%Y-%m-%d %H:%M')
+				if ( cur_tstamp in ts_tx_data ):
+					for key in ts_tx_data[cur_tstamp]:
+
+						# ts_tx_data[t_stamp].append( {	'size':		ts_data[dt]['size'],
+						#				'price':	tmp_hl2,
+						#				'at_bid':	ts_data[dt]['at_bid'],
+						#				'at_ask':	ts_data[dt]['at_ask'] } )
+						#
+						# Large size values are larger institutions buying/selling.
+						# Large size values with neat round numbers are typically persistent algos
+						#  buying/selling at key absorption areas, which they will continue to do
+						#  until they are done with their buy/sell actions.
+						if ( re.search('.*00$', str(int(key['size']))) != None ):
+
+							# Large neutral trades typically happen at absorption areas
+							# Add these to long_resistance as we find them.
+							if ( time_sales_use_keylevel == True and key['at_bid'] == 0 and key['at_ask'] == 0 and
+									key['size'] >= time_sales_kl_size_threshold ):
+								long_resistance.append( (key['price'], cur_dt, 999) )
+
+							# Persistent aggressive bearish action
+							elif ( key['at_bid'] == 1 and key['at_ask'] == 0 ):
+								ts_cum_delta		+= -key['size']
+								ts_monitor_signal	= True
+
+							# Persistent aggressive bullish action
+							elif ( key['at_bid'] == 0 and key['at_ask'] == 1 ):
+								ts_cum_delta		+= key['size']
+								ts_monitor_signal	= False
+
+				if ( ts_cum_delta > 0 ):
+					ts_monitor_signal = False
 
 			# StochRSI with 5-minute candles
 			if ( with_stochrsi_5m == True ):
@@ -5070,7 +5224,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						#  KL when iterating through the backtest data.
 						dt = datetime.fromtimestamp(int(dt)/1000, tz=mytimezone)
 						if ( dt + timedelta(days=6) > date or (date >= dt and date <= dt + timedelta(days=6)) ):
-							continue
+							if ( time_sales_use_keylevel == False or (time_sales_use_keylevel == True and count != 999) ):
+								continue
 
 						# Current price is very close to a key level
 						# Next check average of last 15 (1-minute) candles
@@ -5342,6 +5497,9 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( with_vix == True and vix_signal != True ):
 					final_short_signal = False
 
+				if ( time_sales_algo == True and ts_monitor_signal != True ):
+					final_short_signal = False
+
 				if ( (with_mfi == True or with_mfi_simple == True) and mfi_signal != True ):
 					final_short_signal = False
 
@@ -5484,7 +5642,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						str(cur_mfi_k) + '/' + str(cur_mfi_d) + ',' +
 						str(round(cur_natr, 3)) + ',' + str(round(cur_natr_daily, 3)) + ',' +
 						str(round(bbands_natr['natr'], 3)) + ',' + str(round(bbands_natr['squeeze_natr'], 3)) + ',' +
-						str(round(cur_sp_monitor, 3)) + ',' + str(round(cur_rs, 3)) + ',' +
+						str(round(cur_sp_monitor_impulse, 3)) + ',' + str(round(cur_rs, 3)) + ',' +
 						str(round(cur_adx, 2)) + ',' + str(short_time) )
 
 				reset_signals( exclude_bbands_kchan=True )
@@ -5554,13 +5712,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		if ( signal_mode['primary'] == 'buy_to_cover' or (signal_mode['straddle'] == True and signal_mode['secondary'] == 'buy_to_cover') ):
 
 			# hold_overnight=False - drop the stock before market close
-			if ( hold_overnight == False and tda_gobot_helper.isendofday(5, date) ):
+			if ( hold_overnight == False and tda_gobot_helper.isendofday(5, date) == True ):
 				buy_to_cover_signal	= True
 				end_of_day_exits	+= 1
 
 			# The last trading hour is a bit unpredictable. If --hold_overnight is false we want
 			#  to sell the stock at a more conservative exit percentage.
-			elif ( tda_gobot_helper.isendofday(60, date) == True and hold_overnight == False ):
+			elif ( tda_gobot_helper.isendofday(60, date) == True and ph_only == False and hold_overnight == False ):
 				if ( cur_close < short_price ):
 					percent_change = abs( short_price / cur_close - 1 ) * 100
 					if ( percent_change >= last_hour_threshold ):
@@ -5786,8 +5944,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 							decr_threshold_short = incr_threshold_short
 							incr_threshold_short = incr_threshold_short / 2
 
-					else:
-						decr_threshold_short = incr_threshold_short / 2
+#					else:
+#						decr_threshold_short = incr_threshold_short / 2
 
 			# End cost basis / stoploss monitor
 

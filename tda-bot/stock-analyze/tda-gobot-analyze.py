@@ -8,6 +8,7 @@ import random
 import re
 import argparse
 import pickle
+import lzma
 from collections import OrderedDict
 
 import robin_stocks.tda as tda
@@ -35,7 +36,8 @@ parser.add_argument("--stop_date", help='The day to stop trading (i.e. 2021-05-1
 parser.add_argument("--skip_blacklist", help='Do not process blacklisted tickers', action="store_true")
 parser.add_argument("--skip_perma_blacklist", help='Do not process permanently blacklisted tickers, but allow others that are less than 30-days old', action="store_true")
 parser.add_argument("--skip_check", help="Skip fixup and check of stock ticker", action="store_true")
-parser.add_argument("--unsafe", help='Allow trading between 9:30-10:15AM where volatility is high', action="store_true")
+parser.add_argument("--unsafe", help='Allow trading between 9:30-10:15AM when volatility is high', action="store_true")
+parser.add_argument("--ph_only", help='Allow trading only between 9:30-10:30AM and 3:00PM-4:00PM when volatility is high', action="store_true")
 parser.add_argument("--hold_overnight", help='Allow algorithm to hold stocks across multiple days', action="store_true")
 
 parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (Default: False)', action="store_true")
@@ -96,9 +98,15 @@ parser.add_argument("--sp_ma_period", help='Moving average period to use with th
 parser.add_argument("--sp_monitor_stacked_ma_type", help='Moving average type to use with sp_monitor stacked_ma (Default: vidya)', default='vidya', type=str)
 parser.add_argument("--sp_monitor_stacked_ma_periods", help='Moving average periods to use with sp_monitor stacked_ma (Default: 8,13,21)', default='8,13,21', type=str)
 parser.add_argument("--sp_monitor_use_trix", help='Use TRIX algorithm instead of stacked_ma to help gauge strength/direction of sp_monitor', action="store_true")
-parser.add_argument("--sp_monitor_trix_ma_type", help='Moving average type to use with sp_monitor TRIX (Default: ema)', default='ema', type=str)
-parser.add_argument("--sp_monitor_trix_ma_period", help='Moving average period to use with sp_monitor TRIX (Default: 8)', default=8, type=int)
+parser.add_argument("--sp_monitor_trix_ma_type", help='Moving average type to use with sp_monitor TRIX (Default: hma)', default='hma', type=str)
+parser.add_argument("--sp_monitor_trix_ma_period", help='Moving average period to use with sp_monitor TRIX (Default: 5)', default=5, type=int)
 parser.add_argument("--sp_monitor_strict", help='Enable some stricter checks when entering trades', action="store_true")
+
+parser.add_argument("--time_sales_algo", help='Enable monitors for time and sales algo behavior', action="store_true")
+parser.add_argument("--time_sales_use_keylevel", help='Add key levels at major absorption areas when using --time_sales_algo', action="store_true")
+parser.add_argument("--time_sales_ifile", help='Input file for time and sales monitor', default=None, type=str)
+parser.add_argument("--time_sales_size_threshold", help='Trade size threshold for use with time and sales monitor', default=3000, type=int)
+parser.add_argument("--time_sales_kl_size_threshold", help='Trade size threshold for use with time and sales monitor', default=6000, type=int)
 
 parser.add_argument("--with_vix", help='Use the VIX volatility index ticker as an indicator', action="store_true")
 parser.add_argument("--vix_stacked_ma_periods", help='Moving average periods to use when calculating VIX stacked MA (Default: 5,8,13)', default='5,8,13', type=str)
@@ -588,7 +596,6 @@ for algo in args.algo.split(','):
 				etf_indicators[t]['pricehistory']	= etf_data
 				etf_indicators[t]['pricehistory_5m']	= tda_gobot_helper.translate_1m(pricehistory=etf_indicators[t]['pricehistory'], candle_type=5)
 
-
 	# $TRIN and $TICK Indicators
 	trin_tick = {	'trin': {	'pricehistory':		{},
 					'pricehistory_5m':	{},
@@ -726,6 +733,7 @@ for algo in args.algo.split(','):
 	# ETF SP monitor
 	sp_monitor_tickers	= args.sp_monitor_tickers.split(',')
 	sp_monitor		= {	'roc_ma':	OrderedDict(),
+					'roc_roc':	OrderedDict(),
 					'stacked_ma':	OrderedDict(),
 					'trix':		OrderedDict(),
 					'trix_signal':	OrderedDict() }
@@ -848,6 +856,29 @@ for algo in args.algo.split(','):
 			vix['pricehistory'] = vix_data
 			vix['pricehistory'] = tda_gobot_helper.translate_heikin_ashi(pricehistory=vix['pricehistory'])
 
+	# Time and sales algo monitor
+	if ( args.time_sales_algo == True ):
+		if ( args.time_sales_ifile == None ):
+			print('Error: need to declare an input file via --time_sales_ifile if --time_sales_algo is enabled')
+			sys.exit(1)
+
+		ts_data = None
+		try:
+
+			if ( re.search('\.xz$', args.time_sales_ifile) != None ):
+				with lzma.open(args.time_sales_ifile, 'rb') as handle:
+					ts_data = handle.read()
+					ts_data = pickle.loads(ts_data)
+
+			else:
+				with open(args.time_sales_ifile, 'rb') as handle:
+					ts_data = handle.read()
+					ts_data = pickle.loads(ts_data)
+
+		except Exception as e:
+			print('Error opening file: ' + str(e))
+			sys.exit(1)
+
 	# Print results for the most recent 10 and 5 days of data
 	for days in str(args.days).split(','):
 
@@ -946,6 +977,7 @@ for algo in args.algo.split(','):
 					'start_date':				args.start_date,
 					'stop_date':				args.stop_date,
 					'safe_open':				safe_open,
+					'ph_only':				args.ph_only,
 					'weekly_ph':				data_weekly,
 					'daily_ph':				data_daily,
 
@@ -1201,6 +1233,12 @@ for algo in args.algo.split(','):
 					'vix_stacked_ma_type':			args.vix_stacked_ma_type,
 					'vix_use_ha_candles':			args.vix_use_ha_candles,
 					'vix':					vix,
+
+					'time_sales_algo':			args.time_sales_algo,
+					'time_sales_use_keylevel':		args.time_sales_use_keylevel,
+					'time_sales_size_threshold':		args.time_sales_size_threshold,
+					'time_sales_kl_size_threshold':		args.time_sales_kl_size_threshold,
+					'ts_data':				ts_data,
 
 					'emd_affinity_long':			args.emd_affinity_long,
 					'emd_affinity_short':			args.emd_affinity_short,

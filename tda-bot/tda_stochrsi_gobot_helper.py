@@ -43,10 +43,20 @@ def gobot_run(stream=None, algos=None, debug=False):
 	#		'CHART_DAY': 18747 }]
 	# }
 	for idx in stream['content']:
-		ticker = idx['key']
 
 		if ( stocks[ticker]['isvalid'] == False ):
 			continue
+
+		# Map stream_name (ticker name for streams API) back to the ticker name
+		ticker = str( idx['key'] )
+		if ( ticker not in stocks ):
+			for t_name in stocks.keys():
+				if ( ticker == stocks[t_name]['stream_id'] ):
+					ticker = t_name
+					break
+
+			if ( ticker not in stocks ):
+				print('Warning: gobot_run(): invalid ticker name found in stream: ' + str(idx['key']))
 
 		# Try to avoid reprocessing duplicate streams, if there are any
 		#
@@ -132,14 +142,24 @@ def gobot_run(stream=None, algos=None, debug=False):
 		if ( ret == False ):
 			print('Error: gobot_run(): stochrsi_gobot(' + str(algo) + '): returned False', file=sys.stderr)
 
-
 	# After all the algos have been processed, iterate through tickers again and set
 	#  the prev_seq to the cur_seq. This provides a record of sequence numbers to ensure
 	#  that we do not process the same candles twice.
 	for idx in stream['content']:
-		ticker = idx['key']
+
 		if ( stocks[ticker]['isvalid'] == False ):
 			continue
+
+		# Map stream_name (ticker name for streams API) back to the ticker name
+		ticker = str( idx['key'] )
+		if ( ticker not in stocks ):
+			for t_name in stocks.keys():
+				if ( ticker == stocks[t_name]['stream_id'] ):
+					ticker = t_name
+					break
+
+			if ( ticker not in stocks ):
+				print('Warning: gobot_run(): invalid ticker name found in stream: ' + str(idx['key']))
 
 		stocks[ticker]['prev_seq'] = stocks[ticker]['cur_seq']
 
@@ -168,9 +188,19 @@ def gobot_level1(stream=None, algos=None, debug=False):
 	# 48	Security Status		String	Indicates a symbols current trading status, Normal, Halted, Closed
 	dt = int( stream['timestamp'] )
 	for idx in stream['content']:
-		ticker					= str( idx['key'] )
-		idx['datetime']				= dt
 
+		# Map stream_name (ticker name for streams API) back to the ticker name
+		ticker = str( idx['key'] )
+		if ( ticker not in stocks ):
+			for t_name in stocks.keys():
+				if ( ticker == stocks[t_name]['stream_id'] ):
+					ticker = t_name
+					break
+
+			if ( ticker not in stocks ):
+				print('Warning: gobot_level1(): invalid ticker name found in stream: ' + str(idx['key']))
+
+		idx['datetime']				= dt
 		stocks[ticker]['ask_price']		= float( idx['ASK_PRICE'] )	if ('ASK_PRICE' in idx) else stocks[ticker]['ask_price']
 		stocks[ticker]['ask_size']		= int( idx['ASK_SIZE'] )	if ('ASK_SIZE' in idx) else stocks[ticker]['ask_size']
 		stocks[ticker]['bid_price']		= float( idx['BID_PRICE'] )	if ('BID_PRICE' in idx) else stocks[ticker]['bid_price']
@@ -269,7 +299,17 @@ def gobot_level2(stream=None, debug=False):
 	dt_def = int( stream['timestamp'] )
 	for idx in stream['content']:
 
-		ticker = idx['key']
+		# Map stream_name (ticker name for streams API) back to the ticker name
+		ticker = str( idx['key'] )
+		if ( ticker not in stocks ):
+			for t_name in stocks.keys():
+				if ( ticker == stocks[t_name]['stream_id'] ):
+					ticker = t_name
+					break
+
+			if ( ticker not in stocks ):
+				print('Warning: gobot_level2(): invalid ticker name found in stream: ' + str(idx['key']))
+
 		try:
 			dt = int( idx['BOOK_TIME'] )
 		except:
@@ -356,7 +396,16 @@ def gobot_ets(stream=None, algos=None, debug=False):
 		if ( debug == True ):
 			print(idx)
 
-		ticker = idx['key']
+		# Map stream_name (ticker name for streams API) back to the ticker name
+		ticker = str( idx['key'] )
+		if ( ticker not in stocks ):
+			for t_name in stocks.keys():
+				if ( ticker == stocks[t_name]['stream_id'] ):
+					ticker = t_name
+					break
+
+			if ( ticker not in stocks ):
+				print('Warning: gobot_level2(): invalid ticker name found in stream: ' + str(idx['key']))
 
 		# Log the data here for archiving later (see export_pricehistory())
 		stocks[ticker]['ets']['history'].append(idx)
@@ -382,7 +431,7 @@ def gobot_ets(stream=None, algos=None, debug=False):
 		# Log the uptick/downtick volume, and the cumulative volume
 		stocks[ticker]['ets']['uptick_vol']		+= uptick_vol
 		stocks[ticker]['ets']['downtick_vol']		+= downtick_vol
-		stocks[ticker]['ets']['cumulative_vol']		+= uptick_vol - downtick_vol
+		stocks[ticker]['ets']['cumulative_vol_delta']	+= uptick_vol - downtick_vol
 
 		# To support the time_sales_algo, we want to identify large volume transactions
 		#  and make them available to the algos below. If we don't do this here then the
@@ -413,11 +462,11 @@ def gobot_ets(stream=None, algos=None, debug=False):
 
 				# Persistent aggressive bearish action
 				elif ( at_bid == 1 and at_ask == 0 ):
-					stocks[ticker]['ets']['cumulative_delta'][algo_id] += -last_tx_size
+					stocks[ticker]['ets']['cumulative_algo_delta'][algo_id] += -last_tx_size
 
 				# Persistent aggressive bullish action
 				elif ( at_bid == 0 and at_ask == 1 ):
-					stocks[ticker]['ets']['cumulative_delta'][algo_id] += last_tx_size
+					stocks[ticker]['ets']['cumulative_algo_delta'][algo_id] += last_tx_size
 
 				# stocks[ticker]['ets']['tx_data'][algo_id][last_tx] is an list containing all the
 				#  large transactions for a single timestamp - although the likelihood of seeing
@@ -2204,7 +2253,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 			if ( stocks[ticker]['last_price'] != 0 ):
 				print( '(' + str(ticker) + ') Last Price: ' + str(stocks[ticker]['last_price']) )
 
-			print( '(' + str(ticker) + ') T/S Algo Cumulative Delta: ' + str(stocks[ticker]['ets']['cumulative_delta'][algo_id]) )
+			print( '(' + str(ticker) + ') T/S Algo Cumulative Delta: ' + str(stocks[ticker]['ets']['cumulative_algo_delta'][algo_id]) )
 
 			# StochRSI
 			if ( cur_algo['primary_stochrsi'] == True or cur_algo['stochrsi_5m'] == True ):
@@ -2955,7 +3004,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 				# The cumulative delta for the algo-related transactions should be greater
 				#  than zero, this helps us avoid trading against the overall trend.
-				if ( stocks[ticker]['ets']['cumulative_delta'][algo_id] < 0 ):
+				if ( stocks[ticker]['ets']['cumulative_algo_delta'][algo_id] < 0 ):
 					stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = False
 
 			# MESA Adaptive Moving Average
@@ -4637,7 +4686,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 				# The cumulative delta for the algo-related transactions should be greater
 				#  than zero, this helps us avoid trading against the overall trend.
-				if ( stocks[ticker]['ets']['cumulative_delta'][algo_id] > 0 ):
+				if ( stocks[ticker]['ets']['cumulative_algo_delta'][algo_id] > 0 ):
 					stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = False
 
 			# MESA Adaptive Moving Average

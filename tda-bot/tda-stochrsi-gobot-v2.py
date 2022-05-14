@@ -1157,7 +1157,17 @@ for ticker in stock_list.split(','):
 	if ( ticker == '' ):
 		continue
 
-	stocks.update( { ticker: { 'shortable':			True,
+	# Ticker name may need to be modified to be compatible with streams API
+	#  Equities:		'.' => '/', BRK.A -> BRK/A
+	#  Index/Indicators:	'$' => '$', $DJI (no change needed)
+	#  Preferred:		'-' => 'p', PRE-A -> PREpA
+	#  Warrants:		'+' => '/WS', BOO+ -> BOO/WS
+	stream_id = re.sub( '\.', '/', ticker )
+	stream_id = re.sub( '\-', 'p', ticker )
+	stream_id = re.sub( '+', '/WS', ticker )
+
+	stocks.update( { ticker: { 'stream_id':			stream_id,
+				   'shortable':			True,
 				   'isvalid':			True,
 				   'tradeable':			True,
 				   'tx_id':			random.randint(1000, 9999),
@@ -1408,15 +1418,15 @@ for ticker in stock_list.split(','):
 								  'history':	{} }, # end level2{}
 
 				   # Equity time and sale data
-				   'ets':			{ 'cumulative_vol':	0,
-								  'downtick_vol':	0,
-								  'uptick_vol':		0,
+				   'ets':			{ 'cumulative_vol_delta':	0,
+								  'downtick_vol':		0,
+								  'uptick_vol':			0,
 
-								  'cumulative_delta':	{},
-								  'keylevels':		{},
-								  'tx_data':		{},
+								  'cumulative_algo_delta':	{},
+								  'keylevels':			{},
+								  'tx_data':			{},
 
-								  'history':		[] }, # end ets (time/sales)
+								  'history':			[] }, # end ets (time/sales)
 			}} )
 
 	# Per algo signals
@@ -1564,7 +1574,6 @@ nyse_tickers	= []
 for ticker in list(stocks.keys()):
 
 	# Skip ths section if the ticker is an indicator or otherwise not marked as tradeable
-#	if ( stocks[ticker]['tradeable'] == False ):
 	if ( re.search('^\$', ticker) != None ):
 		continue
 
@@ -1624,10 +1633,10 @@ for ticker in list(stocks.keys()):
 	try:
 		stocks[ticker]['exchange'] = stock_data[ticker]['exchange']
 		if ( stock_data[ticker]['exchange'] == 'q' ):
-			nasdaq_tickers.append( str(ticker) )
+			nasdaq_tickers.append( stocks[ticker]['stream_id'] )
 
 		elif ( stock_data[ticker]['exchange'] == 'n' or stock_data[ticker]['exchange'] == 'p' ):
-			nyse_tickers.append( str(ticker) )
+			nyse_tickers.append( stocks[ticker]['stream_id'] )
 
 		else:
 			print('Warning: ticker ' + str(ticker) + ' not found or not listed on NYSE or NASDAQ (Exchange ID: ' + str(stock_data[ticker]['exchange']) + '), level2 data will not be available')

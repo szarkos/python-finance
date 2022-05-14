@@ -30,11 +30,12 @@ source ./stock-analyze/tickers.conf
 tickers=$CUR_SET
 tickers="SPY,QQQ"
 
-nohup ./tda-stochrsi-gobot-v2.py --stoploss --stocks=${tickers} --short --unsafe --fake --singleday \
+nohup ./tda-gobot-v2.py --stoploss --stocks=${tickers} --short --unsafe --fake --singleday \
 	--decr_threshold=0.2 --incr_threshold=0.25 --exit_percent=0.4 --max_failed_txs=5 --stock_usd=20000 \
 	--options_decr_threshold=20 --options_incr_threshold=2.5 --options_exit_percent=10 --options_usd=2000 \
 	--resist_pct_dynamic --price_resistance_pct=0.25 --price_support_pct=0.25 \
 	--otm_level=2 --near_expiration --start_day_offset=1 \
+	--account_number=252298311 --passcode_prefix=sazarkos --consumer_key_prefix=sazarkos --token_fname=sazarkos_tda.pickle --tdaapi_token_fname=sazarkos_tda2.pickle \
 	\
 	--algos=algo_id:sp_monitor_tsalgo_options,primary_sp_monitor,sp_monitor_tickers:AAPL:7.07+MSFT:5.97+AMZN:2.81+TSLA:1.98+GOOGL:2.03+GOOG:1.88+BRK.B:1.69+UNH:1.36+JNJ:1.38+NVDA:1.3+FB:1.35+PG:1.1+XOM:1.06+V:0.95+JPM:1.04+HD:0.9+MA:0.83+CVX:0.92+PFE:0.82+ABBV:0.79,time_sales_algo,time_sales_use_keylevel,time_sales_size_threshold:3000,time_sales_kl_size_threshold:6000,va_check,options,quick_exit,quick_exit_percent:10 \
 	--algos=algo_id:mama_spmon_tsalgo_options,primary_mama_fama,sp_monitor,sp_monitor_tickers:AAPL:7.07+MSFT:5.97+AMZN:2.81+TSLA:1.98+GOOGL:2.03+GOOG:1.88+BRK.B:1.69+UNH:1.36+JNJ:1.38+NVDA:1.3+FB:1.35+PG:1.1+XOM:1.06+V:0.95+JPM:1.04+HD:0.9+MA:0.83+CVX:0.92+PFE:0.82+ABBV:0.79,time_sales_algo,time_sales_use_keylevel,time_sales_size_threshold:3000,time_sales_kl_size_threshold:6000,va_check,options,quick_exit,quick_exit_percent:10 \

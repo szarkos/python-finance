@@ -1,19 +1,10 @@
 #!/usr/bin/python3 -u
 
-# Monitor a stock's Stochastic RSI and other indicator values and make entry/exit decisions based off those values.
-# Example:
+# Monitor live stock ticker data streams via TD Ameritrade's HTTP and websocket APIs,
+#  and make trade entry/exit decisions. Gobot supports a wide variety of primary and
+#  secondary indicators for entry and exit strategies.
 #
-# $ tickers='MSFT,AAPL' # put tickers here
-#
-# $ ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=5000 --stocks=${tickers} --short --singleday \
-#	--decr_threshold=0.4 --incr_threshold=0.5 --max_failed_txs=2 --exit_percent=1 \
-#	--algos=stochrsi,mfi,dmi_simple,aroonosc,adx,support_resistance,adx_threshold:6,rsi_low_limit:10 \
-#	--algos=stochrsi,mfi,aroonosc,adx,support_resistance,mfi_high_limit:95,mfi_low_limit:5,adx_threshold:20,adx_period:48 \
-#	--algos=stochrsi,rsi,mfi,adx,support_resistance,adx_threshold:20,mfi_high_limit:95,mfi_low_limit:5 \
-#	--rsi_high_limit=95 --rsi_low_limit=15 \
-#	--aroonosc_with_macd_simple --variable_exit --lod_hod_check \
-#	--tx_log_dir=TX_LOGS_v2 --weekly_ifile=stock-analyze/weekly-csv/TICKER-weekly-2019-2021.pickle \
-#	1> logs/gobot-v2.log 2>&1 &
+# See: stock-analyze/scripts/tda-gobotv2-automation* for example startup scripts
 
 import os, sys, signal, re, random
 import time, datetime, pytz
@@ -22,7 +13,7 @@ from collections import OrderedDict
 
 import tda_gobot_helper
 import tda_algo_helper
-import tda_stochrsi_gobot_helper
+import tda_gobotv2_helper
 import av_gobot_helper
 
 # We use robin_stocks for most REST operations
@@ -36,7 +27,7 @@ from tda.streaming import StreamClient
 import asyncio
 import json
 
-# Tulipy is used for producing indicators (i.e. macd and rsi)
+# Tulipy is used for producing indicators (i.e. macd, rsi, etc.)
 import tulipy as ti
 
 

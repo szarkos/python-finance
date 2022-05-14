@@ -29,7 +29,7 @@ mkdir ./logs 2>/dev/null
 source ./stock-analyze/tickers.conf
 tickers=$CUR_SET
 
-nohup ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=20000 --stocks=${tickers} --short --singleday \
+nohup ./tda-gobot-v2.py --stoploss --stock_usd=20000 --stocks=${tickers} --short --singleday \
 	--decr_threshold=1.25 --incr_threshold=0.5 --max_failed_txs=2 --exit_percent=0.5 \
 	\
 	--algos=algo_id:stackedma_macheck_kama_wma_rocstrict,primary_stacked_ma,stacked_ma_type_primary:kama,stacked_ma,stacked_ma_type:wma,bbands_kchannel,bbands_roc_strict,bbands_kchan_ma_check,bbands_kchan_squeeze_count:10,support_resistance,use_trend,use_combined_exit,use_bbands_kchannel_xover_exit,check_etf_indicators,min_intra_natr:0.65,min_daily_natr:6 \

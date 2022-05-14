@@ -23,9 +23,8 @@ func_timeout
 
  - tda-rsi-gobot.py: Deprecated - original RSI/StochRSI gobot, monitors a single stock at a time.
 
- - tda-stochrsi-gobot-v2.py: New gobot that uses TDA's streaming API. Can monitor dozens or hundreds of stock
-   tickers at one time. Uses Stochastic RSI as a primary indicator for trade entry, and supports multiple
-   secondary indicators and exit strategies.
+ - tda-gobot-v2.py: New gobot that uses TDA's streaming API. It can monitor a few or hundreds of stock
+   tickers at one time. Supports multiple secondary indicators and exit strategies.
 
  - tda-gapcheck.py: This gobot uses TDA's streaming API and monitors stocks for sudden gap up/down. It can
    monitor and enter trades to take advantage of sudden spikes/drops in stock price.
@@ -41,12 +40,12 @@ func_timeout
  - tda_gobot_helper.py: Most of the scripts use this helper module, contains functions for all standard
    tda API operations.
 
- - tda_stochrsi_gobot_helper.py: Implements much of the algorithm used by tda-stochrsi-gobot-v2.py
+ - tda_gobotv2_helper.py: Implements much of the algorithm used by tda-gobot-v2.py
 
  - tda_cndl_helper.py: Used by tda-cndl-indicators-analyze.py
 
 # Testing
- - tda-gobot-analyze.py: Main test application to back test algorithms in tda-rsi-gobot.py and tda-stochrsi-gobot-v2.py.
+ - tda-gobot-analyze.py: Main test application to back test algorithms in tda-rsi-gobot.py and tda-gobot-v2.py.
    Much of the algorithm is contained in tda_gobot_helper.py.
 
  - tda-gapcheck-analyze.py: Tool to backtest tda-gapcheck.py algorithm.
@@ -85,10 +84,10 @@ Most bots and utilities support a --help flag to obtain usage information.
 
 	$ tda-gobot.py MSFT 1000 --short --decr_threshold=0.5
 
-## Run tda-stochrsi-gobot-v2.py
+## Run tda-gobot-v2.py
 
 	$ source stock-analyze/tickers.conf
-	$ ./tda-stochrsi-gobot-v2.py --stoploss --stock_usd=5000 --short --stocks=$SMALL_MID3 \
+	$ ./tda-gobot-v2.py --stoploss --stock_usd=5000 --short --stocks=$SMALL_MID3 \
 		--decr_threshold=0.4 --incr_threshold=0.5 --max_failed_txs=1 --exit_percent=0.2 --tx_log_dir=TX_LOGS_v2 \
 		--no_use_resistance --rsi_high_limit=95 --rsi_low_limit=5 --vpt_sma_period=72 \
 		--algos=stochrsi,rsi,macd --algos=stochrsi,adx,vpt --algos=stochrsi,rsi,adx,vpt --algos=stochrsi,rsi,aroonosc,vpt

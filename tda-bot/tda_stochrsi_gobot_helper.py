@@ -419,6 +419,9 @@ def gobot_ets(stream=None, algos=None, debug=False):
 				elif ( at_bid == 0 and at_ask == 1 ):
 					stocks[ticker]['ets']['cumulative_delta'][algo_id] += last_tx_size
 
+				# stocks[ticker]['ets']['tx_data'][algo_id][last_tx] is an list containing all the
+				#  large transactions for a single timestamp - although the likelihood of seeing
+				#  multiple large txs in a single millisecond timestamp is unlikely.
 				stocks[ticker]['ets']['tx_data'][algo_id][last_dt] = []
 				stocks[ticker]['ets']['tx_data'][algo_id][last_dt].append( {	'size':		last_tx_size,
 												'price':	last_tx_price,
@@ -1540,13 +1543,6 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				if ( stocks[sp_t]['pricehistory']['candles'][-1]['datetime'] != 9999999999999 ):
 					print('DEBUG: (' + str(sp_t) + ') ADDING Level-1 temporary candle ...')
 
-					#stocks[sp_t]['pricehistory']['candles'].append( {
-					#	'open':		stocks[sp_t]['pricehistory']['candles'][-1]['open'],
-					#	'high':		stocks[sp_t]['pricehistory']['candles'][-1]['high'],
-					#	'low':		stocks[sp_t]['pricehistory']['candles'][-1]['low'],
-					#	'close':	stocks[sp_t]['pricehistory']['candles'][-1]['close'],
-					#	'datetime':	9999999999999 } )
-
 					# Start piecing together a new candle using the last_price from level-1 data
 					stocks[sp_t]['pricehistory']['candles'].append( {
 						'open':		stocks[sp_t]['last_price'],
@@ -1688,9 +1684,9 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				pass
 
 			# Additional exceptions for primary_sp_monitor updates from L1
-			elif ( (caller_id != None and caller_id == 'level1') and
-					cur_algo['primary_sp_monitor'] == True ):
-				pass
+			#elif ( (caller_id != None and caller_id == 'level1') and
+			#		cur_algo['primary_sp_monitor'] == True ):
+			#	pass
 
 			else:
 				continue
@@ -1706,8 +1702,8 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				pass
 
 			# Additional exceptions for primary_sp_monitor updates from L1
-			elif ( cur_algo['primary_sp_monitor'] == True ):
-				pass
+			#elif ( cur_algo['primary_sp_monitor'] == True ):
+			#	pass
 
 			else:
 				continue
@@ -2162,7 +2158,6 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 
 		# VPT
 		if ( cur_algo['vpt'] == True ):
-
 			vpt = []
 			vpt_sma = []
 			try:
@@ -2171,10 +2166,26 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 			except Exception as e:
 				print('Error: stochrsi_gobot(): get_vpt(' + str(ticker) + '): ' + str(e), file=sys.stderr)
 
-			stocks[ticker]['cur_vpt']	= vpt[-1]
-			stocks[ticker]['prev_vpt']	= vpt[-2]
-			stocks[ticker]['cur_vpt_sma']	= vpt_sma[-1]
-			stocks[ticker]['prev_vpt_sma']	= vpt_sma[-2]
+			else:
+				stocks[ticker]['cur_vpt']	= vpt[-1]
+				stocks[ticker]['prev_vpt']	= vpt[-2]
+				stocks[ticker]['cur_vpt_sma']	= vpt_sma[-1]
+				stocks[ticker]['prev_vpt_sma']	= vpt_sma[-2]
+
+		# Volume Profile
+		# Get current VAH/VAL
+		if ( cur_algo['va_check'] == True ):
+			mprofile = {}
+			try:
+				mprofile = tda_algo_helper.get_market_profile(pricehistory=stocks[ticker]['pricehistory'], close_type='hl2', mp_mode='vol', tick_size=0.01)
+
+			except Exception as e:
+				print('Exception caught: get_market_profile(' + str(ticker) + '): ' + str(e) + '. VAH/VAL will not be used.')
+
+			else:
+				cur_day = list(mprofile.keys())[-1]
+				stocks[ticker]['vah'] = round( mprofile[cur_day]['vah'], 2 )
+				stocks[ticker]['val'] = round( mprofile[cur_day]['val'], 2 )
 
 		# Debug
 		if ( debug == True ):
@@ -2370,6 +2381,12 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				print('(' + str(ticker) + ') Current VPT_SMA: ' + str(round(stocks[ticker]['cur_vpt_sma'], 2)) +
 							' / Previous VPT_SMA: ' + str(round(stocks[ticker]['prev_vpt_sma'], 2)) +
 							' / VPT Signal: ' + str(stocks[ticker]['algo_signals'][algo_id]['vpt_signal']) )
+
+			# VAL/VAH
+			if ( cur_algo['va_check'] == True ):
+				print('(' + str(ticker) + ') Current VAH/VAL: ' + str(stocks[ticker]['vah']) + ' / ' + str(stocks[ticker]['val']))
+				print('(' + str(ticker) + ') Previous VAH/VAL: ' + str(stocks[ticker]['vah_1']) + ' / ' + str(stocks[ticker]['val_1']) +
+							' / ' + str(stocks[ticker]['vah_2']) + ' / ' + str(stocks[ticker]['val_2']) )
 
 			# Signal mode
 			print( '(' + str(ticker) + ') Signal Mode: ' + str(stocks[ticker]['algo_signals'][algo_id]['signal_mode']) )
@@ -2897,12 +2914,11 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				elif ( cur_sp_monitor > 1.5 and cur_sp_monitor < cur_algo['sp_monitor_threshold'] ):
 					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = True
 
-				elif ( cur_sp_monitor >= cur_algo['sp_monitor_threshold'] and
-						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] == True ):
-
+				#elif ( cur_sp_monitor >= cur_algo['sp_monitor_threshold'] and stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] == True ):
+				elif ( cur_sp_monitor >= cur_algo['sp_monitor_threshold'] ):
 					if ( (cur_algo['sp_monitor_strict'] == True and sp_monitor_bull == True) or cur_algo['sp_monitor_strict'] == False ):
-						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = False
-						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal'] = True
+						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal']	= False
+						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal']		= True
 
 				# Reset signals if sp_monitor starts to fade
 				if ( cur_sp_monitor < cur_algo['sp_monitor_threshold'] or (cur_algo['sp_monitor_strict'] == True and sp_monitor_bull == False) ):
@@ -2924,17 +2940,18 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				if ( len(tx_dts) == 0 ):
 					continue
 
-				last_tx	= max( tx_dts )
-				at_bid	= stocks[ticker]['ets']['tx_data'][algo_id][last_tx]['at_bid']
-				at_ask	= stocks[ticker]['ets']['tx_data'][algo_id][last_tx]['at_ask']
+				last_tx = max( tx_dts )
+				for tx in stocks[ticker]['ets']['tx_data'][algo_id][last_tx]:
+					at_bid = tx['at_bid']
+					at_ask = tx['at_ask']
 
-				# Persistent aggressive bearish action
-				if ( at_bid == 1 and at_ask == 0 ):
-					stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = False
+					# Persistent aggressive bearish action
+					if ( at_bid == 1 and at_ask == 0 ):
+						stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = False
 
-				# Persistent aggressive bullish action
-				elif ( at_bid == 0 and at_ask == 1 ):
-					stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = True
+					# Persistent aggressive bullish action
+					elif ( at_bid == 0 and at_ask == 1 ):
+						stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = True
 
 				# The cumulative delta for the algo-related transactions should be greater
 				#  than zero, this helps us avoid trading against the overall trend.
@@ -3405,7 +3422,6 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 						avg = avg / 15
 
 						# If average was below key level then key level is resistance
-						# Therefore this is not a great buy
 						if ( avg < lvl or abs((avg / lvl - 1) * 100) <= cur_algo['price_resistance_pct'] / 3 ):
 							if ( debug == True ):
 								print( '(' + str(ticker) + ') BUY SIGNAL stalled due to Key Level resistance - KL: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
@@ -3435,7 +3451,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 					cur_vah = stocks[ticker]['vah']
 					cur_val = stocks[ticker]['val']
 
-				levels = [ cur_vah, cur_val, stocks[ticker]['vah_1'], stocks[ticker]['val_1'], stocks[ticker]['vah_2'], stocks[ticker]['val_2'] ] # stocks[ticker]['vah_2'], stocks[ticker]['val_2']
+				levels = [ cur_vah, cur_val, stocks[ticker]['vah_1'], stocks[ticker]['val_1'], stocks[ticker]['vah_2'], stocks[ticker]['val_2'] ]
 				for lvl in levels:
 					if ( abs((lvl / last_close - 1) * 100) <= cur_algo['price_resistance_pct'] ):
 
@@ -3450,7 +3466,6 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 						avg = avg / 15
 
 						# If average was below key level then key level is resistance
-						# Therefore this is not a great buy
 						if ( avg < lvl ):
 							if ( debug == True ):
 								print( '(' + str(ticker) + ') BUY SIGNAL stalled due to VAH/VAL resistance: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
@@ -4581,9 +4596,8 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				elif ( cur_sp_monitor <= -1.5 and cur_sp_monitor > -cur_algo['sp_monitor_threshold'] ):
 					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = True
 
-				elif ( cur_sp_monitor <= -cur_algo['sp_monitor_threshold'] and
-						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] == True ):
-
+				#elif ( cur_sp_monitor <= -cur_algo['sp_monitor_threshold'] and stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] == True ):
+				elif ( cur_sp_monitor >= cur_algo['sp_monitor_threshold'] ):
 					if ( (cur_algo['sp_monitor_strict'] == True and sp_monitor_bear == True) or cur_algo['sp_monitor_strict'] == False ):
 						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal']	= False
 						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal']		= True
@@ -4608,17 +4622,18 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				if ( len(tx_dts) == 0 ):
 					continue
 
-				last_tx	= max( tx_dts )
-				at_bid	= stocks[ticker]['ets']['tx_data'][algo_id][last_tx]['at_bid']
-				at_ask	= stocks[ticker]['ets']['tx_data'][algo_id][last_tx]['at_ask']
+				last_tx = max( tx_dts )
+				for tx in stocks[ticker]['ets']['tx_data'][algo_id][last_tx]:
+					at_bid = tx['at_bid']
+					at_ask = tx['at_ask']
 
-				# Persistent aggressive bearish action
-				if ( at_bid == 1 and at_ask == 0 ):
-					stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = True
+					# Persistent aggressive bearish action
+					if ( at_bid == 1 and at_ask == 0 ):
+						stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = True
 
-				# Persistent aggressive bullish action
-				elif ( at_bid == 0 and at_ask == 1 ):
-					stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = False
+					# Persistent aggressive bullish action
+					elif ( at_bid == 0 and at_ask == 1 ):
+						stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = False
 
 				# The cumulative delta for the algo-related transactions should be greater
 				#  than zero, this helps us avoid trading against the overall trend.
@@ -5089,7 +5104,6 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 						avg = avg / 15
 
 						# If average was above key level then key level is support
-						# Therefore this is not a good short
 						if ( avg > lvl or abs((avg / lvl - 1) * 100) <= cur_algo['price_resistance_pct'] / 3 ):
 							if ( debug == True ):
 								print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to Key Level resistance - KL: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
@@ -5133,8 +5147,7 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 							avg += float( stocks[ticker]['pricehistory']['candles'][-i]['close'] )
 						avg = avg / 15
 
-						# If average was below key level then key level is resistance
-						# Therefore this is not a great buy
+						# If average was above key level then key level is support
 						if ( avg > lvl ):
 							if ( debug == True ):
 								print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to VAH/VAL resistance: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
@@ -5263,7 +5276,8 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 				if ( cur_algo['options'] == True ):
 
 					# Lookup the option to purchase
-					option_data = search_options(ticker=ticker, option_type='PUT', near_expiration=cur_algo['near_expiration'], debug=True)
+					option_data = search_options( ticker=ticker, option_type='PUT', near_expiration=cur_algo['near_expiration'],
+									otm_level=cur_algo['otm_level'], start_day_offset=cur_algo['start_day_offset'], debug=True )
 					if ( isinstance(option_data, bool) and option_data == False ):
 						print('Error: Unable to look up options for stock "' + str(ticker) + '"', file=sys.stderr)
 						stocks[ticker]['options_usd'] = cur_algo['options_usd']
@@ -5274,7 +5288,8 @@ def stochrsi_gobot( cur_algo=None, caller_id=None, debug=False ):
 					#  then try to disable to find an option with a later expiration date.
 					if ( cur_algo['near_expiration'] == True and float(option_data['ask']) < 1 ):
 						print('Notice: ' + str(option_data['ticker']) + ' price (' + str(option_data['ask']) + ') is below $1, setting near_expiration to False')
-						option_data = search_options(ticker=ticker, option_type='PUT', near_expiration=False, debug=True)
+						option_data = search_options( ticker=ticker, option_type='PUT', near_expiration=False,
+										otm_level=cur_algo['otm_level'], start_day_offset=cur_algo['start_day_offset'], debug=True )
 						if ( isinstance(option_data, bool) and option_data == False ):
 							print('Error: Unable to look up options for stock "' + str(ticker) + '"', file=sys.stderr)
 							stocks[ticker]['options_usd'] = cur_algo['options_usd']

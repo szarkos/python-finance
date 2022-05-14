@@ -46,8 +46,10 @@ parser.add_argument("--stocks", help='Stock ticker(s) to watch (comma delimited)
 parser.add_argument("--stock_usd", help='Amount of money (USD) to invest per trade', default=1000, type=float)
 
 parser.add_argument("--account_number", help='Account number to use (default: use .env file)', default=None, type=int)
-parser.add_argument("--passcode_prefix", help='Environment variable name that contains passcode for the account (default: None)', default=None, type=str)
-parser.add_argument("--token_fname", help='Filename containing the account token (default: None)', default=None, type=str)
+parser.add_argument("--passcode_prefix", help='Environment variable prefix that contains passcode for the account (default: None)', default=None, type=str)
+parser.add_argument("--consumer_key_prefix", help='Environment variable prefix that contains consumer key for the account (default: None)', default=None, type=str)
+parser.add_argument("--token_fname", help='Filename containing the account token for robin_stocks module (default: None)', default=None, type=str)
+parser.add_argument("--tdaapi_token_fname", help='Filename containing the account token for tda-api module (default: None)', default=None, type=str)
 
 parser.add_argument("--algos", help='Algorithms to use, comma delimited. Supported options: stochrsi, rsi, adx, dmi, macd, aroonosc, vwap, vpt, support_resistance (Example: --algos=stochrsi,adx --algos=stochrsi,macd)', required=True, nargs="*", action='append', type=str)
 parser.add_argument("--algo_valid_tickers", help='Tickers to use with a particular algorithm (Example: --algo_valid_tickers=algo_id:MSFT,AAPL). If unset all tickers will be used for all algos. Also requires setting "algo_id:algo_name" with --algos=.', action='append', default=None, type=str)
@@ -271,10 +273,21 @@ if ( args.singleday == True and tda_gobot_helper.ismarketopen_US(check_day_only=
 	sys.exit(0)
 
 # Initialize and log into TD Ameritrade
+#  - Account number is presumed kept in local .env file unless specified
+#     on the command-line.
+#  - Consumer key and passcode are presumed kept in a local .env file
+#  - Cert and refresh certficate are kept in ~/.tokens/
+#
+# For historic reasons we use both robin_stocks and tda-api modules. Robin_stocks
+#  is used for the HTTP endpoint APIs, and tda-api module for the websocket
+#  streaming API. Both require the certs in .tokens/*.pickle, but the formatting is
+#  different (robin_stocks uses basic var=value whereas tda-api uses a dict). Use
+#  --token_fname for robin_stocks token filename, and --tdaapi_token_fname for
+#  the tda-api token file.
 from dotenv import load_dotenv
 if ( load_dotenv() != True ):
-        print('Error: unable to load .env file', file=sys.stderr)
-        sys.exit(1)
+	print('Error: unable to load .env file', file=sys.stderr)
+	sys.exit(1)
 
 try:
 	# Account Number
@@ -293,8 +306,19 @@ try:
 	# Token filename
 	token_fname = args.token_fname
 
+	# Consumer key
+	consumer_key_prefix = 'tda_consumer_key'
+	if ( args.consumer_key_prefix != None ):
+		consumer_key_prefix = str(args.consumer_key_prefix) + '_tda_consumer_key'
+	tda_api_key = os.environ[consumer_key_prefix]
+
+	# TDA token (.pickle) file
+	tda_pickle = os.environ['HOME'] + '/.tokens/tda2.pickle'
+	if ( args.tdaapi_token_fname != None ):
+		tda_pickle = os.environ['HOME'] + '/.tokens/' + str(args.tdaapi_token_fname)
+
 except Exception as e:
-	print('Error: a valid TDA account number and passcode are required: ' + str(e))
+	print('Error parsing account credentials: ' + str(e) + ', exiting')
 	sys.exit(1)
 
 tda_gobot_helper.tda				= tda
@@ -1704,6 +1728,7 @@ def graceful_exit(signum=None, frame=None):
 	print("\nNOTICE: graceful_exit(): received signal: " + str(signum))
 	tda_stochrsi_gobot_helper.export_pricehistory()
 
+	# FIXME: I don't think this actually works
 	try:
 		tasks = [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
 		list(map(lambda task: task.cancel(), tasks))
@@ -1997,35 +2022,20 @@ for ticker in list(stocks.keys()):
 			print('Exception caught: get_market_profile(' + str(ticker) + '): ' + str(e) + '. VAH/VAL will not be used.')
 
 		# Get the previous day's and 2-day VAH/VAL
-		cur_day		= datetime.datetime.now( mytimezone )
+		prev_day_1 = list(mprofile.keys())[-2]
+		prev_day_2 = list(mprofile.keys())[-3]
 
-		prev_day	= cur_day - datetime.timedelta( days=1 )
-		prev_day	= tda_gobot_helper.fix_timestamp( prev_day )
-
-		prev_prev_day	= prev_day - datetime.timedelta( days=1 )
-		prev_prev_day	= tda_gobot_helper.fix_timestamp( prev_prev_day )
-
-		cur_day		= cur_day.strftime('%Y-%m-%d')
-		prev_day	= prev_day.strftime('%Y-%m-%d')
-		prev_prev_day	= prev_prev_day.strftime('%Y-%m-%d')
-
-		if ( cur_day in mprofile ):
-			stocks[ticker]['vah']	= mprofile[cur_day]['vah']
-			stocks[ticker]['val']	= mprofile[cur_day]['val']
+		if ( prev_day_1 in mprofile ):
+			stocks[ticker]['vah_1']	= round( mprofile[prev_day_1]['vah'], 2 )
+			stocks[ticker]['val_1']	= round( mprofile[prev_day_1]['val'], 2 )
 		else:
-			print('Warning: get_market_profile(' + str(ticker) + '): current day (' + str(cur_day) + ') not returned in mprofile{}. VAH/VAL will not be used.')
+			print('Warning: get_market_profile(' + str(ticker) + '): previous day (' + str(prev_day_1) + ') not returned in mprofile{}. VAH/VAL will not be used.')
 
-		if ( prev_day in mprofile ):
-			stocks[ticker]['vah_1']	= mprofile[prev_day]['vah']
-			stocks[ticker]['val_1']	= mprofile[prev_day]['val']
+		if ( prev_day_2 in mprofile ):
+			stocks[ticker]['vah_2']	= round( mprofile[prev_day_2]['vah'], 2 )
+			stocks[ticker]['val_2']	= round( mprofile[prev_day_2]['val'], 2 )
 		else:
-			print('Warning: get_market_profile(' + str(ticker) + '): previous day (' + str(prev_day) + ') not returned in mprofile{}. VAH/VAL will not be used.')
-
-		if ( prev_prev_day in mprofile ):
-			stocks[ticker]['vah_2']	= mprofile[prev_prev_day]['vah']
-			stocks[ticker]['val_2']	= mprofile[prev_prev_day]['val']
-		else:
-			print('Warning: get_market_profile(' + str(ticker) + '): previous 2-day (' + str(prev_prev_day) + ') not returned in mprofile{}. VAH/VAL will not be used.')
+			print('Warning: get_market_profile(' + str(ticker) + '): previous 2-day (' + str(prev_day_2) + ') not returned in mprofile{}. VAH/VAL will not be used.')
 
 	# End Volume Profile
 
@@ -2104,23 +2114,6 @@ for ticker in list(stocks.keys()):
 		stocks[ticker]['cur_daily_ma'] = ( ma3[-1], ma5[-1], ma8[-1] )
 
 
-# MAIN: Log into tda-api and run the stream client
-try:
-	# tda_api.auth.client_from_token_file() requires the consumer key and token file
-	# StreamClient() also requires an account_number, but that was set above in tda_account_number
-
-	# API Key
-	tda_api_key = os.environ['tda_consumer_key']
-
-	# TDA token (.pickle) file
-	tda_pickle = os.environ['HOME'] + '/.tokens/tda2.pickle'
-	if ( token_fname != None ):
-		tda_pickle = os.environ['HOME'] + '/.tokens/' + str(token_fname)
-
-except Exception as e:
-	print('Error: a valid TDA consumer key and token file are required: ' + str(e))
-	sys.exit(1)
-
 # Initializes and reads from TDA stream API
 async def read_stream():
 	loop = asyncio.get_running_loop()
@@ -2185,7 +2178,10 @@ async def read_stream():
 		await asyncio.wait_for( stream_client.handle_message(), 120 )
 
 
-# MAIN
+# MAIN: Log into tda-api and run the stream client
+# Most time is spent in read_stream() looping and processing messages from TDA. However, the
+# websocket connection can be reset for a variety of reasons. So we loop here to handle any
+#  exceptions in the streaming client, login again and restart the client when an error occurs.
 while True:
 
 	# Log in using the tda-api module to access the streams interface
@@ -2219,3 +2215,4 @@ while True:
 
 
 sys.exit(0)
+

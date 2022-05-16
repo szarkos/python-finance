@@ -44,9 +44,6 @@ def gobot_run(stream=None, algos=None, debug=False):
 	# }
 	for idx in stream['content']:
 
-		if ( stocks[ticker]['isvalid'] == False ):
-			continue
-
 		# Map stream_name (ticker name for streams API) back to the ticker name
 		ticker = str( idx['key'] )
 		if ( ticker not in stocks ):
@@ -57,6 +54,9 @@ def gobot_run(stream=None, algos=None, debug=False):
 
 			if ( ticker not in stocks ):
 				print('Warning: gobot_run(): invalid ticker name found in stream: ' + str(idx['key']))
+
+		if ( stocks[ticker]['isvalid'] == False ):
+			continue
 
 		# Try to avoid reprocessing duplicate streams, if there are any
 		#
@@ -147,9 +147,6 @@ def gobot_run(stream=None, algos=None, debug=False):
 	#  that we do not process the same candles twice.
 	for idx in stream['content']:
 
-		if ( stocks[ticker]['isvalid'] == False ):
-			continue
-
 		# Map stream_name (ticker name for streams API) back to the ticker name
 		ticker = str( idx['key'] )
 		if ( ticker not in stocks ):
@@ -160,6 +157,9 @@ def gobot_run(stream=None, algos=None, debug=False):
 
 			if ( ticker not in stocks ):
 				print('Warning: gobot_run(): invalid ticker name found in stream: ' + str(idx['key']))
+
+		if ( stocks[ticker]['isvalid'] == False ):
+			continue
 
 		stocks[ticker]['prev_seq'] = stocks[ticker]['cur_seq']
 
@@ -313,6 +313,7 @@ def gobot_level2(stream=None, debug=False):
 		try:
 			dt = int( idx['BOOK_TIME'] )
 		except:
+			print('Warning: gobot_level2(): BOOK_TIME not defined, using streams timestamp: ' + str(idx))
 			dt = dt_def
 
 		# ASKS
@@ -725,6 +726,18 @@ def export_pricehistory():
 		print('Error: export_pricehistory(): Unable to make TX_LOG_DIR: ' + str(e), file=sys.stderr)
 		return False
 
+	def safe_logfile(fname=None):
+		if ( os.path.exists(fname) == True ):
+			rnd		= random.randint(10000, 99999)
+			new_fname	= re.sub('\.pickle.xz', '', str(fname))
+			new_fname	= new_fname + '.' + str(rnd) + '.pickle.xz'
+			try:
+				os.rename(fname, new_fname)
+			except Exception as e:
+				print('Exception caught: export_pricehistory(): check_fname(' + str(fname) + '): ' + str(e), file=sys.stderr)
+				return False
+
+		return True
 
 	base_dir = './' + str(args.tx_log_dir) + '/' + str(dt_today) + '/'
 	for ticker in stocks.keys():
@@ -734,6 +747,9 @@ def export_pricehistory():
 		# Export pricehistory
 		try:
 			fname = base_dir + str(ticker) + '-' + str(dt_today) + '.pickle.xz'
+			if ( safe_logfile(fname) == False ):
+				print('Error: export_pricehistory(): safe_logfile( ' + str(fname) + ') returned False, unable to export data')
+
 			with lzma.open(fname, 'wb') as handle:
 				pickle.dump(stocks[ticker]['pricehistory'], handle)
 				handle.flush()
@@ -746,6 +762,9 @@ def export_pricehistory():
 		# SAZ 2022-02-08 - This is no longer needed
 		#try:
 		#	fname = base_dir + str(ticker) + '_5m-' + str(dt_today) + '.pickle.xz'
+		#	if ( safe_logfile(fname) == False ):
+		#		print('Error: export_pricehistory(): safe_logfile( ' + str(fname) + ') returned False, unable to export data')
+		#
 		#	with lzma.open(fname, 'wb') as handle:
 		#		pickle.dump(stocks[ticker]['pricehistory_5m'], handle)
 		#		handle.flush()
@@ -756,6 +775,9 @@ def export_pricehistory():
 		# Export level 1 data
 		try:
 			fname = base_dir + str(ticker) + '_level1-' + str(dt_today) + '.pickle.xz'
+			if ( safe_logfile(fname) == False ):
+				print('Error: export_pricehistory(): safe_logfile( ' + str(fname) + ') returned False, unable to export data')
+
 			with lzma.open(fname, 'wb') as handle:
 				pickle.dump(stocks[ticker]['level1'], handle)
 				handle.flush()
@@ -766,6 +788,9 @@ def export_pricehistory():
 		# Export level 2 data
 		try:
 			fname = base_dir + str(ticker) + '_level2-' + str(dt_today) + '.pickle.xz'
+			if ( safe_logfile(fname) == False ):
+				print('Error: export_pricehistory(): safe_logfile( ' + str(fname) + ') returned False, unable to export data')
+
 			with lzma.open(fname, 'wb') as handle:
 				pickle.dump(stocks[ticker]['level2']['history'], handle)
 				handle.flush()
@@ -777,6 +802,9 @@ def export_pricehistory():
 		# Export equity time and sale data
 		try:
 			fname = base_dir + str(ticker) + '_ets-' + str(dt_today) + '.pickle.xz'
+			if ( safe_logfile(fname) == False ):
+				print('Error: export_pricehistory(): safe_logfile( ' + str(fname) + ') returned False, unable to export data')
+
 			with lzma.open(fname, 'wb') as handle:
 				pickle.dump(stocks[ticker]['ets']['history'], handle)
 				handle.flush()
@@ -2620,15 +2648,15 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 			# If --multiday isn't set then we do not want to start trading if the market is closed.
 			# Also if --multiday isn't set we should avoid buying any securities if it's within
 			#  1-hour from market close. Otherwise we may be forced to sell too early.
-			if ( (tda_gobot_helper.isendofday(75) == True or tda_gobot_helper.ismarketopen_US(safe_open=cur_algo['safe_open']) == False) and
+			if ( (tda_gobot_helper.isendofday(cur_algo['last_hour_block']) == True or tda_gobot_helper.ismarketopen_US(safe_open=cur_algo['safe_open']) == False) and
 					cur_algo['ph_only'] == False and args.multiday == False ):
 				print('(' + str(ticker) + ') Market is closed or near closing.')
 				reset_signals(ticker)
 				continue
 
-			# If args.hold_overnight=False and args.multiday==True, we won't enter any new trades 1-hour before market close
+			# If args.hold_overnight=False and args.multiday==True, we won't enter any new trades N-minutes before market close
 			if ( args.multiday == True and args.hold_overnight == False and cur_algo['ph_only'] == False and
-					tda_gobot_helper.isendofday(75) ):
+					tda_gobot_helper.isendofday(cur_algo['last_hour_block']) ):
 				reset_signals(ticker)
 				continue
 
@@ -2648,7 +2676,17 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 					continue
 
 			# Extra check to make sure the signals are in the right position based on global short-sell args
-			if ( args.shortonly == True ):
+			if ( signal_mode == 'long' and args.shortonly == True ):
+				print('(' + str(ticker) + ') Switching back to short mode: --shortonly=' + str(args.shortonly))
+				stocks[ticker]['algo_signals'][algo_id]['signal_mode'] = 'short'
+				signal_mode = 'short'
+
+			elif ( signal_mode == 'short' and (args.short == False or (cur_algo['options'] == False and stocks[ticker]['shortable'] == False)) ):
+				print('(' + str(ticker) + ') Switching back to long mode: --short=' + str(args.short) + ', stocks[ticker][shortable]=' + str(stocks[ticker]['shortable']))
+				stocks[ticker]['algo_signals'][algo_id]['signal_mode'] = 'long'
+				signal_mode = 'long'
+
+			elif ( args.shortonly == True ):
 				stocks[ticker]['algo_signals'][algo_id]['signal_mode'] = 'short'
 				signal_mode = 'short'
 
@@ -2708,7 +2746,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 				# Jump to short mode if StochRSI K and D are already above stoch_high_limit
 				# The intent here is if the bot starts up while the RSI is high we don't want to wait until the stock
 				#  does a full loop again before acting on it.
-				if ( (cur_rsi_k >= stoch_default_high_limit and cur_rsi_d >= stoch_default_high_limit) and args.short == True and stocks[ticker]['shortable'] == True ):
+				if ( cur_rsi_k >= stoch_default_high_limit and cur_rsi_d >= stoch_default_high_limit ):
 					print('(' + str(ticker) + ') StochRSI K and D values already above ' + str(stoch_default_high_limit) + ', switching to short mode.')
 					reset_signals(ticker, id=algo_id, signal_mode='short')
 					continue
@@ -2753,8 +2791,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 					price_trend_bull_affinity = price_trend(cndl_slice, type=cur_algo['trend_type'], period=cur_algo['trend_period'], affinity='bull')
 
 				# Jump to short mode if the stacked moving averages are showing a bearish movement
-				if ( args.short == True and stocks[ticker]['shortable'] == True and
-						(cur_algo['use_ha_candles'] == True and (stacked_ma_bear_ha_affinity == True or stacked_ma_bear_affinity == True)) or
+				if ( (cur_algo['use_ha_candles'] == True and (stacked_ma_bear_ha_affinity == True or stacked_ma_bear_affinity == True)) or
 						(cur_algo['use_trend'] == True and price_trend_bear_affinity == True) or
 						(cur_algo['use_ha_candles'] == False and cur_algo['use_trend'] == False and stacked_ma_bear_affinity == True) ):
 
@@ -2785,10 +2822,9 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 
 				# Jump to short mode if the MAMA/FAMA are showing a bearish movement
 				elif ( cur_mama <= cur_fama or (prev_mama > prev_fama and cur_mama <= cur_fama) ):
-					if ( args.short == True and stocks[ticker]['shortable'] == True ):
-						print('(' + str(ticker) + ') MAMA/FAMA values indicate bearish trend ' + str(cur_mama) + '/' + str(cur_fama) + ", switching to short mode.\n" )
-						reset_signals(ticker, id=algo_id, signal_mode='short', exclude_bbands_kchan=True)
-						continue
+					print('(' + str(ticker) + ') MAMA/FAMA values indicate bearish trend ' + str(round(cur_mama, 4)) + '/' + str(round(cur_fama, 4)) + ", switching to short mode.\n" )
+					reset_signals(ticker, id=algo_id, signal_mode='short', exclude_bbands_kchan=True)
+					continue
 
 				# This shouldn't happen, but just in case...
 				else:
@@ -2799,9 +2835,8 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 			elif ( cur_algo['primary_mesa_sine'] == True ):
 				midline  = 0
 				if ( stocks[ticker]['cur_sine'] < midline ):
-					if ( args.short == True and stocks[ticker]['shortable'] == True ):
-						print('(' + str(ticker) + ') MESA SINE below midline ' + str(stocks[ticker]['cur_sine']) + '/' + str(stocks[ticker]['cur_lead']) + ", switching to short mode.\n" )
-						reset_signals(ticker, id=algo_id, signal_mode='short', exclude_bbands_kchan=True)
+					print('(' + str(ticker) + ') MESA SINE below midline ' + str(stocks[ticker]['cur_sine']) + '/' + str(stocks[ticker]['cur_lead']) + ", switching to short mode.\n" )
+					reset_signals(ticker, id=algo_id, signal_mode='short', exclude_bbands_kchan=True)
 					continue
 
 				stocks[ticker]['algo_signals'][algo_id]['buy_signal'] = mesa_sine( sine=m_sine, lead=m_lead, direction='long', strict=cur_algo['mesa_sine_strict'],
@@ -2820,7 +2855,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 			elif ( cur_algo['primary_trin'] ):
 
 				# Jump to short mode if cur_trin is less than 0
-				if ( cur_trin <= cur_algo['trin_overbought'] and args.short == True and stocks[ticker]['shortable'] == True ):
+				if ( cur_trin <= cur_algo['trin_overbought'] ):
 					reset_signals(ticker, id=algo_id, signal_mode='short', exclude_bbands_kchan=True)
 					stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] = True
 					continue
@@ -2868,7 +2903,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 					sp_monitor_bull = check_stacked_ma(cur_sp_monitor_stacked_ma, 'bull')
 
 				# Jump to short mode if sp_monitor is negative
-				if ( cur_sp_monitor < 0 and args.short == True and stocks[ticker]['shortable'] == True ):
+				if ( cur_sp_monitor < 0 ):
 					reset_signals(ticker, id=algo_id, signal_mode='short', exclude_bbands_kchan=True)
 
 					if ( cur_sp_monitor <= -1.5 ):
@@ -2956,7 +2991,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 					sp_monitor_bear = check_stacked_ma(cur_sp_monitor_stacked_ma, 'bear')
 					sp_monitor_bull = check_stacked_ma(cur_sp_monitor_stacked_ma, 'bull')
 
-				if ( cur_sp_monitor < 0 and args.short == True and stocks[ticker]['shortable'] == True ):
+				if ( cur_sp_monitor < 0 ):
 					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal']	= False
 					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal']		= False
 
@@ -3912,7 +3947,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 
 			# The last trading hour is a bit unpredictable. If --hold_overnight is false we want
 			#  to sell the stock at a more conservative exit percentage.
-			elif ( tda_gobot_helper.isendofday(60) == True and cur_algo['ph_only'] == False and args.hold_overnight == False ):
+			elif ( tda_gobot_helper.isendofday(cur_algo['last_hour_block']) == True and cur_algo['ph_only'] == False and args.hold_overnight == False ):
 				if ( cur_algo['options'] == True ):
 					if ( options_last_price > stocks[ticker]['options_orig_base_price'] ):
 						percent_change = abs( stocks[ticker]['options_orig_base_price'] / options_last_price - 1 ) * 100
@@ -4361,7 +4396,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 				exit_passthrough				= False
 
 				reset_signals(ticker)
-				if ( args.short == True and stocks[ticker]['shortable'] == True ):
+				if ( args.short == True ):
 					reset_signals(ticker, signal_mode='short')
 				else:
 					reset_signals(ticker, signal_mode='long')
@@ -4399,7 +4434,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 				# Jump to long mode if StochRSI K and D are already below stoch_low_limit
 				# The intent here is if the bot starts up while the RSI is low we don't want to wait until the stock
 				#  does a full loop again before acting on it.
-				if ( cur_rsi_k < stoch_default_low_limit and cur_rsi_d < stoch_default_low_limit and args.shortonly == False ):
+				if ( cur_rsi_k < stoch_default_low_limit and cur_rsi_d < stoch_default_low_limit ):
 					print('(' + str(ticker) + ') StochRSI K and D values already below ' + str(stoch_default_low_limit) + ', switching to long mode.')
 					reset_signals(ticker, id=algo_id, signal_mode='long')
 					continue
@@ -4442,9 +4477,8 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 					price_trend_bear_affinity = price_trend(cndl_slice, type=cur_algo['trend_type'], period=cur_algo['trend_period'], affinity='bear')
 					price_trend_bull_affinity = price_trend(cndl_slice, type=cur_algo['trend_type'], period=cur_algo['trend_period'], affinity='bull')
 
-				# Jump to short mode if the stacked moving averages are showing a bearish movement
-				if ( args.shortonly == False and
-						(cur_algo['use_ha_candles'] == True and (stacked_ma_bull_ha_affinity == True or stacked_ma_bull_affinity == True)) or
+				# Jump to long mode if the stacked moving averages are showing a bearish movement
+				if ( (cur_algo['use_ha_candles'] == True and (stacked_ma_bull_ha_affinity == True or stacked_ma_bull_affinity == True)) or
 						(cur_algo['use_trend'] == True and price_trend_bull_affinity == True) or
 						(cur_algo['use_ha_candles'] == False and cur_algo['use_trend'] == False and stacked_ma_bull_affinity == True) ):
 
@@ -4473,12 +4507,11 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 				if ( cur_mama < cur_fama ):
 					stocks[ticker]['algo_signals'][algo_id]['short_signal'] = True
 
-				# Jump to short mode if the MAMA/FAMA are showing a bearish movement
+				# Jump to long mode if the MAMA/FAMA are showing a bearish movement
 				elif ( cur_mama >= cur_fama or (prev_mama < prev_fama and cur_mama >= cur_fama) ):
-					if ( args.shortonly == False ):
-						print('(' + str(ticker) + ') MAMA/FAMA values indicate bullish trend ' + str(cur_mama) + '/' + str(cur_fama) + ", switching to long mode.\n" )
-						reset_signals(ticker, id=algo_id, signal_mode='long', exclude_bbands_kchan=True)
-						continue
+					print('(' + str(ticker) + ') MAMA/FAMA values indicate bullish trend ' + str(round(cur_mama, 4)) + '/' + str(round(cur_fama, 4)) + ", switching to long mode.\n" )
+					reset_signals(ticker, id=algo_id, signal_mode='long', exclude_bbands_kchan=True)
+					continue
 
 				# This shouldn't happen, but just in case...
 				else:
@@ -4488,9 +4521,8 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 			elif ( cur_algo['primary_mesa_sine'] == True ):
 				midline = 0
 				if ( stocks[ticker]['cur_sine'] > midline ):
-					if ( args.shortonly == False ):
-						print('(' + str(ticker) + ') MESA SINE above midline ' + str(stocks[ticker]['cur_sine']) + '/' + str(stocks[ticker]['cur_lead']) + ", switching to long mode.\n" )
-						reset_signals(ticker, id=algo_id, signal_mode='long', exclude_bbands_kchan=True)
+					print('(' + str(ticker) + ') MESA SINE above midline ' + str(stocks[ticker]['cur_sine']) + '/' + str(stocks[ticker]['cur_lead']) + ", switching to long mode.\n" )
+					reset_signals(ticker, id=algo_id, signal_mode='long', exclude_bbands_kchan=True)
 					continue
 
 				stocks[ticker]['algo_signals'][algo_id]['short_signal'] = mesa_sine( sine=m_sine, lead=m_lead, direction='short', strict=cur_algo['mesa_sine_strict'],
@@ -4502,7 +4534,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 			elif ( cur_algo['primary_trin'] ):
 
 				# Jump to long mode if cur_trin is greater than trin_overbought
-				if ( cur_trin >= cur_algo['trin_oversold'] and args.shortonly == False):
+				if ( cur_trin >= cur_algo['trin_oversold'] ):
 					reset_signals(ticker, id=algo_id, signal_mode='long', exclude_bbands_kchan=True)
 					stocks[ticker]['algo_signals'][algo_id]['trin_init_signal'] = True
 					continue
@@ -4550,8 +4582,8 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 					sp_monitor_bear = check_stacked_ma(cur_sp_monitor_stacked_ma, 'bear')
 					sp_monitor_bull = check_stacked_ma(cur_sp_monitor_stacked_ma, 'bull')
 
-				# Jump to long mode if sp_monitor is negativ
-				if ( cur_sp_monitor > 0 and args.shortonly == False ):
+				# Jump to long mode if sp_monitor is negative
+				if ( cur_sp_monitor > 0 ):
 					reset_signals(ticker, id=algo_id, signal_mode='long', exclude_bbands_kchan=True)
 
 					if ( cur_sp_monitor >= 1.5 ):
@@ -4646,7 +4678,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 					stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] = True
 
 				#elif ( cur_sp_monitor <= -cur_algo['sp_monitor_threshold'] and stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal'] == True ):
-				elif ( cur_sp_monitor >= cur_algo['sp_monitor_threshold'] ):
+				elif ( cur_sp_monitor <= -cur_algo['sp_monitor_threshold'] ):
 					if ( (cur_algo['sp_monitor_strict'] == True and sp_monitor_bear == True) or cur_algo['sp_monitor_strict'] == False ):
 						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_init_signal']	= False
 						stocks[ticker]['algo_signals'][algo_id]['sp_monitor_signal']		= True
@@ -5612,7 +5644,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 
 			# The last trading hour is a bit unpredictable. If --hold_overnight is false we want
 			#  to sell the stock at a more conservative exit percentage.
-			elif ( tda_gobot_helper.isendofday(60) == True and cur_algo['ph_only'] == False and args.hold_overnight == False ):
+			elif ( tda_gobot_helper.isendofday(cur_algo['last_hour_block']) == True and cur_algo['ph_only'] == False and args.hold_overnight == False ):
 				if ( cur_algo['options'] == True ):
 					if ( options_last_price > stocks[ticker]['options_orig_base_price'] ):
 						percent_change = abs( stocks[ticker]['options_orig_base_price'] / options_last_price - 1 ) * 100

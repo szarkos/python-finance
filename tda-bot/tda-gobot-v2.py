@@ -54,6 +54,7 @@ parser.add_argument("--singleday", help='Allows bot to start (but not trade) bef
 parser.add_argument("--unsafe", help='Allow trading between 9:30-10:15AM where volatility is high', action="store_true")
 parser.add_argument("--ph_only", help='Allow trading only between 9:30-10:30AM and 3:00PM-4:00PM when volatility is high', action="store_true")
 parser.add_argument("--hold_overnight", help='Hold stocks overnight when --multiday is in use (default: False) - Warning: implies --unsafe', action="store_true")
+parser.add_argument("--last_hour_block", help='Stop trading if we are within --last_hour_block minutes from market close (Default: 60)', default=60, type=int)
 
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
 parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1, type=float)
@@ -245,7 +246,7 @@ args.debug = True
 # Set timezone
 mytimezone = pytz.timezone("US/Eastern")
 tda_gobot_helper.mytimezone = mytimezone
-tda_stochrsi_gobot_helper.mytimezone = mytimezone
+tda_gobotv2_helper.mytimezone = mytimezone
 
 # --hold_overnight implies --multiday
 # --hold_overnight implies --unsafe (safe_open=False)
@@ -313,16 +314,19 @@ except Exception as e:
 	sys.exit(1)
 
 tda_gobot_helper.tda				= tda
-tda_stochrsi_gobot_helper.tda			= tda
+tda_gobotv2_helper.tda				= tda
 
 tda_gobot_helper.tda_account_number		= tda_account_number
-tda_stochrsi_gobot_helper.tda_account_number	= tda_account_number
+tda_gobotv2_helper.tda_account_number		= tda_account_number
 
 tda_gobot_helper.passcode			= passcode
-tda_stochrsi_gobot_helper.passcode		= passcode
+tda_gobotv2_helper.passcode			= passcode
 
 tda_gobot_helper.token_fname			= token_fname
-tda_stochrsi_gobot_helper.token_fname		= token_fname
+tda_gobotv2_helper.token_fname			= token_fname
+
+tda_gobot_helper.tda_api_key			= tda_api_key
+tda_gobotv2_helper.tda_api_key			= tda_api_key
 
 if ( tda_gobot_helper.tdalogin(passcode, token_fname) != True ):
 	print('Error: Login failure', file=sys.stderr)
@@ -382,6 +386,7 @@ for algo in args.algos:
 	otm_level			= args.otm_level
 	start_day_offset		= args.start_day_offset
 	ph_only				= args.ph_only
+	last_hour_block			= args.last_hour_block
 	safe_open			= not args.unsafe
 
 	quick_exit			= args.quick_exit
@@ -594,6 +599,7 @@ for algo in args.algos:
 		if ( re.match('stock_usd:', a)				!= None ):	stock_usd			= float( a.split(':')[1] )
 		if ( re.match('ph_only', a)				!= None ):	ph_only				= True
 		if ( re.match('safe_open', a)				!= None ):	safe_open			= True
+		if ( re.match('last_hour_block:', a)			!= None ):	last_hour_block			= int( a.split(':')[1] )
 		if ( re.match('unsafe', a)				!= None ):	safe_open			= False
 
 		if ( re.match('quick_exit', a)				!= None ):	quick_exit			= True
@@ -816,6 +822,7 @@ for algo in args.algos:
 			'stock_usd':				stock_usd,
 			'safe_open':				safe_open,
 			'ph_only':				ph_only,
+			'last_hour_block':			last_hour_block,
 
 			'quick_exit':				quick_exit,
 			'quick_exit_percent':			quick_exit_percent,
@@ -1017,7 +1024,7 @@ for algo in args.algos:
 
 # Clean up this mess
 # All the stuff above should be put into a function to avoid this cleanup stuff. I know it. It'll happen eventually.
-del(stock_usd,quick_exit,quick_exit_percent,trend_quick_exit,qe_stacked_ma_periods,qe_stacked_ma_type,scalp_mode,scalp_mode_pct,ph_only)
+del(stock_usd,quick_exit,quick_exit_percent,trend_quick_exit,qe_stacked_ma_periods,qe_stacked_ma_type,scalp_mode,scalp_mode_pct,ph_only,last_hour_block)
 del(primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,primary_mesa_sine,primary_trin,primary_sp_monitor)
 del(stacked_ma,stacked_ma_secondary,mama_fama,stochrsi_5m,stochmfi,stochmfi_5m)
 del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,vwap,vpt)
@@ -1155,7 +1162,7 @@ for ticker in stock_list.split(','):
 	#  Warrants:		'+' => '/WS', BOO+ -> BOO/WS
 	stream_id = re.sub( '\.', '/', ticker )
 	stream_id = re.sub( '\-', 'p', ticker )
-	stream_id = re.sub( '+', '/WS', ticker )
+	stream_id = re.sub( '\+', '/WS', ticker )
 
 	stocks.update( { ticker: { 'stream_id':			stream_id,
 				   'shortable':			True,
@@ -1496,7 +1503,7 @@ for ticker in stock_list.split(','):
 		stocks[ticker]['algo_signals'].update( signals )
 
 		# Support time_sales_algo
-		stocks[ticker]['ets']['cumulative_delta'][algo['algo_id']]	= 0
+		stocks[ticker]['ets']['cumulative_algo_delta'][algo['algo_id']]	= 0
 		stocks[ticker]['ets']['keylevels'][algo['algo_id']]		= []
 		stocks[ticker]['ets']['tx_data'][algo['algo_id']]		= {}
 
@@ -1570,15 +1577,22 @@ for ticker in list(stocks.keys()):
 
 	# Invalidate ticker if it is noted in the blacklist file
 	if ( tda_gobot_helper.check_blacklist(ticker) == True and args.force == False ):
-		print('(' + str(ticker) + ') Warning: stock ' + str(ticker) + ' found in blacklist file, removing from the list')
-		stocks[ticker]['isvalid'] = False
 
-		try:
-			del stocks[ticker]
-		except KeyError:
-			print('Warning: failed to delete key "' + str(ticker) + '" from stocks{}')
+		# Allow ticker if it is mentioned in sp_tickers, but mark it as not tradeable
+		if ( ticker in sp_tickers ):
+			stocks[ticker]['isvalid']	= True
+			stocks[ticker]['tradeable']	= False
 
-		continue
+		else:
+			print('(' + str(ticker) + ') Warning: stock ' + str(ticker) + ' found in blacklist file, removing from the list')
+			stocks[ticker]['isvalid'] = False
+
+			try:
+				del stocks[ticker]
+			except KeyError:
+				print('Warning: failed to delete key "' + str(ticker) + '" from stocks{}')
+
+			continue
 
 	# Confirm that we can short this stock
 	# Sometimes this parameter is not set in the TDA get_quote response?
@@ -1726,7 +1740,7 @@ if ( len(nasdaq_tickers) > 100 ):
 # Initialize signal handlers to dump stock history on exit
 def graceful_exit(signum=None, frame=None):
 	print("\nNOTICE: graceful_exit(): received signal: " + str(signum))
-	tda_stochrsi_gobot_helper.export_pricehistory()
+	tda_gobotv2_helper.export_pricehistory()
 
 	# FIXME: I don't think this actually works
 	try:
@@ -1745,7 +1759,7 @@ def siguser1_handler(signum=None, frame=None):
 	print("\nNOTICE: siguser1_handler(): received signal")
 	print("NOTICE: Calling sell_stocks() to exit open positions...\n")
 
-	tda_stochrsi_gobot_helper.sell_stocks()
+	tda_gobotv2_helper.sell_stocks()
 	graceful_exit(None, None)
 	sys.exit(0)
 
@@ -1769,34 +1783,34 @@ signal.signal(signal.SIGUSR1, siguser1_handler)
 #  RSI passes from below rsi_low_limit to above = BUY_TO_COVER and LONG
 
 # Global variables
-tda_stochrsi_gobot_helper.args					= args
-tda_stochrsi_gobot_helper.algos					= algos
-tda_stochrsi_gobot_helper.tx_log_dir				= args.tx_log_dir
-tda_stochrsi_gobot_helper.stocks				= stocks
-tda_stochrsi_gobot_helper.prev_timestamp			= 0
+tda_gobotv2_helper.args					= args
+tda_gobotv2_helper.algos				= algos
+tda_gobotv2_helper.tx_log_dir				= args.tx_log_dir
+tda_gobotv2_helper.stocks				= stocks
+tda_gobotv2_helper.prev_timestamp			= 0
 
 # StochRSI / RSI
-tda_stochrsi_gobot_helper.stoch_default_low_limit		= 20
-tda_stochrsi_gobot_helper.stoch_default_high_limit		= 80
+tda_gobotv2_helper.stoch_default_low_limit		= 20
+tda_gobotv2_helper.stoch_default_high_limit		= 80
 
-tda_stochrsi_gobot_helper.stoch_signal_cancel_low_limit		= 60	# Cancel stochrsi short signal at this level
-tda_stochrsi_gobot_helper.stoch_signal_cancel_high_limit	= 40	# Cancel stochrsi buy signal at this level
+tda_gobotv2_helper.stoch_signal_cancel_low_limit	= 60	# Cancel stochrsi short signal at this level
+tda_gobotv2_helper.stoch_signal_cancel_high_limit	= 40	# Cancel stochrsi buy signal at this level
 
-tda_stochrsi_gobot_helper.rsi_signal_cancel_low_limit		= 30
-tda_stochrsi_gobot_helper.rsi_signal_cancel_high_limit		= 70
-tda_stochrsi_gobot_helper.rsi_type				= args.rsi_type
+tda_gobotv2_helper.rsi_signal_cancel_low_limit		= 30
+tda_gobotv2_helper.rsi_signal_cancel_high_limit		= 70
+tda_gobotv2_helper.rsi_type				= args.rsi_type
 
 # MFI
-tda_stochrsi_gobot_helper.mfi_signal_cancel_low_limit		= 30
-tda_stochrsi_gobot_helper.mfi_signal_cancel_high_limit		= 70
+tda_gobotv2_helper.mfi_signal_cancel_low_limit		= 30
+tda_gobotv2_helper.mfi_signal_cancel_high_limit		= 70
 
 # Aroonosc
-tda_stochrsi_gobot_helper.aroonosc_threshold			= 60
-tda_stochrsi_gobot_helper.aroonosc_secondary_threshold		= args.aroonosc_secondary_threshold
+tda_gobotv2_helper.aroonosc_threshold			= 60
+tda_gobotv2_helper.aroonosc_secondary_threshold		= args.aroonosc_secondary_threshold
 
 # Chop Index
-tda_stochrsi_gobot_helper.default_chop_low_limit		= 38.2
-tda_stochrsi_gobot_helper.default_chop_high_limit		= 61.8
+tda_gobotv2_helper.default_chop_low_limit		= 38.2
+tda_gobotv2_helper.default_chop_high_limit		= 61.8
 
 # Initialize pricehistory for each stock ticker
 print( 'Populating pricehistory for stock tickers: ' + str(list(stocks.keys())) )
@@ -2135,7 +2149,7 @@ async def read_stream():
 	# Subscribe to equity 1-minute candle data
 	# Note: Max tickers=300, list will be truncated if >300
 	stream_client.add_chart_equity_handler(
-		lambda msg: tda_stochrsi_gobot_helper.gobot_run(msg, algos, args.debug) )
+		lambda msg: tda_gobotv2_helper.gobot_run(msg, algos, args.debug) )
 	await asyncio.wait_for( stream_client.chart_equity_subs(stocks.keys()), 10 )
 
 	# Subscribe to equity level1 data
@@ -2151,25 +2165,25 @@ async def read_stream():
 			stream_client.LevelOneEquityFields.BID_TICK,
 			stream_client.LevelOneEquityFields.SECURITY_STATUS ]
 	stream_client.add_level_one_equity_handler(
-		lambda msg: tda_stochrsi_gobot_helper.gobot_level1(msg, algos, args.debug) )
+		lambda msg: tda_gobotv2_helper.gobot_level1(msg, algos, args.debug) )
 	await asyncio.wait_for( stream_client.level_one_equity_subs(nyse_tickers+nasdaq_tickers, fields=l1_fields), 10 )
 
 	# Subscribe to equity level2 order books
 	# NYSE ("listed")
 	stream_client.add_listed_book_handler(
-		lambda msg: tda_stochrsi_gobot_helper.gobot_level2(msg, args.debug) )
+		lambda msg: tda_gobotv2_helper.gobot_level2(msg, args.debug) )
 	await asyncio.wait_for( stream_client.listed_book_subs(nyse_tickers), 10 )
 
 	# NASDAQ
 	stream_client.add_nasdaq_book_handler(
-		lambda msg: tda_stochrsi_gobot_helper.gobot_level2(msg, args.debug) )
+		lambda msg: tda_gobotv2_helper.gobot_level2(msg, args.debug) )
 	await asyncio.wait_for( stream_client.nasdaq_book_subs(nasdaq_tickers), 10 )
 
 	# T&S Data
 	# Note: we subscribe to nyse_tickers+nasdaq_tickers here to be sure we have valid equity tickers.
 	#  Some tickers in stocks.keys(), i.e. indicators like $TICK or $TRIN, will not have time/sale data.
 	stream_client.add_timesale_equity_handler(
-		lambda msg: tda_stochrsi_gobot_helper.gobot_ets(msg, algos, False) )
+		lambda msg: tda_gobotv2_helper.gobot_ets(msg, algos, False) )
 	await asyncio.wait_for( stream_client.timesale_equity_subs(nyse_tickers+nasdaq_tickers), 10 )
 
 

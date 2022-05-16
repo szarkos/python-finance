@@ -665,14 +665,15 @@ def clean_blacklist(debug=False):
 #  - Global object "tda" needs to exist, and tdalogin() should be called first.
 #  - Returns lastPrice, which is the last price *including* extended hours.
 #    If we want the latest market price we should look at regularMarketLastPrice.
-def get_lastprice(ticker=None, WarnDelayed=True, debug=False):
+#  - If mark==True then returns the latest mark price
+def get_lastprice(ticker=None, WarnDelayed=True, mark=False, debug=False):
 
 	if ( ticker == None ):
 		print('Error: get_lastprice(' + str(ticker) + '): ticker is empty', file=sys.stderr)
 		return False
 
 	try:
-		data,err = func_timeout(4, tda.stocks.get_quote, args=(ticker, True))
+		data,err = func_timeout(4, tda.stocks.get_quotes, args=(str(ticker), True))
 
 	except FunctionTimedOut:
 		print('Caught Exception: get_lastprice(' + str(ticker) + '): tda.stocks.get_quote(): timed out after 4 seconds')
@@ -689,14 +690,31 @@ def get_lastprice(ticker=None, WarnDelayed=True, debug=False):
 		print('Error: get_lastprice(' + str(ticker) + '): Empty data set', file=sys.stderr)
 		return False
 
-	if ( WarnDelayed == True and data[ticker]['delayed'] == 'true' ):
+	# Check for proper return values
+	try:
+		delayed		= str( data[ticker]['delayed'] ).lower()
+		mark_price	= float( data[ticker]['mark'] )
+
+		if ( str(data[ticker]['assetType']).lower() == 'future' ):
+			last_price = float( data[ticker]['lastPriceInDouble'] )
+		else:
+			last_price = float( data[ticker]['lastPrice'] )
+
+	except Exception as e:
+		print('Error: get_lastprice(' + str(ticker) + '): ' + str(e), file=sys.stderr)
+		return False
+
+	if ( WarnDelayed == True and delayed == 'true' ):
 		print('Warning: get_lastprice(' + str(ticker) + '): quote data delayed')
 
 	if ( debug == True ):
 		print(data)
 
-	# Note: return regularMarketLastPrice if we don't want extended hours pricing
-	return float(data[ticker]['lastPrice'])
+	# Returns regularMarketLastPrice if we don't want extended hours pricing
+	if ( mark == True ):
+		last_price = mark_price
+
+	return last_price
 
 
 # Return the quote information for one or more stock tickers
@@ -744,7 +762,7 @@ def get_quotes(stock=None):
 
 		else:
 			try:
-				data,err = func_timeout(5, tda.stocks.get_quotes, args=(str(stock), True))
+				data,err = func_timeout(5, tda.stocks.get_quote, args=(str(stock), True))
 
 			except FunctionTimedOut:
 				print('Caught Exception: get_quotes(' + str(stock) + '): tda.stocks.get_quotes(): timed out after 10 seconds', file=sys.stderr)
@@ -765,7 +783,7 @@ def get_quotes(stock=None):
 	# Get a quote for a single stock ticker
 	else:
 		try:
-			data,err = func_timeout(5, tda.stocks.get_quote, args=(str(stock), True))
+			data,err = func_timeout(5, tda.stocks.get_quotes, args=(str(stock), True))
 
 		except FunctionTimedOut:
 			print('Caught Exception: get_quotes(' + str(stock) + '): tda.stocks.get_quote(): timed out after 10 seconds', file=sys.stderr)

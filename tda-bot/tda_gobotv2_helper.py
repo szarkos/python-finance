@@ -413,6 +413,11 @@ def gobot_ets(stream=None, algos=None, debug=False):
 
 		# Parse out the transaction and determine if the tx was made closer
 		#  to the bid or ask, or neutral.
+		#
+		# It seems some algos ensure the trade settles at 0.0001 away from the bid or ask
+		#  price, I suppose to make the tx appear that it occurred just within the bid/ask
+		#  zone. So check this so we can be sure include those as at_bid or at_ask instead
+		#  of neutral.
 		last_tx_price	= float( idx['LAST_PRICE'] )
 		last_tx_size	= int( idx['LAST_SIZE'] )
 		last_dt		= int( idx['TRADE_TIME'] )
@@ -421,11 +426,11 @@ def gobot_ets(stream=None, algos=None, debug=False):
 
 		at_bid = at_ask = 0
 		uptick_vol = downtick_vol = 0
-		if ( last_tx_price <= cur_bid_price ):
+		if ( last_tx_price <= cur_bid_price or abs(last_tx_price - cur_bid_price) == 0.0001 ):
 			downtick_vol	= last_tx_size
 			at_bid		= 1
 
-		elif ( last_tx_price >= cur_ask_price ):
+		elif ( last_tx_price >= cur_ask_price or abs(last_tx_price - cur_ask_price) == 0.0001 ):
 			uptick_vol	= last_tx_size
 			at_ask		= 1
 

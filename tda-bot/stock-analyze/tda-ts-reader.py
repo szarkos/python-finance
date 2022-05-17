@@ -19,6 +19,7 @@ import lzma
 import pickle
 from datetime import datetime
 import pytz
+import numpy as np
 
 from collections import OrderedDict
 
@@ -62,16 +63,15 @@ except Exception as e:
 # Process time and sales data
 print('Processing all time and sales data. This may take some time...')
 
+
 # Find all the available datetimes in the Level2 data
 # We will use this to match timestamps between the Level2 data and the
 #  time/sales data
-def closest(lst, srch):
-	return lst[min(range(len(lst)), key = lambda i: abs(lst[i]-srch))]
-
 dts = list( l2.keys() )
 for i in range( len(dts) ):
 	dts[i] = int( dts[i] )
 dts.sort()
+dts = np.array( dts )
 
 ets_data = OrderedDict()
 for tx in ets:
@@ -95,7 +95,18 @@ for tx in ets:
 		cur_ask_price = min( l2[trade_time]['asks'].keys() )
 
 	else:
-		dt = closest(dts, trade_time)
+
+		try:
+			# Find the smallest timestamp from Level 2 data that matches the timestamp
+			#  from time and sales without going above the timestamp from time and sales
+			dt = dts[dts > trade_time].min()
+
+		except:
+			# Fall back to just find the closest timestamp from Level 2 data that matches
+			#  the timestamp from time and sales
+			dt = (np.abs(dts - trade_time)).argmin()
+
+		# The data is probably not reliable if the timestamps are too far apart
 		if ( abs(dt - trade_time) > 1000 ):
 			continue
 
@@ -153,16 +164,24 @@ for tx in ets:
 		ets_data[trade_time]['high_price'] = last_price
 
 	# Get the uptick/downticks
-	if ( last_price <= cur_bid_price ):
+	# It seems some algos ensure the trade settles at 0.0001 away from the bid or ask
+	#  price, I suppose to make the tx appear that it occurred just within the bid/ask
+	#  zone. So check this so we can be sure include those as at_bid or at_ask instead
+	#  of neutral.
+	if ( last_price <= cur_bid_price or abs(last_price - cur_bid_price) == 0.0001 ):
 		ets_data[trade_time]['at_bid']		+= 1
 		ets_data[trade_time]['downtick_vol']	+= last_size
 
-	elif ( last_price >= cur_ask_price ):
+	elif ( last_price >= cur_ask_price or abs(last_price - cur_ask_price) == 0.0001 ):
 		ets_data[trade_time]['at_ask']		+= 1
 		ets_data[trade_time]['uptick_vol']	+= last_size
 
 	else:
 		ets_data[trade_time]['neutral_vol']	+= last_size
+
+#	if ( last_size > 3000 ):
+#		print(ets_data[trade_time]['dt_string'] + ' | ' + str(last_size) + ' | ' + str(last_price) + ' | ' + str(cur_bid_price) + ' | ' + str(cur_ask_price) )
+
 
 #	elif ( last_price == (cur_ask_price - cur_bid_price) / 2 ):
 #		ets_data[trade_time]['neutral_vol']		+= last_size

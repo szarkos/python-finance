@@ -106,6 +106,9 @@ parser.add_argument("--time_sales_algo", help='Enable monitors for time and sale
 parser.add_argument("--time_sales_use_keylevel", help='Add key levels at major absorption areas when using --time_sales_algo', action="store_true")
 parser.add_argument("--time_sales_ifile", help='Input file for time and sales monitor', default=None, type=str)
 parser.add_argument("--time_sales_size_threshold", help='Trade size threshold for use with time and sales monitor', default=3000, type=int)
+parser.add_argument("--time_sales_size_max", help='Maximum trade size (beyond time_sales_size_threshold) to consider for inclusing in time and sales monitor algo', default=8000, type=int)
+parser.add_argument("--time_sales_ma_period", help='Moving average period to use with the time_sales_algo (Default: 8)', default=8, type=int)
+parser.add_argument("--time_sales_ma_type", help='Moving average type to use with the time_sales_algo (Default: wma)', default='wma', type=str)
 parser.add_argument("--time_sales_kl_size_threshold", help='Trade size threshold for use with time and sales monitor', default=6000, type=int)
 
 parser.add_argument("--with_vix", help='Use the VIX volatility index ticker as an indicator', action="store_true")
@@ -1237,7 +1240,10 @@ for algo in args.algo.split(','):
 					'time_sales_algo':			args.time_sales_algo,
 					'time_sales_use_keylevel':		args.time_sales_use_keylevel,
 					'time_sales_size_threshold':		args.time_sales_size_threshold,
+					'time_sales_size_max':			args.time_sales_size_max,
 					'time_sales_kl_size_threshold':		args.time_sales_kl_size_threshold,
+					'time_sales_ma_period':			args.time_sales_ma_period,
+					'time_sales_ma_type':			args.time_sales_ma_type,
 					'ts_data':				ts_data,
 
 					'emd_affinity_long':			args.emd_affinity_long,

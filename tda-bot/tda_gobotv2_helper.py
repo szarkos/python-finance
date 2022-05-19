@@ -458,7 +458,8 @@ def gobot_ets(stream=None, algos=None, debug=False):
 			#  buying/selling at key absorption areas, which they will continue to do
 			#  until they are done with their buy/sell actions. These are the algos
 			#  we want to pay attention to.
-			if ( re.search('.*00$', str(last_tx_size)) != None and last_tx_size >= cur_algo['time_sales_size_threshold'] ):
+			if ( re.search('.*00$', str(last_tx_size)) != None and last_tx_size >= cur_algo['time_sales_size_threshold'] and
+					last_tx_size <= cur_algo['time_sales_size_max'] ):
 
 				# Large neutral trades typically happen at absorption areas
 				# Add these as resistance lines as we find them.
@@ -468,11 +469,13 @@ def gobot_ets(stream=None, algos=None, debug=False):
 
 				# Persistent aggressive bearish action
 				elif ( at_bid == 1 and at_ask == 0 ):
-					stocks[ticker]['ets']['cumulative_algo_delta'][algo_id] += -last_tx_size
+					#stocks[ticker]['ets']['cumulative_algo_delta'][algo_id] += -last_tx_size
+					stocks[ticker]['ets']['cumulative_algo_delta'][algo_id].append( -last_tx_size )
 
 				# Persistent aggressive bullish action
 				elif ( at_bid == 0 and at_ask == 1 ):
-					stocks[ticker]['ets']['cumulative_algo_delta'][algo_id] += last_tx_size
+					#stocks[ticker]['ets']['cumulative_algo_delta'][algo_id] += last_tx_size
+					stocks[ticker]['ets']['cumulative_algo_delta'][algo_id].append( last_tx_size )
 
 				# stocks[ticker]['ets']['tx_data'][algo_id][last_tx] is an list containing all the
 				#  large transactions for a single timestamp - although the likelihood of seeing
@@ -2269,6 +2272,17 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 				stocks[ticker]['vah'] = round( mprofile[cur_day]['vah'], 2 )
 				stocks[ticker]['val'] = round( mprofile[cur_day]['val'], 2 )
 
+		# Time and sales algo monitor
+		if ( cur_algo['time_sales_algo'] == True ):
+			if ( len(stocks[ticker]['ets']['cumulative_algo_delta'][algo_id]) > cur_algo['time_sales_ma_period'] ):
+				cur_cumulative_algo_delta = tda_algo_helper.get_alt_ma(	stocks[ticker]['ets']['cumulative_algo_delta'][algo_id],
+											ma_type=cur_algo['time_sales_ma_type'], period=cur_algo['time_sales_ma_period'] )
+				cur_cumulative_algo_delta = sum( cur_cumulative_algo_delta )
+
+			else:
+				cur_cumulative_algo_delta = sum( stocks[ticker]['ets']['cumulative_algo_delta'][algo_id] )
+
+
 		# Debug
 		if ( debug == True ):
 			time_now = datetime.datetime.now( mytimezone )
@@ -2286,7 +2300,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 			if ( stocks[ticker]['last_price'] != 0 ):
 				print( '(' + str(ticker) + ') Last Price: ' + str(stocks[ticker]['last_price']) )
 
-			print( '(' + str(ticker) + ') T/S Algo Cumulative Delta: ' + str(stocks[ticker]['ets']['cumulative_algo_delta'][algo_id]) )
+			print( '(' + str(ticker) + ') T/S Algo Cumulative Delta: ' + str(cur_cumulative_algo_delta) )
 
 			# StochRSI
 			if ( cur_algo['primary_stochrsi'] == True or cur_algo['stochrsi_5m'] == True ):
@@ -3044,7 +3058,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 
 				# The cumulative delta for the algo-related transactions should be greater
 				#  than zero, this helps us avoid trading against the overall trend.
-				if ( stocks[ticker]['ets']['cumulative_algo_delta'][algo_id] < 0 ):
+				if ( cur_cumulative_algo_delta < 0 ):
 					stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = False
 
 			# MESA Adaptive Moving Average
@@ -3735,9 +3749,10 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 						options_last_price				= float( option_data['ask'] )
 						stocks[ticker]['options_orig_base_price']	= float( option_data['ask'] )
 
-					stocks[ticker]['options_base_price']	= stocks[ticker]['options_orig_base_price']
-					stocks[ticker]['orig_base_price']	= float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
-					options_net_change			= 0
+					stocks[ticker]['options_base_price']		= stocks[ticker]['options_orig_base_price']
+					stocks[ticker]['orig_base_price']		= float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+					stocks[ticker]['options_decr_threshold']	= cur_algo['options_decr_threshold']
+					options_net_change				= 0
 
 					# When working in scalp mode, immediately place a LIMIT order that will hopefully be filled later
 					if ( cur_algo['scalp_mode'] == True and args.fake == False ):
@@ -4057,7 +4072,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 
 				elif ( cur_roc_ma < prev_roc_ma ):
 					stocks[ticker]['decr_threshold']		= args.decr_threshold - args.decr_threshold / 3
-					stocks[ticker]['options_decr_threshold']	= args.options_decr_threshold / 2
+					stocks[ticker]['options_decr_threshold']	= cur_algo['options_decr_threshold'] / 2
 
 			# When using options, we follow the options price when in stoploss mode.
 			# If exit_percent is configured and stocks[ticker]['exit_percent_signal'] is set, then we use the original stock
@@ -4244,7 +4259,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 				#  the stoploss routine above will not catch this. So at this point we probably need to stop out.
 				stocks[ticker]['exit_percent_signal']		= False
 				stocks[ticker]['decr_threshold']		= 0.5
-				stocks[ticker]['options_decr_threshold']	= stocks[ticker]['options_decr_threshold'] / 2
+				stocks[ticker]['options_decr_threshold']	= cur_algo['options_decr_threshold'] / 2
 
 			# Handle quick_exit_percent if quick_exit is configured
 			if ( (cur_algo['quick_exit'] == True or stocks[ticker]['quick_exit'] == True) and
@@ -4723,7 +4738,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 
 				# The cumulative delta for the algo-related transactions should be greater
 				#  than zero, this helps us avoid trading against the overall trend.
-				if ( stocks[ticker]['ets']['cumulative_algo_delta'][algo_id] > 0 ):
+				if ( cur_cumulative_algo_delta > 0 ):
 					stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = False
 
 			# MESA Adaptive Moving Average
@@ -5414,9 +5429,10 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 						options_last_price				= float( option_data['ask'] )
 						stocks[ticker]['options_orig_base_price']	= float( option_data['ask'] )
 
-					stocks[ticker]['options_base_price']	= stocks[ticker]['options_orig_base_price']
-					stocks[ticker]['orig_base_price']	= float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
-					options_net_change			= 0
+					stocks[ticker]['options_base_price']		= stocks[ticker]['options_orig_base_price']
+					stocks[ticker]['orig_base_price']		= float( stocks[ticker]['pricehistory']['candles'][-1]['close'] )
+					stocks[ticker]['options_decr_threshold']	= cur_algo['options_decr_threshold']
+					options_net_change				= 0
 
 					# When working in scalp mode, immediately place a LIMIT order that will hopefully be filled later
 					if ( cur_algo['scalp_mode'] == True and args.fake == False ):
@@ -5755,7 +5771,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 
 				elif ( cur_roc_ma > prev_roc_ma ):
 					stocks[ticker]['decr_threshold']		= args.decr_threshold - args.decr_threshold / 3
-					stocks[ticker]['options_decr_threshold']	= args.options_decr_threshold / 2
+					stocks[ticker]['options_decr_threshold']	= cur_algo['options_decr_threshold'] / 2
 
 			# When using options, we follow the options price when in stoploss mode.
 			# If exit_percent is configured and stocks[ticker]['exit_percent_signal'] is set, then we use the original stock
@@ -5963,7 +5979,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 				#  the stoploss routine above will not catch this. So at this point we probably need to stop out.
 				stocks[ticker]['exit_percent_signal']		= False
 				stocks[ticker]['decr_threshold']		= 0.5
-				stocks[ticker]['options_decr_threshold']	= stocks[ticker]['options_decr_threshold'] / 2
+				stocks[ticker]['options_decr_threshold']	= cur_algo['options_decr_threshold'] / 2
 
 			# Handle quick_exit_percent if quick_exit is configured
 			if ( (cur_algo['quick_exit'] == True or stocks[ticker]['quick_exit'] == True) and

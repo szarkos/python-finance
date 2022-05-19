@@ -404,8 +404,11 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	time_sales_algo			= False		if ('time_sales_algo' not in params) else params['time_sales_algo']
 	time_sales_use_keylevel		= False		if ('time_sales_use_keylevel' not in params) else params['time_sales_use_keylevel']
-	time_sales_size_threshold	= 5000		if ('time_sales_size_threshold' not in params) else params['time_sales_size_threshold']
+	time_sales_size_threshold	= 3000		if ('time_sales_size_threshold' not in params) else params['time_sales_size_threshold']
+	time_sales_size_max		= 8000		if ('time_sales_size_max' not in params) else params['time_sales_size_max']
 	time_sales_kl_size_threshold	= 7500		if ('time_sales_kl_size_threshold' not in params) else params['time_sales_kl_size_threshold']
+	time_sales_ma_period		= 8		if ('time_sales_ma_period' not in params) else params['time_sales_ma_period']
+	time_sales_ma_type		= 'wma'		if ('time_sales_ma_type' not in params) else params['time_sales_ma_type']
 	ts_data				= {}		if ('ts_data' not in params) else params['ts_data']
 
 	experimental			= False		if ('experimental' not in params) else params['experimental']
@@ -1527,32 +1530,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 	# Time and sales algo monitor
 	if ( time_sales_algo == True ):
-		ts_days		= []
-		ts_tx_data	= {}
-		ts_cum_delta	= 0
-
-		for dt in ts_data.keys():
-			dt_obj	= datetime.fromtimestamp(dt/1000, tz=mytimezone)
-			day	= dt_obj.strftime('%Y-%m-%d')
-			t_stamp	= dt_obj.strftime('%Y-%m-%d %H:%M')
-
-			# We need to know for which days we actually have time/sales data
-			if ( day not in ts_days ):
-				ts_days.append( day )
-
-			# Populate ts_tx_data with the transaction information, organized in 1-minute increments,
-			#  but each 1-minute timestamp key contains an array to each of the transactions.
-			if ( ts_data[dt]['size'] >= time_sales_size_threshold ):
-				if ( ts_data[dt]['at_ask'] <= 1 and ts_data[dt]['at_bid'] <= 1 ):
-					tmp_hl2 = ( ts_data[dt]['high_price'] + ts_data[dt]['low_price'] ) / 2
-
-					if ( t_stamp not in ts_tx_data ):
-						ts_tx_data[t_stamp] = []
-
-					ts_tx_data[t_stamp].append( {	'size':		ts_data[dt]['size'],
-									'price':	tmp_hl2,
-									'at_bid':	ts_data[dt]['at_bid'],
-									'at_ask':	ts_data[dt]['at_ask'] } )
 
 		# If use_keylevel is disabled and time_sales_use_keylevel is enabled, then enable use_keylevel,
 		#  but it will be populated with only the keylevels found via time/sales data
@@ -1560,6 +1537,72 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			use_keylevel	= True
 			long_support	= []
 			long_resistance = []
+
+		ts_days		= []
+		ts_tx_data	= {}
+		#ts_cum_delta	= 0
+		ts_cum_delta	= []
+		prev_day	= ''
+		for dt in ts_data.keys():
+			dt_obj	= datetime.fromtimestamp(dt/1000, tz=mytimezone)
+			day	= dt_obj.strftime('%Y-%m-%d')
+			t_stamp	= dt_obj.strftime('%Y-%m-%d %H:%M')
+
+			# New day
+			# Cumulative delta should get reset at the start of each day
+			if ( prev_day == '' ):
+				prev_day = day
+			elif ( prev_day != day ):
+				prev_day = day
+				#ts_cum_delta = 0
+				ts_cum_delta = []
+
+			# We need to know for which days we actually have time/sales data
+			if ( day not in ts_days ):
+				ts_days.append( day )
+
+			# Populate ts_tx_data with the transaction information, organized in 1-minute increments,
+			#  but each 1-minute timestamp key contains an array to each of the transactions.
+			if ( ts_data[dt]['size'] >= time_sales_size_threshold and ts_data[dt]['size'] <= time_sales_size_max ):
+				if ( ts_data[dt]['at_ask'] <= 1 and ts_data[dt]['at_bid'] <= 1 ):
+					tmp_hl2 = ( ts_data[dt]['high_price'] + ts_data[dt]['low_price'] ) / 2
+
+					if ( t_stamp not in ts_tx_data ):
+						ts_tx_data[t_stamp] = { 'txs': [], 'ts_cum_delta': 0 }
+
+					ts_tx_data[t_stamp]['txs'].append( {	'size':		ts_data[dt]['size'],
+										'price':	tmp_hl2,
+										'at_bid':	ts_data[dt]['at_bid'],
+										'at_ask':	ts_data[dt]['at_ask'] } )
+
+					if ( re.search('.*00$', str(int(ts_data[dt]['size']))) != None ):
+
+						# Large neutral trades typically happen at absorption areas
+						# Add these to long_resistance as we find them.
+						if ( time_sales_use_keylevel == True and ts_data[dt]['at_bid'] == 0 and ts_data[dt]['at_ask'] == 0 and
+								ts_data[dt]['size'] >= time_sales_kl_size_threshold ):
+							long_resistance.append( (tmp_hl2, dt, 999) )
+
+						# Persistent aggressive bearish action
+						elif ( ts_data[dt]['at_bid'] == 1 and ts_data[dt]['at_ask'] == 0 ):
+							#ts_cum_delta += -ts_data[dt]['size']
+							ts_cum_delta.append( -ts_data[dt]['size'] )
+
+						# Persistent aggressive bullish action
+						elif ( ts_data[dt]['at_bid'] == 0 and ts_data[dt]['at_ask'] == 1 ):
+							#ts_cum_delta += ts_data[dt]['size']
+							ts_cum_delta.append( ts_data[dt]['size'] )
+
+						if ( len(ts_cum_delta) > time_sales_ma_period ):
+							cur_ts_cum_delta = tda_algo_helper.get_alt_ma( ts_cum_delta, ma_type=time_sales_ma_type, period=time_sales_ma_period )
+							cur_ts_cum_delta = sum(cur_ts_cum_delta)
+						else:
+							cur_ts_cum_delta = sum(ts_cum_delta)
+
+						ts_tx_data[t_stamp]['ts_cum_delta'] = cur_ts_cum_delta
+						#ts_tx_data[t_stamp]['ts_cum_delta'] = ts_cum_delta
+
+		del(ts_cum_delta)
 
 	# Quick exit when entering counter-trend moves
 	if ( trend_quick_exit == True ):
@@ -2695,7 +2738,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		if ( signal_mode['primary'] == 'long' ):
 
 			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
-			if ( hold_overnight == False and ph_only == False and tda_gobot_helper.isendofday(75, date) == True ):
+			if ( hold_overnight == False and ph_only == False and safe_open == True and
+					tda_gobot_helper.isendofday(75, date) == True ):
 				reset_signals()
 				continue
 
@@ -3021,7 +3065,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					sp_monitor_bear	= check_stacked_ma(cur_sp_monitor_stacked_ma, 'bear')
 					sp_monitor_bull	= check_stacked_ma(cur_sp_monitor_stacked_ma, 'bull')
 
-				# Jump to short mode if sp_monitor is negative
 				if ( cur_sp_monitor < 0 ):
 					sp_monitor_init_signal	= False
 					sp_monitor_signal	= False
@@ -3059,12 +3102,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			if ( time_sales_algo == True ):
 				cur_tstamp = date.strftime('%Y-%m-%d %H:%M')
 				if ( cur_tstamp in ts_tx_data ):
-					for key in ts_tx_data[cur_tstamp]:
+					for key in ts_tx_data[cur_tstamp]['txs']:
 
-						# ts_tx_data[t_stamp].append( {	'size':		ts_data[dt]['size'],
-						#				'price':	tmp_hl2,
-						#				'at_bid':	ts_data[dt]['at_bid'],
-						#				'at_ask':	ts_data[dt]['at_ask'] } )
+						# ts_tx_data[t_stamp]['txs'].append( {	'size':		ts_data[dt]['size'],
+						#					'price':	tmp_hl2,
+						#					'at_bid':	ts_data[dt]['at_bid'],
+						#					'at_ask':	ts_data[dt]['at_ask'] } )
 						#
 						# Large size values are larger institutions buying/selling.
 						# Large size values with neat round numbers are typically persistent algos
@@ -3074,22 +3117,21 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 							# Large neutral trades typically happen at absorption areas
 							# Add these to long_resistance as we find them.
-							if ( time_sales_use_keylevel == True and key['at_bid'] == 0 and key['at_ask'] == 0 and
-									key['size'] >= time_sales_kl_size_threshold ):
-								long_resistance.append( (key['price'], cur_dt, 999) )
+#							if ( time_sales_use_keylevel == True and key['at_bid'] == 0 and key['at_ask'] == 0 and
+#									key['size'] >= time_sales_kl_size_threshold ):
+#								long_resistance.append( (key['price'], cur_dt, 999) )
+#								print( cur_tstamp + ' ' + str(key['price']) )
 
 							# Persistent aggressive bearish action
-							elif ( key['at_bid'] == 1 and key['at_ask'] == 0 ):
-								ts_cum_delta		+= -key['size']
-								ts_monitor_signal	= False
+							if ( key['at_bid'] == 1 and key['at_ask'] == 0 ):
+								ts_monitor_signal = False
 
 							# Persistent aggressive bullish action
 							elif ( key['at_bid'] == 0 and key['at_ask'] == 1 ):
-								ts_cum_delta		+= key['size']
-								ts_monitor_signal	= True
+								ts_monitor_signal = True
 
-				if ( ts_cum_delta < 0 ):
-					ts_monitor_signal = False
+					if ( ts_tx_data[cur_tstamp]['ts_cum_delta'] < 0 ):
+						ts_monitor_signal = False
 
 			# StochRSI with 5-minute candles
 			if ( with_stochrsi_5m == True ):
@@ -3518,10 +3560,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						# Since we are parsing historical data on key levels,
 						#  we should check that we are not just hitting a previous
 						#  or newer KL when iterating through the backtest data.
-						dt = datetime.fromtimestamp(int(dt)/1000, tz=mytimezone)
-						if ( date < dt + timedelta(days=6) or (date >= dt and date <= dt + timedelta(days=6)) ):
-							if ( time_sales_use_keylevel == False or (time_sales_use_keylevel == True and count != 999) ):
+						dt_obj = datetime.fromtimestamp(int(dt)/1000, tz=mytimezone)
+						if ( time_sales_use_keylevel == True and count == 999 ):
+							if ( dt > cur_dt ):
 								continue
+
+						elif ( date < dt_obj + timedelta(days=6) or (date >= dt_obj and date <= dt_obj + timedelta(days=6)) ):
+							continue
 
 						# Current price is very close to a key level
 						# Next check average of last 15 (1-minute) candles
@@ -4018,7 +4063,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# The last trading hour is a bit unpredictable. If --hold_overnight is false we want
 			#  to sell the stock at a more conservative exit percentage.
-			elif ( tda_gobot_helper.isendofday(60, date) == True and ph_only == False and hold_overnight == False ):
+			elif ( ph_only == False and safe_open == True and hold_overnight == False and
+					tda_gobot_helper.isendofday(60, date) == True ):
 				if ( cur_close > purchase_price ):
 					percent_change = abs( purchase_price / cur_close - 1 ) * 100
 					if ( percent_change >= last_hour_threshold ):
@@ -4420,7 +4466,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 		if ( signal_mode['primary'] == 'short' ):
 
 			# hold_overnight=False - Don't enter any new trades 1-hour before Market close
-			if ( hold_overnight == False and ph_only == False and tda_gobot_helper.isendofday(75, date) == True ):
+			if ( hold_overnight == False and ph_only == False and safe_open == True and
+					tda_gobot_helper.isendofday(75, date) == True ):
 				reset_signals()
 				continue
 
@@ -4654,7 +4701,7 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 				if ( cur_sp_monitor < -1.5 and cur_sp_monitor > -sp_monitor_threshold ):
 					sp_monitor_init_signal = True
 
-#				elif ( cur_sp_monitor <= -sp_monitor_threshold and sp_monitor_init_signal == True ):
+				#elif ( cur_sp_monitor <= -sp_monitor_threshold and sp_monitor_init_signal == True ):
 				elif ( cur_sp_monitor <= -sp_monitor_threshold ):
 					if ( (sp_monitor_strict == True and sp_monitor_bear == True) or sp_monitor_strict == False ):
 						sp_monitor_init_signal	= False
@@ -4734,7 +4781,6 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 					sp_monitor_bear	= check_stacked_ma(cur_sp_monitor_stacked_ma, 'bear')
 					sp_monitor_bull	= check_stacked_ma(cur_sp_monitor_stacked_ma, 'bull')
 
-				# Jump to long mode if sp_monitor is positive
 				if ( cur_sp_monitor > 0 ):
 					sp_monitor_init_signal	= False
 					sp_monitor_signal	= False
@@ -4772,12 +4818,12 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 			if ( time_sales_algo == True ):
 				cur_tstamp = date.strftime('%Y-%m-%d %H:%M')
 				if ( cur_tstamp in ts_tx_data ):
-					for key in ts_tx_data[cur_tstamp]:
+					for key in ts_tx_data[cur_tstamp]['txs']:
 
-						# ts_tx_data[t_stamp].append( {	'size':		ts_data[dt]['size'],
-						#				'price':	tmp_hl2,
-						#				'at_bid':	ts_data[dt]['at_bid'],
-						#				'at_ask':	ts_data[dt]['at_ask'] } )
+						# ts_tx_data[t_stamp]['txs'].append( {	'size':		ts_data[dt]['size'],
+						#					'price':	tmp_hl2,
+						#					'at_bid':	ts_data[dt]['at_bid'],
+						#					'at_ask':	ts_data[dt]['at_ask'] } )
 						#
 						# Large size values are larger institutions buying/selling.
 						# Large size values with neat round numbers are typically persistent algos
@@ -4787,22 +4833,21 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 							# Large neutral trades typically happen at absorption areas
 							# Add these to long_resistance as we find them.
-							if ( time_sales_use_keylevel == True and key['at_bid'] == 0 and key['at_ask'] == 0 and
-									key['size'] >= time_sales_kl_size_threshold ):
-								long_resistance.append( (key['price'], cur_dt, 999) )
+#							if ( time_sales_use_keylevel == True and key['at_bid'] == 0 and key['at_ask'] == 0 and
+#									key['size'] >= time_sales_kl_size_threshold ):
+#								long_resistance.append( (key['price'], cur_dt, 999) )
+#								print( cur_tstamp + ' ' + str(key['price']) )
 
 							# Persistent aggressive bearish action
-							elif ( key['at_bid'] == 1 and key['at_ask'] == 0 ):
-								ts_cum_delta		+= -key['size']
-								ts_monitor_signal	= True
+							if ( key['at_bid'] == 1 and key['at_ask'] == 0 ):
+								ts_monitor_signal = True
 
 							# Persistent aggressive bullish action
 							elif ( key['at_bid'] == 0 and key['at_ask'] == 1 ):
-								ts_cum_delta		+= key['size']
-								ts_monitor_signal	= False
+								ts_monitor_signal = False
 
-				if ( ts_cum_delta > 0 ):
-					ts_monitor_signal = False
+					if ( ts_tx_data[cur_tstamp]['ts_cum_delta'] > 0 ):
+						ts_monitor_signal = False
 
 			# StochRSI with 5-minute candles
 			if ( with_stochrsi_5m == True ):
@@ -5222,10 +5267,13 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 						# Since we are parsing historical data on key levels,
 						#  we should check that we are not just hitting a previous
 						#  KL when iterating through the backtest data.
-						dt = datetime.fromtimestamp(int(dt)/1000, tz=mytimezone)
-						if ( dt + timedelta(days=6) > date or (date >= dt and date <= dt + timedelta(days=6)) ):
-							if ( time_sales_use_keylevel == False or (time_sales_use_keylevel == True and count != 999) ):
+						dt_obj = datetime.fromtimestamp(int(dt)/1000, tz=mytimezone)
+						if ( time_sales_use_keylevel == True and count == 999 ):
+							if ( dt > cur_dt ):
 								continue
+
+						elif ( date < dt_obj + timedelta(days=6) or (date >= dt_obj and date <= dt_obj + timedelta(days=6)) ):
+							continue
 
 						# Current price is very close to a key level
 						# Next check average of last 15 (1-minute) candles
@@ -5718,7 +5766,8 @@ def stochrsi_analyze_new( pricehistory=None, ticker=None, params={} ):
 
 			# The last trading hour is a bit unpredictable. If --hold_overnight is false we want
 			#  to sell the stock at a more conservative exit percentage.
-			elif ( tda_gobot_helper.isendofday(60, date) == True and ph_only == False and hold_overnight == False ):
+			elif (ph_only == False and hold_overnight == False and safe_open == True and
+					tda_gobot_helper.isendofday(60, date) == True ):
 				if ( cur_close < short_price ):
 					percent_change = abs( short_price / cur_close - 1 ) * 100
 					if ( percent_change >= last_hour_threshold ):

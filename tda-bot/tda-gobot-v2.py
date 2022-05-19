@@ -210,6 +210,9 @@ parser.add_argument("--sp_monitor_strict", help='Enable some stricter checks whe
 parser.add_argument("--time_sales_algo", help='Enable monitors for time and sales algo behavior', action="store_true")
 parser.add_argument("--time_sales_use_keylevel", help='Add key levels at major absorption areas when using --time_sales_algo', action="store_true")
 parser.add_argument("--time_sales_size_threshold", help='Trade size threshold for use with time and sales monitor', default=3000, type=int)
+parser.add_argument("--time_sales_size_max", help='Maximum trade size (beyond time_sales_size_threshold) to consider for inclusing in time and sales monitor algo', default=8000, type=int)
+parser.add_argument("--time_sales_ma_period", help='Moving average period to use with the time_sales_algo (Default: 8)', default=8, type=int)
+parser.add_argument("--time_sales_ma_type", help='Moving average type to use with the time_sales_algo (Default: wma)', default='wma', type=str)
 parser.add_argument("--time_sales_kl_size_threshold", help='Trade size threshold for use with time and sales monitor', default=6000, type=int)
 
 parser.add_argument("--daily_ifile", help='Use pickle file for daily pricehistory data rather than accessing the API', default=None, type=str)
@@ -380,14 +383,16 @@ for algo in args.algos:
 
 	# Per-algo entry limit
 	stock_usd			= args.stock_usd
-	options				= args.options
-	options_usd			= args.options_usd
-	near_expiration			= args.near_expiration
-	otm_level			= args.otm_level
 	start_day_offset		= args.start_day_offset
 	ph_only				= args.ph_only
 	last_hour_block			= args.last_hour_block
 	safe_open			= not args.unsafe
+
+	options				= args.options
+	options_usd			= args.options_usd
+	near_expiration			= args.near_expiration
+	otm_level			= args.otm_level
+	options_decr_threshold		= args.options_decr_threshold
 
 	quick_exit			= args.quick_exit
 	quick_exit_percent		= args.quick_exit_percent
@@ -492,6 +497,9 @@ for algo in args.algos:
 	time_sales_algo			= args.time_sales_algo
 	time_sales_use_keylevel		= args.time_sales_use_keylevel
 	time_sales_size_threshold	= args.time_sales_size_threshold
+	time_sales_size_max		= args.time_sales_size_max
+	time_sales_ma_period		= args.time_sales_ma_period
+	time_sales_ma_type		= args.time_sales_ma_type
 	time_sales_kl_size_threshold	= args.time_sales_kl_size_threshold
 
 	# MFI
@@ -616,6 +624,7 @@ for algo in args.algos:
 		if ( re.match('near_expiration', a)			!= None ):	near_expiration			= True
 		if ( re.match('otm_level:', a)				!= None ):	otm_level			= int( a.split(':')[1] )
 		if ( re.match('start_day_offset:', a)			!= None ):	start_day_offset		= int( a.split(':')[1] )
+		if ( re.match('options_decr_threshold:', a)		!= None ):	options_decr_threshold		= float( a.split(':')[1] )
 
 		# Modifiers
 		if ( re.match('rsi_high_limit:', a)			!= None ):	rsi_high_limit			= float( a.split(':')[1] )
@@ -741,6 +750,9 @@ for algo in args.algos:
 		if ( re.match('time_sales_algo', a)			!= None ):	time_sales_algo			= True
 		if ( re.match('time_sales_use_keylevel', a)		!= None ):	time_sales_use_keylevel		= True
 		if ( re.match('time_sales_size_threshold:', a)		!= None ):	time_sales_size_threshold	= int( a.split(':')[1] )
+		if ( re.match('time_sales_size_max:', a)		!= None ):	time_sales_size_max		= int( a.split(':')[1] )
+		if ( re.match('time_sales_ma_period:', a)		!= None ):	time_sales_ma_period		= int( a.split(':')[1] )
+		if ( re.match('time_sales_ma_type:', a)			!= None ):	time_sales_ma_type		= str( a.split(':')[1] )
 		if ( re.match('time_sales_kl_size_threshold:', a)	!= None ):	time_sales_kl_size_threshold	= int( a.split(':')[1] )
 
 		if ( re.match('keylevel_use_daily', a)			!= None ):	keylevel_use_daily		= True
@@ -837,6 +849,7 @@ for algo in args.algos:
 			'near_expiration':			near_expiration,
 			'otm_level':				otm_level,
 			'start_day_offset':			start_day_offset,
+			'options_decr_threshold':		options_decr_threshold,
 
 			'primary_stochrsi':			primary_stochrsi,
 			'primary_stochmfi':			primary_stochmfi,
@@ -1004,7 +1017,10 @@ for algo in args.algos:
 			'time_sales_algo':			time_sales_algo,
 			'time_sales_use_keylevel':		time_sales_use_keylevel,
 			'time_sales_size_threshold':		time_sales_size_threshold,
+			'time_sales_size_max':			time_sales_size_max,
 			'time_sales_kl_size_threshold':		time_sales_kl_size_threshold,
+			'time_sales_ma_period':			time_sales_ma_period,
+			'time_sales_ma_type':			time_sales_ma_type,
 
 			'keylevel_use_daily':			keylevel_use_daily,
 			'keylevel_strict':			keylevel_strict,
@@ -1043,8 +1059,8 @@ del(check_etf_indicators,check_etf_indicators_strict,etf_tickers,etf_roc_period,
 del(trin,tick,roc,sp_monitor,trin_roc_type,trin_roc_period,trin_ma_type,trin_ma_period,trin_oversold,trin_overbought,tick_threshold,tick_ma_type,tick_ma_period)
 del(roc_type,roc_period,roc_ma_type,roc_ma_period,roc_threshold,roc_exit)
 del(sp_monitor_tickers,sp_monitor_threshold,sp_roc_type,sp_roc_period,sp_ma_period,sp_monitor_stacked_ma_type,sp_monitor_stacked_ma_periods,sp_monitor_use_trix,sp_monitor_trix_ma_type,sp_monitor_trix_ma_period,sp_monitor_strict)
-del(time_sales_algo,time_sales_use_keylevel,time_sales_size_threshold,time_sales_kl_size_threshold)
-del(options,options_usd,near_expiration,otm_level,start_day_offset)
+del(time_sales_algo,time_sales_use_keylevel,time_sales_size_threshold,time_sales_kl_size_threshold,time_sales_size_max,time_sales_ma_period,time_sales_ma_type)
+del(options,options_usd,near_expiration,otm_level,start_day_offset,options_decr_threshold)
 
 # Set valid tickers for each algo, if configured
 if ( args.algo_valid_tickers != None ):
@@ -1503,7 +1519,7 @@ for ticker in stock_list.split(','):
 		stocks[ticker]['algo_signals'].update( signals )
 
 		# Support time_sales_algo
-		stocks[ticker]['ets']['cumulative_algo_delta'][algo['algo_id']]	= 0
+		stocks[ticker]['ets']['cumulative_algo_delta'][algo['algo_id']]	= []
 		stocks[ticker]['ets']['keylevels'][algo['algo_id']]		= []
 		stocks[ticker]['ets']['tx_data'][algo['algo_id']]		= {}
 

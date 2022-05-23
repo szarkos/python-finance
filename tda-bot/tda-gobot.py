@@ -241,7 +241,7 @@ def check_input():
 		elif ( in_cmd == 'cb' ):
 			print('SET STOPLOSS TO COST BASIS')
 
-			# We cannot set a stoploss if we are already below cost basis
+			# We cannot move a position to cost basis if we are already below cost basis
 			if ( (args.short == False and last_price < orig_base_price) or
 					(args.short == True and last_price > orig_base_price)):
 				print('Error: last_price ($' + str(round(last_price, 2)) + ') is already below cost basis ($' + str(round(orig_base_price, 2)) + '), ignoring stoploss command')
@@ -249,6 +249,19 @@ def check_input():
 			else:
 				decr_percent_threshold = abs( ((orig_base_price / last_price) - 1) * 100 )
 				print('Setting stoploss to ' + str(round(decr_percent_threshold, 2)) + '%, orig_base_price: $' + str(round(orig_base_price, 2)) + ' / last_price: $' + str(round(last_price, 2)))
+
+		# Modify the decr_percent_threshold (stoploss)
+		elif ( re.match('sl:', in_cmd) != None ):
+			print('MODIFY STOPLOSS PERCENT')
+			try:
+				sl_pct = float( in_cmd.split(':')[1] )
+			except:
+				print('Error: bad format: ' + str(in_cmd) + ', ignoring')
+
+			else:
+				decr_percent_threshold	= sl_pct
+				args.decr_threshold	= sl_pct
+				print('Setting stoploss to ' + str(round(decr_percent_threshold, 2)))
 
 		# Enable quick_exit and set a quick_exit_percent from current last_price
 		elif ( re.match('qe:', in_cmd) != None ):
@@ -264,6 +277,11 @@ def check_input():
 				args.quick_exit_percent	= ((qe_price / orig_base_price) - 1) * 100
 
 				print('SET QUICK EXIT: ' + str(round(args.quick_exit_percent, 2)) + '% ($' + str(round(qe_price, 2)) + ')')
+
+		# Enable or disable --multiday
+		elif ( re.match('md', in_cmd) != None ):
+			args.multiday = not args.multiday
+			print('SET MULTIDAY TO: ' + str(args.multiday).upper())
 
 		else:
 			print('Unknown command (' + str(in_cmd) + '), ignoring')
@@ -934,7 +952,11 @@ while True:
 	if ( exit_signal == True ):
 		text_color = green
 
-		total_stock_qty = total_stock_qty - stock_qty
+		if ( stopout_signal == True ):
+			stock_qty = total_stock_qty
+		else:
+			total_stock_qty = total_stock_qty - stock_qty
+
 		if ( total_stock_qty == 0 ):
 			stopout_signal = True
 		if ( args.partial_exit_strat != None ):

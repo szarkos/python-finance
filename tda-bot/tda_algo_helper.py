@@ -182,40 +182,47 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_f
 		pass
 
 	# Put pricehistory data into a numpy array
-	prices = []
-	if ( type == 'close' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['close']))
+	if ( isinstance(pricehistory, (list, np.ndarray)) == True ):
+		prices = np.array( pricehistory )
 
-	elif ( type == 'high' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['high']))
+	elif ( isinstance(pricehistory['candles'], list) == True ):
+		prices = []
+		if ( type == 'close' ):
+			for key in pricehistory['candles']:
+				prices.append(float(key['close']))
 
-	elif ( type == 'low' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['low']))
+		elif ( type == 'high' ):
+			for key in pricehistory['candles']:
+				prices.append(float(key['high']))
 
-	elif ( type == 'open' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['open']))
+		elif ( type == 'low' ):
+			for key in pricehistory['candles']:
+				prices.append(float(key['low']))
 
-	elif ( type == 'volume' ):
-		for key in pricehistory['candles']:
-			prices.append(int(key['volume']))
+		elif ( type == 'open' ):
+			for key in pricehistory['candles']:
+				prices.append(float(key['open']))
 
-	elif ( type == 'hl2' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+		elif ( type == 'volume' ):
+			for key in pricehistory['candles']:
+				prices.append(int(key['volume']))
 
-	elif ( type == 'hlc3' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+		elif ( type == 'hl2' ):
+			for key in pricehistory['candles']:
+				prices.append( (float(key['high']) + float(key['low'])) / 2 )
 
-	elif ( type == 'ohlc4' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+		elif ( type == 'hlc3' ):
+			for key in pricehistory['candles']:
+				prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
 
-	prices = np.array( prices )
+		elif ( type == 'ohlc4' ):
+			for key in pricehistory['candles']:
+				prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+
+		prices = np.array( prices )
+
+	else:
+		return False
 
 	# Genereate the requested moving average
 	ma = []
@@ -392,9 +399,9 @@ def get_alt_ma(pricehistory=None, period=50, ma_type='kama', type='hlc3', mama_f
 	ma = np.nan_to_num( ma, copy=True )
 
 	# Normalize the size of the result to match the input size
-	if ( len(ma) != len(pricehistory['candles']) ):
+	if ( len(ma) != len(prices) ):
 		tmp = []
-		for i in range(0, len(pricehistory['candles']) - len(ma)):
+		for i in range(0, len(prices) - len(ma)):
 			tmp.append(0)
 		ma = tmp + list(ma)
 
@@ -449,48 +456,55 @@ def get_frama(pricehistory=None, type='hl2', period=20, fastma=1, slowma=198, pl
 		print('Error: get_frama(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
 		return False
 
-	prices = []
-	if ( type == 'close' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['close']))
+	# Put pricehistory data into a numpy array
+	if ( isinstance(pricehistory, (list, np.ndarray)) == True ):
+		prices = np.array( pricehistory )
 
-	elif ( type == 'high' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['high']))
+	elif ( isinstance(pricehistory['candles'], list) == True ):
+		prices = []
+		if ( type == 'close' ):
+			for key in pricehistory['candles']:
+				prices.append(float(key['close']))
 
-	elif ( type == 'low' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['low']))
+		elif ( type == 'high' ):
+			for key in pricehistory['candles']:
+				prices.append(float(key['high']))
 
-	elif ( type == 'open' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['open']))
+		elif ( type == 'low' ):
+			for key in pricehistory['candles']:
+				prices.append(float(key['low']))
 
-	elif ( type == 'volume' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['volume']))
+		elif ( type == 'open' ):
+			for key in pricehistory['candles']:
+				prices.append(float(key['open']))
 
-	elif ( type == 'hl2' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+		elif ( type == 'volume' ):
+			for key in pricehistory['candles']:
+				prices.append(float(key['volume']))
 
-	elif ( type == 'hlc3' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+		elif ( type == 'hl2' ):
+			for key in pricehistory['candles']:
+				prices.append( (float(key['high']) + float(key['low'])) / 2 )
 
-	elif ( type == 'ohlc4' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+		elif ( type == 'hlc3' ):
+			for key in pricehistory['candles']:
+				prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+
+		elif ( type == 'ohlc4' ):
+			for key in pricehistory['candles']:
+				prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+
+		else:
+			# Undefined type
+			print('Error: get_frama(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
+			return False
 
 	else:
-		# Undefined type
-		print('Error: get_frama(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
 		return False
 
 	if ( len(prices) < period ):
 		# Something is wrong with the data we got back from tda.get_price_history()
 		print('Warning: get_frama(' + str(ticker) + '): len(pricehistory) is less than period - is this a new stock ticker?', file=sys.stderr)
-
 
 	# Calculate the Fractal Adaptive MA
 	prices		= np.array( prices )
@@ -2083,42 +2097,49 @@ def get_roc(pricehistory=None, type='hlc3', period=50, calc_percentage=False, de
 		print('Error: get_roc(' + str(ticker) + '): pricehistory is empty', file=sys.stderr)
 		return False
 
-	prices = []
-	if ( type == 'close' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['close']))
+	if ( isinstance(pricehistory, (list, np.ndarray)) == True ):
+		prices = np.array( pricehistory )
 
-	elif ( type == 'high' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['high']))
+	elif ( isinstance(pricehistory['candles'], list) == True ):
+		prices = []
+		if ( type == 'close' ):
+			for key in pricehistory['candles']:
+				prices.append(float(key['close']))
 
-	elif ( type == 'low' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['low']))
+		elif ( type == 'high' ):
+			for key in pricehistory['candles']:
+				prices.append(float(key['high']))
 
-	elif ( type == 'open' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['open']))
+		elif ( type == 'low' ):
+			for key in pricehistory['candles']:
+				prices.append(float(key['low']))
 
-	elif ( type == 'volume' ):
-		for key in pricehistory['candles']:
-			prices.append(float(key['volume']))
+		elif ( type == 'open' ):
+			for key in pricehistory['candles']:
+				prices.append(float(key['open']))
 
-	elif ( type == 'hl2' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['high']) + float(key['low'])) / 2 )
+		elif ( type == 'volume' ):
+			for key in pricehistory['candles']:
+				prices.append(float(key['volume']))
 
-	elif ( type == 'hlc3' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+		elif ( type == 'hl2' ):
+			for key in pricehistory['candles']:
+				prices.append( (float(key['high']) + float(key['low'])) / 2 )
 
-	elif ( type == 'ohlc4' ):
-		for key in pricehistory['candles']:
-			prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+		elif ( type == 'hlc3' ):
+			for key in pricehistory['candles']:
+				prices.append( (float(key['high']) + float(key['low']) + float(key['close'])) / 3 )
+
+		elif ( type == 'ohlc4' ):
+			for key in pricehistory['candles']:
+				prices.append( (float(key['open']) + float(key['high']) + float(key['low']) + float(key['close'])) / 4 )
+
+		else:
+			# Undefined type
+			print('Error: get_roc(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
+			return False
 
 	else:
-		# Undefined type
-		print('Error: get_roc(' + str(ticker) + '): Undefined type "' + str(type) + '"', file=sys.stderr)
 		return False
 
 	if ( len(prices) < period ):
@@ -2141,7 +2162,7 @@ def get_roc(pricehistory=None, type='hlc3', period=50, calc_percentage=False, de
 			roc[i] = roc[i] * 100
 
 	# Handle inf/-inf data points
-	roc = np.nan_to_num(roc, copy=True)
+	roc = np.nan_to_num(roc, posinf=0, neginf=0, copy=True)
 
 	# Normalize the size of roc[] to match the input size
 	tmp = []

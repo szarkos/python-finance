@@ -54,11 +54,11 @@ parser.add_argument("--singleday", help='Allows bot to start (but not trade) bef
 parser.add_argument("--unsafe", help='Allow trading between 9:30-10:15AM where volatility is high', action="store_true")
 parser.add_argument("--ph_only", help='Allow trading only between 9:30-10:30AM and 3:00PM-4:00PM when volatility is high', action="store_true")
 parser.add_argument("--hold_overnight", help='Hold stocks overnight when --multiday is in use (default: False) - Warning: implies --unsafe', action="store_true")
-parser.add_argument("--last_hour_block", help='Stop trading if we are within --last_hour_block minutes from market close (Default: 60)', default=60, type=int)
+parser.add_argument("--last_hour_block", help='Stop trading if we are within --last_hour_block minutes from market close (Default: 35)', default=35, type=int)
+parser.add_argument("--last_hour_threshold", help='Sell the stock if net gain is above this percentage during the final hour. Assumes --hold_overnight is False.', default=0.2, type=float)
 
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
 parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1, type=float)
-parser.add_argument("--last_hour_threshold", help='Sell the stock if net gain is above this percentage during the final hour. Assumes --hold_overnight is False.', default=0.2, type=float)
 
 parser.add_argument("--options", help='Purchase CALL/PUT options instead of equities', action="store_true")
 parser.add_argument("--options_usd", help='Amount of money (USD) to invest per options trade', default=1000, type=float)
@@ -211,9 +211,12 @@ parser.add_argument("--time_sales_algo", help='Enable monitors for time and sale
 parser.add_argument("--time_sales_use_keylevel", help='Add key levels at major absorption areas when using --time_sales_algo', action="store_true")
 parser.add_argument("--time_sales_size_threshold", help='Trade size threshold for use with time and sales monitor', default=3000, type=int)
 parser.add_argument("--time_sales_size_max", help='Maximum trade size (beyond time_sales_size_threshold) to consider for inclusing in time and sales monitor algo', default=8000, type=int)
+parser.add_argument("--time_sales_large_tx_threshold", help='Trade size threshold for use with time and sales monitor', default=10000, type=int)
+parser.add_argument("--time_sales_large_signal_count", help='Expiration time in minutes for a large_tx_threshold signal', default=15, type=int)
 parser.add_argument("--time_sales_ma_period", help='Moving average period to use with the time_sales_algo (Default: 8)', default=8, type=int)
 parser.add_argument("--time_sales_ma_type", help='Moving average type to use with the time_sales_algo (Default: wma)', default='wma', type=str)
-parser.add_argument("--time_sales_kl_size_threshold", help='Trade size threshold for use with time and sales monitor', default=6000, type=int)
+parser.add_argument("--time_sales_kl_size_threshold", help='Trade size threshold for use with time and sales monitor', default=7500, type=int)
+parser.add_argument("--time_sales_kl_size_max", help='Trade size threshold for use with time and sales monitor', default=10000, type=int)
 
 parser.add_argument("--daily_ifile", help='Use pickle file for daily pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--weekly_ifile", help='Use pickle file for weekly pricehistory data rather than accessing the API', default=None, type=str)
@@ -386,6 +389,7 @@ for algo in args.algos:
 	start_day_offset		= args.start_day_offset
 	ph_only				= args.ph_only
 	last_hour_block			= args.last_hour_block
+	last_hour_threshold		= args.last_hour_threshold
 	safe_open			= not args.unsafe
 
 	options				= args.options
@@ -498,9 +502,12 @@ for algo in args.algos:
 	time_sales_use_keylevel		= args.time_sales_use_keylevel
 	time_sales_size_threshold	= args.time_sales_size_threshold
 	time_sales_size_max		= args.time_sales_size_max
+	time_sales_large_tx_threshold	= args.time_sales_large_tx_threshold
+	time_sales_large_signal_count	= args.time_sales_large_signal_count
 	time_sales_ma_period		= args.time_sales_ma_period
 	time_sales_ma_type		= args.time_sales_ma_type
 	time_sales_kl_size_threshold	= args.time_sales_kl_size_threshold
+	time_sales_kl_size_max		= args.time_sales_kl_size_max
 
 	# MFI
 	mfi_high_limit			= args.mfi_high_limit
@@ -608,6 +615,7 @@ for algo in args.algos:
 		if ( re.match('ph_only', a)				!= None ):	ph_only				= True
 		if ( re.match('safe_open', a)				!= None ):	safe_open			= True
 		if ( re.match('last_hour_block:', a)			!= None ):	last_hour_block			= int( a.split(':')[1] )
+		if ( re.match('last_hour_threshold:', a)		!= None ):	last_hour_threshold		= float( a.split(':')[1] )
 		if ( re.match('unsafe', a)				!= None ):	safe_open			= False
 
 		if ( re.match('quick_exit', a)				!= None ):	quick_exit			= True
@@ -751,9 +759,12 @@ for algo in args.algos:
 		if ( re.match('time_sales_use_keylevel', a)		!= None ):	time_sales_use_keylevel		= True
 		if ( re.match('time_sales_size_threshold:', a)		!= None ):	time_sales_size_threshold	= int( a.split(':')[1] )
 		if ( re.match('time_sales_size_max:', a)		!= None ):	time_sales_size_max		= int( a.split(':')[1] )
+		if ( re.match('time_sales_large_tx_threshold:', a)	!= None ):	time_sales_large_tx_threshold	= int( a.split(':')[1] )
+		if ( re.match('time_sales_large_signal_count:', a)	!= None ):	time_sales_large_signal_count	= int( a.split(':')[1] )
 		if ( re.match('time_sales_ma_period:', a)		!= None ):	time_sales_ma_period		= int( a.split(':')[1] )
 		if ( re.match('time_sales_ma_type:', a)			!= None ):	time_sales_ma_type		= str( a.split(':')[1] )
 		if ( re.match('time_sales_kl_size_threshold:', a)	!= None ):	time_sales_kl_size_threshold	= int( a.split(':')[1] )
+		if ( re.match('time_sales_kl_size_max:', a)		!= None ):	time_sales_kl_size_max		= int( a.split(':')[1] )
 
 		if ( re.match('keylevel_use_daily', a)			!= None ):	keylevel_use_daily		= True
 		if ( re.match('keylevel_strict', a)			!= None ):	keylevel_strict			= True
@@ -835,6 +846,7 @@ for algo in args.algos:
 			'safe_open':				safe_open,
 			'ph_only':				ph_only,
 			'last_hour_block':			last_hour_block,
+			'last_hour_threshold':			last_hour_threshold,
 
 			'quick_exit':				quick_exit,
 			'quick_exit_percent':			quick_exit_percent,
@@ -1018,7 +1030,10 @@ for algo in args.algos:
 			'time_sales_use_keylevel':		time_sales_use_keylevel,
 			'time_sales_size_threshold':		time_sales_size_threshold,
 			'time_sales_size_max':			time_sales_size_max,
+			'time_sales_large_tx_threshold':	time_sales_large_tx_threshold,
+			'time_sales_large_signal_count':	time_sales_large_signal_count,
 			'time_sales_kl_size_threshold':		time_sales_kl_size_threshold,
+			'time_sales_kl_size_max':		time_sales_kl_size_max,
 			'time_sales_ma_period':			time_sales_ma_period,
 			'time_sales_ma_type':			time_sales_ma_type,
 
@@ -1040,7 +1055,7 @@ for algo in args.algos:
 
 # Clean up this mess
 # All the stuff above should be put into a function to avoid this cleanup stuff. I know it. It'll happen eventually.
-del(stock_usd,quick_exit,quick_exit_percent,trend_quick_exit,qe_stacked_ma_periods,qe_stacked_ma_type,scalp_mode,scalp_mode_pct,ph_only,last_hour_block)
+del(stock_usd,quick_exit,quick_exit_percent,trend_quick_exit,qe_stacked_ma_periods,qe_stacked_ma_type,scalp_mode,scalp_mode_pct,ph_only,last_hour_block,last_hour_threshold)
 del(primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,primary_mesa_sine,primary_trin,primary_sp_monitor)
 del(stacked_ma,stacked_ma_secondary,mama_fama,stochrsi_5m,stochmfi,stochmfi_5m)
 del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,vwap,vpt)
@@ -1059,7 +1074,7 @@ del(check_etf_indicators,check_etf_indicators_strict,etf_tickers,etf_roc_period,
 del(trin,tick,roc,sp_monitor,trin_roc_type,trin_roc_period,trin_ma_type,trin_ma_period,trin_oversold,trin_overbought,tick_threshold,tick_ma_type,tick_ma_period)
 del(roc_type,roc_period,roc_ma_type,roc_ma_period,roc_threshold,roc_exit)
 del(sp_monitor_tickers,sp_monitor_threshold,sp_roc_type,sp_roc_period,sp_ma_period,sp_monitor_stacked_ma_type,sp_monitor_stacked_ma_periods,sp_monitor_use_trix,sp_monitor_trix_ma_type,sp_monitor_trix_ma_period,sp_monitor_strict)
-del(time_sales_algo,time_sales_use_keylevel,time_sales_size_threshold,time_sales_kl_size_threshold,time_sales_size_max,time_sales_ma_period,time_sales_ma_type)
+del(time_sales_algo,time_sales_use_keylevel,time_sales_size_threshold,time_sales_kl_size_threshold,time_sales_kl_size_max,time_sales_size_max,time_sales_ma_period,time_sales_ma_type,time_sales_large_tx_threshold,time_sales_large_signal_count)
 del(options,options_usd,near_expiration,otm_level,start_day_offset,options_decr_threshold)
 
 # Set valid tickers for each algo, if configured
@@ -1436,6 +1451,9 @@ for ticker in stock_list.split(','):
 								  'downtick_vol':		0,
 								  'uptick_vol':			0,
 
+								  'large_tx_signal':		{},
+								  'large_tx_signal_counter':	{},
+
 								  'cumulative_algo_delta':	{},
 								  'keylevels':			{},
 								  'tx_data':			{},
@@ -1519,9 +1537,13 @@ for ticker in stock_list.split(','):
 		stocks[ticker]['algo_signals'].update( signals )
 
 		# Support time_sales_algo
-		stocks[ticker]['ets']['cumulative_algo_delta'][algo['algo_id']]	= []
-		stocks[ticker]['ets']['keylevels'][algo['algo_id']]		= []
-		stocks[ticker]['ets']['tx_data'][algo['algo_id']]		= {}
+		stocks[ticker]['ets']['cumulative_algo_delta'][algo['algo_id']]		= []
+		stocks[ticker]['ets']['keylevels'][algo['algo_id']]			= []
+
+		stocks[ticker]['ets']['large_tx_signal'][algo['algo_id']]		= 0
+		stocks[ticker]['ets']['large_tx_signal_counter'][algo['algo_id']]	= 0
+
+		stocks[ticker]['ets']['tx_data'][algo['algo_id']]			= {}
 
 if ( len(stocks) == 0 ):
 	print('Error: no valid stock tickers provided, exiting.')
@@ -2160,7 +2182,7 @@ async def read_stream():
 	# MODERATE:	1500ms between updates
 	# SLOW:		3000ms between updates
 	# DELAYED:	5000ms between updates
-	await stream_client.quality_of_service(stream_client.QOSLevel.MODERATE)
+	await stream_client.quality_of_service(stream_client.QOSLevel.REAL_TIME)
 
 	# Subscribe to equity 1-minute candle data
 	# Note: Max tickers=300, list will be truncated if >300

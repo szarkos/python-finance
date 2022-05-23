@@ -27,11 +27,14 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--ts_ifile", help='Time and sales file to import from streaming client (i.e. SPY_ets-2022-04-22.pickle.xz)', required=True, type=str)
 parser.add_argument("--l2_ifile", help='Level2 file to import from streaming client (i.e. SPY_level2-2022-04-22.pickle.xz)', required=True, type=str)
 parser.add_argument("--ofile", help='Output file', required=True, type=str)
+parser.add_argument("--silent", help='Suppress all output and diagnostic messages', action="store_true")
 args = parser.parse_args()
 
 mytimezone = pytz.timezone("US/Eastern")
 
-print('Loading data files... ')
+if ( args.silent == False ):
+	print('Loading data files... ')
+
 try:
 	# Time and sales data file
 	if ( re.search('\.xz$', args.ts_ifile) != None ):
@@ -56,13 +59,15 @@ try:
 			l2 = pickle.loads(l2)
 
 except Exception as e:
-	print('Error opening file: ' + str(e))
+	if ( args.silent == False ):
+		print('Error opening file: ' + str(e), file=sys.stderr)
+
 	sys.exit(1)
 
 
 # Process time and sales data
-print('Processing all time and sales data. This may take some time...')
-
+if ( args.silent == False ):
+	print('Processing all time and sales data. This may take some time...')
 
 # Find all the available datetimes in the Level2 data
 # We will use this to match timestamps between the Level2 data and the
@@ -123,28 +128,53 @@ for tx in ets:
 		num_trades		= 1
 		all_sizes		= []
 		dt_string		= datetime.fromtimestamp(trade_time/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S')
-		ets_data[trade_time]	= {	'dt_string':		dt_string,
-						'size':			0,
-						'at_ask':		0,
-						'at_bid':		0,
-						'neutral_vol':		0,
-						'uptick_vol':		0,
-						'downtick_vol':		0,
+
+		ets_data[trade_time]	= {	'txs':			[],
 						'num_trades':		0,
 						'avg_size':		0,
+						'uptick_vol':		0,
+						'downtick_vol':		0,
+						'neutral_vol':		0,
 						'high_price':		0,
 						'low_price':		9999999,
 						'span_trade_up':	0,
 						'span_trade_down':	0,
 						'span_trade_up_vol':	0,
 						'span_trade_down_vol':	0 }
+
 	else:
 		num_trades += 1
 
-	ets_data[trade_time]['size']		+= last_size
-	ets_data[trade_time]['num_trades']	= num_trades
+	# Keep each TX separated with its own parameters
+	ets_data[trade_time]['txs'].append( {	'dt_string':		dt_string,
+						'trade_time':		trade_time,
+						'size':			0,
+						'at_ask':		0,
+						'at_bid':		0,
+						'price':		0 } )
+
+	ets_data[trade_time]['txs'][-1]['size']		= last_size
+	ets_data[trade_time]['txs'][-1]['price']	= last_price
+
+	# Get the uptick/downticks
+	# It seems some algos ensure the trade settles at 0.0001 away from the bid or ask
+	#  price, I suppose to make the tx appear that it occurred just within the bid/ask
+	#  zone. So check this so we can be sure include those as at_bid or at_ask instead
+	#  of neutral.
+	if ( last_price <= cur_bid_price or abs(last_price - cur_bid_price) == 0.0001 ):
+		ets_data[trade_time]['txs'][-1]['at_bid']	= 1
+		ets_data[trade_time]['downtick_vol']		+= last_size
+
+	elif ( last_price >= cur_ask_price or abs(last_price - cur_ask_price) == 0.0001 ):
+		ets_data[trade_time]['txs'][-1]['at_ask']	= 1
+		ets_data[trade_time]['uptick_vol']		+= last_size
+
+	else:
+		ets_data[trade_time]['neutral_vol']		+= last_size
+
 
 	all_sizes.append( last_size )
+	ets_data[trade_time]['num_trades']	= num_trades
 	ets_data[trade_time]['avg_size']	= sum( all_sizes ) / len( all_sizes )
 
 	if ( re.search('^\d{1,}\.\d{3,}$', str(last_price)) != None ):
@@ -163,40 +193,9 @@ for tx in ets:
 	if ( last_price > ets_data[trade_time]['high_price'] ):
 		ets_data[trade_time]['high_price'] = last_price
 
-	# Get the uptick/downticks
-	# It seems some algos ensure the trade settles at 0.0001 away from the bid or ask
-	#  price, I suppose to make the tx appear that it occurred just within the bid/ask
-	#  zone. So check this so we can be sure include those as at_bid or at_ask instead
-	#  of neutral.
-	if ( last_price <= cur_bid_price or abs(last_price - cur_bid_price) == 0.0001 ):
-		ets_data[trade_time]['at_bid']		+= 1
-		ets_data[trade_time]['downtick_vol']	+= last_size
-
-	elif ( last_price >= cur_ask_price or abs(last_price - cur_ask_price) == 0.0001 ):
-		ets_data[trade_time]['at_ask']		+= 1
-		ets_data[trade_time]['uptick_vol']	+= last_size
-
-	else:
-		ets_data[trade_time]['neutral_vol']	+= last_size
-
-#	if ( last_size > 3000 ):
-#		print(ets_data[trade_time]['dt_string'] + ' | ' + str(last_size) + ' | ' + str(last_price) + ' | ' + str(cur_bid_price) + ' | ' + str(cur_ask_price) )
-
-
-#	elif ( last_price == (cur_ask_price - cur_bid_price) / 2 ):
-#		ets_data[trade_time]['neutral_vol']		+= last_size
-#
-#	elif ( cur_ask_price - last_price < last_price - cur_bid_price ):
-#		ets_data[trade_time]['at_bid']		+= 1
-#		ets_data[trade_time]['downtick_vol']	+= last_size
-#
-#	elif ( cur_ask_price - last_price > last_price - cur_bid_price ):
-#		ets_data[trade_time]['at_ask']		+= 1
-#		ets_data[trade_time]['uptick_vol']	+= last_size
-
-
 # Done, write out results.
-print('Writing out results to ' + str(args.ofile) + '...')
+if ( args.silent == False ):
+	print('Writing out results to ' + str(args.ofile) + '...')
 try:
 	if ( re.search('\.xz$', args.ofile) == None ):
 		args.ofile = args.ofile + '.xz'
@@ -206,7 +205,9 @@ try:
 		handle.flush()
 
 except Exception as e:
-	print('Error opening file for writing: ' + str(e))
+	if ( args.silent == False ):
+		print('Error opening file for writing: ' + str(e), file=sys.stderr)
+
 	sys.exit(1)
 
 

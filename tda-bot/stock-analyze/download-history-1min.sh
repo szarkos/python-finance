@@ -10,6 +10,7 @@
 tickers=${1-''}
 interval=${2-'1min'} # 1min, 5min, 15min, 30min, 60min
 months=${3-'3'}
+debug=${4-'false'}
 
 if [ "$tickers" == '' ]; then
 	echo "Please provide a list of tickers (comma separated)"
@@ -46,16 +47,23 @@ function download_ticker() {
 
 	let i=$months
 	if [ "$i" -eq 1 ]; then
-		curl --silent "${BASE_URL}&symbol=${ticker}&slice=year1month1&apikey=${API_KEY}" | grep -v 'time,open' | tac > "monthly-${interval}-csv/${ticker}-1months-${today}.csv"
+		if [ "$debug" == 'true' ]; then
+			echo "curl --silent ${BASE_URL}&symbol=${ticker}&slice=year1month1&apikey=${API_KEY}"
+		else
+			curl --silent "${BASE_URL}&symbol=${ticker}&slice=year1month1&apikey=${API_KEY}" | grep -v 'time,open' | tac > "monthly-${interval}-csv/${ticker}-1months-${today}.csv"
+		fi
 
 	else
 
-		echo -n "" > "monthly-${interval}-csv/${ticker}-${months}months-${today}.csv"
-		while [ "$i" -gt 0 ]; do
-			curl --silent "${BASE_URL}&symbol=${ticker}&slice=year1month${i}&apikey=${API_KEY}" | grep -v 'time,open' | tac >> "monthly-${interval}-csv/${ticker}-${months}months-${today}.csv"
-			let i=$i-1
-		done
-
+		if [ "$debug" == 'true' ]; then
+			echo "curl --silent ${BASE_URL}&symbol=${ticker}&slice=year1month${i}&apikey=${API_KEY}"
+		else
+			echo -n "" > "monthly-${interval}-csv/${ticker}-${months}months-${today}.csv"
+			while [ "$i" -gt 0 ]; do
+				curl --silent "${BASE_URL}&symbol=${ticker}&slice=year1month${i}&apikey=${API_KEY}" | grep -v 'time,open' | tac >> "monthly-${interval}-csv/${ticker}-${months}months-${today}.csv"
+				let i=$i-1
+			done
+		fi
 	fi
 }
 

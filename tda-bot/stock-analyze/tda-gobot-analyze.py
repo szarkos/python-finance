@@ -39,6 +39,8 @@ parser.add_argument("--skip_check", help="Skip fixup and check of stock ticker",
 parser.add_argument("--unsafe", help='Allow trading between 9:30-10:15AM when volatility is high', action="store_true")
 parser.add_argument("--ph_only", help='Allow trading only between 9:30-10:30AM and 3:00PM-4:00PM when volatility is high', action="store_true")
 parser.add_argument("--hold_overnight", help='Allow algorithm to hold stocks across multiple days', action="store_true")
+parser.add_argument("--last_hour_block", help='Stop trading if we are within --last_hour_block minutes from market close (Default: 35)', default=35, type=int)
+parser.add_argument("--last_hour_threshold", help='Sell the stock if net gain is above this percentage during the final hour. Assumes --hold_overnight is False.', default=0.2, type=float)
 
 parser.add_argument("--no_use_resistance", help='Do no use the high/low resistance to avoid possibly bad trades (Default: False)', action="store_true")
 parser.add_argument("--use_vwap", help='Use vwap resistance checks to enter trades (Default: True if --no_use_resistance=False)', action="store_true")
@@ -53,6 +55,9 @@ parser.add_argument("--use_natr_resistance", help='Enable the daily NATR resista
 parser.add_argument("--use_pivot_resistance", help='Enable the use of pivot points and PDH/PDL resistance check', action="store_true")
 parser.add_argument("--lod_hod_check", help='Enable low of the day (LOD) / high of the day (HOD) resistance checks', action="store_true")
 parser.add_argument("--va_check", help='Use the previous day Value Area High (VAH) Value Area Low (VAL) as resistance', action="store_true")
+
+parser.add_argument("--use_mp_resistance", help='Use daily averaged VAL/VAH history as resistance areas', action="store_true")
+parser.add_argument("--mp_resistance_ifile", help='Use pickle file for market profile pricehistory', default=None, type=str)
 
 parser.add_argument("--check_etf_indicators", help='Use the relative strength against one or more ETF indicators to assist with trade entry', action="store_true")
 parser.add_argument("--check_etf_indicators_strict", help='Do not allow trade unless check_etf_indicators agrees with direction', action="store_true")
@@ -107,9 +112,10 @@ parser.add_argument("--time_sales_use_keylevel", help='Add key levels at major a
 parser.add_argument("--time_sales_ifile", help='Input file for time and sales monitor', default=None, type=str)
 parser.add_argument("--time_sales_size_threshold", help='Trade size threshold for use with time and sales monitor', default=3000, type=int)
 parser.add_argument("--time_sales_size_max", help='Maximum trade size (beyond time_sales_size_threshold) to consider for inclusing in time and sales monitor algo', default=8000, type=int)
+parser.add_argument("--time_sales_large_tx_threshold", help='Trade size threshold for use with time and sales monitor', default=10000, type=int)
 parser.add_argument("--time_sales_ma_period", help='Moving average period to use with the time_sales_algo (Default: 8)', default=8, type=int)
 parser.add_argument("--time_sales_ma_type", help='Moving average type to use with the time_sales_algo (Default: wma)', default='wma', type=str)
-parser.add_argument("--time_sales_kl_size_threshold", help='Trade size threshold for use with time and sales monitor', default=6000, type=int)
+parser.add_argument("--time_sales_kl_size_threshold", help='Trade size threshold for use with time and sales monitor', default=7500, type=int)
 
 parser.add_argument("--with_vix", help='Use the VIX volatility index ticker as an indicator', action="store_true")
 parser.add_argument("--vix_stacked_ma_periods", help='Moving average periods to use when calculating VIX stacked MA (Default: 5,8,13)', default='5,8,13', type=str)
@@ -357,14 +363,17 @@ if ( args.ifile == None ):
 		if ( err != None ):
 			print('Error: get_quote(' + str(stock) + '): ' + str(err), file=sys.stderr)
 
-		if ( str(data[stock]['shortable']) == str(False) or str(data[stock]['marginable']) == str(False) ):
-			if ( args.shortonly == True ):
-				print('Error: stock(' + str(stock) + '): does not appear to be shortable, exiting.')
-				exit(1)
+		try:
+			if ( str(data[stock]['shortable']) == str(False) or str(data[stock]['marginable']) == str(False) ):
+				if ( args.shortonly == True ):
+					print('Error: stock(' + str(stock) + '): does not appear to be shortable, exiting.')
+					exit(1)
 
-			if ( args.noshort == False ):
-				print('Warning: stock(' + str(stock) + '): does not appear to be shortable, disabling sell-short')
-				args.noshort = True
+				if ( args.noshort == False ):
+					print('Warning: stock(' + str(stock) + '): does not appear to be shortable, disabling sell-short')
+					args.noshort = True
+		except:
+			print('Warning: could not determine if stock (' + str(stock) + ') is shortable, assuming yes for now')
 
 
 # tda.get_price_history() variables
@@ -534,6 +543,18 @@ for algo in args.algo.split(','):
 
 		except Exception as e:
 			print('Error opening file ' + str(args.daily_ifile) + ': ' + str(e))
+			exit(1)
+
+	# Market profile resistance
+	mp_resistance_1min = None
+	if ( args.use_mp_resistance == True and args.mp_resistance_ifile != None ):
+		try:
+			with open(args.mp_resistance_ifile, 'rb') as handle:
+				mp_resistance_1min = handle.read()
+				mp_resistance_1min = pickle.loads(mp_resistance_1min)
+
+		except Exception as e:
+			print('Error opening file ' + str(args.mp_resistance_ifile) + ': ' + str(e))
 			exit(1)
 
 	# ETF Indicators
@@ -860,12 +881,12 @@ for algo in args.algo.split(','):
 			vix['pricehistory'] = tda_gobot_helper.translate_heikin_ashi(pricehistory=vix['pricehistory'])
 
 	# Time and sales algo monitor
+	ts_data = None
 	if ( args.time_sales_algo == True ):
 		if ( args.time_sales_ifile == None ):
 			print('Error: need to declare an input file via --time_sales_ifile if --time_sales_algo is enabled')
 			sys.exit(1)
 
-		ts_data = None
 		try:
 
 			if ( re.search('\.xz$', args.time_sales_ifile) != None ):
@@ -1006,6 +1027,8 @@ for algo in args.algo.split(','):
 					'trend_period':				args.trend_period,
 					'use_combined_exit':			args.use_combined_exit,
 					'hold_overnight':			args.hold_overnight,
+					'last_hour_block':			args.last_hour_block,
+					'last_hour_threshold':			args.last_hour_threshold,
 
 					'quick_exit':				args.quick_exit,
 					'quick_exit_percent':			args.quick_exit_percent,
@@ -1178,6 +1201,8 @@ for algo in args.algo.split(','):
 					'use_natr_resistance':			args.use_natr_resistance,
 					'use_pivot_resistance':			args.use_pivot_resistance,
 					'va_check':				args.va_check,
+					'use_mp_resistance':			args.use_mp_resistance,
+					'mp_resistance_1min':			mp_resistance_1min,
 
 					'experimental':				args.experimental,
 					'check_etf_indicators':			args.check_etf_indicators,
@@ -1242,6 +1267,7 @@ for algo in args.algo.split(','):
 					'time_sales_size_threshold':		args.time_sales_size_threshold,
 					'time_sales_size_max':			args.time_sales_size_max,
 					'time_sales_kl_size_threshold':		args.time_sales_kl_size_threshold,
+					'time_sales_large_tx_threshold':	args.time_sales_large_tx_threshold,
 					'time_sales_ma_period':			args.time_sales_ma_period,
 					'time_sales_ma_type':			args.time_sales_ma_type,
 					'ts_data':				ts_data,

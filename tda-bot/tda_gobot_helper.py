@@ -691,17 +691,29 @@ def get_lastprice(ticker=None, WarnDelayed=True, mark=False, debug=False):
 		return False
 
 	# Check for proper return values
+	mark_price	= 0
+	last_price	= 0
+	delayed		= 'true'
 	try:
-		delayed		= str( data[ticker]['delayed'] ).lower()
-		mark_price	= float( data[ticker]['mark'] )
+		mark_price = float( data[ticker]['mark'] )
+	except:
+		pass
 
+	try:
 		if ( str(data[ticker]['assetType']).lower() == 'future' ):
 			last_price = float( data[ticker]['lastPriceInDouble'] )
 		else:
 			last_price = float( data[ticker]['lastPrice'] )
+	except:
+		pass
 
-	except Exception as e:
-		print('Error: get_lastprice(' + str(ticker) + '): ' + str(e), file=sys.stderr)
+	try:
+		delayed	= str( data[ticker]['delayed'] ).lower()
+	except:
+		pass
+
+	if ( mark_price == 0 and last_price == 0 ):
+		print('Error: get_lastprice(' + str(ticker) + '): API did not return mark or lastPrice', file=sys.stderr)
 		return False
 
 	if ( WarnDelayed == True and delayed == 'true' ):
@@ -711,7 +723,7 @@ def get_lastprice(ticker=None, WarnDelayed=True, mark=False, debug=False):
 		print(data)
 
 	# Returns regularMarketLastPrice if we don't want extended hours pricing
-	if ( mark == True ):
+	if ( mark == True and mark != 0 ):
 		last_price = mark_price
 
 	return last_price

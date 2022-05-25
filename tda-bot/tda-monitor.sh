@@ -9,23 +9,30 @@ log_dir=${1-"TX_LOGS_v2"}
 while [ 1 ]; do
 
 	printf "\033c"
-	echo -e "Stock\t\t% Change\tLast Price\tNet Change\tBase Price\tOriginal Base Price\tQuantity\tShort\tSold"
+	echo -e "Stock\t\t% Change\tLast Price\tNet Change\tBase Price\tOriginal Base Price\tQuantity\tShort\tSold\tEntry\t\t\tExit"
 
-#	for i in ${1}/*.txt; do
 	for i in $(ls -t ${log_dir}/*.txt); do
 		short=$( cat "$i" | awk -F : '{print $9}' )
+		entry_price=$( cat "$i" | awk -F : '{print $10}' )
+		exit_price=$( cat "$i" | awk -F : '{print $11}' )
+		if [ "$entry_price" == "" ]; then
+			entry_price='0000-00-00 00:00'
+		fi
+		if [ "$exit_price" == "" ]; then
+			exit_price='0000-00-00 00:00'
+		fi
+
 		if [ "$short" == True ]; then
 			line=$( cat "$i" | awk -F : '{print $1"*\t"$2"%\t\t"$3"\t\t"$4"\t\t"$5"\t\t"$6"\t\t\t"$7"\t\t"$9"\t"$8}' )
 		else
 			line=$( cat "$i" | awk -F : '{print $1"\t"$2"%\t\t"$3"\t\t"$4"\t\t"$5"\t\t"$6"\t\t\t"$7"\t\t"$9"\t"$8}' )
 		fi
-		echo -e "$line"
+		echo -e "${line}\t${entry_price}\t${exit_price}"
 	done
 
 	echo
 
 	let net_change=0
-#	for i in ${1}/*.txt; do
 	for i in $(ls -t ${log_dir}/*.txt); do
 		short=$( cat "$i" | awk -F : '{print $9}' )
 		change=$( cat "$i" | awk -F : '{print $4}' | sed -r 's/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g' ) # Net Change

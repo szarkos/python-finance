@@ -250,7 +250,8 @@ def ismarketopen_US(date=None, safe_open=False, check_day_only=False, extended_h
 
 
 # Write logs for each ticker for live monitoring of the stock performance
-def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, base_price=-1, orig_base_price=-1, stock_qty=-1, sold=False, short=False, proc_id=None, tx_log_dir='TX_LOGS', debug=False):
+def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, base_price=-1, orig_base_price=-1, stock_qty=-1,
+			sold=False, short=False, proc_id=None, tx_log_dir='TX_LOGS', entry_time=None, exit_time=None, debug=False):
 
 	if ( ticker == None ):
 		print('Error: log_monitor(' + str(ticker) + '): ticker is empty', file=sys.stderr)
@@ -301,7 +302,9 @@ def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, ba
 		str(round(float(orig_base_price), 3))	+ ':' + \
 		str(stock_qty)				+ ':' + \
 		str(sold)				+ ':' + \
-		str(short)
+		str(short)				+ ':' + \
+		str(entry_time)				+ ':' + \
+		str(exit_time)
 
 	if ( os.name != 'nt' ):
 		import fcntl

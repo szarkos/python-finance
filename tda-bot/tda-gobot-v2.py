@@ -56,6 +56,7 @@ parser.add_argument("--ph_only", help='Allow trading only between 9:30-10:30AM a
 parser.add_argument("--hold_overnight", help='Hold stocks overnight when --multiday is in use (default: False) - Warning: implies --unsafe', action="store_true")
 parser.add_argument("--last_hour_block", help='Stop trading if we are within --last_hour_block minutes from market close (Default: 35)', default=35, type=int)
 parser.add_argument("--last_hour_threshold", help='Sell the stock if net gain is above this percentage during the final hour. Assumes --hold_overnight is False.', default=0.2, type=float)
+parser.add_argument("--check_delayed_tstamp", help='Check for delayed candle timestamps received from the equity stream', action="store_true")
 
 parser.add_argument("--incr_threshold", help='Reset base_price if stock increases by this percent', default=1, type=float)
 parser.add_argument("--decr_threshold", help='Max allowed drop percentage of the stock price', default=1, type=float)
@@ -390,6 +391,7 @@ for algo in args.algos:
 	ph_only				= args.ph_only
 	last_hour_block			= args.last_hour_block
 	last_hour_threshold		= args.last_hour_threshold
+	check_delayed_tstamp		= args.check_delayed_tstamp
 	safe_open			= not args.unsafe
 
 	options				= args.options
@@ -616,6 +618,7 @@ for algo in args.algos:
 		if ( re.match('safe_open', a)				!= None ):	safe_open			= True
 		if ( re.match('last_hour_block:', a)			!= None ):	last_hour_block			= int( a.split(':')[1] )
 		if ( re.match('last_hour_threshold:', a)		!= None ):	last_hour_threshold		= float( a.split(':')[1] )
+		if ( re.match('check_delayed_tstamp', a)		!= None ):	check_delayed_tstamp		= True
 		if ( re.match('unsafe', a)				!= None ):	safe_open			= False
 
 		if ( re.match('quick_exit', a)				!= None ):	quick_exit			= True
@@ -847,6 +850,7 @@ for algo in args.algos:
 			'ph_only':				ph_only,
 			'last_hour_block':			last_hour_block,
 			'last_hour_threshold':			last_hour_threshold,
+			'check_delayed_tstamp':			check_delayed_tstamp,
 
 			'quick_exit':				quick_exit,
 			'quick_exit_percent':			quick_exit_percent,
@@ -1055,7 +1059,7 @@ for algo in args.algos:
 
 # Clean up this mess
 # All the stuff above should be put into a function to avoid this cleanup stuff. I know it. It'll happen eventually.
-del(stock_usd,quick_exit,quick_exit_percent,trend_quick_exit,qe_stacked_ma_periods,qe_stacked_ma_type,scalp_mode,scalp_mode_pct,ph_only,last_hour_block,last_hour_threshold)
+del(stock_usd,quick_exit,quick_exit_percent,trend_quick_exit,qe_stacked_ma_periods,qe_stacked_ma_type,scalp_mode,scalp_mode_pct,ph_only,last_hour_block,last_hour_threshold,check_delayed_tstamp)
 del(primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,primary_mesa_sine,primary_trin,primary_sp_monitor)
 del(stacked_ma,stacked_ma_secondary,mama_fama,stochrsi_5m,stochmfi,stochmfi_5m)
 del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,vwap,vpt)
@@ -1210,6 +1214,7 @@ for ticker in stock_list.split(','):
 				   'order_id':			None,
 				   'orig_base_price':		float(0),
 				   'base_price':		float(0),
+				   'entry_time':		None,
 
 				   'options_ticker':		None,
 				   'options_usd':		args.options_usd,
@@ -1890,7 +1895,8 @@ for ticker in list(stocks.keys()):
 		# Disable extended hours for indicator tickers
 		extended_hours = False
 
-	data = False
+	data	= False
+	count	= 0
 	while ( isinstance(data, bool) and data == False ):
 		data, epochs = tda_gobot_helper.get_pricehistory(ticker, p_type, f_type, freq, period, time_prev_epoch, time_now_epoch, needExtendedHoursData=extended_hours, debug=False)
 		if ( isinstance(data, bool) and data == False ):
@@ -1900,26 +1906,44 @@ for ticker in list(stocks.keys()):
 			continue
 
 		else:
-			stocks[ticker]['pricehistory'] = data
+			if ( len(data['candles']) < 400 ):
 
-	if ( len(data['candles']) < int(args.stochrsi_period) * 2 ):
+				# BUG: TDA's pricehistory is particularly buggy with $TRINQ for some reason.
+				#  As a workaround, we'll set $TRINQ history to $TRIN, and the equity stream will
+				#  eventually fill in the real-time $TRINQ data.
+				if ( ticker == '$TRINQ' ):
+					stocks['$TRINQ']['isvalid']		= True
+					stocks['$TRINQ']['pricehistory']	= stocks['$TRIN']['pricehistory']
+					break
 
-		# BUG: TDA's pricehistory is particularly buggy with $TRINQ for some reason.
-		#  As a workaround, we'll set $TRINQ history to $TRIN, and the equity stream will
-		#  eventually fill in the real-time $TRINQ data.
-		if ( ticker == '$TRINQ' ):
-			stocks['$TRINQ']['isvalid']		= True
-			stocks['$TRINQ']['pricehistory']	= stocks['$TRIN']['pricehistory']
+				# TDA can sometimes return less data than we need, but if we try again it will work
+				count += 1
+				if ( count >= 3 ):
+					break
 
-		else:
-			print('Warning: stock(' + str(ticker) + '): len(pricehistory[candles]) is less than stochrsi_period*2 (new stock ticker?), removing from the list')
-			stocks[ticker]['isvalid'] = False
-			try:
-				del stocks[ticker]
-			except KeyError:
-				print('Warning: failed to delete key "' + str(ticker) + '" from stocks{}')
+				# BUG: data corruption on TDAs side can lead to truncated data.
+				# Disabling extended hours for this particular stock can allow the bot
+				#  to move forward. The alternative is to disable the ticker altogether.
+				elif ( count == 2 ):
+					if ( stocks[ticker]['tradeable'] == False ):
+						extended_hours = False
 
-			continue
+				data = False
+				time.sleep(5)
+
+			else:
+				stocks[ticker]['pricehistory'] = data
+				break
+
+	if ( len(data['candles']) < 400 ):
+		print('Warning: stock(' + str(ticker) + '): len(pricehistory[candles]) is very low (' + str(len(data['candles'])) + ') - is this a new stock ticker? Removing from the list.')
+		stocks[ticker]['isvalid'] = False
+		try:
+			del stocks[ticker]
+		except KeyError:
+			print('Warning: failed to delete key "' + str(ticker) + '" from stocks{}')
+
+		continue
 
 	# 5-minute candles to calculate things like Average True Range
 	stocks[ticker]['pricehistory_5m'] = tda_gobot_helper.translate_1m( pricehistory=stocks[ticker]['pricehistory'], candle_type=5 )
@@ -1936,8 +1960,8 @@ for ticker in list(stocks.keys()):
 	if ( args.weekly_ifile != None ):
 		import pickle
 
-		parent_path = os.path.dirname( os.path.realpath(__file__) )
-		weekly_ifile = str(parent_path) + '/' + re.sub('TICKER', ticker, args.weekly_ifile)
+		parent_path	= os.path.dirname( os.path.realpath(__file__) )
+		weekly_ifile	= str(parent_path) + '/' + re.sub('TICKER', ticker, args.weekly_ifile)
 		print('Using ' + str(weekly_ifile))
 
 		try:
@@ -1952,15 +1976,19 @@ for ticker in list(stocks.keys()):
 	if ( stocks[ticker]['pricehistory_weekly'] == {} ):
 
 		# Use get_pricehistory() to download weekly data
-		wkly_p_type = 'year'
-		wkly_period = '2'
-		wkly_f_type = 'weekly'
-		wkly_freq = '1'
+		wkly_p_type	= 'year'
+		wkly_period	= '2'
+		wkly_f_type	= 'weekly'
+		wkly_freq	= '1'
 
+		count		= 0
 		print('(' + str(ticker) + '): Using TDA API for weekly pricehistory...')
 		while ( stocks[ticker]['pricehistory_weekly'] == {} ):
-			stocks[ticker]['pricehistory_weekly'], ep = tda_gobot_helper.get_pricehistory(ticker, wkly_p_type, wkly_f_type, wkly_freq, wkly_period, needExtendedHoursData=False)
+			count += 1
+			if ( count > 2 ):
+				print('(' + str(ticker) + '): Using TDA API for weekly pricehistory... attempt ' + str(count))
 
+			stocks[ticker]['pricehistory_weekly'], ep = tda_gobot_helper.get_pricehistory(ticker, wkly_p_type, wkly_f_type, wkly_freq, wkly_period, needExtendedHoursData=False)
 			if ( (isinstance(stocks[ticker]['pricehistory_weekly'], bool) and stocks[ticker]['pricehistory_weekly'] == False) or
 					stocks[ticker]['pricehistory_weekly'] == {} or
 					('empty' in stocks[ticker]['pricehistory_weekly'] and str(stocks[ticker]['pricehistory_weekly']['empty']).lower() == 'true') ):
@@ -1994,15 +2022,19 @@ for ticker in list(stocks.keys()):
 	if ( stocks[ticker]['pricehistory_daily'] == {} ):
 
 		# Use get_pricehistory() to download daily data
-		daily_p_type = 'year'
-		daily_period = '2'
-		daily_f_type = 'daily'
-		daily_freq = '1'
+		daily_p_type	= 'year'
+		daily_period	= '2'
+		daily_f_type	= 'daily'
+		daily_freq	= '1'
 
+		count		= 0
 		print('(' + str(ticker) + '): Using TDA API for daily pricehistory...')
 		while ( stocks[ticker]['pricehistory_daily'] == {} ):
-			stocks[ticker]['pricehistory_daily'], ep = tda_gobot_helper.get_pricehistory(ticker, daily_p_type, daily_f_type, daily_freq, daily_period, needExtendedHoursData=False)
+			count += 1
+			if ( count > 2 ):
+				print('(' + str(ticker) + '): Using TDA API for daily pricehistory... attempt ' + str(count))
 
+			stocks[ticker]['pricehistory_daily'], ep = tda_gobot_helper.get_pricehistory(ticker, daily_p_type, daily_f_type, daily_freq, daily_period, needExtendedHoursData=False)
 			if ( (isinstance(stocks[ticker]['pricehistory_daily'], bool) and stocks[ticker]['pricehistory_daily'] == False) or
 					stocks[ticker]['pricehistory_daily'] == {} or
 					('empty' in stocks[ticker]['pricehistory_daily'] and str(stocks[ticker]['pricehistory_daily']['empty']).lower() == 'true') ):

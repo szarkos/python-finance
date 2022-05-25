@@ -2281,6 +2281,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 				stocks[ticker]['val'] = round( mprofile[cur_day]['val'], 2 )
 
 		# Time and sales algo monitor
+		cur_cumulative_algo_delta = 0
 		if ( cur_algo['time_sales_algo'] == True ):
 			if ( len(stocks[ticker]['ets']['cumulative_algo_delta'][algo_id]) > cur_algo['time_sales_ma_period'] ):
 				cur_cumulative_algo_delta = tda_algo_helper.get_alt_ma(	pricehistory=stocks[ticker]['ets']['cumulative_algo_delta'][algo_id],
@@ -2291,9 +2292,14 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 			#	cur_cumulative_algo_delta = sum( stocks[ticker]['ets']['cumulative_algo_delta'][algo_id] )
 
 
+		# Get the current time vs. the timestamp from the last candle received from the API
+		last_cndl_dt	= datetime.datetime.fromtimestamp(int(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone)
+		last_cndl_time	= cur_dt.strftime('%Y-%m-%d %H:%M:%S.%f')
+		time_now_dt	= datetime.datetime.now(mytimezone)
+		time_now	= time_now_dt.strftime('%Y-%m-%d %H:%M:%S')
+
 		# Debug
 		if ( debug == True ):
-			time_now = datetime.datetime.now( mytimezone )
 			print( '(' + str(ticker) + ') Algo ID: ' + str(cur_algo['algo_id']) )
 			print( '(' + str(ticker) + ') OHLCV: ' + str(stocks[ticker]['pricehistory']['candles'][-1]['open']) +
 							' / ' + str(stocks[ticker]['pricehistory']['candles'][-1]['high']) +
@@ -2498,9 +2504,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 			print( '(' + str(ticker) + ') Signal Mode: ' + str(stocks[ticker]['algo_signals'][algo_id]['signal_mode']) )
 
 			# Timestamp check
-			print('(' + str(ticker) + ') Time now: ' + time_now.strftime('%Y-%m-%d %H:%M:%S') +
-				', timestamp received from API ' +
-				datetime.datetime.fromtimestamp(int(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone).strftime('%Y-%m-%d %H:%M:%S.%f') +
+			print('(' + str(ticker) + ') Time now: ' + str(time_now) + ', timestamp received from API ' + str(last_cndl_time) +
 				' (' + str(int(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])) + ')' +
 				' (seq: ' + str(stocks[ticker]['cur_seq']) + ')' )
 
@@ -3685,8 +3689,15 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 				if ( cur_algo['vpt'] == True and vpt_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
 
-				if ( (cur_algo['support_resistance'] == True and args.no_use_resistance == False) and resistance_signal != True ):
+				if ( resistance_signal != True ):
 					stocks[ticker]['final_buy_signal'] = False
+
+				# check_delayed_tstamp: check to see if we are receiving candle data that is > 1-minute delayed
+				# If so then we should avoid entering a trade until the stream catches up (it usually does eventually)
+				if ( cur_algo['check_delayed_tstamp'] == True ):
+					if ( (time_now_dt - last_cndl_dt).seconds > 60 ):
+						print( '(' + str(ticker) + ') BUY SIGNAL stalled due to check_delayed_tstamp (' + str(time_now) + ' / ' + str(last_cndl_time) + ')' )
+						stocks[ticker]['final_buy_signal'] = False
 
 				if ( min_intra_natr != None and stocks[ticker]['cur_natr'] < min_intra_natr ):
 					stocks[ticker]['final_buy_signal'] = False
@@ -3814,13 +3825,14 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 
 				stocks[ticker]['primary_algo']	= cur_algo['algo_id']
 				stocks[ticker]['base_price']	= stocks[ticker]['orig_base_price']
+				stocks[ticker]['entry_time']	= datetime.datetime.now(mytimezone).strftime('%Y-%m-%d %H:%M')
 				net_change			= 0
 				exit_passthrough		= False
 
 				if ( cur_algo['options'] == True ):
-					tda_gobot_helper.log_monitor(stocks[ticker]['options_ticker'], 0, options_last_price, options_net_change, stocks[ticker]['options_base_price'], stocks[ticker]['options_orig_base_price'], stocks[ticker]['options_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, sold=False)
+					tda_gobot_helper.log_monitor(stocks[ticker]['options_ticker'], 0, options_last_price, options_net_change, stocks[ticker]['options_base_price'], stocks[ticker]['options_orig_base_price'], stocks[ticker]['options_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, sold=False, entry_time=stocks[ticker]['entry_time'])
 				else:
-					tda_gobot_helper.log_monitor(ticker, 0, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, sold=False)
+					tda_gobot_helper.log_monitor(ticker, 0, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, sold=False, entry_time=stocks[ticker]['entry_time'])
 
 				# Reset and switch all algos to 'sell' mode for the next loop
 				reset_signals(ticker, signal_mode='sell', exclude_bbands_kchan=True)
@@ -4115,7 +4127,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 				print(str(stoploss_ticker) + ': ' + str(round(stoploss_total_percent_change, 2)) + '% ($' + str(stoploss_last_price) + ')')
 				print('Net change (' + str(stoploss_ticker) + '): $' + str(stoploss_net_change) + ' (' + str(stoploss_total_percent_change) + '%)')
 
-				tda_gobot_helper.log_monitor(stoploss_ticker, percent_change, stoploss_last_price, stoploss_net_change, stoploss_base, stoploss_orig_base, stoploss_qty, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
+				tda_gobot_helper.log_monitor(stoploss_ticker, percent_change, stoploss_last_price, stoploss_net_change, stoploss_base, stoploss_orig_base, stoploss_qty, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, entry_time=stocks[ticker]['entry_time'])
 
 				# SELL the security if we are using a trailing stoploss
 				if ( cur_algo['options'] == True ):
@@ -4127,6 +4139,9 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 					if ( percent_change >= stocks[ticker]['decr_threshold'] and args.stoploss == True ):
 						print(str(stoploss_ticker) + ' (' + str(algo_id) + ') dropped below the decr_threshold (' + str(stocks[ticker]['decr_threshold']) + '%), selling the security...')
 						stocks[ticker]['algo_signals'][algo_id]['sell_signal']	= True
+
+				# Reset cumulative_algo_delta bias if we end up stopping out
+				stocks[ticker]['ets']['cumulative_algo_delta'][algo_id] = []
 
 			# If price increases
 			elif ( stoploss_last_price > stoploss_base and stocks[ticker]['exit_percent_signal'] == False ):
@@ -4158,11 +4173,11 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 						else:
 							stocks[ticker]['decr_threshold'] = stocks[ticker]['incr_threshold'] / 2
 
-				tda_gobot_helper.log_monitor(stoploss_ticker, percent_change, stoploss_last_price, stoploss_net_change, stoploss_base, stoploss_orig_base, stoploss_qty, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
+				tda_gobot_helper.log_monitor(stoploss_ticker, percent_change, stoploss_last_price, stoploss_net_change, stoploss_base, stoploss_orig_base, stoploss_qty, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, entry_time=stocks[ticker]['entry_time'])
 
 			# No price change
 			else:
-				tda_gobot_helper.log_monitor(stoploss_ticker, 0, stoploss_last_price, stoploss_net_change, stoploss_base, stoploss_orig_base, stoploss_qty, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir)
+				tda_gobot_helper.log_monitor(stoploss_ticker, 0, stoploss_last_price, stoploss_net_change, stoploss_base, stoploss_orig_base, stoploss_qty, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, entry_time=stocks[ticker]['entry_time'])
 
 			# END STOPLOSS MONITOR
 
@@ -4203,12 +4218,12 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 						if ( cur_algo['quick_exit'] == True or stocks[ticker]['quick_exit'] == True ):
 							if ( cur_algo['options'] == True and options_total_percent_change >= cur_algo['quick_exit_percent'] ):
 								print( '(' + str(stoploss_ticker) + '): quick_exit triggered at ' + str(round(options_total_percent_change, 3)) + '% ' +
-									'($' + str(round(stoploss_orig_base, 2)) + '->' + str(round(stoploss_last_price, 2)) + ')' )
+									'($' + str(round(stoploss_orig_base, 2)) + '->$' + str(round(stoploss_last_price, 2)) + ') (' + str(algo_id) + ')' )
 								stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 							elif ( cur_algo['options'] == False and total_percent_change >= cur_algo['quick_exit_percent'] ):
 								print( '(' + str(stoploss_ticker) + '): quick_exit triggered at ' + str(round(total_percent_change, 3)) + '% ' +
-									'($' + str(round(stoploss_orig_base, 2)) + '->' + str(round(stoploss_last_price, 2)) + ')' )
+									'($' + str(round(stoploss_orig_base, 2)) + '->$' + str(round(stoploss_last_price, 2)) + ') (' + str(algo_id) + ')' )
 								stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 				# If exit_percent has been hit, watch the price action and determine when the trend has ended
@@ -4278,16 +4293,14 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 			if ( (cur_algo['quick_exit'] == True or stocks[ticker]['quick_exit'] == True) and
 					stocks[ticker]['algo_signals'][algo_id]['sell_signal'] == False and stoploss_last_price > stoploss_orig_base ):
 
-				print( str(options_total_percent_change) + ' / ' + str(cur_algo['quick_exit_percent']))
-
 				if ( cur_algo['options'] == True and options_total_percent_change >= cur_algo['quick_exit_percent'] ):
 					print( '(' + str(stoploss_ticker) + '): quick_exit triggered at ' + str(round(options_total_percent_change, 3)) + '% ' +
-						'($' + str(round(stoploss_orig_base, 2)) + '->' + str(round(stoploss_last_price, 2)) + ')' )
+						'($' + str(round(stoploss_orig_base, 2)) + '->$' + str(round(stoploss_last_price, 2)) + ') (' + str(algo_id) + ')' )
 					stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 				elif ( cur_algo['options'] == False and total_percent_change >= cur_algo['quick_exit_percent'] ):
 					print( '(' + str(stoploss_ticker) + '): quick_exit triggered at ' + str(round(total_percent_change, 3)) + '% ' +
-						'($' + str(round(stoploss_orig_base, 2)) + '->' + str(round(stoploss_last_price, 2)) + ')' )
+						'($' + str(round(stoploss_orig_base, 2)) + '->$' + str(round(stoploss_last_price, 2)) + ') (' + str(algo_id) + ')' )
 					stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
 			# StochRSI MONITOR
@@ -4384,15 +4397,16 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 					else:
 						data = tda_gobot_helper.sell_stock_marketprice(ticker, stocks[ticker]['stock_qty'], fillwait=True, debug=True)
 
+				exit_time = datetime.datetime.now(mytimezone).strftime('%Y-%m-%d %H:%M')
 				if ( cur_algo['options'] == True ):
 					percent_change = abs( stocks[ticker]['options_orig_base_price'] / options_last_price - 1 ) * 100
 					print('Net change (' + str(stocks[ticker]['options_ticker']) + '): $' + str(options_net_change) + ' (' + str(round(percent_change, 2)) + '%)')
-					tda_gobot_helper.log_monitor(stocks[ticker]['options_ticker'], percent_change, options_last_price, options_net_change, stocks[ticker]['options_base_price'], stocks[ticker]['options_orig_base_price'], stocks[ticker]['options_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, sold=True)
+					tda_gobot_helper.log_monitor(stocks[ticker]['options_ticker'], percent_change, options_last_price, options_net_change, stocks[ticker]['options_base_price'], stocks[ticker]['options_orig_base_price'], stocks[ticker]['options_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, sold=True, entry_time=stocks[ticker]['entry_time'], exit_time=exit_time)
 
 				else:
 					percent_change = abs( stocks[ticker]['options_orig_base_price'] / options_last_price - 1 ) * 100
 					print('Net change (' + str(ticker) + '): $' + str(net_change) + ' (' + str(round(percent_change, 2)) + '%)')
-					tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, sold=True)
+					tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, sold=True, entry_time=stocks[ticker]['entry_time'], exit_time=exit_time)
 
 				# Add to blacklist if sold at a loss greater than max_failed_usd, or if we've exceeded failed_txs
 				if ( net_change < 0 ):
@@ -4404,31 +4418,34 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 							tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 
 				# Change signal to 'long' or 'short' and generate new tx_id for next iteration
-				stocks[ticker]['tx_id']				= random.randint(1000, 9999)
-				stocks[ticker]['stock_usd']			= cur_algo['stock_usd']
-				stocks[ticker]['quick_exit']			= cur_algo['quick_exit']
-				stocks[ticker]['order_id']			= None
-				stocks[ticker]['stock_qty']			= 0
-				stocks[ticker]['base_price']			= 0
-				stocks[ticker]['orig_base_price']		= 0
+				stocks[ticker]['tx_id']					= random.randint(1000, 9999)
+				stocks[ticker]['stock_usd']				= cur_algo['stock_usd']
+				stocks[ticker]['quick_exit']				= cur_algo['quick_exit']
+				stocks[ticker]['order_id']				= None
+				stocks[ticker]['stock_qty']				= 0
+				stocks[ticker]['base_price']				= 0
+				stocks[ticker]['orig_base_price']			= 0
+				stocks[ticker]['entry_time']				= None
 
-				stocks[ticker]['options_ticker']		= None
-				stocks[ticker]['options_usd']			= cur_algo['options_usd']
-				stocks[ticker]['options_qty']			= 0
-				stocks[ticker]['options_orig_base_price']	= 0
-				stocks[ticker]['options_base_price']		= 0
+				stocks[ticker]['options_ticker']			= None
+				stocks[ticker]['options_usd']				= cur_algo['options_usd']
+				stocks[ticker]['options_qty']				= 0
+				stocks[ticker]['options_orig_base_price']		= 0
+				stocks[ticker]['options_base_price']			= 0
 
-				stocks[ticker]['incr_threshold']		= args.incr_threshold
-				stocks[ticker]['orig_incr_threshold']		= args.incr_threshold
-				stocks[ticker]['decr_threshold']		= args.decr_threshold
-				stocks[ticker]['orig_decr_threshold']		= args.decr_threshold
-				stocks[ticker]['exit_percent']			= args.exit_percent
+				stocks[ticker]['incr_threshold']			= args.incr_threshold
+				stocks[ticker]['orig_incr_threshold']			= args.incr_threshold
+				stocks[ticker]['decr_threshold']			= args.decr_threshold
+				stocks[ticker]['orig_decr_threshold']			= args.decr_threshold
+				stocks[ticker]['exit_percent']				= args.exit_percent
 
-				stocks[ticker]['options_incr_threshold']	= args.options_incr_threshold
-				stocks[ticker]['options_decr_threshold']	= args.options_decr_threshold
-				stocks[ticker]['options_exit_percent']		= args.options_exit_percent
+				stocks[ticker]['options_incr_threshold']		= args.options_incr_threshold
+				stocks[ticker]['options_decr_threshold']		= args.options_decr_threshold
+				stocks[ticker]['options_exit_percent']			= args.options_exit_percent
 
-				exit_passthrough				= False
+				stocks[ticker]['ets']['large_tx_signal'][algo_id]	= 0
+
+				exit_passthrough					= False
 
 				reset_signals(ticker)
 				if ( args.short == True ):
@@ -5372,8 +5389,15 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 				if ( cur_algo['vpt'] == True and vpt_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
 
-				if ( (cur_algo['support_resistance'] == True and args.no_use_resistance == False) and resistance_signal != True ):
+				if ( resistance_signal != True ):
 					stocks[ticker]['final_short_signal'] = False
+
+				# check_delayed_tstamp: check to see if we are receiving candle data that is > 1-minute delayed
+				# If so then we should avoid entering a trade until the stream catches up (it usually does eventually)
+				if ( cur_algo['check_delayed_tstamp'] == True ):
+					if ( (time_now_dt - last_cndl_dt).seconds > 60 ):
+						print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to check_delayed_tstamp (' + str(time_now) + ' / ' + str(last_cndl_time) + ')' )
+						stocks[ticker]['final_short_signal'] = False
 
 				if ( min_intra_natr != None and stocks[ticker]['cur_natr'] < min_intra_natr ):
 					stocks[ticker]['final_short_signal'] = False
@@ -5516,13 +5540,14 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 
 				stocks[ticker]['primary_algo']	= cur_algo['algo_id']
 				stocks[ticker]['base_price']	= stocks[ticker]['orig_base_price']
+				stocks[ticker]['entry_time']	= datetime.datetime.now(mytimezone).strftime('%Y-%m-%d %H:%M')
 				net_change			= 0
 				exit_passthrough		= False
 
 				if ( cur_algo['options'] == True ):
-					tda_gobot_helper.log_monitor(stocks[ticker]['options_ticker'], 0, options_last_price, options_net_change, stocks[ticker]['options_base_price'], stocks[ticker]['options_orig_base_price'], stocks[ticker]['options_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=False, sold=False)
+					tda_gobot_helper.log_monitor(stocks[ticker]['options_ticker'], 0, options_last_price, options_net_change, stocks[ticker]['options_base_price'], stocks[ticker]['options_orig_base_price'], stocks[ticker]['options_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=False, sold=False, entry_time=stocks[ticker]['entry_time'])
 				else:
-					tda_gobot_helper.log_monitor(ticker, 0, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=True, sold=False)
+					tda_gobot_helper.log_monitor(ticker, 0, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=True, sold=False, entry_time=stocks[ticker]['entry_time'])
 
 				# Reset and switch all algos to 'buy_to_cover' mode for the next loop
 				reset_signals(ticker, signal_mode='buy_to_cover', exclude_bbands_kchan=True)
@@ -5826,6 +5851,9 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 						print(str(stoploss_ticker) + ' decreased below the decr_threshold (' + str(stocks[ticker]['options_decr_threshold']) + '%), selling option...')
 						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
+						# Reset cumulative_algo_delta bias if we end up stopping out
+						stocks[ticker]['ets']['cumulative_algo_delta'][algo_id] = []
+
 				# When shorting, price going downward is a good thing
 				else:
 					# Re-set the base_price to the last_price if we increase by incr_threshold or more
@@ -5849,14 +5877,14 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 							stocks[ticker]['decr_threshold'] = stocks[ticker]['incr_threshold'] / 2
 
 				if ( cur_algo['options'] == True ):
-					tda_gobot_helper.log_monitor(stoploss_ticker, percent_change, stoploss_last_price, stoploss_net_change, stoploss_base, stoploss_orig_base, stoploss_qty, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=False, sold=False)
+					tda_gobot_helper.log_monitor(stoploss_ticker, percent_change, stoploss_last_price, stoploss_net_change, stoploss_base, stoploss_orig_base, stoploss_qty, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=False, sold=False, entry_time=stocks[ticker]['entry_time'])
 				else:
-					tda_gobot_helper.log_monitor(stoploss_ticker, percent_change, stoploss_last_price, stoploss_net_change, stoploss_base, stoploss_orig_base, stoploss_qty, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=True, sold=False)
+					tda_gobot_helper.log_monitor(stoploss_ticker, percent_change, stoploss_last_price, stoploss_net_change, stoploss_base, stoploss_orig_base, stoploss_qty, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=True, sold=False, entry_time=stocks[ticker]['entry_time'])
 
 			# If price increases
 			elif ( stoploss_last_price > stoploss_base and stocks[ticker]['exit_percent_signal'] == False ):
 				percent_change = abs( stoploss_base / stoploss_last_price - 1 ) * 100
-				print(str(stoploss_ticker) + ': ' + str(round(stoploss_total_percent_change, 2)) + '% $' + str(stoploss_last_price) + ')')
+				print(str(stoploss_ticker) + ': ' + str(round(stoploss_total_percent_change, 2)) + '% ($' + str(stoploss_last_price) + ')')
 				print('Net change (' + str(stoploss_ticker) + '): $' + str(stoploss_net_change))
 
 				# Increasing PUT option value is a good thing
@@ -5871,18 +5899,21 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 						print(str(stoploss_ticker) + ' (' + str(algo_id) + ') SHORT increased above the decr_threshold (' + str(stocks[ticker]['decr_threshold']) + '%), covering shorted stock...')
 						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
+						# Reset cumulative_algo_delta bias if we end up stopping out
+						stocks[ticker]['ets']['cumulative_algo_delta'][algo_id] = []
+
 				if ( cur_algo['options'] == True ):
-					tda_gobot_helper.log_monitor(stoploss_ticker, percent_change, stoploss_last_price, stoploss_net_change, stoploss_base, stoploss_orig_base, stoploss_qty, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=False, sold=False)
+					tda_gobot_helper.log_monitor(stoploss_ticker, percent_change, stoploss_last_price, stoploss_net_change, stoploss_base, stoploss_orig_base, stoploss_qty, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=False, sold=False, entry_time=stocks[ticker]['entry_time'])
 				else:
-					tda_gobot_helper.log_monitor(stoploss_ticker, percent_change, stoploss_last_price, stoploss_net_change, stoploss_base, stoploss_orig_base, stoploss_qty, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=True, sold=False)
+					tda_gobot_helper.log_monitor(stoploss_ticker, percent_change, stoploss_last_price, stoploss_net_change, stoploss_base, stoploss_orig_base, stoploss_qty, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=True, sold=False, entry_time=stocks[ticker]['entry_time'])
 
 			# No price change
 			else:
 				print('Net change (' + str(stoploss_ticker) + '): $' + str(stoploss_net_change) + ' (No Change)')
 				if ( cur_algo['options'] == True ):
-					tda_gobot_helper.log_monitor(stoploss_ticker, percent_change, stoploss_last_price, stoploss_net_change, stoploss_base, stoploss_orig_base, stoploss_qty, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=False)
+					tda_gobot_helper.log_monitor(stoploss_ticker, percent_change, stoploss_last_price, stoploss_net_change, stoploss_base, stoploss_orig_base, stoploss_qty, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=False, entry_time=stocks[ticker]['entry_time'])
 				else:
-					tda_gobot_helper.log_monitor(stoploss_ticker, percent_change, stoploss_last_price, stoploss_net_change, stoploss_base, stoploss_orig_base, stoploss_qty, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=True)
+					tda_gobot_helper.log_monitor(stoploss_ticker, percent_change, stoploss_last_price, stoploss_net_change, stoploss_base, stoploss_orig_base, stoploss_qty, proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=True, entry_time=stocks[ticker]['entry_time'])
 
 			# END STOPLOSS MONITOR
 
@@ -5927,12 +5958,12 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 						if ( (cur_algo['quick_exit'] == True or stocks[ticker]['quick_exit'] == True) ):
 							if ( cur_algo['options'] == True and options_total_percent_change >= cur_algo['quick_exit_percent'] ):
 								print( '(' + str(stoploss_ticker) + '): quick_exit triggered at ' + str(round(options_total_percent_change, 3)) + '% ' +
-									'($' + str(round(stoploss_orig_base, 2)) + '->' + str(round(stoploss_last_price, 2)) + ')' )
+									'($' + str(round(stoploss_orig_base, 2)) + '->$' + str(round(stoploss_last_price, 2)) + ') (' + str(algo_id) + ')' )
 								stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 							elif ( cur_algo['options'] == False and total_percent_change >= cur_algo['quick_exit_percent'] ):
 								print( '(' + str(stoploss_ticker) + '): quick_exit triggered at ' + str(round(total_percent_change, 3)) + '% ' +
-									'($' + str(round(stoploss_orig_base, 2)) + '->' + str(round(stoploss_last_price, 2)) + ')' )
+									'($' + str(round(stoploss_orig_base, 2)) + '->$' + str(round(stoploss_last_price, 2)) + ') (' + str(algo_id) + ')' )
 								stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 				# If exit_percent has been hit, watch the price action and determine when the trend has ended
@@ -6004,17 +6035,16 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 			if ( (cur_algo['quick_exit'] == True or stocks[ticker]['quick_exit'] == True) and
 					stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] == False ):
 
-				print( str(options_total_percent_change) + ' / ' + str(cur_algo['quick_exit_percent']))
 				if ( cur_algo['options'] == True and stoploss_last_price > stoploss_orig_base and
 						options_total_percent_change >= cur_algo['quick_exit_percent'] ):
 					print( '(' + str(stoploss_ticker) + '): quick_exit triggered at ' + str(round(options_total_percent_change, 3)) + '% ' +
-						'($' + str(round(stoploss_orig_base, 2)) + '->' + str(round(stoploss_last_price, 2)) + ')' )
+						'($' + str(round(stoploss_orig_base, 2)) + '->$' + str(round(stoploss_last_price, 2)) + ') (' + str(algo_id) + ')' )
 					stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 				elif ( cur_algo['options'] == False and stoploss_last_price < stoploss_orig_base and
 						total_percent_change >= cur_algo['quick_exit_percent'] ):
 					print( '(' + str(stoploss_ticker) + '): quick_exit triggered at ' + str(round(total_percent_change, 3)) + '% ' +
-						'($' + str(round(stoploss_orig_base, 2)) + '->' + str(round(stoploss_last_price, 2)) + ')' )
+						'($' + str(round(stoploss_orig_base, 2)) + '->$' + str(round(stoploss_last_price, 2)) + ') (' + str(algo_id) + ')' )
 					stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
 			# StochRSI MONITOR
@@ -6107,15 +6137,16 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 					else:
 						data = tda_gobot_helper.buytocover_stock_marketprice(ticker, stocks[ticker]['stock_qty'], fillwait=True, debug=True)
 
+				exit_time = datetime.datetime.now(mytimezone).strftime('%Y-%m-%d %H:%M')
 				if ( cur_algo['options'] == True ):
 					percent_change = abs( stocks[ticker]['options_orig_base_price'] / options_last_price - 1 ) * 100
 					print('Net change (' + str(stocks[ticker]['options_ticker']) + '): $' + str(options_net_change) + ' (' + str(round(percent_change, 2)) + '%)')
-					tda_gobot_helper.log_monitor(stocks[ticker]['options_ticker'], percent_change, options_last_price, options_net_change, stocks[ticker]['options_base_price'], stocks[ticker]['options_orig_base_price'], stocks[ticker]['options_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=False, sold=True)
+					tda_gobot_helper.log_monitor(stocks[ticker]['options_ticker'], percent_change, options_last_price, options_net_change, stocks[ticker]['options_base_price'], stocks[ticker]['options_orig_base_price'], stocks[ticker]['options_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=False, sold=True, entry_time=stocks[ticker]['entry_time'], exit_time=exit_time)
 
 				else:
 					percent_change = abs( stocks[ticker]['options_orig_base_price'] / options_last_price - 1 ) * 100
 					print('Net change (' + str(ticker) + '): $' + str(net_change) + ' (' + str(round(percent_change, 2)) + '%)')
-					tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=True, sold=True)
+					tda_gobot_helper.log_monitor(ticker, percent_change, last_price, net_change, stocks[ticker]['base_price'], stocks[ticker]['orig_base_price'], stocks[ticker]['stock_qty'], proc_id=stocks[ticker]['tx_id'], tx_log_dir=tx_log_dir, short=True, sold=True, entry_time=stocks[ticker]['entry_time'], exit_time=exit_time)
 
 				# Add to blacklist if sold at a loss greater than max_failed_usd, or if we've exceeded failed_txs
 				if ( net_change > 0 ):
@@ -6127,29 +6158,34 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 							tda_gobot_helper.write_blacklist(ticker, stocks[ticker]['stock_qty'], stocks[ticker]['orig_base_price'], last_price, net_change, percent_change)
 
 				# Change signal to 'long' and generate new tx_id for next iteration
-				stocks[ticker]['tx_id']				= random.randint(1000, 9999)
-				stocks[ticker]['stock_usd']			= cur_algo['stock_usd']
-				stocks[ticker]['quick_exit']			= cur_algo['quick_exit']
-				stocks[ticker]['order_id']			= None
-				stocks[ticker]['stock_qty']			= 0
-				stocks[ticker]['base_price']			= 0
-				stocks[ticker]['orig_base_price']		= 0
+				stocks[ticker]['tx_id']					= random.randint(1000, 9999)
+				stocks[ticker]['stock_usd']				= cur_algo['stock_usd']
+				stocks[ticker]['quick_exit']				= cur_algo['quick_exit']
+				stocks[ticker]['order_id']				= None
+				stocks[ticker]['stock_qty']				= 0
+				stocks[ticker]['base_price']				= 0
+				stocks[ticker]['orig_base_price']			= 0
+				stocks[ticker]['entry_time']				= None
 
-				stocks[ticker]['options_ticker']		= None
-				stocks[ticker]['options_usd']			= cur_algo['options_usd']
-				stocks[ticker]['options_qty']			= 0
-				stocks[ticker]['options_orig_base_price']	= 0
-				stocks[ticker]['options_base_price']		= 0
+				stocks[ticker]['options_ticker']			= None
+				stocks[ticker]['options_usd']				= cur_algo['options_usd']
+				stocks[ticker]['options_qty']				= 0
+				stocks[ticker]['options_orig_base_price']		= 0
+				stocks[ticker]['options_base_price']			= 0
 
-				stocks[ticker]['incr_threshold']		= args.incr_threshold
-				stocks[ticker]['orig_incr_threshold']		= args.incr_threshold
-				stocks[ticker]['decr_threshold']		= args.decr_threshold
-				stocks[ticker]['orig_decr_threshold']		= args.decr_threshold
-				stocks[ticker]['exit_percent']			= args.exit_percent
+				stocks[ticker]['incr_threshold']			= args.incr_threshold
+				stocks[ticker]['orig_incr_threshold']			= args.incr_threshold
+				stocks[ticker]['decr_threshold']			= args.decr_threshold
+				stocks[ticker]['orig_decr_threshold']			= args.decr_threshold
+				stocks[ticker]['exit_percent']				= args.exit_percent
 
-				stocks[ticker]['options_incr_threshold']	= args.options_incr_threshold
-				stocks[ticker]['options_decr_threshold']	= args.options_decr_threshold
-				stocks[ticker]['options_exit_percent']		= args.options_exit_percent
+				stocks[ticker]['options_incr_threshold']		= args.options_incr_threshold
+				stocks[ticker]['options_decr_threshold']		= args.options_decr_threshold
+				stocks[ticker]['options_exit_percent']			= args.options_exit_percent
+
+				stocks[ticker]['ets']['large_tx_signal'][algo_id]	= 0
+
+				exit_passthrough					= False
 
 				if ( args.shortonly == True ):
 					reset_signals(ticker, signal_mode='short')

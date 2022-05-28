@@ -485,14 +485,14 @@ def gobot_ets(stream=None, algos=None, debug=False):
 												'price':	last_tx_price,
 												'at_bid':	at_bid,
 												'at_ask':	at_ask } )
+
 			# Large transactions can signal price moves
-			if ( last_tx_size >= cur_algo['time_sales_large_tx_threshold'] ):
+			if ( last_tx_size >= cur_algo['time_sales_large_tx_threshold'] and last_tx_size <= 35000 ):
 				if ( at_bid == 1 and at_ask == 0 ):
 					stocks[ticker]['ets']['large_tx_signal'][algo_id] = -1
 
 				elif ( at_bid == 0 and at_ask == 1 ):
 					stocks[ticker]['ets']['large_tx_signal'][algo_id] = 1
-
 
 	return True
 
@@ -2294,7 +2294,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 
 		# Get the current time vs. the timestamp from the last candle received from the API
 		last_cndl_dt	= datetime.datetime.fromtimestamp(int(stocks[ticker]['pricehistory']['candles'][-1]['datetime'])/1000, tz=mytimezone)
-		last_cndl_time	= cur_dt.strftime('%Y-%m-%d %H:%M:%S.%f')
+		last_cndl_time	= last_cndl_dt.strftime('%Y-%m-%d %H:%M:%S.%f')
 		time_now_dt	= datetime.datetime.now(mytimezone)
 		time_now	= time_now_dt.strftime('%Y-%m-%d %H:%M:%S')
 
@@ -2653,7 +2653,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 
 		# Set price_resistance_pct/price_support_pct dynamically based on price of the stock
 		if ( cur_algo['resist_pct_dynamic'] == True ):
-			cur_algo['price_resistance_pct'] = ( 1 / last_close ) * 100
+			cur_algo['price_resistance_pct'] = ((1 / last_close) * 100) / 2
 			if ( cur_algo['price_resistance_pct'] < 0.2 ):
 				cur_algo['price_resistance_pct'] = 0.2
 

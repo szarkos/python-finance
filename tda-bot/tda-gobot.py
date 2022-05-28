@@ -42,6 +42,8 @@ parser.add_argument("--print_only", help='Print out action and exit', action="st
 parser.add_argument("--tx_log_dir", help='Transaction log directory (default: TX_LOGS-GOBOTv1', default='TX_LOGS-GOBOTv1', type=str)
 parser.add_argument("--listen_cmd", help='Listen for manual input during main loop', action="store_true")
 parser.add_argument("--test_mode", help='Test-only mode', action="store_true")
+parser.add_argument("--monitor_only", help='Disable all exit strategies except for stoploss', action="store_true")
+parser.add_argument("--no_stoploss", help='Disable stoploss exit', action="store_true")
 
 parser.add_argument("--incr_threshold", help="Reset base_price if stock increases by this percent", default=1, type=float)
 parser.add_argument("--decr_threshold", help="Max allowed drop percentage of the stock price", default=1, type=float)
@@ -174,6 +176,7 @@ def check_input():
 
 		global stock_qty
 		global total_stock_qty
+		global base_price
 		global orig_base_price
 		global last_price
 		global decr_percent_threshold
@@ -247,7 +250,8 @@ def check_input():
 				print('Error: last_price ($' + str(round(last_price, 2)) + ') is already below cost basis ($' + str(round(orig_base_price, 2)) + '), ignoring stoploss command')
 
 			else:
-				decr_percent_threshold = abs( ((orig_base_price / last_price) - 1) * 100 )
+				decr_percent_threshold	= abs( ((orig_base_price / last_price) - 1) * 100 )
+				base_price		= orig_base_price
 				print('Setting stoploss to ' + str(round(decr_percent_threshold, 2)) + '%, orig_base_price: $' + str(round(orig_base_price, 2)) + ' / last_price: $' + str(round(last_price, 2)))
 
 		# Modify the decr_percent_threshold (stoploss)
@@ -261,7 +265,16 @@ def check_input():
 			else:
 				decr_percent_threshold	= sl_pct
 				args.decr_threshold	= sl_pct
-				print('Setting stoploss to ' + str(round(decr_percent_threshold, 2)))
+				print('Setting stoploss to ' + str(round(decr_percent_threshold, 2)) + '%')
+
+		# Enable/disable stoploss exit
+		elif ( re.match('dsl', in_cmd) != None ):
+			if ( args.no_stoploss == False ):
+				print('CAUTION: DISABLING STOPLOSS')
+				args.no_stoploss = True
+			else:
+				print('ENABLING STOPLOSS')
+				args.no_stoploss = False
 
 		# Enable quick_exit and set a quick_exit_percent from current last_price
 		elif ( re.match('qe:', in_cmd) != None ):
@@ -277,6 +290,11 @@ def check_input():
 				args.quick_exit_percent	= ((qe_price / orig_base_price) - 1) * 100
 
 				print('SET QUICK EXIT: ' + str(round(args.quick_exit_percent, 2)) + '% ($' + str(round(qe_price, 2)) + ')')
+
+		# Enable/disable --monitor_only
+		elif ( re.match('mon', in_cmd) != None ):
+			args.monitor_only = not args.monitor_only
+			print('SETTING MONITOR_ONLY to ' + str(args.monitor_only))
 
 		# Enable or disable --multiday
 		elif ( re.match('md', in_cmd) != None ):
@@ -394,7 +412,7 @@ def search_options(ticker=None, option_type=None, near_expiration=False, strike_
 	range_val	= 'NTM'
 	strike_price	= None
 	strike_count	= 5
-	if ( strike_price != None ):
+	if ( args.strike_price != None ):
 		range_val	= 'ALL'
 		strike_price	= float( args.strike_price )
 		strike_count	= 999
@@ -720,7 +738,7 @@ while True:
 	# Monitor negative movement in price, unless exit_percent_signal has been triggered
 	#
 	# If price decreases
-	if ( last_price < base_price and exit_percent_signal == False and exit_signal == False ):
+	if ( last_price < base_price and exit_percent_signal == False and exit_signal == False and args.no_stoploss == False ):
 		if ( args.short == True and percent_change >= incr_percent_threshold ):
 			base_price = last_price
 			if ( debug == True ):
@@ -736,8 +754,7 @@ while True:
 			stopout_signal	= True
 
 	# If price increases
-	elif ( last_price > base_price and exit_percent_signal == False and exit_signal == False ):
-
+	elif ( last_price > base_price and exit_percent_signal == False and exit_signal == False and args.no_stoploss == False ):
 		if ( args.short == True and percent_change >= decr_percent_threshold ):
 			# Buy-to-cover the security
 			print('BUY_TO_COVER stock ' + str(stock) + '" - the security moved above the decr_percent_threshold (' + str(decr_percent_threshold) + '%)')
@@ -795,7 +812,7 @@ while True:
 
 
 	# Additional exit strategies
-	if ( args.exit_percent != None and exit_signal == False ):
+	if ( args.exit_percent != None and exit_signal == False and args.monitor_only == False ):
 		if ( exit_percent_signal == False ):
 
 			# LONG or OPTIONS
@@ -943,7 +960,7 @@ while True:
 					stopout_signal	= True
 
 	# Handle quick_exit and quick_exit_percent
-	if ( args.quick_exit == True and exit_signal == False ):
+	if ( args.quick_exit == True and exit_signal == False and args.monitor_only == False ):
 		if ( total_percent_change >= args.quick_exit_percent ):
 			exit_signal	= True
 			stopout_signal	= True

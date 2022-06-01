@@ -418,9 +418,10 @@ def gobot_ets(stream=None, algos=None, debug=False):
 		#  price, I suppose to make the tx appear that it occurred just within the bid/ask
 		#  zone. So check this so we can be sure include those as at_bid or at_ask instead
 		#  of neutral.
+		last_dt		= int( idx['TRADE_TIME'] )
+		dt_obj		= datetime.datetime.fromtimestamp(last_dt/1000, tz=mytimezone)
 		last_tx_price	= float( idx['LAST_PRICE'] )
 		last_tx_size	= float( idx['LAST_SIZE'] ) # tulipy expects float type
-		last_dt		= int( idx['TRADE_TIME'] )
 		cur_bid_price	= stocks[ticker]['level2']['cur_bid']['bid_price']
 		cur_ask_price	= stocks[ticker]['level2']['cur_ask']['ask_price']
 
@@ -451,6 +452,14 @@ def gobot_ets(stream=None, algos=None, debug=False):
 			if ( cur_algo['time_sales_algo'] == False ):
 				continue
 
+			# Skip premarket data as things can change very quickly after-open
+			if ( tda_gobot_helper.ismarketopen_US(dt_obj, safe_open=False) == False ):
+				continue
+
+			# Skip the first five-minutes to let on-open trades to settle
+			elif ( int(dt_obj.strftime('%-H')) == 9 and int(dt_obj.strftime('%-M')) <= 35 ):
+				continue
+
 			algo_id = cur_algo['algo_id']
 
 			# Large size txs are larger institutions buying/selling.
@@ -463,6 +472,7 @@ def gobot_ets(stream=None, algos=None, debug=False):
 				# Large neutral trades typically happen at absorption areas
 				# Add these as resistance lines as we find them.
 				if ( at_bid == 0 and at_ask == 0 ):
+					print( '(' + str(ticker) + ') (' + str(algo_id) + ') Time-Sales KeyLevel Added: ' + str(round(last_tx_price, 2)) + ', TX Size: ' + str(int(last_tx_size)) + "\n" )
 					stocks[ticker]['ets']['keylevels'][algo_id].append( (last_tx_price, last_dt, 999) )
 
 			if ( re.search('.*00$', str(int(last_tx_size))) != None and
@@ -487,7 +497,7 @@ def gobot_ets(stream=None, algos=None, debug=False):
 												'at_ask':	at_ask } )
 
 			# Large transactions can signal price moves
-			if ( last_tx_size >= cur_algo['time_sales_large_tx_threshold'] and last_tx_size <= 35000 ):
+			if ( last_tx_size >= cur_algo['time_sales_large_tx_threshold'] and last_tx_size <= cur_algo['time_sales_large_tx_max'] ):
 				if ( at_bid == 1 and at_ask == 0 ):
 					stocks[ticker]['ets']['large_tx_signal'][algo_id] = -1
 
@@ -3069,7 +3079,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 				if ( stocks[ticker]['ets']['large_tx_signal'][algo_id] == 1 and cur_cumulative_algo_delta > 0 ):
 					stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = True
 
-				elif ( stocks[ticker]['ets']['large_tx_signal'][algo_id] <= 0 or cur_cumulative_algo_delta < 0 ):
+				elif ( stocks[ticker]['ets']['large_tx_signal'][algo_id] <= 0 or cur_cumulative_algo_delta <= 0 ):
 					stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = False
 
 			# MESA Adaptive Moving Average
@@ -3360,9 +3370,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 					# If average was above PDC then PDC is support
 					if ( avg < stocks[ticker]['previous_day_close'] ):
 						if ( debug == True ):
-							print( '(' + str(ticker) + ') BUY SIGNAL stalled due to PDC resistance - PDC: ' + str(round(stocks[ticker]['previous_day_close'], 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
-							print()
-
+							print( '(' + str(ticker) + ') BUY SIGNAL stalled due to PDC resistance - PDC: ' + str(round(stocks[ticker]['previous_day_close'], 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) + "\n" )
 						stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 			# NATR resistance
@@ -3402,9 +3410,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 					# If average was above VWAP then VWAP is support
 					if ( avg < cur_vwap ):
 						if ( debug == True ):
-							print( '(' + str(ticker) + ') BUY SIGNAL stalled due to VWAP resistance - Current VWAP: ' + str(round(cur_vwap, 3)) + ' / 15-min Avg: ' + str(round(avg, 3)) )
-							print()
-
+							print( '(' + str(ticker) + ') BUY SIGNAL stalled due to VWAP resistance - Current VWAP: ' + str(round(cur_vwap, 3)) + ' / 15-min Avg: ' + str(round(avg, 3)) + "\n" )
 						stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 			# High of the day (HOD)
@@ -3450,9 +3456,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 					avg = avg / 15
 
 					if ( avg < stocks[ticker]['previous_day_high'] and abs((last_close / stocks[ticker]['previous_day_high'] - 1) * 100) <= cur_algo['price_resistance_pct'] ):
-						print( '(' + str(ticker) + ') BUY SIGNAL stalled due to PDL resistance - Current Price: ' + str(round(last_close, 3)) + ' / 15-min Avg: ' + str(round(avg, 3)) )
-						print()
-
+						print( '(' + str(ticker) + ') BUY SIGNAL stalled due to PDL resistance - Current Price: ' + str(round(last_close, 3)) + ' / 15-min Avg: ' + str(round(avg, 3)) + "\n" )
 						stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# If stock has been sinking for a couple days, then oftentimes the 2-day previous day high will be long resistance,
@@ -3495,9 +3499,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 
 						if ( pdh2_touch > 0 and pdh2_xover < 1 ):
 							if ( debug == True ):
-								print( '(' + str(ticker) + ') BUY SIGNAL stalled due to PDH2 resistance' )
-								print()
-
+								print( '(' + str(ticker) + ') BUY SIGNAL stalled due to PDH2 resistance' + "\n" )
 							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 			# END HOD/LOD/PDH/PDL Check
@@ -3536,11 +3538,10 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 						avg = avg / 15
 
 						# If average was below key level then key level is resistance
-						if ( avg < lvl or abs((avg / lvl - 1) * 100) <= cur_algo['price_resistance_pct'] / 3 ):
+						#if ( avg < lvl or abs((avg / lvl - 1) * 100) <= cur_algo['price_resistance_pct'] / 3 ):
+						if ( avg < lvl ):
 							if ( debug == True ):
-								print( '(' + str(ticker) + ') BUY SIGNAL stalled due to Key Level resistance - KL: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
-								print()
-
+								print( '(' + str(ticker) + ') BUY SIGNAL stalled due to Key Level resistance - KL: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) + "\n" )
 							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 							break
 
@@ -3548,10 +3549,9 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 				# Otherwise reject this buy to avoid getting chopped around between levels
 				if ( cur_algo['keylevel_strict'] == True and near_keylevel == False ):
 					if ( debug == True ):
-						print( '(' + str(ticker) + ') BUY SIGNAL stalled due to keylevel_strict - Current price: ' + str(round(last_close, 2)) )
-						print()
-
+						print( '(' + str(ticker) + ') BUY SIGNAL stalled due to keylevel_strict - Current price: ' + str(round(last_close, 2)) + "\n" )
 					stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
+
 			# End Key Levels
 
 			# Volume Profile (VAH/VAL)
@@ -3582,9 +3582,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 						# If average was below key level then key level is resistance
 						if ( avg < lvl ):
 							if ( debug == True ):
-								print( '(' + str(ticker) + ') BUY SIGNAL stalled due to VAH/VAL resistance: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
-								print()
-
+								print( '(' + str(ticker) + ') BUY SIGNAL stalled due to VAH/VAL resistance: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) + "\n" )
 							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 							break
 
@@ -3772,11 +3770,11 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 					stocks[ticker]['options_decr_threshold']	= cur_algo['options_decr_threshold']
 					options_net_change				= 0
 
-					# When working in scalp mode, immediately place a LIMIT order that will hopefully be filled later
-					if ( cur_algo['scalp_mode'] == True and args.fake == False ):
-						scalp_price	= stocks[ticker]['options_orig_base_price'] * ( cur_algo['scalp_mode_pct'] / 100 + 1 )
-						scalp_price	= round( scalp_price, 2 )
-						order_id	= tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], limit_price=scalp_price, instruction='sell_to_close', fillwait=False, account_number=tda_account_number, debug=debug)
+					# When qe_use_limit_exit is True, immediately place a LIMIT order that will hopefully be filled later
+					if ( args.fake == False and cur_algo['quick_exit'] == True and cur_algo['qe_use_limit_exit'] == True ):
+						limit_price	= stocks[ticker]['options_orig_base_price'] * ( cur_algo['quick_exit_percent'] / 100 + 1 )
+						limit_price	= round( limit_price, 2 )
+						order_id	= tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], limit_price=limit_price, instruction='sell_to_close', fillwait=False, account_number=tda_account_number, debug=debug)
 						if ( isinstance(order_id, bool) and order_id == False ):
 							print('Error: Unable to create limit order for "' + str(stocks[ticker]['options_ticker']) + '"', file=sys.stderr)
 
@@ -3785,7 +3783,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 							stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 							continue
 
-						print( 'Successfully placed limit order for ' + str(stocks[ticker]['options_ticker']) + ' at ' + str(scalp_price) )
+						print( 'Successfully placed limit order for ' + str(stocks[ticker]['options_ticker']) + ' at ' + str(limit_price) )
 						stocks[ticker]['order_id'] = order_id
 
 				# PURCHASE EQUITY
@@ -4329,10 +4327,10 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 						stocks[ticker]['algo_signals'][algo_id]['sell_signal'] = True
 
-			# When in scalp mode, check to see if previous LIMIT order has been set
+			# When qe_use_limit_exit is True, check to see if previous LIMIT order has been set
 			exit_passthrough = False
-			if ( cur_algo['scalp_mode'] == True and stocks[ticker]['order_id'] != None and args.fake == False and
-					(caller_id != None and caller_id == 'chart_equity') and
+			if ( args.fake == False and cur_algo['quick_exit'] == True and cur_algo['qe_use_limit_exit'] == True and
+					stocks[ticker]['order_id'] != None and (caller_id != None and caller_id == 'chart_equity') and
 					stocks[ticker]['algo_signals'][algo_id]['sell_signal'] == False ):
 
 				# Look up order_id status to see if stock had already hit the stop limit
@@ -4369,7 +4367,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 
 					# OPTIONS
 					if ( cur_algo['options'] == True ):
-						if ( cur_algo['scalp_mode'] == True and stocks[ticker]['order_id'] != None ):
+						if ( (cur_algo['quick_exit'] == True and cur_algo['qe_use_limit_exit'] == True) and stocks[ticker]['order_id'] != None ):
 
 							# Look up order_id status to see if stock had already hit the stop limit
 							order_data = tda_gobot_helper.get_order(order_id=stocks[ticker]['order_id'], account_number=tda_account_number, passcode=passcode)
@@ -4769,7 +4767,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 				if ( stocks[ticker]['ets']['large_tx_signal'][algo_id] == -1 and cur_cumulative_algo_delta < 0 ):
 					stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = True
 
-				elif ( stocks[ticker]['ets']['large_tx_signal'][algo_id] >= 0 or cur_cumulative_algo_delta > 0 ):
+				elif ( stocks[ticker]['ets']['large_tx_signal'][algo_id] >= 0 or cur_cumulative_algo_delta >= 0 ):
 					stocks[ticker]['algo_signals'][algo_id]['ts_monitor_signal'] = False
 
 			# MESA Adaptive Moving Average
@@ -5060,9 +5058,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 						# If average was above PDC then PDC is support (bad for short)
 						if ( avg > stocks[ticker]['previous_day_close'] ):
 							if ( debug == True ):
-								print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to PDC resistance - PDC: ' + str(round(stocks[ticker]['previous_day_close'], 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
-								print()
-
+								print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to PDC resistance - PDC: ' + str(round(stocks[ticker]['previous_day_close'], 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) + "\n" )
 							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 			# NATR resistance
@@ -5102,9 +5098,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 					# If average was above VWAP then VWAP is support (bad for short)
 					if ( avg > cur_vwap ):
 						if ( debug == True ):
-							print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to VWAP resistance - Current VWAP: ' + str(round(cur_vwap, 3)) + ' / 15-min Avg: ' + str(round(avg, 3)) )
-							print()
-
+							print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to VWAP resistance - Current VWAP: ' + str(round(cur_vwap, 3)) + ' / 15-min Avg: ' + str(round(avg, 3)) + "\n" )
 						stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 			# Low of the day (LOD)
@@ -5150,9 +5144,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 					avg = avg / 15
 
 					if ( avg > stocks[ticker]['previous_day_low'] and abs((last_close / stocks[ticker]['previous_day_low'] - 1) * 100) <= cur_algo['price_resistance_pct'] ):
-						print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to PDL resistance - Current Price: ' + str(round(last_close, 3)) + ' / 15-min Avg: ' + str(round(avg, 3)) )
-						print()
-
+						print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to PDL resistance - Current Price: ' + str(round(last_close, 3)) + ' / 15-min Avg: ' + str(round(avg, 3)) + "\n" )
 						stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 				# If stock has been rising for a couple days, then oftentimes the 2-day previous day low will be short resistance,
@@ -5195,9 +5187,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 
 						if ( pdl2_touch > 0 and pdl2_xover < 1 ):
 							if ( debug == True ):
-								print( '(' + str(ticker) + ') BUY SIGNAL stalled due to PDH2 resistance' )
-								print()
-
+								print( '(' + str(ticker) + ') BUY SIGNAL stalled due to PDH2 resistance' + "\n" )
 							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 
 			# END HOD/LOD/PDH/PDL Check
@@ -5236,11 +5226,10 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 						avg = avg / 15
 
 						# If average was above key level then key level is support
-						if ( avg > lvl or abs((avg / lvl - 1) * 100) <= cur_algo['price_resistance_pct'] / 3 ):
+						#if ( avg > lvl or abs((avg / lvl - 1) * 100) <= cur_algo['price_resistance_pct'] / 3 ):
+						if ( avg > lvl ):
 							if ( debug == True ):
-								print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to Key Level resistance - KL: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
-								print()
-
+								print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to Key Level resistance - KL: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) + "\n" )
 							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 							break
 
@@ -5248,8 +5237,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 				# Otherwise reject this short altogether to avoid getting chopped around between levels
 				if ( cur_algo['keylevel_strict'] == True and near_keylevel == False ):
 					if ( debug == True ):
-						print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to keylevel_strict - Current price: ' + str(round(last_close, 2)) )
-						print()
+						print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to keylevel_strict - Current price: ' + str(round(last_close, 2)) + "\n" )
 
 					stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 			# End Key Levels
@@ -5282,9 +5270,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 						# If average was above key level then key level is support
 						if ( avg > lvl ):
 							if ( debug == True ):
-								print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to VAH/VAL resistance: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) )
-								print()
-
+								print( '(' + str(ticker) + ') SHORT SIGNAL stalled due to VAH/VAL resistance: ' + str(round(lvl, 2)) + ' / 15-min Avg: ' + str(round(avg, 2)) + "\n" )
 							stocks[ticker]['algo_signals'][algo_id]['resistance_signal'] = False
 							break
 
@@ -5472,11 +5458,11 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 					stocks[ticker]['options_decr_threshold']	= cur_algo['options_decr_threshold']
 					options_net_change				= 0
 
-					# When working in scalp mode, immediately place a LIMIT order that will hopefully be filled later
-					if ( cur_algo['scalp_mode'] == True and args.fake == False ):
-						scalp_price	= stocks[ticker]['options_orig_base_price'] * ( cur_algo['scalp_mode_pct'] / 100 + 1 )
-						scalp_price	= round( scalp_price, 2 )
-						order_id	= tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], limit_price=scalp_price, instruction='sell_to_close', fillwait=False, account_number=tda_account_number, debug=debug)
+					# When qe_use_limit_exit is True, immediately place a LIMIT order that will hopefully be filled later
+					if ( args.fake == False and cur_algo['quick_exit'] == True and cur_algo['qe_use_limit_exit'] == True ):
+						limit_price	= stocks[ticker]['options_orig_base_price'] * ( cur_algo['quick_exit_percent'] / 100 + 1 )
+						limit_price	= round( limit_price, 2 )
+						order_id	= tda_gobot_helper.buy_sell_option(contract=stocks[ticker]['options_ticker'], quantity=stocks[ticker]['options_qty'], limit_price=limit_price, instruction='sell_to_close', fillwait=False, account_number=tda_account_number, debug=debug)
 						if ( isinstance(order_id, bool) and order_id == False ):
 							print('Error: Unable to create limit order for "' + str(stocks[ticker]['options_ticker']) + '"', file=sys.stderr)
 
@@ -5485,7 +5471,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 							stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 							continue
 
-						print( 'Successfully placed limit order for ' + str(stocks[ticker]['options_ticker']) + ' at $' + str(scalp_price) )
+						print( 'Successfully placed limit order for ' + str(stocks[ticker]['options_ticker']) + ' at $' + str(limit_price) )
 						stocks[ticker]['order_id'] = order_id
 
 				# PURCHASE EQUITY
@@ -6069,10 +6055,10 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 							str(round(prev_rsi_k, 2)) + ' / ' + str(round(cur_rsi_k, 2)) + ' / ' + str(round(prev_rsi_d, 2)) + ' / ' + str(round(cur_rsi_d, 2)) + ')' )
 						stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] = True
 
-			# When in scalp mode, check to see if previous LIMIT order has been set
+			# When qe_use_limit_exit is True, check to see if previous LIMIT order has been set
 			exit_passthrough = True
-			if ( cur_algo['scalp_mode'] == True and stocks[ticker]['order_id'] != None and args.fake == False and
-					(caller_id != None and caller_id == 'chart_equity') and
+			if ( args.fake == False and cur_algo['quick_exit'] == True and cur_algo['qe_use_limit_exit'] == True and
+					stocks[ticker]['order_id'] != None and (caller_id != None and caller_id == 'chart_equity') and
 					stocks[ticker]['algo_signals'][algo_id]['buy_to_cover_signal'] == False ):
 
 				# Look up order_id status to see if stock had already hit the stop limit
@@ -6109,7 +6095,7 @@ def gobot( cur_algo=None, caller_id=None, debug=False ):
 
 					# OPTIONS
 					if ( cur_algo['options'] == True ):
-						if ( cur_algo['scalp_mode'] == True and stocks[ticker]['order_id'] != None ):
+						if ( cur_algo['quick_exit'] == True and cur_algo['qe_use_limit_exit'] == True and stocks[ticker]['order_id'] != None ):
 
 							# Look up order_id status to see if stock had already hit the stop limit
 							order_data = tda_gobot_helper.get_order(order_id=stocks[ticker]['order_id'], account_number=tda_account_number, passcode=passcode)

@@ -82,8 +82,7 @@ parser.add_argument("--quick_exit_percent", help='Exit immediately if --quick_ex
 parser.add_argument("--trend_quick_exit", help='Enable quick exit when entering counter-trend moves', action="store_true")
 parser.add_argument("--qe_stacked_ma_periods", help='Moving average periods to use with --trend_quick_exit (Default: )', default='34,55,89', type=str)
 parser.add_argument("--qe_stacked_ma_type", help='Moving average type to use when calculating trend_quick_exit stacked_ma (Default: vidya)', default='vidya', type=str)
-parser.add_argument("--scalp_mode", help='Enable scalp mode', action="store_true")
-parser.add_argument("--scalp_mode_pct", help='Required percent increase in value before exiting trade', default=2, type=float)
+parser.add_argument("--qe_use_limit_exit", help='Instead of monitoring price manually, set limit order at quick_exit_percent immediately after purchasing the option (options only for now). --quick_exit must also be True.', action="store_true")
 
 parser.add_argument("--use_ha_exit", help='Use Heikin Ashi candles with exit_percent-based exit strategy', action="store_true")
 parser.add_argument("--use_ha_candles", help='Use Heikin Ashi candles with stacked MA indicators', action="store_true")
@@ -213,11 +212,12 @@ parser.add_argument("--time_sales_use_keylevel", help='Add key levels at major a
 parser.add_argument("--time_sales_size_threshold", help='Trade size threshold for use with time and sales monitor', default=3000, type=int)
 parser.add_argument("--time_sales_size_max", help='Maximum trade size (beyond time_sales_size_threshold) to consider for inclusing in time and sales monitor algo', default=8000, type=int)
 parser.add_argument("--time_sales_large_tx_threshold", help='Trade size threshold for use with time and sales monitor', default=10000, type=int)
+parser.add_argument("--time_sales_large_tx_max", help='Max trade size threshold for use with time and sales monitor', default=35000, type=int)
 parser.add_argument("--time_sales_large_signal_count", help='Expiration time in minutes for a large_tx_threshold signal', default=15, type=int)
 parser.add_argument("--time_sales_ma_period", help='Moving average period to use with the time_sales_algo (Default: 8)', default=8, type=int)
 parser.add_argument("--time_sales_ma_type", help='Moving average type to use with the time_sales_algo (Default: wma)', default='wma', type=str)
 parser.add_argument("--time_sales_kl_size_threshold", help='Trade size threshold for use with time and sales monitor', default=7500, type=int)
-parser.add_argument("--time_sales_kl_size_max", help='Trade size threshold for use with time and sales monitor', default=10000, type=int)
+parser.add_argument("--time_sales_kl_size_max", help='Max trade size threshold for use with time and sales monitor', default=12000, type=int)
 
 parser.add_argument("--daily_ifile", help='Use pickle file for daily pricehistory data rather than accessing the API', default=None, type=str)
 parser.add_argument("--weekly_ifile", help='Use pickle file for weekly pricehistory data rather than accessing the API', default=None, type=str)
@@ -383,7 +383,7 @@ for algo in args.algos:
 	rsi = mfi = adx = dmi = dmi_simple = macd = macd_simple = aroonosc = False
 	chop_index = chop_simple = supertrend = bbands_kchannel = False
 	vwap = vpt = support_resistance = False
-	trin = tick = roc = sp_monitor = False
+	trin = tick = roc = sp_monitor = time_sales_algo = False
 
 	# Per-algo entry limit
 	stock_usd			= args.stock_usd
@@ -405,8 +405,7 @@ for algo in args.algos:
 	trend_quick_exit		= args.trend_quick_exit
 	qe_stacked_ma_periods		= args.qe_stacked_ma_periods
 	qe_stacked_ma_type		= args.qe_stacked_ma_type
-	scalp_mode			= args.scalp_mode
-	scalp_mode_pct			= args.scalp_mode_pct
+	qe_use_limit_exit		= args.qe_use_limit_exit
 
 	# Indicator modifiers
 	rsi_high_limit			= args.rsi_high_limit
@@ -500,11 +499,11 @@ for algo in args.algos:
 	sp_monitor_trix_ma_period	= args.sp_monitor_trix_ma_period
 	sp_monitor_strict		= args.sp_monitor_strict
 
-	time_sales_algo			= args.time_sales_algo
 	time_sales_use_keylevel		= args.time_sales_use_keylevel
 	time_sales_size_threshold	= args.time_sales_size_threshold
 	time_sales_size_max		= args.time_sales_size_max
 	time_sales_large_tx_threshold	= args.time_sales_large_tx_threshold
+	time_sales_large_tx_max		= args.time_sales_large_tx_max
 	time_sales_large_signal_count	= args.time_sales_large_signal_count
 	time_sales_ma_period		= args.time_sales_ma_period
 	time_sales_ma_type		= args.time_sales_ma_type
@@ -578,10 +577,11 @@ for algo in args.algos:
 		if ( a == 'primary_mesa_sine' ):	primary_mesa_sine	= True
 		if ( a == 'primary_trin' ):		primary_trin		= True
 		if ( a == 'primary_sp_monitor' ):	primary_sp_monitor	= True
-		if ( a == 'trin'):			trin			= True
-		if ( a == 'tick'):			tick			= True
-		if ( a == 'roc'):			roc			= True
-		if ( a == 'sp_monitor'):		sp_monitor		= True
+		if ( a == 'trin' ):			trin			= True
+		if ( a == 'tick' ):			tick			= True
+		if ( a == 'roc' ):			roc			= True
+		if ( a == 'sp_monitor' ):		sp_monitor		= True
+		if ( a == 'time_sales_algo' ):		time_sales_algo		= True
 		if ( a == 'stacked_ma' ):		stacked_ma		= True
 		if ( a == 'stacked_ma_secondary' ):	stacked_ma_secondary	= True
 		if ( a == 'mama_fama' ):		mama_fama		= True
@@ -626,8 +626,7 @@ for algo in args.algos:
 		if ( re.match('trend_quick_exit', a)			!= None ):	trend_quick_exit		= True
 		if ( re.match('qe_stacked_ma_periods:', a)		!= None ):	qe_stacked_ma_periods		= str( a.split(':')[1] )
 		if ( re.match('qe_stacked_ma_type:', a)			!= None ):	qe_stacked_ma_type		= str( a.split(':')[1] )
-		if ( re.match('scalp_mode', a)				!= None ):	scalp_mode			= True
-		if ( re.match('scalp_mode_pct:', a)			!= None ):	scalp_mode_pct			= float( a.split(':')[1] )
+		if ( re.match('qe_use_limit_exit', a)			!= None ):	qe_use_limit_exit		= True
 
 		# Options
 		if ( re.match('options', a)				!= None ):	options				= True
@@ -758,11 +757,11 @@ for algo in args.algos:
 		if ( re.match('sp_monitor_trix_ma_period:', a)		!= None ):	sp_monitor_trix_ma_period	= int( a.split(':')[1] )
 		if ( re.match('sp_monitor_strict', a)			!= None ):	sp_monitor_strict		= True
 
-		if ( re.match('time_sales_algo', a)			!= None ):	time_sales_algo			= True
 		if ( re.match('time_sales_use_keylevel', a)		!= None ):	time_sales_use_keylevel		= True
 		if ( re.match('time_sales_size_threshold:', a)		!= None ):	time_sales_size_threshold	= int( a.split(':')[1] )
 		if ( re.match('time_sales_size_max:', a)		!= None ):	time_sales_size_max		= int( a.split(':')[1] )
 		if ( re.match('time_sales_large_tx_threshold:', a)	!= None ):	time_sales_large_tx_threshold	= int( a.split(':')[1] )
+		if ( re.match('time_sales_large_tx_max:', a)		!= None ):	time_sales_large_tx_max		= int( a.split(':')[1] )
 		if ( re.match('time_sales_large_signal_count:', a)	!= None ):	time_sales_large_signal_count	= int( a.split(':')[1] )
 		if ( re.match('time_sales_ma_period:', a)		!= None ):	time_sales_ma_period		= int( a.split(':')[1] )
 		if ( re.match('time_sales_ma_type:', a)			!= None ):	time_sales_ma_type		= str( a.split(':')[1] )
@@ -834,11 +833,6 @@ for algo in args.algos:
 	elif ( options == True and (quick_exit_percent == None and args.options_exit_percent != None) ):
 		quick_exit_percent = args.options_exit_percent
 
-	# If using scalpe_mode, enable quick_exit and set quick_exit_percent to scalp_mode_pct
-	if ( scalp_mode == True ):
-		quick_exit		= True
-		quick_exit_percent	= scalp_mode_pct
-
 	if ( ph_only == True ):
 		safe_open = False
 
@@ -857,8 +851,7 @@ for algo in args.algos:
 			'trend_quick_exit':			trend_quick_exit,
 			'qe_stacked_ma_periods':		qe_stacked_ma_periods,
 			'qe_stacked_ma_type':			qe_stacked_ma_type,
-			'scalp_mode':				scalp_mode,
-			'scalp_mode_pct':			scalp_mode_pct,
+			'qe_use_limit_exit':			qe_use_limit_exit,
 
 			'options':				options,
 			'options_usd':				options_usd,
@@ -879,6 +872,7 @@ for algo in args.algos:
 			'tick':					tick,
 			'roc':					roc,
 			'sp_monitor':				sp_monitor,
+			'time_sales_algo':			time_sales_algo,
 
 			'stacked_ma':				stacked_ma,
 			'stacked_ma_secondary':			stacked_ma_secondary,
@@ -1030,11 +1024,11 @@ for algo in args.algos:
 			'sp_monitor_trix_ma_period':		sp_monitor_trix_ma_period,
 			'sp_monitor_strict':			sp_monitor_strict,
 
-			'time_sales_algo':			time_sales_algo,
 			'time_sales_use_keylevel':		time_sales_use_keylevel,
 			'time_sales_size_threshold':		time_sales_size_threshold,
 			'time_sales_size_max':			time_sales_size_max,
 			'time_sales_large_tx_threshold':	time_sales_large_tx_threshold,
+			'time_sales_large_tx_max':		time_sales_large_tx_max,
 			'time_sales_large_signal_count':	time_sales_large_signal_count,
 			'time_sales_kl_size_threshold':		time_sales_kl_size_threshold,
 			'time_sales_kl_size_max':		time_sales_kl_size_max,
@@ -1059,7 +1053,7 @@ for algo in args.algos:
 
 # Clean up this mess
 # All the stuff above should be put into a function to avoid this cleanup stuff. I know it. It'll happen eventually.
-del(stock_usd,quick_exit,quick_exit_percent,trend_quick_exit,qe_stacked_ma_periods,qe_stacked_ma_type,scalp_mode,scalp_mode_pct,ph_only,last_hour_block,last_hour_threshold,check_delayed_tstamp)
+del(stock_usd,quick_exit,quick_exit_percent,trend_quick_exit,qe_stacked_ma_periods,qe_stacked_ma_type,qe_use_limit_exit,ph_only,last_hour_block,last_hour_threshold,check_delayed_tstamp)
 del(primary_stochrsi,primary_stochmfi,primary_stacked_ma,primary_mama_fama,primary_mesa_sine,primary_trin,primary_sp_monitor)
 del(stacked_ma,stacked_ma_secondary,mama_fama,stochrsi_5m,stochmfi,stochmfi_5m)
 del(rsi,mfi,adx,dmi,dmi_simple,macd,macd_simple,aroonosc,chop_index,chop_simple,supertrend,bbands_kchannel,vwap,vpt)
@@ -1078,7 +1072,8 @@ del(check_etf_indicators,check_etf_indicators_strict,etf_tickers,etf_roc_period,
 del(trin,tick,roc,sp_monitor,trin_roc_type,trin_roc_period,trin_ma_type,trin_ma_period,trin_oversold,trin_overbought,tick_threshold,tick_ma_type,tick_ma_period)
 del(roc_type,roc_period,roc_ma_type,roc_ma_period,roc_threshold,roc_exit)
 del(sp_monitor_tickers,sp_monitor_threshold,sp_roc_type,sp_roc_period,sp_ma_period,sp_monitor_stacked_ma_type,sp_monitor_stacked_ma_periods,sp_monitor_use_trix,sp_monitor_trix_ma_type,sp_monitor_trix_ma_period,sp_monitor_strict)
-del(time_sales_algo,time_sales_use_keylevel,time_sales_size_threshold,time_sales_kl_size_threshold,time_sales_kl_size_max,time_sales_size_max,time_sales_ma_period,time_sales_ma_type,time_sales_large_tx_threshold,time_sales_large_signal_count)
+del(time_sales_algo,time_sales_use_keylevel,time_sales_size_threshold,time_sales_kl_size_threshold,time_sales_kl_size_max,time_sales_size_max,time_sales_ma_period,time_sales_ma_type)
+del(time_sales_large_tx_threshold,time_sales_large_tx_max,time_sales_large_signal_count)
 del(options,options_usd,near_expiration,otm_level,start_day_offset,options_decr_threshold)
 
 # Set valid tickers for each algo, if configured

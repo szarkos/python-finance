@@ -113,9 +113,11 @@ parser.add_argument("--time_sales_ifile", help='Input file for time and sales mo
 parser.add_argument("--time_sales_size_threshold", help='Trade size threshold for use with time and sales monitor', default=3000, type=int)
 parser.add_argument("--time_sales_size_max", help='Maximum trade size (beyond time_sales_size_threshold) to consider for inclusing in time and sales monitor algo', default=8000, type=int)
 parser.add_argument("--time_sales_large_tx_threshold", help='Trade size threshold for use with time and sales monitor', default=10000, type=int)
+parser.add_argument("--time_sales_large_tx_max", help='Max trade size threshold for use with time and sales monitor', default=35000, type=int)
 parser.add_argument("--time_sales_ma_period", help='Moving average period to use with the time_sales_algo (Default: 8)', default=8, type=int)
 parser.add_argument("--time_sales_ma_type", help='Moving average type to use with the time_sales_algo (Default: wma)', default='wma', type=str)
 parser.add_argument("--time_sales_kl_size_threshold", help='Trade size threshold for use with time and sales monitor', default=7500, type=int)
+parser.add_argument("--time_sales_kl_size_max", help='Max trade size threshold for use with time and sales monitor', default=12000, type=int)
 
 parser.add_argument("--with_vix", help='Use the VIX volatility index ticker as an indicator', action="store_true")
 parser.add_argument("--vix_stacked_ma_periods", help='Moving average periods to use when calculating VIX stacked MA (Default: 5,8,13)', default='5,8,13', type=str)
@@ -1267,7 +1269,9 @@ for algo in args.algo.split(','):
 					'time_sales_size_threshold':		args.time_sales_size_threshold,
 					'time_sales_size_max':			args.time_sales_size_max,
 					'time_sales_kl_size_threshold':		args.time_sales_kl_size_threshold,
+					'time_sales_kl_size_max':		args.time_sales_kl_size_max,
 					'time_sales_large_tx_threshold':	args.time_sales_large_tx_threshold,
+					'time_sales_large_tx_max':		args.time_sales_large_tx_max,
 					'time_sales_ma_period':			args.time_sales_ma_period,
 					'time_sales_ma_type':			args.time_sales_ma_type,
 					'ts_data':				ts_data,

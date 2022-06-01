@@ -24,32 +24,44 @@ if [ "$command" != "force" ]; then
 	done
 fi
 
+# SP Monitor tickers and weights
+SPMON_SPY='AAPL:6.57+MSFT:5.74+AMZN:2.82+GOOGL:2.03+GOOG:1.88+TSLA:1.79+BRK.B:1.69+JNJ:1.39+UNH:1.34+FB:1.34+NVDA:1.27+XOM:1.16+JPM:1.07+PG:1.05+V:1+CVX:0.98+HD:0.90+MA:0.87+PFE:0.85+ABBV:0.81'
+SPMON_QQQ='AAPL:12.359+MSFT:10.422+AMZN:6.027+GOOG:3.798+TSLA:3.777+FB:3.683+GOOGL:3.606+NVDA:3.233+PEP:2.049+AVGO:2.032+CMCSA:1.735+ADBE:1.721+COST:1.686+CSCO:1.629+INTC:1.549+TMUS:1.438+TXN:1.432+AMD:1.39+QCOM:1.354+AMGN:1.259'
+
 # The list of tickers is contained in the $CUR_SET variable in tickers.conf
 mkdir ./logs 2>/dev/null
 source ./stock-analyze/tickers.conf
 tickers=$CUR_SET
 tickers="SPY,QQQ,TQQQ"
 
-nohup ./tda-gobot-v2.py --stoploss --stocks=${tickers} --short --singleday \
-	--singleday --unsafe --last_hour_block=15 --fake \
+nohup ./tda-gobot-v2.py --stoploss --stocks=${tickers} --short --multiday \
+	--singleday --unsafe --last_hour_block=30 --fake \
 	--decr_threshold=0.2 --incr_threshold=0.25 --exit_percent=0.4 --max_failed_txs=5 --stock_usd=20000 \
 	\
-	--options_decr_threshold=20 --options_incr_threshold=2.5 --options_exit_percent=10 --options_usd=2000 \
-	--otm_level=2 --near_expiration --start_day_offset=1 \
+	--options_decr_threshold=12 --options_incr_threshold=2.5 --options_exit_percent=10 --options_usd=2000 \
+	--otm_level=1 --near_expiration --start_day_offset=1 \
 	--resist_pct_dynamic --price_resistance_pct=0.25 --price_support_pct=0.25 \
 	\
 	--account_number=252298311 --passcode_prefix=sazarkos --consumer_key_prefix=sazarkos --token_fname=sazarkos_tda.pickle --tdaapi_token_fname=sazarkos_tda2.pickle \
 	\
-	--algos=algo_id:SPY_sp_monitor_tsalgo_options,primary_sp_monitor,sp_monitor_tickers:AAPL:7.07+MSFT:5.97+AMZN:2.81+TSLA:1.98+GOOGL:2.03+GOOG:1.88+BRK.B:1.69+UNH:1.36+JNJ:1.38+NVDA:1.3+FB:1.35+PG:1.1+XOM:1.06+V:0.95+JPM:1.04+HD:0.9+MA:0.83+CVX:0.92+PFE:0.82+ABBV:0.79,time_sales_algo,time_sales_use_keylevel,time_sales_size_threshold:3000,time_sales_kl_size_threshold:6000,va_check,options,quick_exit,quick_exit_percent:10 \
-	--algos=algo_id:SPY_mama_spmon_tsalgo_options,primary_mama_fama,sp_monitor,sp_monitor_tickers:AAPL:7.07+MSFT:5.97+AMZN:2.81+TSLA:1.98+GOOGL:2.03+GOOG:1.88+BRK.B:1.69+UNH:1.36+JNJ:1.38+NVDA:1.3+FB:1.35+PG:1.1+XOM:1.06+V:0.95+JPM:1.04+HD:0.9+MA:0.83+CVX:0.92+PFE:0.82+ABBV:0.79,time_sales_algo,time_sales_use_keylevel,time_sales_size_threshold:3000,time_sales_kl_size_threshold:6000,va_check,options,quick_exit,quick_exit_percent:10 \
+	--time_sales_kl_size_threshold=7500 --time_sales_size_max=999999 \
+	--use_keylevel --last_hour_threshold=4 --sp_monitor_threshold=1.5 \
 	\
-	--algos=algo_id:QQQ_sp_monitor_tsalgo_options,primary_sp_monitor,sp_monitor_tickers:AAPL:12.625+MSFT:10.294+AMZN:6.05+TSLA:4.183+GOOG:3.868+GOOGL:3.671+FB:3.611+NVDA:3.276+AVGO:2.102+PEP:2.097+COST:1.924+CSCO:1.796+ADBE:1.671+CMCSA:1.637+INTC:1.549+TMUS:1.377+TXN:1.368+AMD:1.351+QCOM:1.327+AMGN:1.183,time_sales_algo,time_sales_use_keylevel,time_sales_size_threshold:3000,time_sales_kl_size_threshold:6000,va_check,options,quick_exit,quick_exit_percent:10 \
-	--algos=algo_id:QQQ_mama_spmon_tsalgo_options,primary_mama_fama,sp_monitor,sp_monitor_tickers:AAPL:12.625+MSFT:10.294+AMZN:6.05+TSLA:4.183+GOOG:3.868+GOOGL:3.671+FB:3.611+NVDA:3.276+AVGO:2.102+PEP:2.097+COST:1.924+CSCO:1.796+ADBE:1.671+CMCSA:1.637+INTC:1.549+TMUS:1.377+TXN:1.368+AMD:1.351+QCOM:1.327+AMGN:1.183,time_sales_algo,time_sales_use_keylevel,time_sales_size_threshold:3000,time_sales_kl_size_threshold:6000,va_check,options,quick_exit,quick_exit_percent:10 \
+	--algos=algo_id:SPY_sp_monitor_tsalgo_options,primary_sp_monitor,sp_monitor_tickers:${SPMON_SPY},time_sales_algo,time_sales_use_keylevel,time_sales_size_threshold:3000,va_check,options,quick_exit,quick_exit_percent:7 \
+	--algos=algo_id:SPY_mama_spmon_tsalgo_options,primary_mama_fama,sp_monitor,sp_monitor_tickers:${SPMON_SPY},time_sales_algo,time_sales_use_keylevel,time_sales_size_threshold:3000,va_check,options,quick_exit,quick_exit_percent:7 \
+	\
+	--algos=algo_id:QQQ_sp_monitor_tsalgo_options,primary_sp_monitor,sp_monitor_tickers:${SPMON_QQQ},time_sales_algo,time_sales_use_keylevel,time_sales_size_threshold:3000,va_check,options,quick_exit,quick_exit_percent:7 \
+	--algos=algo_id:QQQ_mama_spmon_tsalgo_options,primary_mama_fama,sp_monitor,sp_monitor_tickers:${SPMON_QQQ},time_sales_algo,time_sales_use_keylevel,time_sales_size_threshold:3000,va_check,options,quick_exit,quick_exit_percent:7 \
+	\
+	--algos=algo_id:TQQQ_sp_monitor_tsalgo_options,primary_sp_monitor,sp_monitor_tickers:${SPMON_QQQ},time_sales_algo,time_sales_use_keylevel,va_check,time_sales_size_threshold:7500,time_sales_size_max:20000,time_sales_kl_size_threshold:45000,time_sales_kl_size_max:80000,time_sales_large_tx_threshold:22000,time_sales_large_tx_max:80000,options,quick_exit,quick_exit_percent:7 \
+	--algos=algo_id:TQQQ_mama_spmon_tsalgo_options,primary_mama_fama,sp_monitor,sp_monitor_tickers:${SPMON_QQQ},time_sales_algo,time_sales_use_keylevel,va_check,time_sales_size_threshold:7500,time_sales_size_max:20000,time_sales_kl_size_threshold:45000,time_sales_kl_size_max:80000,time_sales_large_tx_threshold:22000,time_sales_large_tx_max:80000,options,quick_exit,quick_exit_percent:7 \
 	\
 	--algo_valid_tickers=SPY_sp_monitor_tsalgo_options:SPY \
 	--algo_valid_tickers=SPY_mama_spmon_tsalgo_options:SPY \
-	--algo_valid_tickers=QQQ_sp_monitor_tsalgo_options:QQQ,TQQQ \
-	--algo_valid_tickers=QQQ_mama_spmon_tsalgo_options:QQQ,TQQQ \
+	--algo_valid_tickers=QQQ_sp_monitor_tsalgo_options:QQQ \
+	--algo_valid_tickers=QQQ_mama_spmon_tsalgo_options:QQQ \
+	--algo_valid_tickers=TQQQ_sp_monitor_tsalgo_options:TQQQ \
+	--algo_valid_tickers=TQQQ_mama_spmon_tsalgo_options:TQQQ \
 	\
 	--tx_log_dir=TX_LOGS_v2 1> logs/gobot-v2.log 2>&1 &
 

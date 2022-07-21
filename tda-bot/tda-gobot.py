@@ -49,6 +49,7 @@ parser.add_argument("--incr_threshold", help="Reset base_price if stock increase
 parser.add_argument("--decr_threshold", help="Max allowed drop percentage of the stock price", default=1, type=float)
 parser.add_argument("--entry_price", help="The price to enter a trade", default=None, type=float)
 parser.add_argument("--exit_price", help="The price to exit a trade", default=None, type=float)
+parser.add_argument("--limit_price", help="The limit price of an order", default=None, type=float)
 
 parser.add_argument("--exit_percent", help='Switch to monitoring price action of the security when the price improves by this percentile', default=None, type=float)
 parser.add_argument("--exit_percent_loopt", help='Amount of time to sleep between queries after exit_percent_signal is triggered', default=12, type=int)
@@ -182,6 +183,7 @@ def check_input():
 		global decr_percent_threshold
 		global exit_signal
 		global stopout_signal
+		global break_even
 
 		# Quit loop and thread if we reduce our stock_qty to zero
 		if ( total_stock_qty == 0 ):
@@ -250,9 +252,9 @@ def check_input():
 				print('Error: last_price ($' + str(round(last_price, 2)) + ') is already below cost basis ($' + str(round(orig_base_price, 2)) + '), ignoring stoploss command')
 
 			else:
-				decr_percent_threshold	= abs( ((orig_base_price / last_price) - 1) * 100 )
-				base_price		= orig_base_price
-				print('Setting stoploss to ' + str(round(decr_percent_threshold, 2)) + '%, orig_base_price: $' + str(round(orig_base_price, 2)) + ' / last_price: $' + str(round(last_price, 2)))
+				decr_percent_threshold	= abs( ((break_even / last_price) - 1) * 100 )
+				base_price		= last_price
+				print('Setting stoploss to ' + str(round(decr_percent_threshold, 2)) + '%, base_price: $' + str(round(break_even, 2)) + ' / last_price: $' + str(round(last_price, 2)))
 
 		# Modify the decr_percent_threshold (stoploss)
 		elif ( re.match('sl:', in_cmd) != None ):
@@ -396,7 +398,7 @@ def search_options(ticker=None, option_type=None, near_expiration=False, strike_
 	if ( start_day_offset > 0 ):
 		start_day = dt + datetime.timedelta(days=start_day_offset)
 
-	end_day = dt + datetime.timedelta(days=7)
+	end_day = start_day + datetime.timedelta(days=7)
 
 	# If near_expiration=False, then push the search date out at least one-day.
 	#  This is useful for stocks like SPY that have options expiring on Mon/Wed/Fri.
@@ -470,12 +472,13 @@ def search_options(ticker=None, option_type=None, near_expiration=False, strike_
 					continue
 
 			if ( stock_usd < key['ask'] * 100 ):
-				print('(' + str(key['symbol']) + '): Available stock_usd (' + str(stock_usd) + ') is less than the ask for this option (' + str(key['ask'] * 100) + ')')
+				print('(' + str(key['symbol']) + '): Available stock_usd ($' + str(stock_usd) + ') is less than the ask for this option (' + str(key['ask'] * 100) + ')')
 				continue
 
 			bidask_pct	= round( abs( key['bid'] / key['ask'] - 1 ) * 100, 3 )
 			stock_qty	= int( stock_usd / (key['ask'] * 100) )
 
+			#print(key)
 			print( str(key['symbol']) + ': ' + str(stock_qty) + ' contracts (' + str(stock_qty*key['ask']*100) + ') / Strike: ' + str(strike) )
 			print( 'Bid: ' + str(key['bid']) + ' / Ask: ' + str(key['ask']) + ' (' + str(bidask_pct) + '%)' )
 			print( 'Delta: ' + str(key['delta']) )
@@ -487,10 +490,10 @@ def search_options(ticker=None, option_type=None, near_expiration=False, strike_
 			if ( bidask_pct > 1 ):
 				print('Warning: bid/ask gap is bigger than 1% (' + str(bidask_pct) + ')')
 
-			if ( abs(key['delta']) < 0.70 ):
+			if ( str(key['delta']) != 'NaN' and abs(key['delta']) < 0.70 ):
 				print('Warning: delta is less than 70% (' + str(abs(key['delta'])) + ')')
 
-			if ( float(key['ask']) < 1 ):
+			if ( str(key['ask']) != 'NaN' and float(key['ask']) < 1 ):
 				print('Warning: option price (' + str(key['ask']) + ') is <$1, accidental stoploss via jitter might occur')
 
 			stock = key['symbol']
@@ -567,6 +570,8 @@ else:
 
 
 # Purchase the option or equity
+break_even = 0
+
 # OPTIONS
 if ( args.options == True ):
 
@@ -589,7 +594,7 @@ if ( args.options == True ):
 		print('PURCHASING ' + str(stock_qty) + ' contracts of ' + str(stock))
 
 	if ( args.fake == False ):
-		order_id = tda_gobot_helper.buy_sell_option(contract=stock, quantity=stock_qty, instruction='buy_to_open', fillwait=True, account_number=tda_account_number, debug=True)
+		order_id = tda_gobot_helper.buy_sell_option(contract=stock, quantity=stock_qty, instruction='buy_to_open', limit_price=args.limit_price, fillwait=True, account_number=tda_account_number, debug=True)
 		if ( isinstance(order_id, bool) and order_id == False ):
 			print('Error: Unable to purchase option "' + str(stock) + '"', file=sys.stderr)
 			sys.exit(1)
@@ -606,7 +611,14 @@ if ( args.options == True ):
 			option_price = quote[stock]['askPrice']
 			print("\nFill price not in order data, using ask price ($" + str(option_price) + ')')
 		else:
-			print("\nMean fill price ($" + str(option_price) + ')')
+			print("\nMean fill price: $" + str(option_price))
+
+	# Calculate option fees and break-even price
+	# TDA is $0.65/contract on both sides
+	option_fees	= stock_qty * (0.65 / 100) * 2
+	break_even	= round( option_fees / stock_qty + option_price, 3 )
+	print('Option fees: $' + str(stock_qty * 0.65 * 2))
+	print('Break-even price: $' + str(break_even))
 
 # EQUITY stock, set orig_base_price to the price that we purchased the stock
 else:
@@ -640,6 +652,9 @@ try:
 except:
 	orig_base_price = last_price
 
+if ( break_even == 0 ):
+	break_even = orig_base_price
+
 open_time		= datetime.datetime.now( mytimezone )
 base_price		= orig_base_price
 last_price		= orig_base_price
@@ -647,12 +662,12 @@ total_stock_qty		= stock_qty
 percent_change		= 0
 total_percent_change	= 0
 
+
 # Start input thread if needed
 main_event = threading.Event()
 if ( args.listen_cmd == True ):
 	cmd_thread = threading.Thread(target=check_input, args=())
 	cmd_thread.start()
-
 
 # Main loop
 # Watch the performance of the option or equity and make decisions

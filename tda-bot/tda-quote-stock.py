@@ -10,6 +10,7 @@
 import os, sys
 import time, datetime, pytz
 import argparse
+import re
 
 import robin_stocks.tda as tda
 
@@ -36,14 +37,22 @@ parser.add_argument("--skip_check", help="Skip fixup and check of stock ticker",
 parser.add_argument("--rawquote", help="Get the raw quote info from the API", action="store_true")
 parser.add_argument("--quote", help="Get the latest price quote", action="store_true")
 parser.add_argument("--history", help="Get price history", action="store_true")
+parser.add_argument("--mprofile", help="Get the volume profile (market profile)", action="store_true")
 parser.add_argument("--vwap", help="Get VWAP values", action="store_true")
 parser.add_argument("--volatility", help="Get the historical volatility for a stock", action="store_true")
 parser.add_argument("--get_instrument", help="Stock ticker to obtain instrument data", action="store_true")
 parser.add_argument("--get_earnings_calendar", help="Get the upcoming earnings calendar for a stock", action="store_true")
-parser.add_argument("--get_options", help="Get option chains for ticker", action="store_true")
-
 parser.add_argument("--is_market_open", help="Check if US market is open. Use --market_time to specify day/time, or current day/time will be used", action="store_true")
 parser.add_argument("--market_datetime", help='Day to check if market is open. Must be in US/Eastern timezone, and in the format "HH-MM-DD hh:mm:ss"', default=None, type=str)
+
+parser.add_argument("--get_options", help="Get option chains for ticker", action="store_true")
+parser.add_argument("--get_options_vol", help="Get option chains for ticker", action="store_true")
+parser.add_argument("--option_type", help='Type of options to purchase (CALL|PUT)', default=None, type=str)
+parser.add_argument("--strike_price", help='The desired strike price', default=None, type=float)
+parser.add_argument("--otm_level", help='Out-of-the-money strike price to choose (Default: 1)', default=1, type=int)
+parser.add_argument("--start_day_offset", help='Use start_day_offset to push start day of option search +N days out (Default: 0)', default=0, type=int)
+parser.add_argument("--end_day_offset", help='Use end_day_offset to push end day of option search +N days out (Default: 7)', default=7, type=int)
+parser.add_argument("--options_sort_byvol", help="Sort options by volume vs. by open interest", action="store_true")
 
 parser.add_argument("--blacklist", help="Blacklist stock ticker for one month", action="store_true")
 parser.add_argument("--permanent", help="Blacklist stock ticker permanently", action="store_true")
@@ -69,12 +78,8 @@ if args.debug:
 mytimezone = pytz.timezone("US/Eastern")
 
 if ( args.end_date == -1 ):
-	args.end_date = datetime.datetime.now( mytimezone )
-	args.end_date = int( args.end_date.timestamp() * 1000 )
-if ( args.start_date != None ):
-	end = datetime.datetime.fromtimestamp(float(args.end_date)/1000, tz=mytimezone)
-	args.start_date = end - datetime.timedelta( days=args.start_date )
-	args.start_date = int( args.start_date.timestamp() * 1000 )
+	args.end_date	= datetime.datetime.now( mytimezone )
+	args.end_date	= int( args.end_date.timestamp() * 1000 )
 
 if ( args.start_date == None and args.end_date == None and args.period == None ):
 	args.period = 1
@@ -168,7 +173,7 @@ if ( args.get_instrument == True ):
 	sys.exit(0)
 
 # Get option chains for ticker
-if ( args.get_options == True ):
+elif ( args.get_options == True ):
 
 	# Get the fundamental data from get_quote API
 	try:
@@ -189,6 +194,89 @@ if ( args.get_options == True ):
 	pp.pprint(data)
 
 	sys.exit(0)
+
+# Get option volume data
+elif ( args.get_options_vol == True ):
+
+	from operator import itemgetter
+
+	def search_options( ticker=None, option_type=None, strike_price=None,
+				otm_level=1, start_day_offset=0, end_day_offset=7, debug=False):
+
+		if ( ticker == None or option_type == None ):
+			return False
+
+		option_type = option_type.upper()
+		if ( option_type != 'CALL' and option_type != 'PUT' ):
+			return False
+
+		# Search for options that expire either this week or next week
+		# Use start_day_offset to push start day of option search +N days out
+		dt		= datetime.datetime.now(mytimezone)
+		start_day	= dt
+		if ( start_day_offset > 0 ):
+			start_day = dt + datetime.timedelta(days=start_day_offset)
+
+		end_day = start_day + datetime.timedelta(days=end_day_offset)
+
+		range_val	= 'ALL'
+		strike_price	= None
+		strike_count	= 999
+		if ( args.strike_price != None ):
+			strike_price	= float( args.strike_price )
+			strike_count	= None
+		elif ( otm_level > 1 ):
+			strike_count = otm_level * 2
+
+		try:
+			option_chain = tda_gobot_helper.get_option_chains( ticker=ticker, contract_type=option_type, strike_count=strike_count, range_value=range_val, strike_price=strike_price,
+										from_date=start_day.strftime('%Y-%m-%d'), to_date=end_day.strftime('%Y-%m-%d') )
+
+		except Exception as e:
+			print('Error: looking up option chain for stock ' + str(ticker) + ': ' + str(e), file=sys.stderr)
+			sys.exit(1)
+
+		stock		= None
+		ExpDateMap	= 'callExpDateMap'
+		if ( option_type == 'PUT' ):
+			ExpDateMap = 'putExpDateMap'
+
+		#import pprint
+		#pp = pprint.PrettyPrinter(indent=4)
+		#pp.pprint(option_chain)
+		#exit(0)
+
+		option_results = []
+		for exp_date in option_chain[ExpDateMap]:
+			for strike in option_chain[ExpDateMap][exp_date]:
+				option_chain[ExpDateMap][exp_date][strike][0]['expDate'] = re.sub( ':.*', '', exp_date )
+				option_results.append( option_chain[ExpDateMap][exp_date][strike][0] )
+
+		# By default we sort by open interest unless --options_sort_byvol has been set
+		if ( args.options_sort_byvol == True ):
+			return sorted(option_results, key=itemgetter('totalVolume'), reverse=True)
+
+		return sorted(option_results, key=itemgetter('openInterest'), reverse=True)
+
+
+	# Query for the option chain
+	option_results = search_options( ticker=args.stock, option_type=args.option_type,
+					 start_day_offset=args.start_day_offset, end_day_offset=args.end_day_offset,
+					 strike_price=args.strike_price, otm_level=args.otm_level, debug=False )
+
+	print("Symbol\t\t\tStrike\tExpiration\tOpen Interest\tTotal Volume")
+	for opt in option_results:
+		print( str(opt['symbol']) + "\t", end='')
+		if ( re.search('\.', str(opt['symbol'])) == None ):
+			print("\t", end='')
+
+		print(	str(opt['strikePrice']) + "\t" +
+			str(opt['expDate']) + "\t" +
+			str(opt['openInterest']) + "\t\t" +
+			str(opt['totalVolume']) )
+
+	sys.exit(0)
+
 
 # Get earnings calendar (uses Alphavantage API)
 elif ( args.get_earnings_calendar == True ):
@@ -243,11 +331,10 @@ elif ( args.clean_blacklist == True ):
 	tda_gobot_helper.clean_blacklist(debug=True)
 	exit(0)
 
-
 elif ( args.history == True ):
 
 	# Pull the stock history
-	data, epochs = tda_gobot_helper.get_pricehistory(stock, args.p_type, args.f_type, args.freq, args.period, args.start_date, args.end_date, needExtendedHoursData=args.extended_hours, debug=False)
+	data, epochs = tda_gobot_helper.get_pricehistory(stock, args.p_type, args.f_type, args.freq, args.period, int(args.start_date), int(args.end_date), needExtendedHoursData=args.extended_hours, debug=False)
 	if ( data == False ):
 		exit(1)
 
@@ -264,6 +351,23 @@ elif ( args.history == True ):
 
 	exit(0)
 
+elif ( args.mprofile == True ):
+
+	pricehistory, epochs = tda_gobot_helper.get_pricehistory(stock, args.p_type, args.f_type, args.freq, args.period, args.start_date, args.end_date, needExtendedHoursData=args.extended_hours, debug=False)
+	if ( pricehistory == False ):
+		exit(1)
+
+	mprofile = {}
+	mprofile = tda_algo_helper.get_market_profile(pricehistory=pricehistory, close_type='hl2', mp_mode='vol', tick_size=0.01)
+
+	if ( args.pretty == True ):
+		import pprint
+		pp = pprint.PrettyPrinter(indent=4)
+		pp.pprint(mprofile)
+	else:
+		print(mprofile)
+
+	exit(0)
 
 elif ( args.vwap == True ):
 
@@ -338,10 +442,10 @@ if ( args.rawquote == True ):
 		print('Exception caught: ' + str(e))
 
 	if ( err != None ):
-		print('Error: get_quote(' + str(stock) + '): ' + str(err), file=sys.stderr)
+		print('Error: get_quotes(' + str(stock) + '): ' + str(err), file=sys.stderr)
 		exit(1)
 	elif ( data == {} ):
-		print('Error: get_quote(' + str(stock) + '): Empty data set', file=sys.stderr)
+		print('Error: get_quotes(' + str(stock) + '): Empty data set', file=sys.stderr)
 		exit(1)
 
 	if ( args.pretty == True ):
@@ -354,3 +458,4 @@ if ( args.rawquote == True ):
 
 
 exit(0)
+

@@ -63,7 +63,7 @@ def isendofday(mins=5, date=None):
 			'2021-12-23',
 
 			# 2022
-			'2022-07-01',
+			#'2022-07-01',
 			'2022-11-25',
 			'2022-12-23',
 
@@ -181,7 +181,7 @@ def ismarketopen_US(date=None, safe_open=False, check_day_only=False, extended_h
 			'2021-12-23',
 
 			# 2022
-			'2022-07-01',
+			#'2022-07-01',
 			'2022-11-25',
 			'2022-12-23',
 
@@ -279,7 +279,7 @@ def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, ba
 		print('Error: log_monitor(): Unable to open file ' + str(logfile) + ': ' + e, file=sys.stderr)
 		return False
 
-	# Log format - stock:%change:last_price:net_change:base_price:orig_base_price
+	# Log format - stock,%change,last_price,net_change,base_price,orig_base_price
 	if ( float(last_price) < float(base_price) ):
 		percent_change = '-' + str(round(percent_change,2))
 	else:
@@ -294,16 +294,16 @@ def log_monitor(ticker=None, percent_change=-1, last_price=-1, net_change=-1, ba
 		text_color = red
 	net_change = text_color + str(net_change) + reset_color
 
-	msg =	str(ticker)				+ ':' + \
-		str(percent_change)			+ ':' + \
-		str(round(float(last_price), 3))	+ ':' + \
-		str(net_change)				+ ':' + \
-		str(round(float(base_price), 3))	+ ':' + \
-		str(round(float(orig_base_price), 3))	+ ':' + \
-		str(stock_qty)				+ ':' + \
-		str(sold)				+ ':' + \
-		str(short)				+ ':' + \
-		str(entry_time)				+ ':' + \
+	msg =	str(ticker)				+ ',' + \
+		str(percent_change)			+ ',' + \
+		str(round(float(last_price), 3))	+ ',' + \
+		str(net_change)				+ ',' + \
+		str(round(float(base_price), 3))	+ ',' + \
+		str(round(float(orig_base_price), 3))	+ ',' + \
+		str(stock_qty)				+ ',' + \
+		str(sold)				+ ',' + \
+		str(short)				+ ',' + \
+		str(entry_time)				+ ',' + \
 		str(exit_time)
 
 	if ( os.name != 'nt' ):

@@ -95,6 +95,9 @@ if ( args.quick_exit == True ):
 stock				= args.stock
 stock_usd			= args.stock_usd
 tx_log_dir			= args.tx_log_dir
+last_price			= 0
+delayed				= False
+security_status			= 'normal'
 
 process_id			= random.randint(1000, 9999)	# Used to identify this process (i.e. for log_monitor)
 loopt				= 3				# Period between stock get_lastprice() checks
@@ -507,6 +510,65 @@ def search_options(ticker=None, option_type=None, near_expiration=False, strike_
 	return stock, float(key['ask'])
 
 
+# Mostly does what tda_gobot_helper.get_lastprice() does, except also returns
+#  delayed quote indicator and the security status.
+def get_last_price(ticker=None, mark=False, debug=False):
+
+	if ( ticker == None ):
+		return False, None, None
+
+	quote = tda_gobot_helper.get_quotes(ticker)
+
+	# Check for proper return values
+	asset_type	= ''
+	status		= 'normal'
+	delayed		= True
+	mark_price	= 0
+	last_price	= 0
+	try:
+		mark_price = float( quote[ticker]['mark'] )
+	except:
+		pass
+
+	# Use either 'mark' or 'lastPrice' depending on the asset type
+	try:
+		asset_type = str(quote[ticker]['assetType']).lower()
+		if ( str(quote[ticker]['assetType']).lower() == 'future' ):
+			last_price = float( quote[ticker]['lastPriceInDouble'] )
+		else:
+			last_price = float( quote[ticker]['lastPrice'] )
+	except:
+		pass
+
+	# Check if quotes are delayed
+	try:
+		if ( str(quote[ticker]['delayed']).lower() == 'false' ):
+			delayed = False
+	except:
+		delayed = True
+		pass
+
+	# Security Status (Normal, Halted, Closed)
+	try:
+		status = str(quote[ticker]['securityStatus']).lower()
+
+	except:
+		status = 'normal'
+		pass
+
+	if ( mark_price == 0 and last_price == 0 ):
+		print('Error: local function get_last_price(' + str(ticker) + '): API did not return mark or lastPrice', file=sys.stderr)
+		return False, None, None
+
+	if ( debug == True ):
+		print(quote)
+
+	if ( mark == True and mark != 0 ):
+		last_price = mark_price
+
+	return last_price, delayed, status
+
+
 # Signal handler, mostly to quit all threads
 def graceful_exit(signum=None, frame=None):
 	print("\nNOTICE: graceful_exit(): received signal: " + str(signum))
@@ -552,7 +614,7 @@ if ( args.options == True ):
 if ( args.entry_price != None ):
 
 	while True:
-		last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=False)
+		last_price, delayed, security_status = get_last_price(stock)
 		print('(' + str(stock) + '): entry_price=' + str(args.entry_price) + ', last_price=' + str(last_price))
 
 		if ( args.short == True ):
@@ -566,8 +628,12 @@ if ( args.entry_price != None ):
 		time.sleep(loopt)
 
 else:
-	last_price = tda_gobot_helper.get_lastprice( stock, WarnDelayed=False )
+	last_price, delayed, security_status = get_last_price(stock)
 
+# Make sure security is tradeable
+if ( security_status != 'normal' ):
+	print('(' + str(stock) + '): Error: security status does not appear to be tradeable (' + str(security_status) + ')')
+	sys.exit(1)
 
 # Purchase the option or equity
 break_even = 0
@@ -681,7 +747,7 @@ while True:
 	if ( exit_signal == False ):
 
 		# Use get_quote() to retrieve the latest pricing information
-		last_price = tda_gobot_helper.get_lastprice(stock, WarnDelayed=True)
+		last_price, delayed, security_status = get_last_price(stock)
 		if ( isinstance(last_price, bool) and last_price == False ):
 			print('Error: get_lastprice() returned False', file=sys.stderr)
 			main_event.wait(loopt)
@@ -694,7 +760,7 @@ while True:
 
 		stock_last_price = 0
 		if ( args.options == True ):
-			stock_last_price = tda_gobot_helper.get_lastprice(args.stock, WarnDelayed=True)
+			stock_last_price, delayed, security_status = get_last_price(args.stock)
 
 		# Using last_price for now to approximate gain/loss
 		net_change		= round( (last_price - orig_base_price) * stock_qty, 3 )
@@ -708,16 +774,31 @@ while True:
 					text_color		= red
 					total_percent_change	= -total_percent_change
 
+			# Set colors for the security status and delayed quotes
+			if ( security_status != 'normal' ):
+				security_status = red + security_status.upper() + reset_color
+			else:
+				security_status = green + security_status.upper() + reset_color
+
+			if ( delayed == True ):
+				delayed = red + 'DELAYED' + reset_color
+			else:
+				delayed = green + 'RT' + reset_color
+
 			# Options
 			if ( args.options == True ):
-				print('(' +  str(stock) + ' +' + str(total_stock_qty) + '): Total Change: ' + str(text_color) + str(round(total_percent_change, 2)) + '% (' + str(last_price) + ')' + str(reset_color) + ' / ' + str(args.stock) + ': ' + str(stock_last_price))
+				print('(' +  str(stock) + ' +' + str(total_stock_qty) + ' ' + str(security_status) + ' ' + str(delayed) + '): ' +
+						'Total Change: ' + str(text_color) + str(round(total_percent_change, 2)) + '% (' + str(last_price) + ')' + str(reset_color) +
+						' / ' + str(args.stock) + ': ' + str(stock_last_price) )
 
 			# Equity
 			else:
 				if ( args.short == False ):
-					print('(' +  str(stock) + ' +' + str(total_stock_qty) + '): Total Change: ' + str(text_color) + str(round(total_percent_change, 2)) + '% (' + str(last_price) + ')' + str(reset_color))
+					print( '(' +  str(stock) + ' +' + str(total_stock_qty) + ' ' + str(security_status) + ' ' + str(delayed) + '): ' +
+							'Total Change: ' + str(text_color) + str(round(total_percent_change, 2)) + '% (' + str(last_price) + ')' + str(reset_color) )
 				else:
-					print('(' +  str(stock) + ' -' + str(total_stock_qty) + '): Total Change: ' + str(text_color) + str(round(total_percent_change, 2)) + '% (' + str(last_price) + ')' + str(reset_color))
+					print( '(' +  str(stock) + ' -' + str(total_stock_qty) + ' ' + str(security_status) + ' ' + str(delayed) + '): ' +
+							'): Total Change: ' + str(text_color) + str(round(total_percent_change, 2)) + '% (' + str(last_price) + ')' + str(reset_color) )
 
 		# Log format - stock:%change:last_price:net_change:base_price:orig_base_price:stock_qty:proc_id:short
 		tda_gobot_helper.log_monitor(stock, percent_change, last_price, net_change, base_price, orig_base_price, stock_qty, proc_id=process_id, tx_log_dir=tx_log_dir, short=args.short)
